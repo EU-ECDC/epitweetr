@@ -1,0 +1,16 @@
+Package: tweetRanger
+Title: Capture and analyze tweets
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Francisco",
+           family = "Orchard",
+           role = c("aut", "cre"),
+           email = "f.orchard@epiconcept.fr",
+           comment = structure("YOUR-ORCID-ID", .Names = "ORCID"))
+Description: What the package does (one paragraph).
+License: What license it uses
+Encoding: UTF-8
+LazyData: true
+Imports:
+    rJava, jsonlite, rtweet, httpuv, keyring
+RoxygenNote: 7.0.2
