@@ -1,4 +1,4 @@
-Package: tweetRanger
+Package: epiTweets
 Title: Capture and analyze tweets
 Version: 0.0.0.9000
 Authors@R: 
@@ -12,5 +12,5 @@ License: What license it uses
 Encoding: UTF-8
 LazyData: true
 Imports:
-    rJava, jsonlite, rtweet, httpuv, keyring
+    rJava, jsonlite, rtweet, httpuv, keyring, bit64
 RoxygenNote: 7.0.2

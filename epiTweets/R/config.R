@@ -1,4 +1,5 @@
-
+#Environment for storing configuration
+conf <- new.env()
 
 #' Get platform dependent keyring
 #'
@@ -24,7 +25,7 @@ get_key_ring <- function(backend = NULL) {
   if(kb$has_keyring_support()) {
      krs <- kb$keyring_list()
      if(nrow(krs[krs$keyring == kr_name,]) == 0) {
-       kb$keyring_create_direct(kr_name)
+       kb$keyring_create(kr_name)
        #kb$.__enclos_env__$private$keyring_create_direct(kr_name, kr_passphrase)
      }
     kb$keyring_set_default(kr_name)
@@ -44,25 +45,46 @@ set_secret <- function(secret, value) {
 #' Checks weather a secret is set on the secret management backend
 is_secret_set <- function(secret) {
  secrets <- get_key_ring()$list(service =  Sys.getenv("kr_service")) 
- return(nrow(secrets[vars$username == secret])>1) 
+ return(nrow(secrets[secrets$username == secret, ])>0) 
 }
 #' Get a secret from the chosen secret management backend
 get_secret <- function(secret) {
   get_key_ring()$get(service =  Sys.getenv("kr_service"), username = secret)
 }
 
-#' Build configuration values for application
+#' Build configuration values for application from a configuration json file
 #' @export
-build_config <- function(conf_file = "data/conf.json") {
-  conf <- jsonlite::fromJSON(conf_file)
-  kr <- get_key_ring(conf$keyring)
+setup_config <- function(path = "data/conf.json") {
+  temp <- jsonlite::read_json(path, simplifyVector = TRUE)
+  kr <- get_key_ring(temp$keyring)
+  conf$topics <- temp$topics
+  conf$dataDir <- temp$dataDir
   conf$twitter_auth <- list()
-  for(v in c("access_token", "access_token_secret", "api_key", "api_secret")) {
+  for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
     if(is_secret_set(v)) {
-      conf[v] <- get_secret(v)
+      conf$twitter_auth[[v]] <- get_secret(v)
     }
   }
 }
 
+#' Save the configuration options to disk
+#' @export
+save_config <- function(path = "data/conf.json") {
+  temp <- list()
+  temp$topics <- conf$topics
+  temp$dataDir <- conf$dataDir
+  conf$twitter_auth <-list()
+  jsonlite::write_json(temp, path)
 
+}
+
+#' Update twitter auth tokens on configuration object
+#' @export
+set_twitter_app_auth <- function(app, access_token, access_token_secret, api_key, api_secret) {
+  conf$twitter_auth$app <- app
+  conf$twitter_auth$access_token <- access_token
+  conf$twitter_auth$access_token_secret <- access_token_secret
+  conf$twitter_auth$api_key <- api_key
+  conf$twitter_auth$api_secret <- api_secret
+}
 
