@@ -94,5 +94,8 @@ set_twitter_app_auth <- function(app, access_token, access_token_secret, api_key
   conf$twitter_auth$access_token_secret <- access_token_secret
   conf$twitter_auth$api_key <- api_key
   conf$twitter_auth$api_secret <- api_secret
+  for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
+    set_secret(v, conf$twitter_auth[[v]])
+  }
 }
 
