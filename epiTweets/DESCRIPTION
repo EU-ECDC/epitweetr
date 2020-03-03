@@ -12,5 +12,5 @@ License: What license it uses
 Encoding: UTF-8
 LazyData: true
 Imports:
-    rJava, jsonlite, rtweet, httpuv, keyring, bit64
+    rJava, jsonlite, rtweet, httpuv, keyring, bit64, rlist
 RoxygenNote: 7.0.2

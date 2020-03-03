@@ -56,9 +56,16 @@ get_secret <- function(secret) {
 #' @export
 setup_config <- function(path = "data/conf.json") {
   temp <- jsonlite::read_json(path, simplifyVector = TRUE)
-  kr <- get_key_ring(temp$keyring)
-  conf$topics <- temp$topics
+  conf$keyring <- temp$keyring
+  conf$schedule_span <- temp$schedule_span
   conf$dataDir <- temp$dataDir
+  kr <- get_key_ring(conf$keyring)
+  conf$topics <- temp$topics
+  conf$topics$plan <- by(temp$topics, 1:nrow(temp$topics), function(row) {lapply(split(row$plan, seq(nrow(row$plan))), function(plan) get_plan(expected_end = plan$expected_end, scheduled_for = plan$scheduled_for, start_on =plan$start_on, end_on = plan$end_on, max_id = plan$max_id, since_id = plan$since_id, since_target = plan$since_target, results_span = plan$results_span, requests = plan$requests, progress = plan$progress))})
+  
+  if(is.data.frame(conf$topics)) {
+    rows <- split(conf$topics, seq(nrow(conf$topics)))   
+  }
   conf$twitter_auth <- list()
   for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
     if(is_secret_set(v)) {
@@ -71,10 +78,11 @@ setup_config <- function(path = "data/conf.json") {
 #' @export
 save_config <- function(path = "data/conf.json") {
   temp <- list()
-  temp$topics <- conf$topics
   temp$dataDir <- conf$dataDir
-  conf$twitter_auth <-list()
-  jsonlite::write_json(temp, path)
+  temp$schedule_span <- conf$schedule_span
+  temp$keyring <- conf$keyring
+  temp$topics <- conf$topics
+  jsonlite::write_json(temp, path, pretty = TRUE, force = TRUE)
 
 }
 
