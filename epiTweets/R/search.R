@@ -4,51 +4,34 @@
 search_loop <- function() {
   while(TRUE) {
     #Calculating 'get plans' for incompleted imports that has not been able to finish after schedule span minutes
-    for(i in 1:nrow(conf$topics)) {
-      conf$topics[i,]$plan <- 
-        update_plans(plans = 
-          if(!"plan" %in% colnames(conf$topics) || is.na(conf$topics[i,]$plan)) list() else conf$topics[i,]$plan
-          , schedule_span = conf$schedule_span
-        )
+    for(i in 1:length(conf$topics)) {
+      conf$topics[[i]]$plan <- update_plans(plans = conf$topics[[i]]$plan, schedule_span = conf$schedule_span)
     }
      
     #waiting until next schedule if not pending imports to do
-    wait_for <- min(unlist(lapply(1:nrow(conf$topics), function(i) can_wait_for(plans = conf$topics[i, c("plan")]))) )
+    wait_for <- min(unlist(lapply(1:length(conf$topics), function(i) can_wait_for(plans = conf$topics[[i]]$plan))) )
     if(wait_for > 0) {
       message(paste("All done! going to sleep for", wait_for, "seconds"))
       Sys.sleep(wait_for)
     }
     #getting ony the next plan to execute for each topic (it could be a previous unfinished plan
-    next_plans <-lapply(1:nrow(conf$topics), function(i)  next_plan(plans = conf$topics[i, c("plan")]))
-    to_import <- data.frame(requests = sapply(next_plans, function(plan) plan$requests), scheduled_for = sapply(next_plans, function(plan) as.numeric(plan$scheduled_for)))
+    next_plans <-lapply(1:length(conf$topics), function(i)  next_plan(plans = conf$topics[[i]]$plan))
 
     #calculating ranks based on number of requets. Topics with less completed requets wil get rank = 1
-    ranked <- transform(to_import ,rank = ave(requests, FUN = function(x) rank(x, ties.method = "min")))
-    #Adding rank column to topics
-    conf$topics$rank <- ranked$rank
-    conf$topics$schedule_to_run <- ranked$scheduled_for
+    min_requests <- min(unlist(lapply(1:length(conf$topics), function(i) if(!is.null(next_plans[[i]])) next_plans[[i]]$request else .Machine$integer.max)))
+    
     #performing search for each topic with ranking = 1
-    for(i in 1:nrow(conf$topics)) { 
-      if(conf$topics$rank[[i]] == 1) {
-        conf$topics[i, c("plan")] <- fold_to_assign(lapply(conf$topics[i, c("plan")], function(plan) {
-          if(conf$topics$schedule_to_run[[i]] == as.numeric(plan$scheduled_for))
-            search_topic(plan = plan, query = conf$topics$query[[i]], topic = conf$topics$topic[[i]]) 
-          else
-            plan
-        }))
-      } else {
-        message(paste("not searching for", conf$topics[i, c("topic")])) 
+    for(i in 1:length(conf$topics)) { 
+      for(j in 1:length(conf$topics[[i]]$plan)) { 
+        plan <- conf$topics[[i]]$plan[[j]]
+        if(plan$requests == min_requests) {
+            conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
+        }
       }
     }
     save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
   }
 }
-
-#' Function for ensuring that plans are folded by a list
-fold_single <- function (plans) if("get_plan" %in% class(plans)) list(plans) else plans
-
-#' Function for ensuring that plans are folded so can be properly assigned to a cell
-fold_to_assign <- function (plans) list(plans)
 
 #' performing a search for a topic and updating current plan
 search_topic <- function(plan, query, topic) {
@@ -58,12 +41,15 @@ search_topic <- function(plan, query, topic) {
   dest <- paste(conf$dataDir, "tweets", "search", topic, month, file_name, sep = "/")
   create_dirs(topic, month) 
   if(nchar(query)< 400) {
-    resp <- twitter_search(q = query, max_id = plan$max_id, since_id = plan$since_id)
+    resp <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target)
     content = httr::content(resp,as="text")
     json <- jsonlite::fromJSON(content)
     write(content, dest, append=TRUE)
-    reach_max <- is.data.frame(json$statuses) && nrow(json$statuses) == 100 
-    request_finished(plan, less_than_count =!reach_max, max_id = json$search_metadata$max_id_str, since_id = json$search_metadata$since_id_str) 
+    reach_max <- is.data.frame(json$statuses) && nrow(json$statuses) == 100
+    new_since_id = 
+      if(!is.data.frame(json$statuses)) {bit64::as.integer64(json$search_metadata$since_id_str)  
+      } else {Reduce(function(x, y) if(x < y) x else y, lapply(json$statuses$id_str, function(x) bit64::as.integer64(x) -1 ))}
+    request_finished(plan, less_than_count =!reach_max, max_id = json$search_metadata$max_id_str, since_id = new_since_id) 
   } else {
     warning(paste("Query too long for API for topic", topic), immediate. = TRUE) 
     plan$requests = plan$requests
@@ -79,10 +65,10 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
       search_endopoint
       , "?q="
       , gsub("\\(", "%28", gsub("\\)", "%29", gsub("!", "%21", gsub("\\*", "%2A", gsub("'", "%27", xml2::url_escape(q))))))
-      , ifelse(!is.null(since_id), "&since_id=", "")
-      , ifelse(!is.null(since_id), since_id, "")
-      , ifelse(!is.null(max_id), "&max_id=", "")
-      , ifelse(!is.null(max_id), max_id, "")
+      , if(!is.null(since_id)) "&since_id=" else ""
+      , if(!is.null(since_id)) since_id else ""
+      , if(!is.null(max_id)) "&max_id=" else  ""
+      , if(!is.null(max_id)) max_id else  ""
       , "&result_type="
       , result_type
       , "&count="
@@ -151,7 +137,7 @@ next_plan <- function(plans) {
   plans <- if("get_plan" %in% class(plans)) list(plans) else plans
   non_ended <- plans[sapply(plans, function(x) is.null(x$end_on) && x$scheduled_for < Sys.time())]
   if(length(non_ended) == 0) {
-     return(get_plan(expected_end = NA, scheduled_for = NA, requests = .Machine$integer.max))
+     return(NULL)
   } else {
     return(non_ended[[1]])
   }
@@ -191,9 +177,8 @@ request_finished.get_plan <- function(current, less_than_count, max_id, since_id
   }
   if(!is.null(current$since_target) && !is.null(current$since_id) && !is.null(current$max_id)) {
     current$progress = as.double(current$max_id - current$since_id)/as.double(current$max_id - current$since_target)
-  }
-  
-  if(less_than_count || current$max_id == current$since_target) {
+  } 
+  if(less_than_count || (!is.null(current$since_target) && current$max_id == current$since_target)) {
     current$end_on <- Sys.time()
     current$progress <- 1.0 
   } else {
