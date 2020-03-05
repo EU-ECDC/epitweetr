@@ -4,60 +4,71 @@
 search_loop <- function() {
   while(TRUE) {
     #Calculating 'get plans' for incompleted imports that has not been able to finish after schedule span minutes
-    updated_plans <- by(conf$topics, 1:nrow(conf$topics), function(row) update_plans(plans = if(!exists("plan", where = row)) list() else row$plan, schedule_span = conf$schedule_span))   
-    #saving updated plans on config
-    conf$topics$plan <- updated_plans
+    for(i in 1:nrow(conf$topics)) {
+      conf$topics[i,]$plan <- 
+        update_plans(plans = 
+          if(!"plan" %in% colnames(conf$topics) || is.na(conf$topics[i,]$plan)) list() else conf$topics[i,]$plan
+          , schedule_span = conf$schedule_span
+        )
+    }
      
     #waiting until next schedule if not pending imports to do
-    wait_for <- min(by(conf$topics, 1:nrow(conf$topics), function(row) can_wait_for(plans = row$plan[[1]])))
+    wait_for <- min(unlist(lapply(1:nrow(conf$topics), function(i) can_wait_for(plans = conf$topics[i, c("plan")]))) )
     if(wait_for > 0) {
       message(paste("All done! going to sleep for", wait_for, "seconds"))
       Sys.sleep(wait_for)
     }
     #getting ony the next plan to execute for each topic (it could be a previous unfinished plan
-    next_plans <- rlist::list.stack(by(conf$topics, 1:nrow(conf$topics), function(row) next_plan(plans = row$plan[[1]])))
+    next_plans <-lapply(1:nrow(conf$topics), function(i)  next_plan(plans = conf$topics[i, c("plan")]))
+    to_import <- data.frame(requests = sapply(next_plans, function(plan) plan$requests), scheduled_for = sapply(next_plans, function(plan) as.numeric(plan$scheduled_for)))
 
     #calculating ranks based on number of requets. Topics with less completed requets wil get rank = 1
-    ranked <- transform(next_plans ,rank = ave(requests, FUN = function(x) rank(x, ties.method = "min")))
+    ranked <- transform(to_import ,rank = ave(requests, FUN = function(x) rank(x, ties.method = "min")))
     #Adding rank column to topics
     conf$topics$rank <- ranked$rank
     conf$topics$schedule_to_run <- ranked$scheduled_for
     #performing search for each topic with ranking = 1
-    conf$topics$plan <- by(conf$topics, 1:nrow(conf$topics) , function(row) { 
-      if(row$rank == 1) {
-        search_topic(plans = row$plan, schedule_to_run = row$schedule_to_run, query = row$query, topic = row$topic) 
+    for(i in 1:nrow(conf$topics)) { 
+      if(conf$topics$rank[[i]] == 1) {
+        conf$topics[i, c("plan")] <- fold_to_assign(lapply(conf$topics[i, c("plan")], function(plan) {
+          if(conf$topics$schedule_to_run[[i]] == as.numeric(plan$scheduled_for))
+            search_topic(plan = plan, query = conf$topics$query[[i]], topic = conf$topics$topic[[i]]) 
+          else
+            plan
+        }))
       } else {
-        message(paste("not searching for", row$topic)) 
-        row$plan
+        message(paste("not searching for", conf$topics[i, c("topic")])) 
       }
-    })
+    }
     save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
   }
 }
 
-#get_row_plan <- function (row) if(class(row$plan)==) 
+#' Function for ensuring that plans are folded by a list
+fold_single <- function (plans) if("get_plan" %in% class(plans)) list(plans) else plans
+
+#' Function for ensuring that plans are folded so can be properly assigned to a cell
+fold_to_assign <- function (plans) list(plans)
 
 #' performing a search for a topic and updating current plan
-search_topic <- function(plans, schedule_to_run, query, topic) {
-  return (
-    lapply(plans, function(plan) {
-      if(plan$scheduled_for == schedule_to_run) {
-        message(paste("searching for topic", topic, "since", plan$since_id, "until", plan$max_id))
-        month <- format(Sys.time(), "%Y.%m")
-        file_name <- paste(format(Sys.time(), "%Y.%m.%d.%H"), "json", sep = ".")
-        dest <- paste(conf$dataDir, "tweets", "search", topic, month, file_name, sep = "/")
-        create_dirs(topic, month) 
-        resp <- twitter_search(q = query, max_id = plan$max_id, since_id = plan$since_id)
-        content = httr::content(resp,as="text")
-        json <- jsonlite::fromJSON(content)
-        writeLines(content, dest, useBytes=TRUE)
-        reach_max <- is.data.frame(json$statuses) && nrow(json$statuses) == 100 
-        request_finished(plan, less_than_count =!reach_max, max_id = json$search_metadata$max_id_str, since_id = json$search_metadata$since_id_str) 
-      } else {
-        plan
-      }  
-    })
-  )  
+search_topic <- function(plan, query, topic) {
+  message(paste("searching for topic", topic, "since", plan$since_id, "until", plan$max_id))
+  month <- format(Sys.time(), "%Y.%m")
+  file_name <- paste(format(Sys.time(), "%Y.%m.%d.%H"), "json", sep = ".")
+  dest <- paste(conf$dataDir, "tweets", "search", topic, month, file_name, sep = "/")
+  create_dirs(topic, month) 
+  if(nchar(query)< 400) {
+    resp <- twitter_search(q = query, max_id = plan$max_id, since_id = plan$since_id)
+    content = httr::content(resp,as="text")
+    json <- jsonlite::fromJSON(content)
+    write(content, dest, append=TRUE)
+    reach_max <- is.data.frame(json$statuses) && nrow(json$statuses) == 100 
+    request_finished(plan, less_than_count =!reach_max, max_id = json$search_metadata$max_id_str, since_id = json$search_metadata$since_id_str) 
+  } else {
+    warning(paste("Query too long for API for topic", topic), immediate. = TRUE) 
+    plan$requests = plan$requests
+    plan 
+  }
 }
 
 
@@ -67,7 +78,7 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
     paste(
       search_endopoint
       , "?q="
-      , URLencode(q)
+      , gsub("\\(", "%28", gsub("\\)", "%29", gsub("!", "%21", gsub("\\*", "%2A", gsub("'", "%27", xml2::url_escape(q))))))
       , ifelse(!is.null(since_id), "&since_id=", "")
       , ifelse(!is.null(since_id), since_id, "")
       , ifelse(!is.null(max_id), "&max_id=", "")
@@ -137,9 +148,10 @@ update_plans <- function(plans = list(), schedule_span) {
 
 #' Get next plan to plan to download
 next_plan <- function(plans) {
-  non_ended <- plans[unlist(sapply(plans, function(x) is.null(x$end_on) && x$scheduled_for < Sys.time()))]
+  plans <- if("get_plan" %in% class(plans)) list(plans) else plans
+  non_ended <- plans[sapply(plans, function(x) is.null(x$end_on) && x$scheduled_for < Sys.time())]
   if(length(non_ended) == 0) {
-     return(NULL)
+     return(get_plan(expected_end = NA, scheduled_for = NA, requests = .Machine$integer.max))
   } else {
     return(non_ended[[1]])
   }
@@ -147,9 +159,10 @@ next_plan <- function(plans) {
 
 #' Get next plan to plan to download
 can_wait_for <- function(plans) {
-  non_ended <- plans[unlist(sapply(plans, function(x) is.null(x$end_on)))]
+  plans <- if("get_plan" %in% class(plans)) list(plans) else plans
+  non_ended <- plans[sapply(plans, function(x) is.null(x$end_on))]
   if(length(non_ended) == 0) {
-     warning("No plans are to be executed.... possible scheduler error", immediate. = TRUE)
+     #warning("No plans are to be executed.... possible scheduler error", immediate. = TRUE)
      return(10*60)
   } else {
     return(ceiling(as.numeric(difftime(non_ended[[length(non_ended)]]$scheduled_for, Sys.time(), units = "secs"))))
@@ -180,7 +193,7 @@ request_finished.get_plan <- function(current, less_than_count, max_id, since_id
     current$progress = as.double(current$max_id - current$since_id)/as.double(current$max_id - current$since_target)
   }
   
-  if(less_than_count) {
+  if(less_than_count || current$max_id == current$since_target) {
     current$end_on <- Sys.time()
     current$progress <- 1.0 
   } else {
@@ -193,7 +206,7 @@ request_finished.get_plan <- function(current, less_than_count, max_id, since_id
   return(current)
 }
 
-#'cerate topic directories if they do not exists
+#' create topic directories if they do not exists
 create_dirs <- function(topic, month) {
   if(!file.exists(paste(conf$dataDir, sep = "/"))){
     dir.create(paste(conf$dataDir, sep = "/"), showWarnings = FALSE)

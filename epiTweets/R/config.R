@@ -61,10 +61,25 @@ setup_config <- function(path = "data/conf.json") {
   conf$dataDir <- temp$dataDir
   kr <- get_key_ring(conf$keyring)
   conf$topics <- temp$topics
-  conf$topics$plan <- by(temp$topics, 1:nrow(temp$topics), function(row) {lapply(split(row$plan, seq(nrow(row$plan))), function(plan) get_plan(expected_end = plan$expected_end, scheduled_for = plan$scheduled_for, start_on =plan$start_on, end_on = plan$end_on, max_id = plan$max_id, since_id = plan$since_id, since_target = plan$since_target, results_span = plan$results_span, requests = plan$requests, progress = plan$progress))})
-  
-  if(is.data.frame(conf$topics)) {
-    rows <- split(conf$topics, seq(nrow(conf$topics)))   
+  conf$topics$plan <- NA
+  if("plan" %in% colnames(temp$topics)) {
+    for(i in 1:nrow(temp$topics)) {
+      plans <-  
+        lapply(split(temp$topics[i,c("plan")], seq(nrow(temp$topics[i,c("plan")]))), 
+          function(plan) get_plan(
+            expected_end = plan$expected_end
+            , scheduled_for = plan$scheduled_for
+            , start_on =plan$start_on
+            , end_on = plan$end_on
+            , max_id = plan$max_id
+            , since_id = plan$since_id
+            , since_target = plan$since_target
+            , results_span = plan$results_span
+            , requests = plan$requests
+            , progress = plan$progress
+        ))
+        conf$topics[i, c("plan")] <- fold_to_assign(plans)
+    }
   }
   conf$twitter_auth <- list()
   for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
@@ -82,6 +97,8 @@ save_config <- function(path = "data/conf.json") {
   temp$schedule_span <- conf$schedule_span
   temp$keyring <- conf$keyring
   temp$topics <- conf$topics
+  temp$topics$rank <- NULL
+  temp$topics$schedule_to_run <- NULL
   jsonlite::write_json(temp, path, pretty = TRUE, force = TRUE)
 
 }
