@@ -37,14 +37,16 @@ search_loop <- function() {
 search_topic <- function(plan, query, topic) {
   message(paste("searching for topic", topic, "since", plan$since_id, "until", plan$max_id))
   month <- format(Sys.time(), "%Y.%m")
-  file_name <- paste(format(Sys.time(), "%Y.%m.%d.%H"), "json", sep = ".")
+  file_name <- paste(format(Sys.time(), "%Y.%m.%d.%H"), "json.gz", sep = ".")
   dest <- paste(conf$dataDir, "tweets", "search", topic, month, file_name, sep = "/")
   create_dirs(topic, month) 
   if(nchar(query)< 400) {
     resp <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target)
     content = httr::content(resp,as="text")
     json <- jsonlite::fromJSON(content)
-    write(content, dest, append=TRUE)
+    gz <- gzfile(dest, "a")
+    write(content, gz, append=TRUE)
+    close(gz)
     reach_max <- is.data.frame(json$statuses) && nrow(json$statuses) == 100
     new_since_id = 
       if(!is.data.frame(json$statuses)) {bit64::as.integer64(json$search_metadata$since_id_str)  

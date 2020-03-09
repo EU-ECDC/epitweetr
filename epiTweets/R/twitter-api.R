@@ -9,7 +9,6 @@ search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
 
 #' Get twitter token
 get_token <- function() {
-  message("getting a nex token ;-)")
   token <- rtweet::create_token(
     app = conf$twitter_auth$app
     , consumer_key =conf$twitter_auth$api_key
