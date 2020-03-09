@@ -1,3487 +1,378 @@
 {
-  "dataDir": ["data"],
-  "schedule_span": [90],
-  "keyring": ["file"],
+  "dataDir": "/home/fod/github/ecdc-twitter-tool/data",
+  "schedule_span": 90,
+  "keyring": "file",
+  "geonames": "/home/fod/datapub/geo/allCountries.txt",
+  "languages": [
+    {"name":"Français", "code":"FR", "vectors":"/home/fod/datapub/semantic/cc.fr.300.vec.gz"}
+    ,{"name":"Anglais", "code":"EN", "vectors":"/home/fod/datapub/semantic/cc.en.300.vec.gz"}
+    ,{"name":"Español", "code":"ES", "vectors":"/home/fod/datapub/semantic/cc.es.300.vec.gz"}
+  ],
   "topics": [
     {
       "query": "rabia OR rabia selvatica OR rabia urbana OR rabia canina -emocion -emociones -sentimiento -sentimientos -amor -orgullo -fans -eleccion -elecciones -metal",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:42"],
-        "start_on": ["2020-03-05 00:42:23"],
-        "end_on": {},
-        "max_id": [1235346101471006721],
-        "since_id": [0],
-        "since_target": [1235319703515602945],
-        "requests": [1],
-        "progress": [46797.0372]
-      }
+      "plan": []
     },
     {
       "query": "chlamydia OR chlamydiosis",
       "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:44"],
-        "start_on": ["2020-03-05 00:42:24"],
-        "end_on": {},
-        "max_id": [1235349489457803264],
-        "since_id": [0],
-        "since_target": [1235319722494881793],
-        "requests": [1],
-        "progress": [41500.6896]
-      }
+      "plan": []
     },
     {
       "query": "enfermedad de creutzfeldt-jakob OR ecj OR prion",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:24"],
-        "end_on": ["2020-03-05 00:42:24"],
-        "max_id": [1235318708685373442],
-        "since_id": [0],
-        "since_target": [1235318708685373441],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "stec OR vtec OR escherichia coli productoras de toxinas similares al shiga OR e. coli productoras de toxinas similares al shiga OR escherichia coli productoras de toxina vero OR e. coli productoras de toxina vero OR escherichia coli verotoxigenicos OR e. coli verotoxigenicos OR escherichia coli shigatoxigenicos OR e. coli shigatoxigenicos",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:25"],
-        "end_on": ["2020-03-05 00:42:25"],
-        "max_id": [1235349903536263169],
-        "since_id": [0],
-        "since_target": [1235320192886091777],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "vectorborne",
       "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:25"],
-        "end_on": ["2020-03-05 00:42:25"],
-        "max_id": [1235206543710343169],
-        "since_id": [0],
-        "since_target": [1235206543710343169],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "rubeola",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:48"],
-        "start_on": ["2020-03-05 00:42:26"],
-        "end_on": {},
-        "max_id": [1235344885672222721],
-        "since_id": [0],
-        "since_target": [1235317233313816577],
-        "requests": [1],
-        "progress": [44674.1239]
-      }
+      "plan": []
     },
     {
       "query": "malaria OR plasmodium",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:49"],
-        "start_on": ["2020-03-05 00:42:27"],
-        "end_on": {},
-        "max_id": [1235349695167418370],
-        "since_id": [0],
-        "since_target": [1235320108035330049],
-        "requests": [1],
-        "progress": [41752.9381]
-      }
+      "plan": []
     },
     {
       "query": "syphillis OR treponema pallidum OR \"congenital syphillis\"",
       "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:27"],
-        "end_on": ["2020-03-05 00:42:27"],
-        "max_id": [1235185601466392578],
-        "since_id": [0],
-        "since_target": [1235185601466392577],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "fièvre jaune",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:52"],
-        "start_on": ["2020-03-05 00:42:28"],
-        "end_on": {},
-        "max_id": [1235341046202150914],
-        "since_id": [0],
-        "since_target": [1235299976273702913],
-        "requests": [1],
-        "progress": [30078.9676]
-      }
+      "plan": []
     },
     {
       "query": "\"fiebre hemorragica\" OR \"fiebres hemoragicas\" OR \"fiebres hemorragicas virales\" OR \"fiebre hemorragica viral\" OR fhv",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:52"],
-        "start_on": ["2020-03-05 00:42:28"],
-        "end_on": {},
-        "max_id": [1235334125437046792],
-        "since_id": [0],
-        "since_target": [1235318268673564673],
-        "requests": [1],
-        "progress": [77905.8177]
-      }
+      "plan": []
     },
     {
       "query": "tuberculosis",
       "topic": "TB",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:54"],
-        "start_on": ["2020-03-05 00:42:29"],
-        "end_on": {},
-        "max_id": [1235349830223921152],
-        "since_id": [0],
-        "since_target": [1235320204776873985],
-        "requests": [1],
-        "progress": [41698.9431]
-      }
+      "plan": []
     },
     {
       "query": "enfermedad neumococica OR neumococo OR pneumococcus OR streptococcus pneumoniae",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:29"],
-        "end_on": ["2020-03-05 00:42:29"],
-        "max_id": [1235349922989342726],
-        "since_id": [0],
-        "since_target": [1235320210023948289],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "mumps OR parotitis",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:56"],
-        "start_on": ["2020-03-05 00:42:30"],
-        "end_on": {},
-        "max_id": [1235349126662914048],
-        "since_id": [0],
-        "since_target": [1235320145700179969],
-        "requests": [1],
-        "progress": [42626.2281]
-      }
+      "plan": []
     },
     {
       "query": "diphterie OR corynebacterium diphtheriae",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:30"],
-        "end_on": ["2020-03-05 00:42:30"],
-        "max_id": [1234866965543628800],
-        "since_id": [0],
-        "since_target": [1234866965543628801],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "yersiniose OR yersinia",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:43:58"],
-        "start_on": ["2020-03-05 00:42:31"],
-        "end_on": {},
-        "max_id": [1235342366648799233],
-        "since_id": [0],
-        "since_target": [1235319223855067137],
-        "requests": [1],
-        "progress": [53379.1374]
-      }
+      "plan": []
     },
     {
       "query": "gonorrhea OR \"gonococcal infection\" OR \"gonococcal infections\"",
       "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:32"],
-        "end_on": ["2020-03-05 00:42:32"],
-        "max_id": [1235347813887807489],
-        "since_id": [0],
-        "since_target": [1235316085404192769],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "hepatite b OR hepatite c OR hbv OR hcv",
       "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:00"],
-        "start_on": ["2020-03-05 00:42:32"],
-        "end_on": {},
-        "max_id": [1235344987266707458],
-        "since_id": [0],
-        "since_target": [1235306776666529793],
-        "requests": [1],
-        "progress": [32329.9027]
-      }
+      "plan": []
     },
     {
       "query": "fiebre q OR coxiella burnetii",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:32"],
-        "end_on": ["2020-03-05 00:42:32"],
-        "max_id": [1235349934972588039],
-        "since_id": [0],
-        "since_target": [1235320220899823617],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "trichinose OR trichinellose OR trichinella",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:33"],
-        "end_on": ["2020-03-05 00:42:33"],
-        "max_id": [1235082814061568000],
-        "since_id": [0],
-        "since_target": [1235082814061568001],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "sars OR \"síndrome respiratória aguda grave\"",
       "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:03"],
-        "start_on": ["2020-03-05 00:42:34"],
-        "end_on": {},
-        "max_id": [1235349936079876103],
-        "since_id": [0],
-        "since_target": [1235320218043510785],
-        "requests": [1],
-        "progress": [41569.0297]
-      }
+      "plan": []
     },
     {
       "query": "rubella OR \"congenital rubella\"",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:04"],
-        "start_on": ["2020-03-05 00:42:34"],
-        "end_on": {},
-        "max_id": [1235349080995500032],
-        "since_id": [0],
-        "since_target": [1235319247154315265],
-        "requests": [1],
-        "progress": [41407.6442]
-      }
+      "plan": []
     },
     {
       "query": "lassa",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:06"],
-        "start_on": ["2020-03-05 00:42:35"],
-        "end_on": {},
-        "max_id": [1235349097399361536],
-        "since_id": [0],
-        "since_target": [1235320149735092225],
-        "requests": [1],
-        "progress": [42675.2599]
-      }
+      "plan": []
     },
     {
       "query": "giardiase OR giardia",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:06"],
-        "start_on": ["2020-03-05 00:42:35"],
-        "end_on": {},
-        "max_id": [1235345568718782464],
-        "since_id": [0],
-        "since_target": [1235287648979349505],
-        "requests": [1],
-        "progress": [21328.5761]
-      }
+      "plan": []
     },
     {
       "query": "hepatitis b OR hepatitis c OR hbv OR hcv",
       "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:08"],
-        "start_on": ["2020-03-05 00:42:36"],
-        "end_on": {},
-        "max_id": [1235349802625273856],
-        "since_id": [0],
-        "since_target": [1235320126284746753],
-        "requests": [1],
-        "progress": [41627.4305]
-      }
+      "plan": []
     },
     {
       "query": "q fièvre OR coxiella burnetii",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:36"],
-        "end_on": ["2020-03-05 00:42:36"],
-        "max_id": [1235250494597033984],
-        "since_id": [0],
-        "since_target": [1235250494597033985],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "dengue",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:10"],
-        "start_on": ["2020-03-05 00:42:37"],
-        "end_on": {},
-        "max_id": [1235349953637163015],
-        "since_id": [0],
-        "since_target": [1235320220924944385],
-        "requests": [1],
-        "progress": [41548.5121]
-      }
+      "plan": []
     },
     {
       "query": "résistance aux antimicrobiens",
       "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:37"],
-        "end_on": ["2020-03-05 00:42:37"],
-        "max_id": [1235266405928497153],
-        "since_id": [0],
-        "since_target": [1235266405928497153],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "legionnaires' disease OR legionellosis OR legionella",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:12"],
-        "start_on": ["2020-03-05 00:42:38"],
-        "end_on": {},
-        "max_id": [1235349892085592064],
-        "since_id": [0],
-        "since_target": [1235310354995044353],
-        "requests": [1],
-        "progress": [31245.3414]
-      }
+      "plan": []
     },
     {
       "query": "antrax OR \"bacillus anthracis\"",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:14"],
-        "start_on": ["2020-03-05 00:42:39"],
-        "end_on": {},
-        "max_id": [1235347169865076737],
-        "since_id": [0],
-        "since_target": [1235317805295247361],
-        "requests": [1],
-        "progress": [42069.3093]
-      }
+      "plan": []
     },
     {
       "query": "\"grippe aviaire\"",
       "topic": "FLU",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:14"],
-        "start_on": ["2020-03-05 00:42:39"],
-        "end_on": {},
-        "max_id": [1235346304466853890],
-        "since_id": [0],
-        "since_target": [1235318560974614529],
-        "requests": [1],
-        "progress": [44527.4262]
-      }
+      "plan": []
     },
     {
       "query": "encephalite a tiques OR meningoencephalite a tique OR fsme OR meningo-encephalite a tiques",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:40"],
-        "end_on": ["2020-03-05 00:42:40"],
-        "max_id": [1235349967553908736],
-        "since_id": [0],
-        "since_target": [1235320250067046401],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "rougeole",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:18"],
-        "start_on": ["2020-03-05 00:42:41"],
-        "end_on": {},
-        "max_id": [1235349463398518784],
-        "since_id": [0],
-        "since_target": [1235317600248377345],
-        "requests": [1],
-        "progress": [38770.4749]
-      }
+      "plan": []
     },
     {
       "query": "toxoplasma OR toxoplasmosis OR \"congenital toxoplasmosis\"",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:18"],
-        "start_on": ["2020-03-05 00:42:41"],
-        "end_on": {},
-        "max_id": [1235348710512644096],
-        "since_id": [0],
-        "since_target": [1235319247154315265],
-        "requests": [1],
-        "progress": [41928.3062]
-      }
+      "plan": []
     },
     {
       "query": "creutzfeld-jakob disease OR cjd OR prion",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:41"],
-        "end_on": ["2020-03-05 00:42:41"],
-        "max_id": [1233736241977405440],
-        "since_id": [0],
-        "since_target": [1233736241977405441],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "maladie de Creutzfeldt-Jakob OR mcj OR prion",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:42"],
-        "end_on": ["2020-03-05 00:42:42"],
-        "max_id": [1235230611683635207],
-        "since_id": [0],
-        "since_target": [1235230611683635201],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "leptospirosis OR leptospira",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:43"],
-        "end_on": ["2020-03-05 00:42:43"],
-        "max_id": [1235347759450001410],
-        "since_id": [0],
-        "since_target": [1235308785566130177],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "sarampo OR gafeira OR morrinha",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:22"],
-        "start_on": ["2020-03-05 00:42:43"],
-        "end_on": {},
-        "max_id": [1235349846002987012],
-        "since_id": [0],
-        "since_target": [1235319810780778497],
-        "requests": [1],
-        "progress": [41130.0385]
-      }
+      "plan": []
     },
     {
       "query": "tetanos OR clostridium tetani",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:44"],
-        "end_on": ["2020-03-05 00:42:44"],
-        "max_id": [1235348700362428418],
-        "since_id": [0],
-        "since_target": [1235149271155871745],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "encefalite do carrapato OR encefalite transmitida por carrapatos OR encefalite por virus transmitido por carrapatos",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:44"],
-        "end_on": ["2020-03-05 00:42:44"],
-        "max_id": [1235349974138966016],
-        "since_id": [0],
-        "since_target": [1235320264143052801],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "fiebre del valle rift OR rvf OR fiebre del valle del rift",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:45"],
-        "end_on": ["2020-03-05 00:42:45"],
-        "max_id": [1235334125437046792],
-        "since_id": [0],
-        "since_target": [1235290590163726337],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "tbe OR tick-borne encephalitis",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:45"],
-        "end_on": ["2020-03-05 00:42:45"],
-        "max_id": [1235304751450992640],
-        "since_id": [0],
-        "since_target": [1235304751450992641],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "giardíase OR giardia",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:28"],
-        "start_on": ["2020-03-05 00:42:46"],
-        "end_on": {},
-        "max_id": [1235345568718782464],
-        "since_id": [0],
-        "since_target": [1235287648979349505],
-        "requests": [1],
-        "progress": [21328.5761]
-      }
+      "plan": []
     },
     {
       "query": "\"fievre de congo crimee\" OR \"fievre hemorragique de congo crimee\" OR \"fievre hemorragique congo crimee\" OR \"fievre hemorragique crimee congo\"",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:42:46"],
-        "end_on": {},
-        "max_id": [1234977957786968064],
-        "since_id": [0],
-        "since_target": [1234977957786968065],
-        "requests": [1],
-        "progress": [-1.23497795778697e+18]
-      }
+      "plan": []
     },
     {
       "query": "meningite OR meningocócica OR meningococo OR meningococcus",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:30"],
-        "start_on": ["2020-03-05 00:42:47"],
-        "end_on": {},
-        "max_id": [1235349804613500929],
-        "since_id": [0],
-        "since_target": [1235320156873797633],
-        "requests": [1],
-        "progress": [41667.5881]
-      }
+      "plan": []
     },
     {
       "query": "triquinosis OR triquinelosis OR triquiniasis OR trichinella",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:30"],
-        "start_on": ["2020-03-05 00:42:47"],
-        "end_on": {},
-        "max_id": [1235349873563664385],
-        "since_id": [0],
-        "since_target": [1235318752549445633],
-        "requests": [1],
-        "progress": [39695.039]
-      }
+      "plan": []
     },
     {
       "query": "fiebre amarilla",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-04 23:44:32"],
-        "start_on": ["2020-03-05 00:42:48"],
-        "end_on": {},
-        "max_id": [1235349716776488961],
-        "since_id": [0],
-        "since_target": [1235319881853218817],
-        "requests": [1],
-        "progress": [41406.1637]
-      }
+      "plan": []
     },
     {
       "query": "whooping cough OR pertussis",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:32"],
-        "start_on": ["2020-03-05 00:53:48"],
-        "end_on": {},
-        "max_id": [1235347478586761220],
-        "since_id": [0],
-        "since_target": [1235319476679331841],
-        "requests": [1],
-        "progress": [44116.5475]
-      }
+      "plan": []
     },
     {
       "query": "meningitis OR meningococcal OR meningococcus",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:32"],
-        "start_on": ["2020-03-05 00:53:48"],
-        "end_on": {},
-        "max_id": [1235352689921445889],
-        "since_id": [0],
-        "since_target": [1235320267204894721],
-        "requests": [1],
-        "progress": [38101.4554]
-      }
+      "plan": []
     },
     {
       "query": "hantavirus",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:34"],
-        "start_on": ["2020-03-05 00:53:49"],
-        "end_on": {},
-        "max_id": [1235351984334606337],
-        "since_id": [0],
-        "since_target": [1235317255044554753],
-        "requests": [1],
-        "progress": [35570.8966]
-      }
+      "plan": []
     },
     {
       "query": "coronavirus OR \"nuevo coronavirus\"",
       "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:35"],
-        "start_on": ["2020-03-05 00:53:50"],
-        "end_on": {},
-        "max_id": [1235352774470139905],
-        "since_id": [0],
-        "since_target": [1235320286733574145],
-        "requests": [1],
-        "progress": [38025.2029]
-      }
+      "plan": []
     },
     {
       "query": "sars OR \"syndrome respiratoire aigu sévère\"",
       "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:36"],
-        "start_on": ["2020-03-05 00:53:50"],
-        "end_on": {},
-        "max_id": [1235352763896410113],
-        "since_id": [0],
-        "since_target": [1235320280693854209],
-        "requests": [1],
-        "progress": [38030.5101]
-      }
+      "plan": []
     },
     {
       "query": "tularemie OR francisella tularensis OR bacille de Francis OR fievre du lapin OR fievre du lievre OR maladie de Ohara OR maladie de Francis",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:53:50"],
-        "end_on": ["2020-03-05 00:53:50"],
-        "max_id": [1235352780321280000],
-        "since_id": [0],
-        "since_target": [1235320292815384577],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "enfermedades infecciosas OR enfermedades contagiosas OR enfermedades de declaracion obligatoria",
       "topic": "na",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:53:51"],
-        "end_on": ["2020-03-05 00:53:51"],
-        "max_id": [1235275337866637314],
-        "since_id": [0],
-        "since_target": [1235275337866637313],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "infectious diseases OR communicable diseases OR notifiable diseases",
       "topic": "na",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:38"],
-        "start_on": ["2020-03-05 00:53:51"],
-        "end_on": {},
-        "max_id": [1235352626704846848],
-        "since_id": [0],
-        "since_target": [1235320168571691009],
-        "requests": [1],
-        "progress": [38059.8792]
-      }
+      "plan": []
     },
     {
       "query": "\"yersinia enterocolitica\" OR \"yersinia pseudotuberculosis\"",
       "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:53:52"],
-        "end_on": ["2020-03-05 00:53:52"],
-        "max_id": [1235047774955044864],
-        "since_id": [0],
-        "since_target": [1235047774955044865],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "raiva OR raiva silvestre OR raiva urbana OR raiva canina -emoção -emoções -sentimento -sentimentos -amor -orgulho -fãs -eleição -eleições -metal",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:53:52"],
-        "end_on": ["2020-03-05 00:53:52"],
-        "max_id": [1235263726569295872],
-        "since_id": [0],
-        "since_target": [1235263726569295873],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "ebola",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:40"],
-        "start_on": ["2020-03-05 00:53:52"],
-        "end_on": {},
-        "max_id": [1235352750801793024],
-        "since_id": [0],
-        "since_target": [1235320299991773185],
-        "requests": [1],
-        "progress": [38068.4719]
-      }
+      "plan": []
     },
     {
       "query": "lyme OR borrelia OR borreliosis",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:42"],
-        "start_on": ["2020-03-05 00:53:53"],
-        "end_on": {},
-        "max_id": [1235352766458916864],
-        "since_id": [0],
-        "since_target": [1235320250624856065],
-        "requests": [1],
-        "progress": [37992.3444]
-      }
+      "plan": []
     },
     {
       "query": "variole OR \"petite verole\"",
       "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:42"],
-        "start_on": ["2020-03-05 00:53:53"],
-        "end_on": {},
-        "max_id": [1235335759533662208],
-        "since_id": [0],
-        "since_target": [1235302393451106305],
-        "requests": [1],
-        "progress": [37023.6979]
-      }
+      "plan": []
     },
     {
       "query": "typhoid fever OR typhoid OR salmonella typhi OR paratyphoid fever OR paratyphoid OR salmonella paratyphi",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:53:54"],
-        "end_on": ["2020-03-05 00:53:54"],
-        "max_id": [1235021908376047616],
-        "since_id": [0],
-        "since_target": [1235021908376047617],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "polio OR poliomielite",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:44"],
-        "start_on": ["2020-03-05 00:53:54"],
-        "end_on": {},
-        "max_id": [1235352337528557570],
-        "since_id": [0],
-        "since_target": [1235320145322573825],
-        "requests": [1],
-        "progress": [38374.2679]
-      }
+      "plan": []
     },
     {
       "query": "cryptosporidiose OR cryptosporidium",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:46"],
-        "start_on": ["2020-03-05 00:53:55"],
-        "end_on": {},
-        "max_id": [1235349519208009730],
-        "since_id": [0],
-        "since_target": [1235318100125458433],
-        "requests": [1],
-        "progress": [39318.4466]
-      }
+      "plan": []
     },
     {
       "query": "brucelose OR neurobrucelose OR brucela OR brucella",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:46"],
-        "start_on": ["2020-03-05 00:53:55"],
-        "end_on": {},
-        "max_id": [1235349519208009730],
-        "since_id": [0],
-        "since_target": [1235318100125458433],
-        "requests": [1],
-        "progress": [39318.4466]
-      }
+      "plan": []
     },
     {
       "query": "tos ferina OR pertussis",
       "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:48"],
-        "start_on": ["2020-03-05 00:53:56"],
-        "end_on": {},
-        "max_id": [1235352231991537666],
-        "since_id": [0],
-        "since_target": [1235318466808344577],
-        "requests": [1],
-        "progress": [36586.5698]
-      }
+      "plan": []
     },
     {
       "query": "lymphogranulome venereum OR lgv OR chlamydia trachomatis",
       "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:53:56"],
-        "end_on": ["2020-03-05 00:53:56"],
-        "max_id": [1235352802781732864],
-        "since_id": [0],
-        "since_target": [1235320320183197697],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "fievre de la vallee du rift OR fvr OR rvf",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:53:56"],
-        "end_on": ["2020-03-05 00:53:56"],
-        "max_id": [1234118484860096515],
-        "since_id": [0],
-        "since_target": [1234118484860096513],
-        "requests": [1],
-        "progress": [1]
-      }
+      "plan": []
     },
     {
       "query": "listeriose OR listeria",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:49"],
-        "start_on": ["2020-03-05 00:53:57"],
-        "end_on": {},
-        "max_id": [1235352710007971840],
-        "since_id": [0],
-        "since_target": [1235319274069274625],
-        "requests": [1],
-        "progress": [36946.8529]
-      }
+      "plan": []
     },
     {
       "query": "rabies OR sylvatic rabies OR urban rabies OR canine rabies -emotion -emotions -feeling -feelings -love -pride -fans -election -elections -metal",
       "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:50"],
-        "start_on": ["2020-03-05 00:53:57"],
-        "end_on": {},
-        "max_id": [1235351993415274497],
-        "since_id": [0],
-        "since_target": [1235320178453475329],
-        "requests": [1],
-        "progress": [38829.2779]
-      }
+      "plan": []
     },
     {
       "query": "campylobacter OR campilobacteriose",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:50"],
-        "start_on": ["2020-03-05 00:53:57"],
-        "end_on": {},
-        "max_id": [1235349740822372353],
-        "since_id": [0],
-        "since_target": [1235315271784595457],
-        "requests": [1],
-        "progress": [35839.4031]
-      }
+      "plan": []
     },
     {
       "query": "hepatite a OR vha",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:52"],
-        "start_on": ["2020-03-05 00:53:58"],
-        "end_on": {},
-        "max_id": [1235351167552688128],
-        "since_id": [0],
-        "since_target": [1235320043354894337],
-        "requests": [1],
-        "progress": [39691.0203]
-      }
+      "plan": []
     },
     {
       "query": "anthrax OR \"bacillus anthracis\"",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:52"],
-        "start_on": ["2020-03-05 00:53:58"],
-        "end_on": {},
-        "max_id": [1235352805369475073],
-        "since_id": [0],
-        "since_target": [1235320316190175233],
-        "requests": [1],
-        "progress": [38023.5153]
-      }
+      "plan": []
     },
     {
       "query": "chlamydia OR clamidiose",
       "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:54"],
-        "start_on": ["2020-03-05 00:53:59"],
-        "end_on": {},
-        "max_id": [1235352572111638529],
-        "since_id": [0],
-        "since_target": [1235320277074096129],
-        "requests": [1],
-        "progress": [38252.0866]
-      }
+      "plan": []
     },
     {
       "query": "salmonelosis OR salmonella",
       "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:54"],
-        "start_on": ["2020-03-05 00:53:59"],
-        "end_on": {},
-        "max_id": [1235352741985345536],
-        "since_id": [0],
-        "since_target": [1235319720850714625],
-        "requests": [1],
-        "progress": [37410.972]
-      }
-    },
-    {
-      "query": "praga OR praga bubônica OR praga pulmonar OR yersinia pestis",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:00"],
-        "end_on": ["2020-03-05 00:54:00"],
-        "max_id": [1235352818011090944],
-        "since_id": [0],
-        "since_target": [1235320339489525761],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "syphilis OR treponema pallidum",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:00"],
-        "end_on": ["2020-03-05 00:54:00"],
-        "max_id": [1235185601466392578],
-        "since_id": [0],
-        "since_target": [1235185601466392577],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "sifilis OR treponema pallidum",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:01"],
-        "end_on": ["2020-03-05 00:54:01"],
-        "max_id": [1235185601466392578],
-        "since_id": [0],
-        "since_target": [1235185601466392577],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "variola OR bexigas",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:06:58"],
-        "start_on": ["2020-03-05 00:54:01"],
-        "end_on": {},
-        "max_id": [1235331629167628289],
-        "since_id": [0],
-        "since_target": [1235319771857653761],
-        "requests": [1],
-        "progress": [104183.1268]
-      }
-    },
-    {
-      "query": "\"hemorrhagic fever\" OR \"haemorrhagic fever\" OR \"viral haemorrhagic fevers\" OR \"viral haemorrhagic fever\" OR vhf",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:00"],
-        "start_on": ["2020-03-05 00:54:02"],
-        "end_on": {},
-        "max_id": [1235350844205387776],
-        "since_id": [0],
-        "since_target": [1235320343335784449],
-        "requests": [1],
-        "progress": [40502.1516]
-      }
-    },
-    {
-      "query": "chlamydia OR clamidiosis",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:00"],
-        "start_on": ["2020-03-05 00:54:02"],
-        "end_on": {},
-        "max_id": [1235352572111638529],
-        "since_id": [0],
-        "since_target": [1235320277074096129],
-        "requests": [1],
-        "progress": [38252.0866]
-      }
-    },
-    {
-      "query": "\"gripe aviar\"",
-      "topic": "FLU",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:02"],
-        "start_on": ["2020-03-05 00:54:03"],
-        "end_on": {},
-        "max_id": [1235352287683497985],
-        "since_id": [0],
-        "since_target": [1235320346741477377],
-        "requests": [1],
-        "progress": [38676.1382]
-      }
-    },
-    {
-      "query": "meningite OR meningococcus OR meningocoque",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:03"],
-        "start_on": ["2020-03-05 00:54:04"],
-        "end_on": {},
-        "max_id": [1235352304334909441],
-        "since_id": [0],
-        "since_target": [1235320336234754049],
-        "requests": [1],
-        "progress": [38643.2818]
-      }
-    },
-    {
-      "query": "gripe OR influenza OR gripe sazonal",
-      "topic": "FLU human",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:04"],
-        "start_on": ["2020-03-05 00:54:04"],
-        "end_on": {},
-        "max_id": [1235351502388154374],
-        "since_id": [0],
-        "since_target": [1235318148343177217],
-        "requests": [1],
-        "progress": [37037.5318]
-      }
-    },
-    {
-      "query": "rage OR rage selvatique OR rage des rues OR rage canine -emotion -emotions -sentiment -sentiments -amour -fierte -fans -election -elections",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:04"],
-        "end_on": ["2020-03-05 00:54:04"],
-        "max_id": [1235352838580195329],
-        "since_id": [0],
-        "since_target": [1235320362503671809],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "bioterrorisme",
-      "topic": "na",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:05"],
-        "end_on": ["2020-03-05 00:54:05"],
-        "max_id": [1235324394022502400],
-        "since_id": [0],
-        "since_target": [1235313520121700353],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "botulisme OR clostridium botulinum OR intoxication botulique OR toxine botulique -esthetique -cosmetique -dermatologique",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:05"],
-        "end_on": ["2020-03-05 00:54:05"],
-        "max_id": [1233119159455830016],
-        "since_id": [0],
-        "since_target": [1233119159455830017],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "q fever OR coxiella burnetii",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:05"],
-        "end_on": ["2020-03-05 00:54:05"],
-        "max_id": [1235250494597033984],
-        "since_id": [0],
-        "since_target": [1235250494597033985],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "shigellosis OR shigella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:08"],
-        "start_on": ["2020-03-05 00:54:06"],
-        "end_on": {},
-        "max_id": [1235345131949215750],
-        "since_id": [0],
-        "since_target": [1235316797060124673],
-        "requests": [1],
-        "progress": [43598.0225]
-      }
-    },
-    {
-      "query": "encefalitis por garrapatas OR encefalitis transmitida por garrapatas OR meningoencefalitis de garrapata OR encefalitis centroeuropea",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:06"],
-        "end_on": ["2020-03-05 00:54:06"],
-        "max_id": [1235352845257494531],
-        "since_id": [0],
-        "since_target": [1235320369852055553],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "peste OR peste bubonica OR peste pulmonar OR yersinia pestis",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:08"],
-        "start_on": ["2020-03-05 00:54:06"],
-        "end_on": {},
-        "max_id": [1235336067311710208],
-        "since_id": [0],
-        "since_target": [1235259244276043777],
-        "requests": [1],
-        "progress": [16080.2819]
-      }
-    },
-    {
-      "query": "giardiasis OR giardia",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:10"],
-        "start_on": ["2020-03-05 00:54:07"],
-        "end_on": {},
-        "max_id": [1235352575165288454],
-        "since_id": [0],
-        "since_target": [1235287648979349505],
-        "requests": [1],
-        "progress": [19027.0313]
-      }
-    },
-    {
-      "query": "sars OR \"severe acute respiratory syndrome\"",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:10"],
-        "start_on": ["2020-03-05 00:54:07"],
-        "end_on": {},
-        "max_id": [1235352840266223616],
-        "since_id": [0],
-        "since_target": [1235320370196107265],
-        "requests": [1],
-        "progress": [38045.8938]
-      }
-    },
-    {
-      "query": "mers OR mers-cov OR enfermedad respiratoria virica causada por un coronavirus OR sindrome respiratorio de oriente medio",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:07"],
-        "end_on": ["2020-03-05 00:54:07"],
-        "max_id": [1235352851397804037],
-        "since_id": [0],
-        "since_target": [1235320379675217921],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "botulism OR \"clostridium botulinum\" OR \"botulinic intoxication\" OR \"botulinic toxin\" -plastic -aesthetics -cosmetic -dermatologic",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:12"],
-        "start_on": ["2020-03-05 00:54:08"],
-        "end_on": {},
-        "max_id": [1235352082837835776],
-        "since_id": [0],
-        "since_target": [1235309736410611713],
-        "requests": [1],
-        "progress": [29172.5221]
-      }
-    },
-    {
-      "query": "tosse convulsa OR coqueluche OR pertussis",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:08"],
-        "end_on": ["2020-03-05 00:54:08"],
-        "max_id": [1234634853510979584],
-        "since_id": [0],
-        "since_target": [1234634853510979585],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "meningitis OR meningococo OR meningococcus",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:14"],
-        "start_on": ["2020-03-05 00:54:09"],
-        "end_on": {},
-        "max_id": [1235352689921445889],
-        "since_id": [0],
-        "since_target": [1235320267204894721],
-        "requests": [1],
-        "progress": [38101.4554]
-      }
-    },
-    {
-      "query": "sarampion",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:14"],
-        "start_on": ["2020-03-05 00:54:09"],
-        "end_on": {},
-        "max_id": [1235352841075789824],
-        "since_id": [0],
-        "since_target": [1235320378391752705],
-        "requests": [1],
-        "progress": [38054.5503]
-      }
-    },
-    {
-      "query": "campylobacter OR campilobacteriosis",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:16"],
-        "start_on": ["2020-03-05 00:54:10"],
-        "end_on": {},
-        "max_id": [1235349740822372353],
-        "since_id": [0],
-        "since_target": [1235315271784595457],
-        "requests": [1],
-        "progress": [35839.4031]
-      }
-    },
-    {
-      "query": "trichinellosis OR trichinella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:10"],
-        "end_on": ["2020-03-05 00:54:10"],
-        "max_id": [1235082814061568000],
-        "since_id": [0],
-        "since_target": [1235082814061568001],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "measles",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:18"],
-        "start_on": ["2020-03-05 00:54:11"],
-        "end_on": {},
-        "max_id": [1235352790073036800],
-        "since_id": [0],
-        "since_target": [1235320365813059585],
-        "requests": [1],
-        "progress": [38099.6449]
-      }
-    },
-    {
-      "query": "varicela OR catapora",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:18"],
-        "start_on": ["2020-03-05 00:54:11"],
-        "end_on": {},
-        "max_id": [1235352844146008065],
-        "since_id": [0],
-        "since_target": [1235319877650481153],
-        "requests": [1],
-        "progress": [37472.9805]
-      }
-    },
-    {
-      "query": "criptosporidiose OR cryptosporidium",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:20"],
-        "start_on": ["2020-03-05 00:54:12"],
-        "end_on": {},
-        "max_id": [1235349519208009730],
-        "since_id": [0],
-        "since_target": [1235318100125458433],
-        "requests": [1],
-        "progress": [39318.4466]
-      }
-    },
-    {
-      "query": "shigelose OR shigella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:20"],
-        "start_on": ["2020-03-05 00:54:12"],
-        "end_on": {},
-        "max_id": [1235345131949215750],
-        "since_id": [0],
-        "since_target": [1235316797060124673],
-        "requests": [1],
-        "progress": [43598.0225]
-      }
-    },
-    {
-      "query": "fièvre typhoïde OR salmonella typhi OR fièvre paratyphoïde OR salmonella paratyphi",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:13"],
-        "end_on": ["2020-03-05 00:54:13"],
-        "max_id": [1235352872390250498],
-        "since_id": [0],
-        "since_target": [1235320408330600449],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "zika",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:22"],
-        "start_on": ["2020-03-05 00:54:13"],
-        "end_on": {},
-        "max_id": [1235352844146008065],
-        "since_id": [0],
-        "since_target": [1235320314755715073],
-        "requests": [1],
-        "progress": [37976.5139]
-      }
-    },
-    {
-      "query": "febre do vale do rift OR febre do vale rift OR rvf",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:13"],
-        "end_on": ["2020-03-05 00:54:13"],
-        "max_id": [1235352875657818115],
-        "since_id": [0],
-        "since_target": [1235320411769970689],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "salmonellose OR salmonella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:24"],
-        "start_on": ["2020-03-05 00:54:14"],
-        "end_on": {},
-        "max_id": [1235352741985345536],
-        "since_id": [0],
-        "since_target": [1235320342253645825],
-        "requests": [1],
-        "progress": [38128.4868]
-      }
-    },
-    {
-      "query": "lyme OR borreliose OR borrelia",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:24"],
-        "start_on": ["2020-03-05 00:54:14"],
-        "end_on": {},
-        "max_id": [1235352861892059137],
-        "since_id": [0],
-        "since_target": [1235320250624856065],
-        "requests": [1],
-        "progress": [37881.1671]
-      }
-    },
-    {
-      "query": "polio OR poliomyelite",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:26"],
-        "start_on": ["2020-03-05 00:54:15"],
-        "end_on": {},
-        "max_id": [1235352337528557570],
-        "since_id": [0],
-        "since_target": [1235320365813059585],
-        "requests": [1],
-        "progress": [38638.9131]
-      }
-    },
-    {
-      "query": "malaria OR paludisme OR plasmodium",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:26"],
-        "start_on": ["2020-03-05 00:54:15"],
-        "end_on": {},
-        "max_id": [1235352762382028800],
-        "since_id": [0],
-        "since_target": [1235320404572504065],
-        "requests": [1],
-        "progress": [38177.886]
-      }
-    },
-    {
-      "query": "doenças infecciosas OR doenças transmissíveis OR doenças notificáveis",
-      "topic": "na",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:15"],
-        "end_on": ["2020-03-05 00:54:15"],
-        "max_id": [1235352884805537793],
-        "since_id": [0],
-        "since_target": [1235320422943645697],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "listériose OR listeria",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:28"],
-        "start_on": ["2020-03-05 00:54:16"],
-        "end_on": {},
-        "max_id": [1235352710007971840],
-        "since_id": [0],
-        "since_target": [1235319274069274625],
-        "requests": [1],
-        "progress": [36946.8529]
-      }
-    },
-    {
-      "query": "smallpox OR \"red plague\" OR variola",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:28"],
-        "start_on": ["2020-03-05 00:54:16"],
-        "end_on": {},
-        "max_id": [1235352495309967361],
-        "since_id": [0],
-        "since_target": [1235320407454076929],
-        "requests": [1],
-        "progress": [38499.0664]
-      }
-    },
-    {
-      "query": "echinococcus OR echinococcosis",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:17"],
-        "end_on": ["2020-03-05 00:54:17"],
-        "max_id": [1235030044243718144],
-        "since_id": [0],
-        "since_target": [1235030044243718145],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "lymphogranuloma venereum OR lgv OR chlamydia trachomatis",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:17"],
-        "end_on": ["2020-03-05 00:54:17"],
-        "max_id": [1235352891411640320],
-        "since_id": [0],
-        "since_target": [1235320432657674241],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "malaria OR paludismo OR maleita",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:30"],
-        "start_on": ["2020-03-05 00:54:17"],
-        "end_on": {},
-        "max_id": [1235352762382028800],
-        "since_id": [0],
-        "since_target": [1235320404572504065],
-        "requests": [1],
-        "progress": [38177.886]
-      }
-    },
-    {
-      "query": "chikungunya",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:32"],
-        "start_on": ["2020-03-05 00:54:18"],
-        "end_on": {},
-        "max_id": [1235352190635606017],
-        "since_id": [0],
-        "since_target": [1235320244564086785],
-        "requests": [1],
-        "progress": [38669.925]
-      }
-    },
-    {
-      "query": "rubeole",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:18"],
-        "end_on": ["2020-03-05 00:54:18"],
-        "max_id": [1234917607779815425],
-        "since_id": [0],
-        "since_target": [1234917607779815425],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "healthcare-associated infections OR hai",
-      "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:33"],
-        "start_on": ["2020-03-05 00:54:19"],
-        "end_on": {},
-        "max_id": [1235340849963298816],
-        "since_id": [0],
-        "since_target": [1235282776976392193],
-        "requests": [1],
-        "progress": [21272.2113]
-      }
-    },
-    {
-      "query": "brucellose OR meningite brucellose OR brucella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:19"],
-        "end_on": ["2020-03-05 00:54:19"],
-        "max_id": [1233380568118824960],
-        "since_id": [0],
-        "since_target": [1233380568118824961],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "antimicrobial resistance",
-      "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:34"],
-        "start_on": ["2020-03-05 00:54:19"],
-        "end_on": {},
-        "max_id": [1235351228176986112],
-        "since_id": [0],
-        "since_target": [1235319287730049025],
-        "requests": [1],
-        "progress": [38676.7045]
-      }
-    },
-    {
-      "query": "clostridium difficile OR cdi OR c. diff",
-      "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:20"],
-        "end_on": ["2020-03-05 00:54:20"],
-        "max_id": [1234663006270681100],
-        "since_id": [0],
-        "since_target": [1234663006270681089],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "hiv OR human immunodeficiency virus OR aids OR acquired immunodeficiency syndrome",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:20"],
-        "end_on": ["2020-03-05 00:54:20"],
-        "max_id": [1235337096056967168],
-        "since_id": [0],
-        "since_target": [1235310717370355713],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "cchf OR \"crimean congo haemorrhagic fever\" OR \"congo crimean haemorrhagic fever\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:21"],
-        "end_on": ["2020-03-05 00:54:21"],
-        "max_id": [1235340003594686475],
-        "since_id": [0],
-        "since_target": [1235247845252493313],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "botulismo OR clostridium botulinum OR intoxicacion botulinica OR toxina botulinica -estetica -cosmetico -cosmetica -dermatologico",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:21"],
-        "end_on": ["2020-03-05 00:54:21"],
-        "max_id": [1235352907505160192],
-        "since_id": [0],
-        "since_target": [1235320452349906945],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "febre amarela",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:38"],
-        "start_on": ["2020-03-05 00:54:21"],
-        "end_on": {},
-        "max_id": [1235351161709961217],
-        "since_id": [0],
-        "since_target": [1235317768205078529],
-        "requests": [1],
-        "progress": [36993.7557]
-      }
-    },
-    {
-      "query": "oreillons OR parotidite",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:22"],
-        "end_on": ["2020-03-05 00:54:22"],
-        "max_id": [1235332070219689984],
-        "since_id": [0],
-        "since_target": [1235251817572962305],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "criptosporidiosis OR cryptosporidium",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:40"],
-        "start_on": ["2020-03-05 00:54:22"],
-        "end_on": {},
-        "max_id": [1235349519208009730],
-        "since_id": [0],
-        "since_target": [1235318100125458433],
-        "requests": [1],
-        "progress": [39318.4466]
-      }
-    },
-    {
-      "query": "maladie pneumococcique OR pneumocoque OR pneumococcus OR streptococcus pneumoniae",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:22"],
-        "end_on": ["2020-03-05 00:54:22"],
-        "max_id": [1235352915138752512],
-        "since_id": [0],
-        "since_target": [1235320461350834177],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "polio OR poliomielitis",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:42"],
-        "start_on": ["2020-03-05 00:54:23"],
-        "end_on": {},
-        "max_id": [1235352337528557570],
-        "since_id": [0],
-        "since_target": [1235320365813059585],
-        "requests": [1],
-        "progress": [38638.9131]
-      }
-    },
-    {
-      "query": "\"virus do nilo occidental\" OR \"febre do nilo occidental\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:23"],
-        "end_on": ["2020-03-05 00:54:23"],
-        "max_id": [1235352916896165888],
-        "since_id": [0],
-        "since_target": [1235320464081391617],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "blennorragie OR \"infection gonococcique\"",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:23"],
-        "end_on": ["2020-03-05 00:54:23"],
-        "max_id": [1235041709119041536],
-        "since_id": [0],
-        "since_target": [1235041709119041537],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "\"west nile virus\" OR \"west nile fever\" OR \"west nile encephalitis\" OR wnv OR wnf",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:24"],
-        "end_on": ["2020-03-05 00:54:24"],
-        "max_id": [1235351648236527616],
-        "since_id": [0],
-        "since_target": [1235320382216982529],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "listeriosis OR listeria",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:44"],
-        "start_on": ["2020-03-05 00:54:24"],
-        "end_on": {},
-        "max_id": [1235352710007971840],
-        "since_id": [0],
-        "since_target": [1235319274069274625],
-        "requests": [1],
-        "progress": [36946.8529]
-      }
-    },
-    {
-      "query": "coronavirus OR \"novo coronavirus\"",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:46"],
-        "start_on": ["2020-03-05 00:54:25"],
-        "end_on": {},
-        "max_id": [1235352923049259009],
-        "since_id": [0],
-        "since_target": [1235320471689846785],
-        "requests": [1],
-        "progress": [38067.8328]
-      }
-    },
-    {
-      "query": "chicunguña OR chikungunya",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:46"],
-        "start_on": ["2020-03-05 00:54:25"],
-        "end_on": {},
-        "max_id": [1235352190635606017],
-        "since_id": [0],
-        "since_target": [1235320468212789249],
-        "requests": [1],
-        "progress": [38942.5549]
-      }
-    },
-    {
-      "query": "echinococcus OR échinococcose",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:26"],
-        "end_on": ["2020-03-05 00:54:26"],
-        "max_id": [1235061902771879937],
-        "since_id": [0],
-        "since_target": [1235061902771879937],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "tétano OR clostridium tetani",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:26"],
-        "end_on": ["2020-03-05 00:54:26"],
-        "max_id": [1235348700362428418],
-        "since_id": [0],
-        "since_target": [1235149271155871745],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "tuberculose",
-      "topic": "TB",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:50"],
-        "start_on": ["2020-03-05 00:54:27"],
-        "end_on": {},
-        "max_id": [1235351803966914560],
-        "since_id": [0],
-        "since_target": [1235317714174062593],
-        "requests": [1],
-        "progress": [36238.1728]
-      }
-    },
-    {
-      "query": "hepatitis a OR hav",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:50"],
-        "start_on": ["2020-03-05 00:54:27"],
-        "end_on": {},
-        "max_id": [1235352459540865030],
-        "since_id": [0],
-        "since_target": [1235320277074096129],
-        "requests": [1],
-        "progress": [38385.8847]
-      }
-    },
-    {
-      "query": "leptospirose OR leptospira",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:52"],
-        "start_on": ["2020-03-05 00:54:28"],
-        "end_on": {},
-        "max_id": [1235352850965958657],
-        "since_id": [0],
-        "since_target": [1235319518886494209],
-        "requests": [1],
-        "progress": [37061.9797]
-      }
-    },
-    {
-      "query": "virus de l'immunodéficience humaine OR vih OR syndrome immunodéficitaire acquis OR sida",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:28"],
-        "end_on": ["2020-03-05 00:54:28"],
-        "max_id": [1235352938312163328],
-        "since_id": [0],
-        "since_target": [1235320489377255425],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "varicela",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:54"],
-        "start_on": ["2020-03-05 00:54:29"],
-        "end_on": {},
-        "max_id": [1235352844146008065],
-        "since_id": [0],
-        "since_target": [1235319229685039105],
-        "requests": [1],
-        "progress": [36750.6367]
-      }
-    },
-    {
-      "query": "febre tifóide OR salmonella typhi OR febre paratifóide OR salmonella paratyphi",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:29"],
-        "end_on": ["2020-03-05 00:54:29"],
-        "max_id": [1235352941323788288],
-        "since_id": [0],
-        "since_target": [1235320492082462721],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "toxoplasma OR toxoplasmose",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:54"],
-        "start_on": ["2020-03-05 00:54:29"],
-        "end_on": {},
-        "max_id": [1235342667808223232],
-        "since_id": [0],
-        "since_target": [1235318673117720577],
-        "requests": [1],
-        "progress": [51484.0009]
-      }
-    },
-    {
-      "query": "vírus da imunodeficiência humana OR vih OR síndrome da imunodeficiência adquirida OR sida",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:30"],
-        "end_on": ["2020-03-05 00:54:30"],
-        "max_id": [1233617834439299072],
-        "since_id": [0],
-        "since_target": [1233617834439299073],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "grippe OR influenza OR grippe saisonnière",
-      "topic": "FLU human",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:07:56"],
-        "start_on": ["2020-03-05 00:54:30"],
-        "end_on": {},
-        "max_id": [1235352529996853251],
-        "since_id": [0],
-        "since_target": [1235320466375675905],
-        "requests": [1],
-        "progress": [38528.1663]
-      }
-    },
-    {
-      "query": "fhcc OR \"fiebre hemorragica congo crimea\" OR \"fiebre hemorragica crimea congo\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:30"],
-        "end_on": ["2020-03-05 00:54:30"],
-        "max_id": [1235279374066298884],
-        "since_id": [0],
-        "since_target": [1235279374066298881],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "echinococcus OR equinococosis",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:31"],
-        "end_on": ["2020-03-05 00:54:31"],
-        "max_id": [1235030044243718144],
-        "since_id": [0],
-        "since_target": [1235030044243718145],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "\"foodborne disease\" OR \"foodborne diseases\" OR \"waterborne disease\" OR \"waterborne diseases\"",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:31"],
-        "end_on": {},
-        "max_id": [1235280609259421696],
-        "since_id": [0],
-        "since_target": [1235280609259421697],
-        "requests": [1],
-        "progress": [-1.23528060925942e+18]
-      }
-    },
-    {
-      "query": "rubeola OR roseola",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:00"],
-        "start_on": ["2020-03-05 00:54:32"],
-        "end_on": {},
-        "max_id": [1235352355320844289],
-        "since_id": [0],
-        "since_target": [1235317233313816577],
-        "requests": [1],
-        "progress": [35173.1709]
-      }
-    },
-    {
-      "query": "maladie des légionnaires OR legionellose OR legionella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:32"],
-        "end_on": ["2020-03-05 00:54:32"],
-        "max_id": [1232974936559489024],
-        "since_id": [0],
-        "since_target": [1232974936559489025],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "linfogranuloma venereo OR lgv OR chlamydia trachomatis",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:32"],
-        "end_on": ["2020-03-05 00:54:32"],
-        "max_id": [1232356168254787585],
-        "since_id": [0],
-        "since_target": [1232356168254787585],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "doença pneumocócica OR pneumococo OR pneumococcus OR streptococcus pneumoniae",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:32"],
-        "end_on": ["2020-03-05 00:54:32"],
-        "max_id": [1235352956364611584],
-        "since_id": [0],
-        "since_target": [1235320511070113793],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "lyme OR borrelia OR borreliose",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:02"],
-        "start_on": ["2020-03-05 00:54:33"],
-        "end_on": {},
-        "max_id": [1235352945056714757],
-        "since_id": [0],
-        "since_target": [1235320500085288961],
-        "requests": [1],
-        "progress": [38075.3285]
-      }
-    },
-    {
-      "query": "campylobacter OR campylobactériose",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:04"],
-        "start_on": ["2020-03-05 00:54:34"],
-        "end_on": {},
-        "max_id": [1235349740822372353],
-        "since_id": [0],
-        "since_target": [1235315271784595457],
-        "requests": [1],
-        "progress": [35839.4031]
-      }
-    },
-    {
-      "query": "papeira OR caxumba",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:04"],
-        "start_on": ["2020-03-05 00:54:34"],
-        "end_on": {},
-        "max_id": [1235350733169594370],
-        "since_id": [0],
-        "since_target": [1235319888685780993],
-        "requests": [1],
-        "progress": [40050.9453]
-      }
-    },
-    {
-      "query": "h1n1 OR h5n1 OR a(h1n1) OR a/h1n1 OR h3n2 OR h2n2",
-      "topic": "FLU",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:05"],
-        "start_on": ["2020-03-05 00:54:35"],
-        "end_on": {},
-        "max_id": [1235352946604466177],
-        "since_id": [0],
-        "since_target": [1235320515826417665],
-        "requests": [1],
-        "progress": [38091.9923]
-      }
-    },
-    {
-      "query": "maladies infectieuses OR maladies transmissibles OR maladies à déclaration obligatoire",
-      "topic": "na",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:35"],
-        "end_on": ["2020-03-05 00:54:35"],
-        "max_id": [1235267601665855489],
-        "since_id": [0],
-        "since_target": [1235267601665855489],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "q febre OR coxiella burnetii",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:35"],
-        "end_on": ["2020-03-05 00:54:35"],
-        "max_id": [1235250494597033984],
-        "since_id": [0],
-        "since_target": [1235250494597033985],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "campylobacter OR campylobacteriosis",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:07"],
-        "start_on": ["2020-03-05 00:54:36"],
-        "end_on": {},
-        "max_id": [1235349740822372353],
-        "since_id": [0],
-        "since_target": [1235315271784595457],
-        "requests": [1],
-        "progress": [35839.4031]
-      }
-    },
-    {
-      "query": "cholera OR vibrio cholerae",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:08"],
-        "start_on": ["2020-03-05 00:54:36"],
-        "end_on": {},
-        "max_id": [1235347327528972289],
-        "since_id": [0],
-        "since_target": [1235295812848177153],
-        "requests": [1],
-        "progress": [23980.4908]
-      }
-    },
-    {
-      "query": "pneumococcal disease OR pneumococcus OR streptococcus pneumoniae",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:36"],
-        "end_on": ["2020-03-05 00:54:36"],
-        "max_id": [1235270918668242945],
-        "since_id": [0],
-        "since_target": [1235270918668242945],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "tetanus OR clostridium tetani",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:37"],
-        "end_on": ["2020-03-05 00:54:37"],
-        "max_id": [1235348700362428418],
-        "since_id": [0],
-        "since_target": [1235149271155871745],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "brucelosis OR neurobrucelosis OR brucela OR brucella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:10"],
-        "start_on": ["2020-03-05 00:54:37"],
-        "end_on": {},
-        "max_id": [1235339369353011205],
-        "since_id": [0],
-        "since_target": [1235304296738181121],
-        "requests": [1],
-        "progress": [35222.3344]
-      }
-    },
-    {
-      "query": "sars OR \"sindrome respiratorio agudo grave\"",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:12"],
-        "start_on": ["2020-03-05 00:54:38"],
-        "end_on": {},
-        "max_id": [1235352949100077056],
-        "since_id": [0],
-        "since_target": [1235320526790373377],
-        "requests": [1],
-        "progress": [38101.9415]
-      }
-    },
-    {
-      "query": "plague OR bubonic plague OR pulmonary plague OR yersinia pestis",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:12"],
-        "start_on": ["2020-03-05 00:54:38"],
-        "end_on": {},
-        "max_id": [1235341628702941190],
-        "since_id": [0],
-        "since_target": [1235308454534950913],
-        "requests": [1],
-        "progress": [37238.0591]
-      }
-    },
-    {
-      "query": "coronavirus OR \"nouveau coronavirus\"",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:14"],
-        "start_on": ["2020-03-05 00:54:39"],
-        "end_on": {},
-        "max_id": [1235352980628611073],
-        "since_id": [0],
-        "since_target": [1235320539385868289],
-        "requests": [1],
-        "progress": [38079.7058]
-      }
-    },
-    {
-      "query": "\"virus du nil occidental\" OR \"fievre du nil occidental\" OR \"encephalite du nil occidental\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:39"],
-        "end_on": ["2020-03-05 00:54:39"],
-        "max_id": [1235352983497592832],
-        "since_id": [0],
-        "since_target": [1235320543806730241],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "salmonelose OR salmonella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:14"],
-        "start_on": ["2020-03-05 00:54:39"],
-        "end_on": {},
-        "max_id": [1235352741985345536],
-        "since_id": [0],
-        "since_target": [1235320537926324225],
-        "requests": [1],
-        "progress": [38360.1564]
-      }
-    },
-    {
-      "query": "mers OR mers-cov OR syndrome respiratoire dy moyen-orient OR coronavirus du syndrome respiratoire",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:40"],
-        "end_on": ["2020-03-05 00:54:40"],
-        "max_id": [1235352987150815232],
-        "since_id": [0],
-        "since_target": [1235320547380285441],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "botulismo OR clostridium botulinum OR intoxicação botulínica OR toxina botulínica",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:40"],
-        "end_on": ["2020-03-05 00:54:40"],
-        "max_id": [1234064860121649153],
-        "since_id": [0],
-        "since_target": [1234064860121649153],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "chlamydia OR chlamydiose",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:16"],
-        "start_on": ["2020-03-05 00:54:40"],
-        "end_on": {},
-        "max_id": [1235352982742544385],
-        "since_id": [0],
-        "since_target": [1235320361564147713],
-        "requests": [1],
-        "progress": [37869.6615]
-      }
-    },
-    {
-      "query": "mers OR mers-cov OR middle east respiratory syndrome OR middle east respiratory syndrome coronavirus",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:18"],
-        "start_on": ["2020-03-05 00:54:41"],
-        "end_on": {},
-        "max_id": [1235345077859495937],
-        "since_id": [0],
-        "since_target": [1235320498273366017],
-        "requests": [1],
-        "progress": [50258.9861]
-      }
-    },
-    {
-      "query": "influenza OR seasonal influenza OR flu",
-      "topic": "FLU human",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:18"],
-        "start_on": ["2020-03-05 00:54:41"],
-        "end_on": {},
-        "max_id": [1235352991147978752],
-        "since_id": [0],
-        "since_target": [1235320539037798401],
-        "requests": [1],
-        "progress": [38066.9542]
-      }
-    },
-    {
-      "query": "\"febre hemorragica\" OR \"febre hemorragica viral\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:42"],
-        "end_on": ["2020-03-05 00:54:42"],
-        "max_id": [1235234330219360256],
-        "since_id": [0],
-        "since_target": [1235234330219360257],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "toxoplasma OR toxoplasmosis",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:20"],
-        "start_on": ["2020-03-05 00:54:42"],
-        "end_on": {},
-        "max_id": [1235348710512644096],
-        "since_id": [0],
-        "since_target": [1235319247154315265],
-        "requests": [1],
-        "progress": [41928.3062]
-      }
-    },
-    {
-      "query": "polio OR poliomyelitis OR cVDPV OR VDPV OR WPV",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:22"],
-        "start_on": ["2020-03-05 00:54:43"],
-        "end_on": {},
-        "max_id": [1235352988191010818],
-        "since_id": [0],
-        "since_target": [1235320467810062337],
-        "requests": [1],
-        "progress": [37987.0393]
-      }
-    },
-    {
-      "query": "yersiniosis OR yersinia",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:22"],
-        "start_on": ["2020-03-05 00:54:43"],
-        "end_on": {},
-        "max_id": [1235342366648799233],
-        "since_id": [0],
-        "since_target": [1235319223855067137],
-        "requests": [1],
-        "progress": [53379.1374]
-      }
-    },
-    {
-      "query": "malaria OR paludismo OR plasmodium",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:24"],
-        "start_on": ["2020-03-05 00:54:44"],
-        "end_on": {},
-        "max_id": [1235352762382028800],
-        "since_id": [0],
-        "since_target": [1235320520503156737],
-        "requests": [1],
-        "progress": [38315.1605]
-      }
-    },
-    {
-      "query": "yellow fever",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:24"],
-        "start_on": ["2020-03-05 00:54:44"],
-        "end_on": {},
-        "max_id": [1235351917531979778],
-        "since_id": [0],
-        "since_target": [1235320181771112449],
-        "requests": [1],
-        "progress": [38926.1793]
-      }
-    },
-    {
-      "query": "salmonellosis OR salmonella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:26"],
-        "start_on": ["2020-03-05 00:54:45"],
-        "end_on": {},
-        "max_id": [1235352741985345536],
-        "since_id": [0],
-        "since_target": [1235322954063499265],
-        "requests": [1],
-        "progress": [41471.5987]
-      }
-    },
-    {
-      "query": "\"virus del nilo occidental\" OR \"fiebre del nilo occidental\" OR \"encefalitis del nilo occidental\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:45"],
-        "end_on": ["2020-03-05 00:54:45"],
-        "max_id": [1235352287683497985],
-        "since_id": [0],
-        "since_target": [1235316585117732865],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "difteria OR corynebacterium diphtheriae",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:45"],
-        "end_on": ["2020-03-05 00:54:45"],
-        "max_id": [1234866965543628800],
-        "since_id": [0],
-        "since_target": [1234866965543628801],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "gonorréia OR \"infecção gonocócica\"",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:28"],
-        "start_on": ["2020-03-05 00:54:46"],
-        "end_on": {},
-        "max_id": [1235352545511567362],
-        "since_id": [0],
-        "since_target": [1235323530570534913],
-        "requests": [1],
-        "progress": [42576.4279]
-      }
-    },
-    {
-      "query": "brucellosis OR neurobrucellosis OR brucella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:46"],
-        "end_on": ["2020-03-05 00:54:46"],
-        "max_id": [1235347589299568641],
-        "since_id": [0],
-        "since_target": [1235321718606049281],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "cryptosporidiosis OR cryptosporidium",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:30"],
-        "start_on": ["2020-03-05 00:54:47"],
-        "end_on": {},
-        "max_id": [1235349519208009730],
-        "since_id": [0],
-        "since_target": [1235321785182310401],
-        "requests": [1],
-        "progress": [44542.7408]
-      }
-    },
-    {
-      "query": "infecções associadas à saúde OR ias OR infecções associadas ao cuidado em saúde OR iacs",
-      "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:47"],
-        "end_on": ["2020-03-05 00:54:47"],
-        "max_id": [1235353017140105217],
-        "since_id": [0],
-        "since_target": [1235323993265246209],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "hepatitis a OR vha",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:30"],
-        "start_on": ["2020-03-05 00:54:47"],
-        "end_on": {},
-        "max_id": [1235352459540865030],
-        "since_id": [0],
-        "since_target": [1235323185333182465],
-        "requests": [1],
-        "progress": [42199.3474]
-      }
-    },
-    {
-      "query": "coqueluche OR pertussis -nouvelle -artiste -chanteur -celebrite -star -acteur -actrice -comedien -vedette -egerie -idole -fetiche -icone -personnag -figure -carriere -tele",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:32"],
-        "start_on": ["2020-03-05 00:54:48"],
-        "end_on": {},
-        "max_id": [1235352704735686660],
-        "since_id": [0],
-        "since_target": [1235323987246436353],
-        "requests": [1],
-        "progress": [43017.4342]
-      }
-    },
-    {
-      "query": "sifilis OR morbo galico OR mal frances OR bubas OR treponema pallidum",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:48"],
-        "end_on": ["2020-03-05 00:54:48"],
-        "max_id": [1235353024039616514],
-        "since_id": [0],
-        "since_target": [1235323999179202561],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "\"gripe aviária\"",
-      "topic": "FLU",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:34"],
-        "start_on": ["2020-03-05 00:54:49"],
-        "end_on": {},
-        "max_id": [1235344240173092866],
-        "since_id": [0],
-        "since_target": [1235316723412275201],
-        "requests": [1],
-        "progress": [44894.2464]
-      }
-    },
-    {
-      "query": "infections liées aux soins de santé OR ias",
-      "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:49"],
-        "end_on": ["2020-03-05 00:54:49"],
-        "max_id": [1235353026447147008],
-        "since_id": [0],
-        "since_target": [1235324001674764289],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "bioterrorismo",
-      "topic": "na",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:34"],
-        "start_on": ["2020-03-05 00:54:49"],
-        "end_on": {},
-        "max_id": [1235343275973840898],
-        "since_id": [0],
-        "since_target": [1235322418123726849],
-        "requests": [1],
-        "progress": [59226.7788]
-      }
-    },
-    {
-      "query": "gonorrea OR \"infeccion gonococica\"",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:36"],
-        "start_on": ["2020-03-05 00:54:50"],
-        "end_on": {},
-        "max_id": [1235352841792913409],
-        "since_id": [0],
-        "since_target": [1235323884297170945],
-        "requests": [1],
-        "progress": [42660.9004]
-      }
-    },
-    {
-      "query": "stec OR vtec OR shiga toxin-producing escherichia coli OR shiga toxin-producing e. coli OR shiga-toxigenic escherichia coli OR shiga-toxigenic e. coli OR shigatoxigenic escherichia coli OR shigatoxigenic e. coli OR vero toxin-producing escherichia coli OR vero toxin-producing e. coli OR vero-toxigenic escherichia coli OR vero-toxigenic e. coli OR verotoxigenic escherichia coli",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": {},
-        "end_on": {},
-        "max_id": {},
-        "since_id": {},
-        "since_target": [1235324007777521665],
-        "requests": [0],
-        "progress": [0]
-      }
-    },
-    {
-      "query": "infecciones asociadas a la asistencia sanitaria OR iaas",
-      "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:50"],
-        "end_on": ["2020-03-05 00:54:50"],
-        "max_id": [1235353029836025857],
-        "since_id": [0],
-        "since_target": [1235324007777521665],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "zika OR \"congenital zika\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:38"],
-        "start_on": ["2020-03-05 00:54:51"],
-        "end_on": {},
-        "max_id": [1235353002627731456],
-        "since_id": [0],
-        "since_target": [1235323920133378049],
-        "requests": [1],
-        "progress": [42477.5464]
-      }
-    },
-    {
-      "query": "chickenpox OR varicella",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:38"],
-        "start_on": ["2020-03-05 00:54:51"],
-        "end_on": {},
-        "max_id": [1235348824987783170],
-        "since_id": [0],
-        "since_target": [1235318633016045569],
-        "requests": [1],
-        "progress": [40916.4673]
-      }
-    },
-    {
-      "query": "shigelosis OR shigella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:39"],
-        "start_on": ["2020-03-05 00:54:52"],
-        "end_on": {},
-        "max_id": [1235345131949215750],
-        "since_id": [0],
-        "since_target": [1235316797060124673],
-        "requests": [1],
-        "progress": [43598.0225]
-      }
-    },
-    {
-      "query": "antraz OR \"pustula maligna\" OR \"bacillus anthracis\"",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:52"],
-        "end_on": {},
-        "max_id": [1235112121425420288],
-        "since_id": [0],
-        "since_target": [1235112121425420289],
-        "requests": [1],
-        "progress": [-1.23511212142542e+18]
-      }
-    },
-    {
-      "query": "resistencia antimicrobiana",
-      "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:40"],
-        "start_on": ["2020-03-05 00:54:52"],
-        "end_on": {},
-        "max_id": [1235341745870733318],
-        "since_id": [0],
-        "since_target": [1235309200923856897],
-        "requests": [1],
-        "progress": [37958.02]
-      }
-    },
-    {
-      "query": "stec OR vtec OR escherichia coli produtora de toxina shiga OR produtora de toxina shiga e. coli OR escherichia coli shiga-toxigênica OR e. coli shiga-toxigênica OR escherichia coli shigatoxigênica OR e. coli shigatoxigênica OR escherichia coli produtora de toxina vero OR e. coli produtora de toxina vero OR escherichia coli vero-toxigênica OR e. coli vero-toxigênica",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": {},
-        "end_on": {},
-        "max_id": {},
-        "since_id": {},
-        "since_target": [1233400567239569409],
-        "requests": [0],
-        "progress": [0]
-      }
-    },
-    {
-      "query": "enfermedad del legionario OR legionelosis OR legionella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:53"],
-        "end_on": ["2020-03-05 00:54:53"],
-        "max_id": [1233400567239569408],
-        "since_id": [0],
-        "since_target": [1233400567239569409],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "paperas",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:42"],
-        "start_on": ["2020-03-05 00:54:53"],
-        "end_on": {},
-        "max_id": [1235352273506705408],
-        "since_id": [0],
-        "since_target": [1235323626976694273],
-        "requests": [1],
-        "progress": [43123.976]
-      }
-    },
-    {
-      "query": "doença dos legionários OR legionelose OR legionella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:54"],
-        "end_on": ["2020-03-05 00:54:54"],
-        "max_id": [1232709392082120704],
-        "since_id": [0],
-        "since_target": [1232709392082120705],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "triquinose OR trichinella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:54"],
-        "end_on": ["2020-03-05 00:54:54"],
-        "max_id": [1235082814061568000],
-        "since_id": [0],
-        "since_target": [1235082814061568001],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "difterite OR difteria OR corynebacterium diphtheriae",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:54"],
-        "end_on": ["2020-03-05 00:54:54"],
-        "max_id": [1234866965543628800],
-        "since_id": [0],
-        "since_target": [1234866965543628801],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "\"avian flu\" OR \"bird flu\"",
-      "topic": "FLU",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:46"],
-        "start_on": ["2020-03-05 00:54:55"],
-        "end_on": {},
-        "max_id": [1235352763896410113],
-        "since_id": [0],
-        "since_target": [1235323903234502657],
-        "requests": [1],
-        "progress": [42804.0344]
-      }
-    },
-    {
-      "query": "rift valley fever OR rvf",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:47"],
-        "start_on": ["2020-03-05 00:54:56"],
-        "end_on": {},
-        "max_id": [1235350844205387776],
-        "since_id": [0],
-        "since_target": [1235321969819742209],
-        "requests": [1],
-        "progress": [42783.6235]
-      }
-    },
-    {
-      "query": "bioterrorism",
-      "topic": "na",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:56"],
-        "end_on": ["2020-03-05 00:54:56"],
-        "max_id": [1235353047699771398],
-        "since_id": [0],
-        "since_target": [1235323436291022849],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "colera OR vibrio cholerae",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:49"],
-        "start_on": ["2020-03-05 00:54:57"],
-        "end_on": {},
-        "max_id": [1235347327528972289],
-        "since_id": [0],
-        "since_target": [1235322254168387585],
-        "requests": [1],
-        "progress": [49269.3161]
-      }
-    },
-    {
-      "query": "tularemia OR francisella tularensis",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:57"],
-        "end_on": ["2020-03-05 00:54:57"],
-        "max_id": [1235349688578080772],
-        "since_id": [0],
-        "since_target": [1235270944740040705],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "influenza OR gripe OR gripe estacional",
-      "topic": "FLU human",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:50"],
-        "start_on": ["2020-03-05 00:54:57"],
-        "end_on": {},
-        "max_id": [1235352300174143493],
-        "since_id": [0],
-        "since_target": [1235323868899876865],
-        "requests": [1],
-        "progress": [43450.4725]
-      }
-    },
-    {
-      "query": "echinococcus OR equinococose",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:58"],
-        "end_on": ["2020-03-05 00:54:58"],
-        "max_id": [1235030044243718144],
-        "since_id": [0],
-        "since_target": [1235030044243718145],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "\"fievre hemorragique\" OR \"fièvres hémorragiques\" OR \"fievre hemorragique virale\" OR \"fièvres hémorragiques virales\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:52"],
-        "start_on": ["2020-03-05 00:54:58"],
-        "end_on": {},
-        "max_id": [1235352541187235840],
-        "since_id": [0],
-        "since_target": [1235322498218156033],
-        "requests": [1],
-        "progress": [41119.5224]
-      }
-    },
-    {
-      "query": "mers OR mers-cov OR sindrome respiratoria do oriente medio OR sindrome respiratoria coronavirus do oriente medio",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:54:58"],
-        "end_on": ["2020-03-05 00:54:58"],
-        "max_id": [1234870796528607232],
-        "since_id": [0],
-        "since_target": [1234870796528607233],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "peste OR bubonique peste OR pulmonaire peste OR yersinia pestis",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:54"],
-        "start_on": ["2020-03-05 00:54:59"],
-        "end_on": {},
-        "max_id": [1235336067311710208],
-        "since_id": [0],
-        "since_target": [1235259244276043777],
-        "requests": [1],
-        "progress": [16080.2819]
-      }
-    },
-    {
-      "query": "haemophilus influenzae",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:54"],
-        "start_on": ["2020-03-05 00:54:59"],
-        "end_on": {},
-        "max_id": [1235348855933333504],
-        "since_id": [0],
-        "since_target": [1235323987246436353],
-        "requests": [1],
-        "progress": [49674.8727]
-      }
-    },
-    {
-      "query": "shigellose OR shigella",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:56"],
-        "start_on": ["2020-03-05 00:55:00"],
-        "end_on": {},
-        "max_id": [1235345131949215750],
-        "since_id": [0],
-        "since_target": [1235316797060124673],
-        "requests": [1],
-        "progress": [43598.0225]
-      }
-    },
-    {
-      "query": "varicelle",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:56"],
-        "start_on": ["2020-03-05 00:55:00"],
-        "end_on": {},
-        "max_id": [1235339786283552768],
-        "since_id": [0],
-        "since_target": [1235316767754514433],
-        "requests": [1],
-        "progress": [53667.1906]
-      }
-    },
-    {
-      "query": "toxoplasme OR toxoplasma OR toxoplasmose",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:58"],
-        "start_on": ["2020-03-05 00:55:01"],
-        "end_on": {},
-        "max_id": [1235342667808223232],
-        "since_id": [0],
-        "since_target": [1235322439707635713],
-        "requests": [1],
-        "progress": [61070.6212]
-      }
-    },
-    {
-      "query": "viruela",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:08:58"],
-        "start_on": ["2020-03-05 00:55:01"],
-        "end_on": {},
-        "max_id": [1235352648619966464],
-        "since_id": [0],
-        "since_target": [1235323193549885441],
-        "requests": [1],
-        "progress": [41940.238]
-      }
-    },
-    {
-      "query": "\"nosocomial infections\"",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:55:02"],
-        "end_on": ["2020-03-05 00:55:02"],
-        "max_id": [1235237448411746305],
-        "since_id": [0],
-        "since_target": [1235237448411746305],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "coronavirus OR cov OR \"novel coronavirus\" OR ncov OR 2019-ncov",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:09:00"],
-        "start_on": ["2020-03-05 00:55:02"],
-        "end_on": {},
-        "max_id": [1235353080029483010],
-        "since_id": [0],
-        "since_target": [1235324068154544129],
-        "requests": [1],
-        "progress": [42580.946]
-      }
-    },
-    {
-      "query": "fiebre tifoidea OR salmonella typhi OR fiebre paratifoidea OR salmonella paratyphi",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:55:03"],
-        "end_on": ["2020-03-05 00:55:03"],
-        "max_id": [1235353082793353216],
-        "since_id": [0],
-        "since_target": [1235324070515937281],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "tularaemia OR tularemia OR francisella tularensis",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:55:03"],
-        "end_on": ["2020-03-05 00:55:03"],
-        "max_id": [1235349688578080772],
-        "since_id": [0],
-        "since_target": [1235270944740040705],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "diphtheritis OR diphtheria OR corynebacterium diphtheriae",
-      "topic": "VPD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:55:03"],
-        "end_on": ["2020-03-05 00:55:03"],
-        "max_id": [1234866965543628800],
-        "since_id": [0],
-        "since_target": [1234866965543628801],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "\"febre hemorragica da crimeia congo\" OR \"febre hemorragica da congo crimea\" OR \"febre hemorragica da crimeia do congo\"",
-      "topic": "EVD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 00:55:03"],
-        "end_on": ["2020-03-05 00:55:03"],
-        "max_id": [1235353086270394368],
-        "since_id": [0],
-        "since_target": [1235324074890530817],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "doença de creutzfeldt-jakob OR dcj OR prião",
-      "topic": "FWD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:42:22"],
-        "start_on": ["2020-03-05 01:08:52"],
-        "end_on": ["2020-03-05 01:08:52"],
-        "max_id": [1235353087952506880],
-        "since_id": [0],
-        "since_target": [1235324075477733377],
-        "requests": [1],
-        "progress": [1]
-      }
-    },
-    {
-      "query": "vih OR virus de inmunodeficiencia humana OR sida OR sindrome de inmunodeficiencia humana",
-      "topic": "STI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:36:40"],
-        "start_on": ["2020-03-05 01:08:52"],
-        "end_on": {},
-        "max_id": [1235332004364931074],
-        "since_id": [0],
-        "since_target": [1235296958383886337],
-        "requests": [1],
-        "progress": [35248.8921]
-      }
-    },
-    {
-      "query": "resistência antimicrobiana",
-      "topic": "ARHAI",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:36:42"],
-        "start_on": ["2020-03-05 01:08:53"],
-        "end_on": {},
-        "max_id": [1235341745870733318],
-        "since_id": [0],
-        "since_target": [1235309200923856897],
-        "requests": [1],
-        "progress": [37958.02]
-      }
-    },
-    {
-      "query": "zoonoses",
-      "topic": "TBD",
-      "plan": {
-        "expected_end": ["2020-03-05 01:41:05"],
-        "scheduled_for": ["2020-03-05 00:36:42"],
-        "start_on": ["2020-03-05 01:08:53"],
-        "end_on": {},
-        "max_id": [1235355409596243971],
-        "since_id": [0],
-        "since_target": [1235319888773877761],
-        "requests": [1],
-        "progress": [34778.3448]
-      }
+      "plan": []
     }
   ]
 }
