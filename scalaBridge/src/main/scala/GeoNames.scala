@@ -26,7 +26,6 @@ object GeoNames {
            .withColumn("id", col("id").cast(IntegerType))
            .repartition($"admin1_code")
         , path = allCitiesPath
-      //  , partitionBy = 
         , reuseExisting = false
       )
 
