@@ -12,6 +12,8 @@ scalaBridge/project/target
 scalaBridge/target
 *.jar
 
+#Excel locj files
+.~lock*
 # History files
 .Rhistory
 .Rapp.history
