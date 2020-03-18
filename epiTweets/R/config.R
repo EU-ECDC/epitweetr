@@ -52,18 +52,89 @@ get_secret <- function(secret) {
   get_key_ring()$get(service =  Sys.getenv("kr_service"), username = secret)
 }
 
+#' get empty config for initialization
+get_empty_config <- function() {
+  ret <- list()
+  ret$keyring <- "file"
+  ret$dataDir <- paste(getwd(),"data", sep = "/")
+  ret$schedule_span <- 90
+  ret$topics <- list()
+  ret$topics_md5 <- ""
+  return(ret)
+}
+
 #' Build configuration values for application from a configuration json file
 #' @export
-setup_config <- function(path = "data/conf.json") {
-  temp <- jsonlite::read_json(path, simplifyVector = FALSE, auto_unbox = TRUE)
+setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xlsx") {
+  #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
+  temp <- 
+    if(file.exists(path)) {
+      jsonlite::read_json(path, simplifyVector = FALSE, auto_unbox = TRUE)
+    } else {
+      get_empty_config()
+    }
+  
+  #Setting config  variables filled only from json file  
   conf$keyring <- temp$keyring
   conf$schedule_span <- temp$schedule_span
   conf$dataDir <- temp$dataDir
-  kr <- get_key_ring(conf$keyring)
+  
+  #Getting topics from excel topics files if it has changed since las load
+  topics <- 
+    if(file.exists(topics_path)) {
+      t <- list()
+      t$md5 <- as.vector(tools::md5sum(topics_path))
+      if(t$md5 != temp$topics_md5) { 
+        t$df <- readxl::read_excel(topics_path)
+      }
+      t
+    } else {
+      list()
+    }
+  
+  #Meging topics from config json and topic excel topics if this last one has changed
+  #Each time a topic is found on file, all its occurrencies will be processed at the same time, to ensure consistent multi query topics updates based on position
+  if(exists("df", where = topics)) {
+    distinct_topics <- as.list(unique(topics$df$Topic))
+    adjusted_topics <- list()
+    i_adjusted <- 1
+    #For each distinct topic on excel file
+    for(i_topic in 1:length(distinct_topics)) {
+      topic <- distinct_topics[[i_topic]]
+      if(!grepl("^[A-Za-z_0-9][A-Za-z_0-9 \\-]*$", topic)) {
+        stop(paste("topic name", topic, "is invalid, it must contains only by alphanumeric letters, digits spaces '-' and '_' and not start with spaces, '-' or '_'", sep = " "))
+      }
+      i_tmp <- 1
+      queries <- topics$df[topics$df$Topic == topic, ]
+      #For each distincit query on excel file on current topic
+      for(i_query in 1:nrow(queries)) {
+        #Looking for the next matching entry in json file
+        while(i_tmp <= length(temp$topics) && temp$topics[[i_tmp]]$topic != topic) { i_tmp <- i_tmp + 1 }
+        if(i_tmp <= length(temp$topics)) {
+          #reusing an existing query
+          adjusted_topics[[i_adjusted]] <- temp$topics[[i_tmp]]
+          adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
+        } else {
+          #creating a new query  
+          adjusted_topics[[i_adjusted]] <- list()
+          adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
+          adjusted_topics[[i_adjusted]]$topic <- queries$Topic[[i_query]]
+        }
+        i_adjusted <- i_adjusted + 1
+        i_tmp <- i_tmp + 1
+      }
+    }
+    temp$topics <- adjusted_topics
+    temp$topics_md5 <- topics$md5
+  }
+ 
+  #Loading topic related infomation on confif filr 
+  conf$topics_md5 <- temp$topics_md5 
   conf$topics <- temp$topics
+  #Copying plans
   for(i in 1:length(temp$topics)) {
     if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
-      conf$topics[[i]]$plan = list()
+      conf$topics[[i]]$plan <- list()
     }
     else {
       conf$topics[[i]]$plan <-  
@@ -82,7 +153,12 @@ setup_config <- function(path = "data/conf.json") {
       ))
     }
   }
+  
+  #Getting variables stored on keyring
+  #Setting up keyring
+  kr <- get_key_ring(conf$keyring)
   conf$twitter_auth <- list()
+  # Fetching and updating variables from keyring
   for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
     if(is_secret_set(v)) {
       conf$twitter_auth[[v]] <- get_secret(v)
@@ -97,6 +173,7 @@ save_config <- function(path = "data/conf.json") {
   temp$dataDir <- conf$dataDir
   temp$schedule_span <- conf$schedule_span
   temp$keyring <- conf$keyring
+  temp$topics_md5 <- conf$topics_md5
   temp$topics <- conf$topics
   temp$topics$rank <- NULL
   temp$topics$schedule_to_run <- NULL
