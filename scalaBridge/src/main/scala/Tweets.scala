@@ -32,5 +32,9 @@ object Tweets {
        .select(col("search_metadata.query"), col("topic"), col("metrics.*"))
        .toDF("query", "topics", "from", "to", "count")
   }
+
+  def getJsonTweets(path:String)(implicit spark:SparkSession, storage:Storage)= {
+  
+  }
   
 }

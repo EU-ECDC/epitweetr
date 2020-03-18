@@ -2,12 +2,44 @@ package org.ecdc.twitter
 
 import demy.storage.{Storage, WriteMode, FSNode}
 import demy.util.{log => l, util}
-import org.apache.spark.sql.SparkSession
+import demy.mllib.index.implicits._
+import org.apache.spark.sql.{SparkSession, Column, Dataset}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object GeoNames {
-  def getGeoNames(source:String, destination:String, reuseExisting:Boolean = true)(implicit spark:SparkSession, storage:Storage) = {
+
+case class Geonames(source:String, destination:String) {
+  val allCitiesPath = s"$destination/all-cities.parquet"
+  val allGeosPath = s"$destination/all-geos.parquet"
+  val allGeosIndex = s"$destination/all-geos.parquet.index"
+
+  def geoLocate(ds:Dataset[_], geoText:Column, maxLevDistance:Int = 1, reuseExistingIndex:Boolean = true,  minScore:Int = 170, nGram:Int = 3)(implicit storage:Storage) = {
+    implicit val spark = ds.sparkSession
+    import spark.implicits._
+    ds.luceneLookup(
+      right = this.getDataset()
+      , query = geoText
+      , popularity = Some(col("pop"))
+      , text =  expr("concat(coalesce(city, ''), ' ', coalesce(adm4, ''), ' ', coalesce(adm3, ''), ' ', coalesce(adm2, ''), ' ', coalesce(adm1, ''), ' ', coalesce(adm4, ''), ' ', coalesce(country, ''))")
+      , rightSelect = Array($"id".as("geo_id"), $"name".as("geo_name"), $"code".as("geo_code"), $"geo_type", $"country_code".as("geo_country_code"), $"city_code".as("geo_city_code")
+                              , $"adm1_code".as("geo_adm1_code"), $"adm2_code".as("geo_adm2_code"), $"adm3_code".as("geo_adm3_code"), $"adm4_code".as("geo_adm4_code"), $"pop")
+      , leftSelect= Array(col("*"))
+      , maxLevDistance=maxLevDistance
+      , indexPath= this.allGeosIndex
+      , reuseExistingIndex = reuseExistingIndex
+      , indexPartitions = 1
+      , maxRowsInMemory=1024
+      , indexScanParallelism = 1
+      , tokenizeText = true
+      , minScore = minScore
+      , boostAcronyms = true
+      , termWeightsColumnName = None
+      , strategy="demy.mllib.index.NgramStrategy"//"demy.mllib.index.StandardStrategy"
+      , strategyParams=Map(("nNgrams", nGram.toString) )
+   )
+    
+  }
+  def getDataset(reuseExisting:Boolean = true)(implicit spark:SparkSession, storage:Storage) = {
     import spark.implicits._
     //Reading Source
     /*http://www.geonames.org/export/codes.html*/
@@ -15,8 +47,6 @@ object GeoNames {
       Seq("id", "name", "asciiname","alternatenames", "latitude", "longitude", "feature_class","feature_code"
            ,"country_code","cc2","admin1_code","admin2_code","admin3_code","admin4_code","population","elevation","dem", "timezone", "modification_date")
 
-    val allCitiesPath = s"$destination/all-cities.parquet"
-    val allGeosPath = s"$destination/all-geos.parquet"
  
     (if(reuseExisting) util.restoreCheckPoint(allGeosPath) else None).getOrElse{
       val allCities = util.checkpoint(
@@ -143,13 +173,15 @@ object GeoNames {
 
       //Writing all to disk
       val allGeos = util.checkpoint(
-        cities
+        df = cities
           .union(adm1)
           .union(adm2)
           .union(adm3)
           .union(adm4)
           .union(countries)
           .repartition(32, expr("cast(id/100000 as int)"))
+          .withColumn("city_code", when($"city".isNotNull, $"code").as("city_code"))
+          .withColumn("pop", expr("(log(10000+population)/10 + case when substring(geo_type, 0,3)='PPL' then 0.2 when substring(geo_type, 0,3)='PCL'then 0.3 else 0.0 end)"))
         , path = allGeosPath
         , reuseExisting = false
       )
@@ -161,6 +193,15 @@ object GeoNames {
       adm4.unpersist
       countries.unpersist
       allGeos
+
+    }
+  } 
+}
+
+object Geonames {
+  implicit class GeoLookup(val ds: Dataset[_]) {
+    def geoLookup(geoText:Column, geoNames:Geonames, maxLevDistance:Int = 1, reuseExistingIndex:Boolean = true,  minScore:Int = 170, nGram:Int = 3)(implicit storage:Storage) = {
+      geoNames.geoLocate(ds, geoText, maxLevDistance, reuseExistingIndex,  minScore,  nGram) 
     }
   }
 }
