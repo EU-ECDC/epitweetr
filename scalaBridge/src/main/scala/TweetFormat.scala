@@ -85,11 +85,6 @@ object schemas {
                  ,true)
               , StructField("favorite_count",LongType,true)
               , StructField("favorited",BooleanType,true)
-              , StructField("geo",
-                 StructType(Seq(
-                   StructField("coordinates",ArrayType(DoubleType,true),true)
-                   , StructField("type",StringType,true)
-                 )),true)
               , StructField("id",LongType,true)
               , StructField("id_str",StringType,true)
               , StructField("in_reply_to_screen_name",StringType,true)
@@ -187,7 +182,6 @@ object schemas {
                         )),true)
                     , StructField("favorite_count",LongType,true)
                     , StructField("favorited",BooleanType,true)
-                    , StructField("geo",StringType,true)
                     , StructField("id",LongType,true)
                     , StructField("id_str",StringType,true)
                     , StructField("in_reply_to_screen_name",StringType,true)
@@ -321,7 +315,6 @@ object schemas {
                   , StructField("created_at",TimestampType,true)
                   , StructField("favorite_count",LongType,true)
                   , StructField("favorited",BooleanType,true)
-                  , StructField("geo", StructType(Seq(StructField("coordinates",ArrayType(DoubleType,true),true), StructField("type",StringType,true))),true)
                   , StructField("id",LongType,true)
                   , StructField("id_str",StringType,true)
                   , StructField("in_reply_to_screen_name",StringType,true)

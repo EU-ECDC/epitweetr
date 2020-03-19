@@ -17,6 +17,6 @@ send "import demy.Configuration\r"
 send "import demy.storage.Storage\r"
 send "implicit val s = Storage.getLocalStorage\r"
 send "val geonames = Geonames(source = \"/home/fod/datapub/geo/allCountries.txt\", destination = \"/home/fod/github/ecdc-twitter-tool/data/geo\")\r"
-send "val french = Language(name= \"french\", code = \"FR\", vectorsPath = \"/home/fod/datapub/semantic/cc.fr.300.vec.gz\")\r"
+send "val french = Language(name= \"french\", code = \"fr\", vectorsPath = \"/home/fod/datapub/semantic/cc.fr.300.vec.gz\")\r"
 interact'
 cd ..

@@ -1,24 +1,37 @@
 package org.ecdc.twitter 
 
 import demy.storage.{Storage, WriteMode, FSNode}
+import demy.mllib.text.Word2VecApplier
+import demy.util.{log => l, util}
 import org.apache.spark.sql.{SparkSession, Column, DataFrame, Row}
 import org.apache.spark.sql.functions.{col, lit, udf}
 import org.apache.spark.sql.types._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType 
 import org.apache.spark.ml.linalg.{Vectors, DenseVector, Vector=>MLVector}
 import org.apache.spark.ml.classification.{LinearSVC, LinearSVCModel}
-import demy.mllib.text.Word2VecApplier
 import java.lang.reflect.Method
 import Geonames.GeoLookup 
 
 case class Language(name:String, code:String, vectorsPath:String) {
    val modelPath = s"$vectorsPath.model"
+   val vectorsSnapshot = s"$vectorsPath.parquet"
    def getVectors()(implicit spark:SparkSession, storage:Storage) = { 
      import spark.implicits._
      spark.read.text(vectorsPath).as[String]
        .map(s => s.split(" "))
        .filter(a => a.size>2)
-       .map(a => (a(0), Vectors.dense(a.drop(1).map(s => s.toDouble))))
+       .map(a => (a(0), Vectors.dense(a.drop(1).map(s => s.toDouble)), this.code))
+   }
+
+   def getVectorsDF()(implicit spark:SparkSession, storage:Storage) = {
+    /*(if(reuseExisting) util.restoreCheckPoint(this.vectorsSnapshot) else None)
+      .getOrElse{
+        util.checkpoint(
+          df =*/ this.getVectors().toDF("word", "vector", "lang")/*
+          , path = this.vectorsSnapshot
+          , reuseExisting = false
+        )
+      }*/
    }
 
    def prepare(locationPath:String, dataPath:String):Unit = {
@@ -29,7 +42,7 @@ case class Language(name:String, code:String, vectorsPath:String) {
       if(storage.getNode(modelPath).exists)
         LinearSVCModel.load(modelPath)
       else { 
-        val langDico = this.getVectors().toDF("word", "vector") 
+        val langDico = this.getVectorsDF()
        
         val geoVectors = 
           langDico.geoLookup(col("word"), geonames, maxLevDistance= 0, minScore = 150)
