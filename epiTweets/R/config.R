@@ -78,6 +78,8 @@ setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xls
   conf$keyring <- temp$keyring
   conf$schedule_span <- temp$schedule_span
   conf$dataDir <- temp$dataDir
+  conf$geonames <- temp$geonames
+  conf$languages <- temp$languages
   
   #Getting topics from excel topics files if it has changed since las load
   topics <- 
@@ -172,11 +174,11 @@ save_config <- function(path = "data/conf.json") {
   temp <- list()
   temp$dataDir <- conf$dataDir
   temp$schedule_span <- conf$schedule_span
+  temp$geonames <- conf$geonames
+  temp$languages <- conf$languages
   temp$keyring <- conf$keyring
   temp$topics_md5 <- conf$topics_md5
   temp$topics <- conf$topics
-  temp$topics$rank <- NULL
-  temp$topics$schedule_to_run <- NULL
   jsonlite::write_json(temp, path, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
 
 }

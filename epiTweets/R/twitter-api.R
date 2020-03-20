@@ -28,16 +28,18 @@ twitter_get <- function(url, i = 0, retries = 20) {
       conf$token = NULL
       if(exists("x-rate-limit-reset", where = res$headers)) {
         towait <- as.integer(floor(as.numeric(difftime(as.POSIXct(as.integer(res$headers[["x-rate-limit-reset"]]),  origin="1970-01-01"),Sys.time(), units = "secs"))))  
-        message(paste("The twitter application enpoint is about to get rate limitted, waiting", towait,"seconds as requested by twitter"))
+        message(paste("The twitter application enpoint is about to get rate limitted, waiting", towait,"seconds  until", Sys.time() + towait, " as requested by twitter"))
         if(towait < 1) {
           towait = i * i
         } else {
           towait = towait + 5  
         }
+        save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
         Sys.sleep(towait)  
       } else {
         towait <- 15*60 
-        message(paste("The twitter application enpoint is about to get rate limited, but no waiting instruction has been detected. Waiting", towait,"seconds"))
+        save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
+        message(paste("The twitter application enpoint is about to get rate limited, but no waiting instruction has been detected. Waiting", towait,"seconds until", Sys.time()+towait))
         Sys.sleep(towait)  
       }
     }
@@ -45,22 +47,25 @@ twitter_get <- function(url, i = 0, retries = 20) {
   }
   else if(res$status_code == 420 && i <= retries) {
     message("The twitter application is being slown down (rate limited) by twitter, waiting 1 minute before continuing")
+    save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
     Sys.sleep(60)
     conf$token = NULL
     return(twitter_get(url, i = i + 1, retries = retries))
   } else if(res$status_code == 429 && i < retries) {
     if(exists("x-rate-limit-reset", where = res$headers)) {
       towait <- as.integer(floor(as.numeric(difftime(as.POSIXct(as.integer(res$headers[["x-rate-limit-reset"]]),  origin="1970-01-01"),Sys.time(), units = "secs"))))  
-      message(paste("The twitter application enpoint has reached its rate limit, waiting", towait,"seconds as requested by twitter"))
+      message(paste("The twitter application enpoint has reached its rate limit, waiting", towait,"seconds  until", Sys.time()+towait, "as requested by twitter"))
       if(towait < 1) {
         towait = i * i
       } else {
         towait = towait + 5  
       }
+      save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
       Sys.sleep(towait)  
     } else {
       towait <- 15*60 
       message(paste("The twitter application enpoint has reached its rate limit, but no waiting instruction has been detected. Waiting", towait,"seconds"))
+      save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
       Sys.sleep(towait + 10)  
     }
     conf$token = NULL
@@ -71,12 +76,12 @@ twitter_get <- function(url, i = 0, retries = 20) {
     stop(paste("Unauthorized by twitter API"))
   } else if(i <= retries) {
       message(paste("Error status code ",res$status_code,"returned by twitter API waiting for", i*i, "seconds before retry with a new token"))  
+      save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
       Sys.sleep(i * i)
       conf$token = NULL
       return(twitter_get(url, i = i + 1, retries = retries))
   } else {
      writeLines(httr::content(res,as="text"), "lasterror.log")
      stop(paste("Run out of option to call API after",i, "retries. URL tryed:", url ))
-  
   }
 }

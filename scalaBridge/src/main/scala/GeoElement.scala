@@ -20,6 +20,8 @@ case class GeoElement(
   , population:Int
   , geo_type:String
   , time_zone:String
+  , longitude:Double
+  , latitude:Double
 ){
     def first(value:String) = if(value == null || value.length == 0) null else value.split(",")(0)
     def c(value:String, rempl:String) = if(value == null) rempl else value

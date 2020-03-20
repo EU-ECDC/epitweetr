@@ -67,10 +67,11 @@ case class Geonames(source:String, destination:String) {
                       , $"country_code".as("code"), typedLit[String](null).as("parent_code"), typedLit[String](null).as("city"), typedLit[String](null).as("adm4")
                       , typedLit[String](null).as("adm3"), typedLit[String](null).as("adm2"), typedLit[String](null).as("adm1"), typedLit[String](null).as("country")
                       , typedLit[String](null).as("adm4_code"), typedLit[String](null).as("adm3_code"), typedLit[String](null).as("adm2_code"), typedLit[String](null).as("adm1_code")
-                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone")).as[GeoElement]
+                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone"), $"longitude", $"latitude").as[GeoElement]
           .map(current => 
             GeoElement(current.id, current.name, current.alias, current.code, current.parent_code, current.city, current.adm4, current.adm3, current.adm2, current.adm1, current.alias
-                       , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone)
+                       , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone
+                       , current.longitude, current.latitude)
           )
           .persist
       
@@ -82,13 +83,14 @@ case class Geonames(source:String, destination:String) {
                       , concat($"admin1_code", lit(";"),$"country_code").as("code"), $"country_code".as("parent_code"), typedLit[String](null).as("city"), typedLit[String](null).as("adm4")
                       , typedLit[String](null).as("adm3"), typedLit[String](null).as("adm2"), typedLit[String](null).as("adm1"), typedLit[String](null).as("country")
                       , typedLit[String](null).as("adm4_code"), typedLit[String](null).as("adm3_code"), typedLit[String](null).as("adm2_code"), $"admin1_code".as("adm1_code")
-                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone")).as[GeoElement]
+                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone"), $"longitude", $"latitude").as[GeoElement]
 
       val adm1 = adm1_0
           .joinWith(countries, adm1_0("parent_code")===countries("code"), "inner")
           .map(p => p match { case (current, parent)
                   => GeoElement(current.id, current.name, current.alias, current.code, current.parent_code, current.city, current.adm4, current.adm3, current.adm2, current.alias, parent.country
-                                      , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone)
+                                      , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone
+                                      , current.longitude, current.latitude)
           })
           .persist
       
@@ -100,13 +102,14 @@ case class Geonames(source:String, destination:String) {
                       , typedLit[String](null).as("city"), typedLit[String](null).as("adm4")
                       , typedLit[String](null).as("adm3"), typedLit[String](null).as("adm2"), typedLit[String](null).as("adm1"), typedLit[String](null).as("country")
                       , typedLit[String](null).as("adm4_code"), typedLit[String](null).as("adm3_code"), $"admin2_code".as("adm2_code"), $"admin1_code".as("adm1_code")
-                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone")).as[GeoElement]
+                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone"), $"longitude", $"latitude").as[GeoElement]
 
       val adm2 = adm2_0
           .joinWith(adm1, adm2_0("parent_code")===adm1("code") , "inner")
           .map(p => p match { case (current, parent)
                   => GeoElement(current.id, current.name, current.alias, current.code, current.parent_code, current.city, current.adm4, current.adm3, current.alias, parent.adm1, parent.country
-                                      , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone)
+                                      , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone
+                                      , current.longitude, current.latitude)
           })
           .persist
       
@@ -119,13 +122,14 @@ case class Geonames(source:String, destination:String) {
                       , typedLit[String](null).as("city"), typedLit[String](null).as("adm4")
                       , typedLit[String](null).as("adm3"), typedLit[String](null).as("adm2"), typedLit[String](null).as("adm1"), typedLit[String](null).as("country")
                       , typedLit[String](null).as("adm4_code"), $"admin3_code".as("adm3_code"), $"admin2_code".as("adm2_code"), $"admin1_code".as("adm1_code")
-                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone")).as[GeoElement]
+                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone"), $"longitude", $"latitude").as[GeoElement]
 
       val adm3 = adm3_0
           .joinWith(adm2, adm3_0("parent_code")===adm2("code") , "inner")
           .map(p => p match { case (current, parent)
                   => GeoElement(current.id, current.name, current.alias, current.code, current.parent_code, current.city, current.adm4, current.alias, parent.adm2, parent.adm1, parent.country
-                                      , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone)
+                                      , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone
+                                      , current.longitude, current.latitude)
           })
           .persist
       
@@ -137,13 +141,14 @@ case class Geonames(source:String, destination:String) {
                       , concat($"admin3_code", lit(";"),$"admin2_code", lit(";"),$"admin1_code", lit(";"),$"country_code").as("parent_code"), typedLit[String](null).as("city"), typedLit[String](null).as("adm4")
                       , typedLit[String](null).as("adm3"), typedLit[String](null).as("adm2"), typedLit[String](null).as("adm1"), typedLit[String](null).as("country")
                       , $"admin4_code".as("adm4_code"), $"admin3_code".as("adm3_code"), $"admin2_code".as("adm2_code"), $"admin1_code".as("adm1_code")
-                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone")).as[GeoElement]
+                      , $"country_code", $"population", $"feature_code".as("geo_type"), $"timezone".as("time_zone"), $"longitude", $"latitude").as[GeoElement]
 
       val adm4 = adm4_0
           .joinWith(adm3, adm4_0("parent_code")===adm3("code") , "inner")
           .map(p => p match { case (current, parent)
                   => GeoElement(current.id, current.name, current.alias, current.code, current.parent_code, current.city, current.alias,  parent.adm3,  parent.adm2, parent.adm1, parent.country
-                                      , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone)
+                                      , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone
+                                      , current.longitude, current.latitude)
           })
           .persist
       
@@ -160,14 +165,15 @@ case class Geonames(source:String, destination:String) {
                           .otherwise($"country_code").as("parent_code"), typedLit[String](null).as("city"), typedLit[String](null).as("adm4")
                       , typedLit[String](null).as("adm3"), typedLit[String](null).as("adm2"), typedLit[String](null).as("adm1"), typedLit[String](null).as("country")
                       , $"admin4_code".as("adm4_code"), $"admin3_code".as("adm3_code"), $"admin2_code".as("adm2_code"), $"admin1_code".as("adm1_code"), $"country_code", $"population"
-                      , $"feature_code".as("geo_type"), $"timezone".as("time_zone")).as[GeoElement]
+                      , $"feature_code".as("geo_type"), $"timezone".as("time_zone"), $"longitude", $"latitude").as[GeoElement]
 
       val cities = cities_0
           .joinWith(all_regions,cities_0("parent_code")===all_regions("code"), "inner")
           .map(p => p match { 
             case (current, parent) => 
               GeoElement(current.id, current.name, current.alias, current.code, current.parent_code, current.alias, current.adm4,  parent.adm3,  parent.adm2, parent.adm1, parent.country
-                 , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone)
+                 , current.adm4_code, current.adm3_code, current.adm2_code, current.adm1_code, current.country_code, current.population, current.geo_type, current.time_zone
+                 , current.longitude, current.latitude)
            })
           .persist
 
