@@ -1,4 +1,4 @@
-Package: epiTweets
+Package: epitweetr
 Title: Capture and analyze tweets
 Version: 0.0.0.9000
 Authors@R: 
