@@ -22,7 +22,23 @@ get_token <- function() {
 #' It wil internally deal with token génération and rate limits 
 twitter_get <- function(url, i = 0, retries = 20) {
   if(is.null(conf$token) || !exists("token", where = conf)) conf$token <- get_token()
-  res <- httr::GET(url, httr::config(token = conf$token))
+  res <-  tryCatch({
+        httr::GET(url, httr::config(token = conf$token))
+      }, warning = function(warning_condition) {
+        message(paste("retrying because of warning ", warning_condition))
+        towait = i * i
+        save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
+        Sys.sleep(towait)  
+        return(twitter_get(url, i = i + 1, retries = retries))
+      }, error = function(error_condition) {
+        message(paste("retrying because of error ", error_condition))
+        towait = i * i
+        save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
+        Sys.sleep(towait)  
+        return(twitter_get(url, i = i + 1, retries = retries))
+        
+    })
+
   if(res$status_code == 200) {
     if(exists("x-rate-limit-remaining", where = res$headers) && as.integer(res$headers[["x-rate-limit-remaining"]]) == 0 ) {
       conf$token = NULL

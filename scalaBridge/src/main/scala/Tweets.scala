@@ -8,18 +8,35 @@ import demy.util.{log => l, util}
 import demy.{Application, Configuration}
 import org.apache.spark.sql.{SparkSession, Column, Dataset, Row}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{col, udf, input_file_name, explode, coalesce, when, lit, concat}
+import org.apache.spark.sql.functions.{col, udf, input_file_name, explode, coalesce, when, lit, concat, struct}
 import java.sql.Timestamp
 import demy.mllib.text.Word2VecApplier
-
+import Language.AddLikehood
+import Geonames.GeoLookup
+ 
 object Tweets {
-  def getSearchJson(path:String)(implicit spark:SparkSession, storage:Storage) = {
-    spark.read.option("timestampFormat", "EEE MMM dd HH:mm:ss ZZZZZ yyyy").schema(schemas.searchAPI)
+  val textLangCols =  
+    Map(
+      "text"->Some("lang")
+      , "linked_text"->Some("linked_lang")
+      , "user_description"->Some("lang")
+      , "linked_user_description"->Some("linked_lang")
+      , "user_location"->Some("lang")
+      , "linked_user_location"->Some("linked_lang")
+      , "place_full_name"->None.asInstanceOf[Option[String]]
+    )
+  def getSearchJson(path:String, parallelism:Option[Int]=None)(implicit spark:SparkSession, storage:Storage) = {
+    Some(spark.read.option("timestampFormat", "EEE MMM dd HH:mm:ss ZZZZZ yyyy").schema(schemas.searchAPI)
       .json(storage.getNode(path).list(recursive = true).filter(_.path.endsWith(".json.gz")).map(_.path):_*)
+      .withColumn("topic", udf((p:String)=>p.split("/").reverse(2)).apply(input_file_name()))
+      .withColumn("file",  udf((p:String)=>p.split("/").reverse(0)).apply(input_file_name()))
+    )
+    .map(df => parallelism match {case Some(p) => df.repartition(p) case _ => df})
+    .get 
   }
   
-  def getSearchBlocks(path:String)(implicit spark:SparkSession, storage:Storage) = {
-     Tweets.getSearchJson(path)
+  def getSearchBlocks(path:String, parallelism:Option[Int]=None)(implicit spark:SparkSession, storage:Storage) = {
+     Tweets.getSearchJson(path = path, parallelism = parallelism)
        .select(
          col("search_metadata")
          , udf((p:String)=>p.split("/").reverse(2)).apply(input_file_name()).as("topic")
@@ -34,11 +51,13 @@ object Tweets {
        .toDF("query", "topics", "from", "to", "count")
   }
 
-  def getJsonTweets(path:String)(implicit spark:SparkSession, storage:Storage)= {
-      Tweets.getSearchJson(path)
+  def getJsonTweets(path:String, parallelism:Option[Int]=None)(implicit spark:SparkSession, storage:Storage)= {
+      
+    util.checkpoint(
+      Tweets.getSearchJson(path = path, parallelism = parallelism)
         .select(
-          udf((p:String)=>p.split("/").reverse(2)).apply(input_file_name()).as("topic")
-          , udf((p:String)=>p.split("/").reverse(0)).apply(input_file_name()).as("file")
+          col("topic")
+          , col("file")
           , explode(col("statuses")).as("tweet")
         )
         .select(
@@ -74,54 +93,85 @@ object Tweets {
              + col("tweet.place.bounding_box.coordinates").getItem(0).getItem(2).getItem(1)
              + col("tweet.place.bounding_box.coordinates").getItem(0).getItem(3).getItem(1)
              )/4).as("place_latitude")
-        ) 
+        )
+       , s"/home/fod/deleteme/test2.parquet"
+       , partitionBy = None
+       , reuseExisting = false
+       )
   }
 
-  def getJsonTweetsVecorized(path:String, langs:Seq[Language], reuseIndex:Boolean = true, indexPath:String)(implicit spark:SparkSession, storage:Storage) = {
-    val textLang =  
-      Map(
-        "text"->Some("lang")
-        , "linked_text"->Some("linked_lang")
-        , "user_description"->Some("lang")
-        , "linked_user_description"->Some("linked_lang")
-        , "linked_user_location"->None
-        , "user_location"->None
-        , "place_full_name"->None
-      )
-          
+  def getJsonTweetsVectorized(path:String, langs:Seq[Language], reuseIndex:Boolean = true, indexPath:String, parallelism:Option[Int]=None)(implicit spark:SparkSession, storage:Storage) = {
     val vectors =  langs.map(l => l.getVectorsDF().select(concat(col("word"), lit("LANG"), col("lang")).as("word"), col("vector"))).reduce(_.union(_))
+    val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+"
+    val simpleSplitter = "\\s+"
+    Some(Tweets.getJsonTweets(path = path, parallelism = parallelism)
+      .luceneLookups(right = vectors
+        , queries = textLangCols.toSeq.flatMap{
+            case (textCol, Some(lang)) => 
+              Some(
+                udf((text:String, lang:String) =>
+                  if(text == null) 
+                    Array[String]() 
+                  else 
+                    text.replaceAll(twitterSplitter, " ")
+                      .split(simpleSplitter)
+                      .filter(_.size > 0)
+                      .map(w => s"${w}LANG$lang")
+                 ).apply(col(textCol), col(lang)).as(textCol)
+               )
+            case _ => None
+          }
+        , popularity = None
+        , text = col("word")
+        , rightSelect= Array(col("vector"))
+        , leftSelect= Array(col("*"))
+        , maxLevDistance = 0
+        , indexPath = indexPath
+        , reuseExistingIndex = reuseIndex
+        , indexPartitions = 1
+        , maxRowsInMemory=1
+        , indexScanParallelism = 1
+        , tokenizeRegex = None
+        , caseInsensitive = false
+        , minScore = 0.0
+        , boostAcronyms=false
+        , strategy="demy.mllib.index.StandardStrategy"
+    ))
+    .map(df => 
+      df.toDF(df.schema.map(f => if(f.name.endsWith("_res")) f.name.replace("_res", "_vec") else f.name):_* )
+    )
+    .get
+  }
 
-    textLang.foldLeft(Tweets.getJsonTweets(path)){case (df, (textCol, oLang)) => 
-      oLang match {
-        case Some(lang) =>
-          df.luceneLookup(right = vectors
-            , query = udf((text:String, lang:String)=>
-                if(text == null) 
-                  Array[String]() 
-                else 
-                  text
-                    .split("((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+")
-                    .filter(_.size > 0)
-                    .map(w => s"${w}LANG$lang")
-               ).apply(col(textCol), col(lang))
-            , popularity = None
-            , text = col("word")
-            , rightSelect= Array(col("vector"))
-            , leftSelect= Array(col("*"))
-            , maxLevDistance = 0
-            , indexPath = indexPath
-            , reuseExistingIndex = reuseIndex
-            , indexPartitions = 1
-            , maxRowsInMemory=1
-            , indexScanParallelism = 2
-            , tokenizeText = false
-            , caseInsensitive = false
-            , minScore = 0.0
-            , boostAcronyms=false
-            , strategy="demy.mllib.index.StandardStrategy"
-          ).withColumnRenamed("array", s"${textCol}_vec")
-        case _ => df
-      }
-    }
+
+  def getJsonTweetWithLocations(path:String, langs:Seq[Language], geonames:Geonames, reuseIndex:Boolean = true, indexPath:String, minScore:Int, parallelism:Option[Int]=None)(implicit spark:SparkSession, storage:Storage) = {
+     val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+"
+     util.checkpoint(
+       this.getJsonTweetsVectorized(path = path, langs = langs, reuseIndex = reuseIndex, indexPath = indexPath, parallelism = parallelism)
+         .addLikehoods(
+           languages = langs
+           , geonames = geonames
+           , vectorsColNames = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol.map(langCol => s"${textCol}_vec")}
+           , langCodeColNames = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol}
+           , likehoodColNames  = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol.map(langCol => s"${textCol}_geolike")}
+         )
+         .withColumnRenamed("longitude", "tweet_longitude")
+         .withColumnRenamed("latitude", "tweet_latitude")
+       , s"/home/fod/deleteme/test.parquet"
+       , partitionBy = None
+       , reuseExisting = false
+       )
+      .geoLookup(
+        geoTexts = textLangCols.toSeq.map{case (textCol, oLang) => col(textCol)} 
+        , geoNames = geonames
+        , maxLevDistance= 0
+        , termWeightsCols = textLangCols.toSeq.map{case (textCol, oLang) => oLang.map(lang => s"${textCol}_geolike")}
+        , reuseExistingIndex = reuseIndex
+        , minScore = minScore
+        , nGram = 3
+        , stopWords = langs.flatMap(l => l.getStopWords).toSet
+        , tokenizeRegex = Some(twitterSplitter)
+        )
+    
   }
 }

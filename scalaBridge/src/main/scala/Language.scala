@@ -3,7 +3,7 @@ package org.ecdc.twitter
 import demy.storage.{Storage, WriteMode, FSNode}
 import demy.mllib.text.Word2VecApplier
 import demy.util.{log => l, util}
-import org.apache.spark.sql.{SparkSession, Column, DataFrame, Row}
+import org.apache.spark.sql.{SparkSession, Column, DataFrame, Row, Dataset}
 import org.apache.spark.sql.functions.{col, lit, udf}
 import org.apache.spark.sql.types._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType 
@@ -34,6 +34,10 @@ case class Language(name:String, code:String, vectorsPath:String) {
       }*/
    }
 
+   def getStopWords(implicit spark:SparkSession, storage:Storage) = {
+     import spark.implicits._
+     this.getVectors().map(_._1).take(200).toSet
+   }
    def prepare(locationPath:String, dataPath:String):Unit = {
      
    }
@@ -45,12 +49,12 @@ case class Language(name:String, code:String, vectorsPath:String) {
         val langDico = this.getVectorsDF()
        
         val geoVectors = 
-          langDico.geoLookup(col("word"), geonames, maxLevDistance= 0, minScore = 150)
+          langDico.geoLookup(Seq(col("word")), geonames, maxLevDistance= 0, minScore = 10)
             .where(col("geo_id").isNotNull)
             .select(lit(1.0).as("label"), col("vector").as("feature"))
             .limit(1000)
         val nonGeoVectors = 
-          langDico.geoLookup(col("word"), geonames, maxLevDistance= 0, minScore = 30)
+          langDico.geoLookup(Seq(col("word")), geonames, maxLevDistance= 0, minScore = 3)
             .where(col("geo_id").isNull)
             .select(lit(0.0).as("label"), col("vector").as("feature"))
             .limit(10000)
@@ -66,34 +70,66 @@ case class Language(name:String, code:String, vectorsPath:String) {
         trained
       }
    }
-       
-   def addLikeHood(df:DataFrame, geonames:Geonames, vectorsColName:String, likehoodColName:String)(implicit spark:SparkSession, storage:Storage) = {
-     val trained = spark.sparkContext.broadcast(this.getGeoLikehoodModel(geonames))
+ }
+
+ object Language {
+   implicit class AddLikehood(val ds: Dataset[_]) {
+     def addLikehoods(languages:Seq[Language], geonames:Geonames, vectorsColNames:Seq[String], langCodeColNames:Seq[String], likehoodColNames:Seq[String])(implicit spark:SparkSession, storage:Storage) = {
+       Language.addLikehoods(
+         df = ds.toDF
+         , languages = languages
+         , geonames = geonames
+         , vectorsColNames = vectorsColNames
+         , langCodeColNames = langCodeColNames
+         , likehoodColNames = likehoodColNames
+       ) 
+     }
+   }
+   def addLikehoods(df:DataFrame, languages:Seq[Language], geonames:Geonames, vectorsColNames:Seq[String], langCodeColNames:Seq[String], likehoodColNames:Seq[String])(implicit storage:Storage) = {
+     implicit val spark = df.sparkSession
+     val trainedModels = spark.sparkContext.broadcast(languages.map(l => (l.code -> l.getGeoLikehoodModel(geonames))).toMap)
      Some(
        df.rdd.mapPartitions{iter => 
-         val rawPredict =  { 
-           val p = trained.value.getClass.getDeclaredMethod("predictRaw", classOf[MLVector])
-           p.setAccessible(true) 
-           p
-         }
-         iter.map{row => 
-             Some(row.getAs[Array[DenseVector]](vectorsColName))
-               .map(vectors => vectors
-                 .map{vector => 
-                   val scores = rawPredict.invoke(trained.value, vector).asInstanceOf[DenseVector]
-                   val (yes, no) = (scores(1), scores(0))
+         val rawPredict = 
+           trainedModels.value.mapValues{model => 
+             val method = model.getClass.getDeclaredMethod("predictRaw", classOf[MLVector])
+             method.setAccessible(true) 
+             (model, method)
+           }
 
-                   if(no>=0 && yes>=0) yes/(no + yes)
-                   else if(no>=0 && yes<=0) 0.5 - Math.atan(no-yes)/Math.PI
-                   else if(no<=0 && yes>=0) 0.5 + Math.atan(yes-no)/Math.PI
-                   else no/(no + yes)
-                 }
-               )
-             .map(scoreVector => Row.fromSeq(row.toSeq :+ scoreVector))
-             .get
+         iter.map{row => 
+            Some(
+              vectorsColNames.zip(langCodeColNames)
+                .map{case (vectorsCol, langCodeCol) =>
+                  Some((row.getAs[String](langCodeCol), row.getAs[Seq[Row]](vectorsCol).map(r => r.getAs[DenseVector]("vector"))))
+                    .map{case(langCode, vectors) => 
+                      rawPredict.get(langCode)
+                        .map{case (model, method) =>
+                          vectors.map{vector => 
+                            if(vector == null)
+                              0.0
+                            else
+                              Some(method.invoke(model, vector).asInstanceOf[DenseVector])
+                                .map{scores =>
+                                  val (yes, no) = (scores(1), scores(0))
+                                  if(no>=0 && yes>=0) yes/(no + yes)
+                                  else if(no>=0 && yes<=0) 0.5 - Math.atan(no-yes)/Math.PI
+                                  else if(no<=0 && yes>=0) 0.5 + Math.atan(yes-no)/Math.PI
+                                  else no/(no + yes)
+                                }
+                                .get
+                          }
+                        }
+                        .getOrElse(null)
+                    }
+                    .get
+                }
+              )
+              .map(scoreVectors => Row.fromSeq(row.toSeq ++ scoreVectors))
+              .get
          }
        })
-       .map(rdd => spark.createDataFrame(rdd, df.schema.add(likehoodColName, ArrayType(VectorType, true))))
+       .map(rdd => spark.createDataFrame(rdd, StructType(fields = df.schema.fields ++ likehoodColNames.map(colName => StructField(colName , ArrayType(DoubleType, true), true)))))
        .get
    }
 } 

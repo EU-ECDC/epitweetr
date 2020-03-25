@@ -13,29 +13,48 @@ case class Geonames(source:String, destination:String) {
   val allGeosPath = s"$destination/all-geos.parquet"
   val allGeosIndex = s"$destination/all-geos.parquet.index"
 
-  def geoLocate(ds:Dataset[_], geoText:Column, maxLevDistance:Int = 1, reuseExistingIndex:Boolean = true,  minScore:Int = 170, nGram:Int = 3)(implicit storage:Storage) = {
+  def geoLocate(
+    ds:Dataset[_]
+    , geoTexts:Seq[Column]
+    , maxLevDistance:Int = 1
+    , termWeightsCols:Seq[Option[String]]=Seq[Option[String]]()
+    , reuseExistingIndex:Boolean = true
+    , minScore:Int = 170
+    , nGram:Int = 3
+    , stopWords:Set[String] = Set[String]()
+    , tokenizeRegex:Option[String]=None
+    )(implicit storage:Storage) = {
+
     implicit val spark = ds.sparkSession
     import spark.implicits._
-    ds.luceneLookup(
+    val termWeightsPadded = geoTexts.zipWithIndex.map{case (col, i) => if(termWeightsCols.size > i) termWeightsCols(i) else None}
+    ds.luceneLookups(
       right = this.getDataset()
-      , query = geoText
+      , queries = geoTexts.zip(termWeightsPadded).map{
+          case(geoText, None) => geoText
+          case(geoText, Some(termWeight)) => when(col(termWeight).isNotNull, geoText).as(geoText.toString.split("`").last)
+        }
       , popularity = Some(col("pop"))
       , text =  expr("concat(coalesce(city, ''), ' ', coalesce(adm4, ''), ' ', coalesce(adm3, ''), ' ', coalesce(adm2, ''), ' ', coalesce(adm1, ''), ' ', coalesce(adm4, ''), ' ', coalesce(country, ''))")
-      , rightSelect = Array($"id".as("geo_id"), $"name".as("geo_name"), $"code".as("geo_code"), $"geo_type", $"country_code".as("geo_country_code"), $"city_code".as("geo_city_code")
-                              , $"adm1_code".as("geo_adm1_code"), $"adm2_code".as("geo_adm2_code"), $"adm3_code".as("geo_adm3_code"), $"adm4_code".as("geo_adm4_code"), $"pop")
+      , rightSelect = Array(
+          $"id".as("geo_id"), $"name".as("geo_name"), $"code".as("geo_code"), $"geo_type", $"country_code".as("geo_country_code")
+          , $"country".as("geo_country"), $"city".as("geo_city"), $"adm1".as("geo_adm1"), $"adm2".as("geo_adm2"), $"adm3".as("geo_adm3"), $"adm4".as("geo_adm4")
+          , $"population".as("geo_population"), $"pop".as("geo_pop"),  $"latitude".as("geo_latitude"), $"longitude".as("geo_longitude"))
       , leftSelect= Array(col("*"))
       , maxLevDistance=maxLevDistance
       , indexPath= this.allGeosIndex
       , reuseExistingIndex = reuseExistingIndex
       , indexPartitions = 1
-      , maxRowsInMemory=1024
+      , maxRowsInMemory= 1
       , indexScanParallelism = 1
-      , tokenizeText = true
+      , tokenizeRegex = tokenizeRegex
       , minScore = minScore
       , boostAcronyms = true
-      , termWeightsColumnName = None
-      , strategy="demy.mllib.index.NgramStrategy"//"demy.mllib.index.StandardStrategy"
-      , strategyParams=Map(("nNgrams", nGram.toString) )
+      , termWeightsColumnNames = termWeightsPadded
+//      , strategy="demy.mllib.index.StandardStrategy"
+      , stopWords = stopWords
+      , strategy="demy.mllib.index.NgramStrategy"
+      , strategyParams=Map(("nNgrams", nGram.toString))
    )
     
   }
@@ -54,6 +73,8 @@ case class Geonames(source:String, destination:String) {
            .toDF(newNames: _*)
            .withColumn("population",expr("cast(population as int)"))
            .withColumn("id", col("id").cast(IntegerType))
+           .withColumn("longitude", col("longitude").cast(DoubleType))
+           .withColumn("latitude", col("latitude").cast(DoubleType))
            .repartition($"admin1_code")
         , path = allCitiesPath
         , reuseExisting = false
@@ -206,8 +227,9 @@ case class Geonames(source:String, destination:String) {
 
 object Geonames {
   implicit class GeoLookup(val ds: Dataset[_]) {
-    def geoLookup(geoText:Column, geoNames:Geonames, maxLevDistance:Int = 1, reuseExistingIndex:Boolean = true,  minScore:Int = 170, nGram:Int = 3)(implicit storage:Storage) = {
-      geoNames.geoLocate(ds, geoText, maxLevDistance, reuseExistingIndex,  minScore,  nGram) 
+    def geoLookup(geoTexts:Seq[Column], geoNames:Geonames, maxLevDistance:Int = 1, termWeightsCols:Seq[Option[String]]=Seq[Option[String]](), reuseExistingIndex:Boolean = true,  minScore:Int = 170, nGram:Int = 3, stopWords:Set[String]=Set[String](), tokenizeRegex:Option[String]=None)
+      (implicit storage:Storage) = {
+      geoNames.geoLocate(ds, geoTexts, maxLevDistance, termWeightsCols, reuseExistingIndex,  minScore,  nGram, stopWords, tokenizeRegex) 
     }
   }
 }
