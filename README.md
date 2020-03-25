@@ -1,3 +1,3 @@
-# EpiTools: ECDC Twitter tool
+# epitweetr: ECDC Epidemic Intelligence tweets tool
 
 
