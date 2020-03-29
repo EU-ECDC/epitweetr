@@ -5,9 +5,9 @@ import demy.mllib.index.implicits._
 import demy.storage.{Storage, WriteMode, FSNode}
 import demy.util.{log => l, util}
 import demy.{Application, Configuration}
-import org.apache.spark.sql.{SparkSession, Column, Dataset, Row}
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{col, udf, input_file_name, explode, coalesce, when, lit, concat, struct}
+import org.apache.spark.sql.{SparkSession, Column, Dataset, Row, DataFrame}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions.{col, udf, input_file_name, explode, coalesce, when, lit, concat, struct, exp}
 import java.sql.Timestamp
 import demy.mllib.text.Word2VecApplier
 import Language.AddLikehood
@@ -178,8 +178,14 @@ object Tweets {
     .get
   }
 
+  def extractLocations(sourcePath:String, destPath:String, langs:Array[Language], geonames:Geonames, reuseIndex:Boolean, indexPath:String, minScore:Int, parallelism:Int, spark:SparkSession, storage:Storage):Unit
+    =  {
+      implicit val s = spark
+      implicit val ss = storage
+      extractLocations(sourcePath= sourcePath, destPath=destPath, langs = langs.toSeq, geonames=geonames, reuseIndex=reuseIndex, indexPath=indexPath, minScore=minScore, parallelism=Some(parallelism))
+    }
   def extractLocations(sourcePath:String, destPath:String, langs:Seq[Language], geonames:Geonames, reuseIndex:Boolean = true, indexPath:String, minScore:Int, parallelism:Option[Int]=None) 
-    (implicit spark:SparkSession, storage:Storage) = {
+    (implicit spark:SparkSession, storage:Storage):Unit = {
     storage.ensurePathExists(destPath)
     val hoursDone = storage.getNode(destPath)
       .list(recursive = true)
@@ -228,4 +234,48 @@ object Tweets {
       df.unpersist
     }
   }
+
+  def getTweets(tweetPath:String, geoPath:String, pathFilter:Array[String], columns:Array[String], langs:Array[Language],  parallelism:Int,  spark:SparkSession, storage:Storage):DataFrame =  
+  {
+    implicit val s = spark
+    implicit val ss = storage
+    getTweets(tweetPath:String, geoPath:String, pathFilter = pathFilter.toSeq, columns = columns.toSeq, langs.toSeq,  parallelism = Some(parallelism))
+  }
+      
+  def getTweets(tweetPath:String, geoPath:String, pathFilter:Seq[String], columns:Seq[String], langs:Seq[Language],  parallelism:Option[Int])
+    (implicit spark:SparkSession, storage:Storage):DataFrame = {
+      Some(
+        pathFilter.map{filter =>
+          val tweets = getJsonTweets(path = tweetPath, parallelism = parallelism, pathFilter = Some(filter))
+          val locationFiles = storage.getNode(geoPath).list(recursive = true).filter(n => n.path.endsWith(".json.gz") && n.path.matches(filter)).map{n => n.path}
+        
+          Some((tweets
+                , spark.read.schema(schemas.geoLocatedSchema).json(locationFiles: _*))
+            )
+            .map{case (tweets, locations) => 
+               ( tweets
+                  .dropDuplicates("id", "topic")
+                  .where(col("lang").isin(langs.map(_.code):_*))
+                ,locations
+                  .dropDuplicates("id", "topic")
+                  .where(col("lang").isin(langs.map(_.code):_*))
+                  .drop("topic", "file", "lang")
+                  .withColumnRenamed("id", "lid")
+               )
+            }
+            .map{ case (tweets, locations) => 
+              tweets
+                .join(locations, tweets("id")===locations("lid"), "left")
+                .drop("lid")
+            }
+            .get
+        }
+        .reduce{_.union(_)}
+      )
+      .map(df => 
+        df.dropDuplicates("id", "topic")
+          .select(columns.map(c => exp(c)):_*)
+      )
+      .get
+    }
 }

@@ -58,6 +58,8 @@ get_empty_config <- function() {
   ret$keyring <- "file"
   ret$dataDir <- paste(getwd(),"data", sep = "/")
   ret$schedule_span <- 90
+  ret$geolocation_threshold <- 5
+  ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
   ret$topics <- list()
   ret$topics_md5 <- ""
   return(ret)
@@ -80,6 +82,8 @@ setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xls
   conf$dataDir <- temp$dataDir
   conf$geonames <- temp$geonames
   conf$languages <- temp$languages
+  conf$spark_cores <- temp$spark_cores
+  conf$geolocation_threshold <- temp$geolocation_threshold
   
   #Getting topics from excel topics files if it has changed since las load
   topics <- 
@@ -177,6 +181,8 @@ save_config <- function(path = "data/conf.json") {
   temp$geonames <- conf$geonames
   temp$languages <- conf$languages
   temp$keyring <- conf$keyring
+  temp$spark_cores <- conf$spark_cores
+  temp$geolocation_threshold <- conf$geolocation_threshold
   temp$topics_md5 <- conf$topics_md5
   temp$topics <- conf$topics
   jsonlite::write_json(temp, path, pretty = TRUE, force = TRUE, auto_unbox = TRUE)

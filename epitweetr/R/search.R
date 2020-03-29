@@ -36,10 +36,10 @@ search_loop <- function() {
 #' performing a search for a topic and updating current plan
 search_topic <- function(plan, query, topic) {
   message(paste("searching for topic", topic, "since", plan$since_id, "until", plan$max_id))
-  month <- format(Sys.time(), "%Y.%m")
-  file_name <- paste(format(Sys.time(), "%Y.%m.%d.%H"), "json.gz", sep = ".")
-  dest <- paste(conf$dataDir, "tweets", "search", topic, month, file_name, sep = "/")
-  create_dirs(topic, month) 
+  year <- format(Sys.time(), "%Y")
+  file_name <- paste(format(Sys.time(), "%Y.%m.%d"), "json.gz", sep = ".")
+  dest <- paste(conf$dataDir, "tweets", "search", topic, year, file_name, sep = "/")
+  create_dirs(topic, year) 
   if(nchar(query)< 400) {
     resp <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target)
     content = httr::content(resp,as="text")
@@ -194,7 +194,7 @@ request_finished.get_plan <- function(current, less_than_count, max_id, since_id
 }
 
 #' create topic directories if they do not exists
-create_dirs <- function(topic, month) {
+create_dirs <- function(topic, year) {
   if(!file.exists(paste(conf$dataDir, sep = "/"))){
     dir.create(paste(conf$dataDir, sep = "/"), showWarnings = FALSE)
   }  
@@ -204,7 +204,7 @@ create_dirs <- function(topic, month) {
   if(!file.exists(paste(conf$dataDir, "tweets", "search", topic, sep = "/"))){
     dir.create(paste(conf$dataDir, "tweets", "search", topic,  sep = "/"), showWarnings = FALSE)
   }  
-  if(!file.exists(paste(conf$dataDir, "tweets", "search", topic, month , sep = "/"))){
-    dir.create(paste(conf$dataDir, "tweets", "search", topic, month, sep = "/"), showWarnings = FALSE)
+  if(!file.exists(paste(conf$dataDir, "tweets", "search", topic, year , sep = "/"))){
+    dir.create(paste(conf$dataDir, "tweets", "search", topic, year, sep = "/"), showWarnings = FALSE)
   }  
 }

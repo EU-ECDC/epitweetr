@@ -509,4 +509,29 @@ object schemas {
           ,true
         )
     ))
+    val geoLocationSchema = StructType(Seq(
+       StructField("geo_code",StringType,true)
+       , StructField("geo_country_code",StringType,true)
+       , StructField("geo_id",LongType,true)
+       , StructField("geo_latitude",DoubleType,true)
+       , StructField("geo_longitude",DoubleType,true)
+       , StructField("geo_name",StringType,true)
+       , StructField("geo_type",StringType,true)
+      ))
+
+    val geoLocatedSchema = {
+      StructType(Seq(
+        StructField("file",StringType,true)
+        , StructField("topic",StringType,true)
+        , StructField("id",LongType,true)
+        , StructField("is_geo_located",BooleanType,true)
+        , StructField("lang",StringType,true)
+        , StructField("linked_place_full_name_loc", geoLocationSchema,true)
+        , StructField("linked_text_loc", geoLocationSchema,true)
+        , StructField("place_full_name_loc", geoLocationSchema,true)
+        , StructField("text_loc", geoLocationSchema,true)
+        , StructField("user_description_loc", geoLocationSchema,true)
+        , StructField("user_location_loc", geoLocationSchema,true)
+        ))
+    }
 }

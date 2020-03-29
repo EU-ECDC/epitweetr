@@ -7,9 +7,9 @@ export PATH=$PATH:$JAVA_HOME/bin
 cd $cdir/scalaBridge
 sbt assembly
 
-cp $cdir/scalaBridge/target/scala-2.11/ecdc-twitter-bundle-assembly-1.0.jar $cdir/epiTweets/java
+cp $cdir/scalaBridge/target/scala-2.11/ecdc-twitter-bundle-assembly-1.0.jar $cdir/epitweetr/java
 
-cd $cdir/epiTweets
+cd $cdir/epitweetr
 Rscript ../devscripts/package.R
 
 cd $cdir
