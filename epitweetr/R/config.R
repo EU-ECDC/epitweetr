@@ -60,6 +60,7 @@ get_empty_config <- function() {
   ret$schedule_span <- 90
   ret$geolocation_threshold <- 5
   ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
+  ret$spark_memory <- "12g"
   ret$topics <- list()
   ret$topics_md5 <- ""
   return(ret)
@@ -67,7 +68,7 @@ get_empty_config <- function() {
 
 #' Build configuration values for application from a configuration json file
 #' @export
-setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xlsx") {
+setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xlsx", ignore_keyring=FALSE) {
   #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
   temp <- 
     if(file.exists(path)) {
@@ -83,6 +84,7 @@ setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xls
   conf$geonames <- temp$geonames
   conf$languages <- temp$languages
   conf$spark_cores <- temp$spark_cores
+  conf$spark_memory <- temp$spark_memory
   conf$geolocation_threshold <- temp$geolocation_threshold
   
   #Getting topics from excel topics files if it has changed since las load
@@ -134,40 +136,43 @@ setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xls
     temp$topics_md5 <- topics$md5
   }
  
-  #Loading topic related infomation on confif filr 
+  #Loading topic related infomation on config file 
   conf$topics_md5 <- temp$topics_md5 
   conf$topics <- temp$topics
   #Copying plans
-  for(i in 1:length(temp$topics)) {
-    if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
-      conf$topics[[i]]$plan <- list()
+  if(length(temp$topics)>0) {
+    for(i in 1:length(temp$topics)) {
+      if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
+        conf$topics[[i]]$plan <- list()
+      }
+      else {
+        conf$topics[[i]]$plan <-  
+        lapply(1:length(temp$topics[[i]]$plan), 
+          function(j) get_plan(
+            expected_end = temp$topics[[i]]$plan[[j]]$expected_end
+            , scheduled_for = temp$topics[[i]]$plan[[j]]$scheduled_for
+            , start_on = temp$topics[[i]]$plan[[j]]$start_on
+            , end_on = temp$topics[[i]]$plan[[j]]$end_on
+            , max_id = temp$topics[[i]]$plan[[j]]$max_id
+            , since_id = temp$topics[[i]]$plan[[j]]$since_id
+            , since_target = temp$topics[[i]]$plan[[j]]$since_target
+            , results_span = temp$topics[[i]]$plan[[j]]$results_span
+            , requests = temp$topics[[i]]$plan[[j]]$requests
+            , progress = temp$topics[[i]]$plan[[j]]$progress
+        ))
+      }
     }
-    else {
-      conf$topics[[i]]$plan <-  
-      lapply(1:length(temp$topics[[i]]$plan), 
-        function(j) get_plan(
-          expected_end = temp$topics[[i]]$plan[[j]]$expected_end
-          , scheduled_for = temp$topics[[i]]$plan[[j]]$scheduled_for
-          , start_on = temp$topics[[i]]$plan[[j]]$start_on
-          , end_on = temp$topics[[i]]$plan[[j]]$end_on
-          , max_id = temp$topics[[i]]$plan[[j]]$max_id
-          , since_id = temp$topics[[i]]$plan[[j]]$since_id
-          , since_target = temp$topics[[i]]$plan[[j]]$since_target
-          , results_span = temp$topics[[i]]$plan[[j]]$results_span
-          , requests = temp$topics[[i]]$plan[[j]]$requests
-          , progress = temp$topics[[i]]$plan[[j]]$progress
-      ))
-    }
-  }
-  
+  } 
   #Getting variables stored on keyring
   #Setting up keyring
-  kr <- get_key_ring(conf$keyring)
-  conf$twitter_auth <- list()
-  # Fetching and updating variables from keyring
-  for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
-    if(is_secret_set(v)) {
-      conf$twitter_auth[[v]] <- get_secret(v)
+  if(!ignore_keyring) {
+    kr <- get_key_ring(conf$keyring)
+    conf$twitter_auth <- list()
+    # Fetching and updating variables from keyring
+    for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
+      if(is_secret_set(v)) {
+        conf$twitter_auth[[v]] <- get_secret(v)
+      }
     }
   }
 }
@@ -182,6 +187,7 @@ save_config <- function(path = "data/conf.json") {
   temp$languages <- conf$languages
   temp$keyring <- conf$keyring
   temp$spark_cores <- conf$spark_cores
+  temp$spark_memory <- conf$spark_memory
   temp$geolocation_threshold <- conf$geolocation_threshold
   temp$topics_md5 <- conf$topics_md5
   temp$topics <- conf$topics

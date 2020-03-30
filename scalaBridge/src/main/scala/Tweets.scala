@@ -7,7 +7,7 @@ import demy.util.{log => l, util}
 import demy.{Application, Configuration}
 import org.apache.spark.sql.{SparkSession, Column, Dataset, Row, DataFrame}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.functions.{col, udf, input_file_name, explode, coalesce, when, lit, concat, struct, exp}
+import org.apache.spark.sql.functions.{col, udf, input_file_name, explode, coalesce, when, lit, concat, struct, expr}
 import java.sql.Timestamp
 import demy.mllib.text.Word2VecApplier
 import Language.AddLikehood
@@ -274,7 +274,7 @@ object Tweets {
       )
       .map(df => 
         df.dropDuplicates("id", "topic")
-          .select(columns.map(c => exp(c)):_*)
+          .select(columns.map(c => expr(c)):_*)
       )
       .get
     }
