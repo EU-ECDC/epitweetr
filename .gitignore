@@ -55,7 +55,7 @@ vignettes/*.pdf
 .Renviron
 
 # R customized profile
-.Rprofile
+#.Rprofile
 
 #Roxygen managed files
 */man/*.Rd

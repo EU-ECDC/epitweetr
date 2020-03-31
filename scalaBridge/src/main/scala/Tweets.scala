@@ -101,12 +101,25 @@ object Tweets {
         )
   }
 
-  def getJsonTweetsVectorized(path:String, langs:Seq[Language], reuseIndex:Boolean = true, indexPath:String, parallelism:Option[Int]=None, pathFilter:Option[String]=None)(implicit spark:SparkSession, storage:Storage) = {
+  def getJsonTweetsVectorized(path:String, langs:Seq[Language], reuseIndex:Boolean = true, indexPath:String, parallelism:Option[Int]=None, pathFilter:Option[String]=None, ignoreIdsOn:Option[String]=None)(implicit spark:SparkSession, storage:Storage) = {
     val vectors =  langs.map(l => l.getVectorsDF().select(concat(col("word"), lit("LANG"), col("lang")).as("word"), col("vector"))).reduce(_.union(_))
     val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+"
     val simpleSplitter = "\\s+"
-    Some(Tweets.getJsonTweets(path = path, parallelism = parallelism, pathFilter = pathFilter)
-      .where(col("lang").isin(langs.map(l => l.code):_*))
+    Some(
+      (Tweets.getJsonTweets(path = path, parallelism = parallelism, pathFilter = pathFilter)
+          .where(col("lang").isin(langs.map(l => l.code):_*))
+       , ignoreIdsOn
+      )
+    )
+    .map{
+      case (df, None) => df
+      case (df, Some(toIgnorePath)) =>
+        l.msg(s"ignoring $toIgnorePath")
+        df.joinWith(spark.read.json(toIgnorePath).select(col("id").as("ignore_id")).distinct(), col("id")===col("ignore_id"), "left")
+          .where(col("ignore_id").isNotNull)
+          .drop("ignore_id")
+    }
+    .map(df => df
       .luceneLookups(right = vectors
         , queries = textLangCols.toSeq.flatMap{
             case (textCol, Some(lang)) => 
@@ -146,11 +159,11 @@ object Tweets {
   }
 
 
-  def getJsonTweetWithLocations(path:String, langs:Seq[Language], geonames:Geonames, reuseIndex:Boolean = true, indexPath:String, minScore:Int, parallelism:Option[Int]=None, pathFilter:Option[String]=None)
+  def getJsonTweetWithLocations(path:String, langs:Seq[Language], geonames:Geonames, reuseIndex:Boolean = true, indexPath:String, minScore:Int, parallelism:Option[Int]=None, pathFilter:Option[String]=None, ignoreIdsOn:Option[String]=None)
     (implicit spark:SparkSession, storage:Storage) = {
      val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+"
      Some(
-       this.getJsonTweetsVectorized(path = path, langs = langs, reuseIndex = reuseIndex, indexPath = indexPath, parallelism = parallelism, pathFilter = pathFilter)
+       this.getJsonTweetsVectorized(path = path, langs = langs, reuseIndex = reuseIndex, indexPath = indexPath, parallelism = parallelism, pathFilter = pathFilter, ignoreIdsOn = ignoreIdsOn)
          .addLikehoods(
            languages = langs
            , geonames = geonames
@@ -187,26 +200,28 @@ object Tweets {
   def extractLocations(sourcePath:String, destPath:String, langs:Seq[Language], geonames:Geonames, reuseIndex:Boolean = true, indexPath:String, minScore:Int, parallelism:Option[Int]=None) 
     (implicit spark:SparkSession, storage:Storage):Unit = {
     storage.ensurePathExists(destPath)
-    val hoursDone = storage.getNode(destPath)
+    val filesDone = storage.getNode(destPath)
       .list(recursive = true)
       .filter(n => n.path.endsWith(".json.gz"))
       .map(_.path).map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
-      .toSet
-
-    val hours = storage.getNode(sourcePath)
+      .sortWith(_ < _)
+  
+    val doneButLast = filesDone.dropRight(1).toSet
+    val lastDone = filesDone.last
+   
+    val files = storage.getNode(sourcePath)
       .list(recursive = true)
       .filter(n => n.path.endsWith(".json.gz"))
       .map(_.path).map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
-      .filter(p => !hoursDone(p))
+      .filter(p => !doneButLast(p))
       .distinct
       .sortWith(_ < _)
-      .dropRight(1)
       .toArray
 
-    hours.foreach{hour => 
-      l.msg(s"geolocating tweets for $hour") 
+    files.foreach{file => 
+      l.msg(s"geolocating tweets for $file") 
       val df = Tweets.getJsonTweetWithLocations(
           path = sourcePath
           , langs=langs
@@ -215,7 +230,8 @@ object Tweets {
           , indexPath=indexPath
           , minScore = minScore
           , parallelism = parallelism
-          , pathFilter = Some(s".*${hour.replace(".", "\\.")}.*")
+          , pathFilter = Some(s".*${file.replace(".", "\\.")}.*")
+          , ignoreIdsOn = if(file == lastDone) Some(s"$destPath/${file.take(7)}/$file.json.gz") else None
         )
         .select((
           Seq(col("topic"), col("file"), col("lang"), col("id"))
@@ -229,8 +245,8 @@ object Tweets {
            , false
            ).otherwise(true)
         )
-      df.write.mode("overwrite").options(Map("compression" -> "gzip"))
-        .json(s"$destPath/${hour.take(7)}/$hour.json.gz")
+      df.write.mode("append").options(Map("compression" -> "gzip"))
+        .json(s"$destPath/${file.take(7)}/$file.json.gz")
       df.unpersist
     }
   }

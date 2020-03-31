@@ -58,6 +58,8 @@ aggregate_tweets <- function() {
   message("aggregation done!")
 }
 
+#' Getting already aggregated datasets
+#' @export
 get_aggregates <- function(dataset = "geolocated") {
   files <- list.files(path = file.path(conf$dataDir, "series"), recursive=TRUE, pattern = paste(dataset, ".Rds", sep=""))
   dfs <- lapply(files, function (file) readRDS(file.path(conf$dataDir, "series", file)))
