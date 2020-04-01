@@ -114,8 +114,7 @@ object Tweets {
     .map{
       case (df, None) => df
       case (df, Some(toIgnorePath)) =>
-        l.msg(s"ignoring $toIgnorePath")
-        df.joinWith(spark.read.json(toIgnorePath).select(col("id").as("ignore_id")).distinct(), col("id")===col("ignore_id"), "left")
+        df.join(spark.read.json(toIgnorePath).select(col("id").as("ignore_id")).distinct(), col("id")===col("ignore_id"), "left")
           .where(col("ignore_id").isNotNull)
           .drop("ignore_id")
     }
@@ -202,11 +201,12 @@ object Tweets {
     storage.ensurePathExists(destPath)
     val filesDone = storage.getNode(destPath)
       .list(recursive = true)
-      .filter(n => n.path.endsWith(".json.gz"))
+      .filter(n => n.path.endsWith(".json.gz") && n.isDirectory)
       .map(_.path).map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
+      .distinct
       .sortWith(_ < _)
-  
+    
     val doneButLast = filesDone.dropRight(1).toSet
     val lastDone = filesDone.last
    

@@ -9,13 +9,18 @@ search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
 
 #' Get twitter token
 get_token <- function() {
-  if(file.exists("~/.rtweet_token.rds")) file.remove("~/.rtweet_token.rds")
-  token <- rtweet::create_token(
-    app = conf$twitter_auth$app
-    , consumer_key =conf$twitter_auth$api_key
-    , consumer_secret =conf$twitter_auth$api_secret
-    , access_token =conf$twitter_auth$access_token
-    , access_secret = conf$twitter_auth$access_token_secret)  
+  if(exists("access_token", where = conf$twitter_auth)) {  
+    if(file.exists("~/.rtweet_token.rds")) file.remove("~/.rtweet_token.rds")
+    token <- rtweet::create_token(
+      app = conf$twitter_auth$app
+      , consumer_key =conf$twitter_auth$api_key
+      , consumer_secret =conf$twitter_auth$api_secret
+      , access_token =conf$twitter_auth$access_token
+      , access_secret = conf$twitter_auth$access_token_secret)
+    token <- rtweet::bearer_token(token)
+  } else {
+    token <- rtweet::get_token()  
+  } 
   return(token)
 }
 
@@ -24,7 +29,13 @@ get_token <- function() {
 twitter_get <- function(url, i = 0, retries = 20) {
   if(is.null(conf$token) || !exists("token", where = conf)) conf$token <- get_token()
   res <-  tryCatch({
-        httr::GET(url, httr::config(token = conf$token))
+        httr::GET(
+          url
+          , if("bearer" %in% class(conf$token)) 
+              httr::add_headers(Authorization = paste("Bearer", attr(conf$token, "bearer")$access_token, sep = " "))
+            else 
+              httr::config(token = conf$token)
+        )
       }, warning = function(warning_condition) {
         message(paste("retrying because of warning ", warning_condition))
         towait = i * i
