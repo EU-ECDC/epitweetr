@@ -3,6 +3,8 @@
 #' @export
 # plotting and pipes - tidyverse!
 library(tidyverse) 
+#colors o improve readability for those who are colour-blind
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 #trendline on dates, countries and topic selected
 trend_line <- function(s_topic,s_country,date_min,date_max) {
   #Importing pipe operator
@@ -19,11 +21,12 @@ trend_line <- function(s_topic,s_country,date_min,date_max) {
           %>% dplyr::filter(topic==s_topic )
           %>% dplyr::filter(tweet_geo_country_code %in% s_country ))
     
-    fig_line <- ggplot(fig, aes(x = created_date, y = t,fill=factor(tweet_geo_country_code),color=tweet_geo_country_code)) +
-      geom_line() +
+    fig_line <- ggplot(fig, aes(x = created_date, y = t)) +
+      geom_line(aes(colour=tweet_geo_country_code, group=tweet_geo_country_code)) +
       ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
       xlab('Date') +
       ylab('Number of tweets') +
+      scale_colour_manual(values=cbPalette)+
       scale_y_continuous(limits = c(0, max(fig$t)), expand = c(0,0)) +
       scale_x_date(date_labels = "%d %b",
                    expand = c(0, 0),
@@ -44,7 +47,7 @@ trend_line <- function(s_topic,s_country,date_min,date_max) {
             #%>% dplyr::top_n(100)
             %>% dplyr::filter(topic==s_topic ))
     fig_line <- ggplot(fig, aes(x = created_date, y = t)) +
-      geom_line(colour = "green") +
+      geom_line(colour = "#65b32e") +
       ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
       xlab('Date') +
       ylab('Number of tweets') +
@@ -81,11 +84,12 @@ trend_line_weeknum <- function(s_topic,s_country,date_min,date_max) {
             %>% dplyr::filter(topic==s_topic )
             %>% dplyr::filter(tweet_geo_country_code %in% s_country ))
     fig$created_weeknum <-as.Date(as.character(fig$created_weeknum),"%Y%W")
-    fig_line <- ggplot(fig, aes(x = created_weeknum, y = t,fill=factor(tweet_geo_country_code),color=tweet_geo_country_code)) +
-      geom_line() +
+    fig_line <- ggplot(fig, aes(x = created_weeknum, y = t)) +
+      geom_line(aes(colour=tweet_geo_country_code, group=tweet_geo_country_code)) +
       ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
       xlab('Date') +
       ylab('Number of tweets') +
+      scale_colour_manual(values=cbPalette)+
       scale_y_continuous(limits = c(0, max(fig$t)), expand = c(0,0)) +
       scale_x_date(date_labels = "%V%G",
                    expand = c(0, 0),
@@ -107,7 +111,7 @@ trend_line_weeknum <- function(s_topic,s_country,date_min,date_max) {
             %>% dplyr::filter(topic==s_topic ))
     fig$created_weeknum <-as.Date(as.character(fig$created_weeknum),"%Y%W")
     fig_line <- ggplot(fig, aes(x = created_weeknum, y = t)) +
-      geom_line(colour = "green") +
+      geom_line(colour = "#65b32e") +
       ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
       xlab('Date') +
       ylab('Number of tweets') +
@@ -127,6 +131,6 @@ trend_line_weeknum <- function(s_topic,s_country,date_min,date_max) {
   # Show figure in 'plots' pannel
   fig_line
 }
-#trend_line('Ebola',c("BE","MX","US"), '2020-03-10','2020-03-26')
+trend_line('Ebola',c("BE","MX","US"), '2020-03-10','2020-03-26')
 #trend_line('Ebola',c(), '2020-03-10','2020-03-26')
 #To do : allow both types of data (weekly or daily)
