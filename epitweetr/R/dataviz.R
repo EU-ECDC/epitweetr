@@ -1,8 +1,6 @@
 
 #' Search for all tweets on topics defined on configuration
 #' @export
-# plotting and pipes - tidyverse!
-library(tidyverse) 
 #colors o improve readability for those who are colour-blind
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 #trendline on dates, countries and topic selected
@@ -21,7 +19,7 @@ trend_line <- function(s_topic,s_country,date_min,date_max) {
           %>% dplyr::filter(topic==s_topic )
           %>% dplyr::filter(tweet_geo_country_code %in% s_country ))
     
-    fig_line <- ggplot(fig, aes(x = created_date, y = t)) +
+    fig_line <- ggplot2::ggplot(fig, aes(x = created_date, y = t)) +
       geom_line(aes(colour=tweet_geo_country_code, group=tweet_geo_country_code)) +
       ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
       xlab('Date') +
@@ -46,7 +44,7 @@ trend_line <- function(s_topic,s_country,date_min,date_max) {
             %>% dplyr::arrange(desc(t)) 
             #%>% dplyr::top_n(100)
             %>% dplyr::filter(topic==s_topic ))
-    fig_line <- ggplot(fig, aes(x = created_date, y = t)) +
+    fig_line <- ggplot2::ggplot(fig, aes(x = created_date, y = t)) +
       geom_line(colour = "#65b32e") +
       ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
       xlab('Date') +
@@ -84,7 +82,7 @@ trend_line_weeknum <- function(s_topic,s_country,date_min,date_max) {
             %>% dplyr::filter(topic==s_topic )
             %>% dplyr::filter(tweet_geo_country_code %in% s_country ))
     fig$created_weeknum <-as.Date(as.character(fig$created_weeknum),"%Y%W")
-    fig_line <- ggplot(fig, aes(x = created_weeknum, y = t)) +
+    fig_line <- ggplot2::ggplot(fig, aes(x = created_weeknum, y = t)) +
       geom_line(aes(colour=tweet_geo_country_code, group=tweet_geo_country_code)) +
       ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
       xlab('Date') +
@@ -110,7 +108,7 @@ trend_line_weeknum <- function(s_topic,s_country,date_min,date_max) {
             #%>% dplyr::top_n(100)
             %>% dplyr::filter(topic==s_topic ))
     fig$created_weeknum <-as.Date(as.character(fig$created_weeknum),"%Y%W")
-    fig_line <- ggplot(fig, aes(x = created_weeknum, y = t)) +
+    fig_line <- ggplot2::ggplot(fig, aes(x = created_weeknum, y = t)) +
       geom_line(colour = "#65b32e") +
       ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
       xlab('Date') +
@@ -131,6 +129,21 @@ trend_line_weeknum <- function(s_topic,s_country,date_min,date_max) {
   # Show figure in 'plots' pannel
   fig_line
 }
-trend_line('Ebola',c("BE","MX","US"), '2020-03-10','2020-03-26')
-#trend_line('Ebola',c(), '2020-03-10','2020-03-26')
-#To do : allow both types of data (weekly or daily)
+
+#######################################MAP#####################################
+create_map <- function(topic, date_min,date_max){
+  #Importing pipe operator
+  `%>%` <- magrittr::`%>%`
+
+  dfs <- get_aggregates()
+  fig_map <- (dfs
+            # keep records with latitude and longitude
+          %>% dplyr::filter(!is.na(tweet_latitude) && !is.na(tweet_longitude))
+          #only selected topic
+          %>% dplyr::filter(topic==s_topic ))
+          #if(!is.na(date_min)){fig_map <- dplyr::filter(fig_map,created_date >= date_min )}
+          #if(!is.na(date_max)){fig_map <- dplyr::filter(fig_map,created_date <= date_max )}
+  mymap <- maps::map("world", fill=TRUE, col="white", bg="lightblue", ylim=c(-60, 90), mar=c(0,0,0,0))
+  points(fig_map$tweet_longitude, fig_map$tweet_latitude, col = "red", cex = 1)
+  }
+
