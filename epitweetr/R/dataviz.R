@@ -1,10 +1,10 @@
 
 #' Search for all tweets on topics defined on configuration
 #' @export
-#colors o improve readability for those who are colour-blind
+#colors to improve readability for those who are colour-blind
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 #trendline on dates, countries and topic selected
-trend_line <- function(s_topic,s_country,date_min,date_max) {
+trend_line <- function(s_topic,s_country=c(),date_min="1900-01-01",date_max="2100-01-01") {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   
