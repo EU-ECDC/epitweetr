@@ -19,23 +19,23 @@ trend_line <- function(s_topic,s_country,date_min,date_max) {
           %>% dplyr::filter(topic==s_topic )
           %>% dplyr::filter(tweet_geo_country_code %in% s_country ))
     
-    fig_line <- ggplot2::ggplot(fig, aes(x = created_date, y = t)) +
-      geom_line(aes(colour=tweet_geo_country_code, group=tweet_geo_country_code)) +
-      ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
-      xlab('Date') +
-      ylab('Number of tweets') +
-      scale_colour_manual(values=cbPalette)+
-      scale_y_continuous(limits = c(0, max(fig$t)), expand = c(0,0)) +
-      scale_x_date(date_labels = "%d %b",
+    fig_line <- ggplot2::ggplot(fig, ggplot2::aes(x = created_date, y = t)) +
+      ggplot2::geom_line(ggplot2::aes(colour=tweet_geo_country_code, group=tweet_geo_country_code)) +
+      ggplot2::ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
+      ggplot2::xlab('Date') +
+      ggplot2::ylab('Number of tweets') +
+      ggplot2::scale_colour_manual(values=cbPalette)+
+      ggplot2::scale_y_continuous(limits = c(0, max(fig$t)), expand = c(0,0)) +
+      ggplot2::scale_x_date(date_labels = "%d %b",
                    expand = c(0, 0),
                    breaks = function(x) seq.Date(from = min(x), to = max(x), by = "7 days")) +
-      theme_classic() +
-      theme(plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
-            axis.text = element_text(colour = "black", size = 16),
-            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 0.5, 
-                                       margin = margin(-15, 0, 0, 0)),
-            axis.title.x = element_text(margin = margin(30, 0, 0, 0), size = 16),
-            axis.title.y = element_text(margin = margin(-25, 0, 0, 0), size = 16))
+      ggplot2::theme_classic() +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 18, face = "bold"),
+            axis.text = ggplot2::element_text(colour = "black", size = 16),
+            axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
+                                       margin = ggplot2::margin(-15, 0, 0, 0)),
+            axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 16),
+            axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 16))
   } else{ #no countries selected, without aggregation by country
     fig <- (dfs
             %>% dplyr::group_by(created_date, topic) 
@@ -44,22 +44,22 @@ trend_line <- function(s_topic,s_country,date_min,date_max) {
             %>% dplyr::arrange(desc(t)) 
             #%>% dplyr::top_n(100)
             %>% dplyr::filter(topic==s_topic ))
-    fig_line <- ggplot2::ggplot(fig, aes(x = created_date, y = t)) +
-      geom_line(colour = "#65b32e") +
-      ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
-      xlab('Date') +
-      ylab('Number of tweets') +
-      scale_y_continuous(limits = c(0, max(fig$t)), expand = c(0,0)) +
-      scale_x_date(date_labels = "%d %b",
+    fig_line <- ggplot2::ggplot(fig, ggplot2::aes(x = created_date, y = t)) +
+      ggplot2::geom_line(colour = "#65b32e") +
+      ggplot2::ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
+      ggplot2::xlab('Date') +
+      ggplot2::ylab('Number of tweets') +
+      ggplot2::scale_y_continuous(limits = c(0, max(fig$t)), expand = c(0,0)) +
+      ggplot2::scale_x_date(date_labels = "%d %b",
                    expand = c(0, 0),
                    breaks = function(x) seq.Date(from = min(x), to = max(x), by = "7 days")) +
-      theme_classic() +
-      theme(plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
-            axis.text = element_text(colour = "black", size = 16),
-            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 0.5, 
-                                       margin = margin(-15, 0, 0, 0)),
-            axis.title.x = element_text(margin = margin(30, 0, 0, 0), size = 16),
-            axis.title.y = element_text(margin = margin(-25, 0, 0, 0), size = 16))
+      ggplot2::theme_classic() +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 18, face = "bold"),
+            axis.text = ggplot2::element_text(colour = "black", size = 16),
+            axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
+                                       margin = ggplot2::margin(-15, 0, 0, 0)),
+            axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 16),
+            axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 16))
     
   }
   # Show figure in 'plots' pannel
