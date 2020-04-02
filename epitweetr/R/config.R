@@ -55,7 +55,10 @@ get_secret <- function(secret) {
 #' get empty config for initialization
 get_empty_config <- function() {
   ret <- list()
-  ret$keyring <- "file"
+  ret$keyring <- 
+   if(.Platform$OS.type == "windows") "wincred"
+   else if(.Platform$OS.type == "mac") "macos"
+   else "file"
   ret$dataDir <- paste(getwd(),"data", sep = "/")
   ret$schedule_span <- 90
   ret$geolocation_threshold <- 5

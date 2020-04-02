@@ -1,3 +1,5 @@
+#Environment for storing caches datasets
+cached <- new.env()
 
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' Saving aggregated data as weekly RDS files
@@ -60,10 +62,19 @@ aggregate_tweets <- function() {
 
 #' Getting already aggregated datasets
 #' @export
-get_aggregates <- function(dataset = "geolocated") {
-  files <- list.files(path = file.path(conf$dataDir, "series"), recursive=TRUE, pattern = paste(dataset, ".Rds", sep=""))
-  dfs <- lapply(files, function (file) readRDS(file.path(conf$dataDir, "series", file)))
-  return(jsonlite::rbind_pages(dfs))
+get_aggregates <- function(dataset = "geolocated", cache = TRUE) {
+  
+  #If dataset is already on cache return it
+  if(exists(dataset, where = cached)) {
+    return (cached[[dataset]])
+  }
+  else {
+    files <- list.files(path = file.path(conf$dataDir, "series"), recursive=TRUE, pattern = paste(dataset, ".Rds", sep=""))
+    dfs <- lapply(files, function (file) readRDS(file.path(conf$dataDir, "series", file)))
+    ret <- jsonlite::rbind_pages(dfs)
+    if(cache) cached[[dataset]] <- ret
+    return(ret)
+  }
 } 
 
 #' Get a dataframes with dates and weeknames to aggregate
