@@ -263,19 +263,25 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
 }
 
 #######################################MAP#####################################
-create_map <- function(s_topic=c(),date_min="1900-01-01",date_max="2100-01-01"){
+create_map <- function(s_topic=c(),geo_code = "tweet",type_date="days",date_min="1900-01-01",date_max="2100-01-01"){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-  
+  type_date <- ifelse(type_date=="days","created_date","created_weeknum")
+  longitude <- ifelse(geo_code=="tweet","tweet_longitude","user_longitude")
+  latitude <- ifelse(geo_code=="tweet","tweet_latitude","user_latitude")
   dfs <- get_aggregates()
+  colnames(dfs)[colnames(dfs)== type_date] <- "date"
+  colnames(dfs)[colnames(dfs)== longitude] <- "longitude"
+  colnames(dfs)[colnames(dfs)== latitude] <- "latitude"
   fig_map <- (dfs
               # keep records with latitude and longitude
-              %>% dplyr::filter(created_date >= date_min && created_date <= date_max)
-              %>% dplyr::filter(!is.na(tweet_latitude) && !is.na(tweet_longitude)))
+              %>% dplyr::filter(date >= date_min && date <= date_max)
+              %>% dplyr::filter(!is.na(longitude))
+              %>% dplyr::filter(!is.na(latitude)))
               #only selected topic
              if(length(s_topic>0)){ 
                fig_map <- (fig_map %>% dplyr::filter(topic==s_topic ))}
   mymap <- maps::map("world", fill=TRUE, col="white", bg="lightblue", ylim=c(-60, 90), mar=c(0,0,0,0))
-  points(fig_map$tweet_longitude, fig_map$tweet_latitude, col = "red", cex = 1)
+  points(fig_map$longitude, fig_map$latitude, col = "red", cex = 1)
 }
 

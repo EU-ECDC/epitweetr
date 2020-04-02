@@ -51,8 +51,10 @@ epitweetr_app <- function() {
     output$map_chart <- shiny::renderPlot(
       create_map(
         s_topic= input$topics
-        ,date_min = strftime(input$period[[1]], format = ("%Y-%m-%d"))
-        ,date_max = strftime(input$period[[2]], format = ("%Y-%m-%d"))
+        ,type_date= input$period_type
+        ,geo_code = "days"
+        ,date_min = strftime(input$period[[1]], format = (if(isTRUE(input$period_type=="weeks")) "%Y%V" else "%Y-%m-%d" ))
+        ,date_max = strftime(input$period[[2]], format = (if(isTRUE(input$period_type=="weeks")) "%Y%V" else "%Y-%m-%d" ))
       )
     ) 
   } 
