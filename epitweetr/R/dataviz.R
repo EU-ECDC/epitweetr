@@ -263,13 +263,14 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
 }
 
 #######################################MAP#####################################
-create_map <- function(topic=c(),date_min="1900-01-01",date_max="2100-01-01"){
+create_map <- function(s_topic=c(),date_min="1900-01-01",date_max="2100-01-01"){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   
   dfs <- get_aggregates()
   fig_map <- (dfs
               # keep records with latitude and longitude
+              %>% dplyr::filter(created_date >= date_min && created_date <= date_max)
               %>% dplyr::filter(!is.na(tweet_latitude) && !is.na(tweet_longitude)))
               #only selected topic
              if(length(s_topic>0)){ 
