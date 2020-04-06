@@ -85,7 +85,15 @@ case class Language(name:String, code:String, vectorsPath:String) {
        ) 
      }
    }
-   def addLikehoods(df:DataFrame, languages:Seq[Language], geonames:Geonames, vectorsColNames:Seq[String], langCodeColNames:Seq[String], likehoodColNames:Seq[String])(implicit storage:Storage) = {
+   def addLikehoods(
+     df:DataFrame
+     , languages:Seq[Language]
+     , geonames:Geonames
+     , vectorsColNames:Seq[String]
+     , langCodeColNames:Seq[String]
+     , likehoodColNames:Seq[String]
+     , nonVectorScore:Double=0.75
+     )(implicit storage:Storage) = {
      implicit val spark = df.sparkSession
      val trainedModels = spark.sparkContext.broadcast(languages.map(l => (l.code -> l.getGeoLikehoodModel(geonames))).toMap)
      Some(
@@ -107,7 +115,7 @@ case class Language(name:String, code:String, vectorsPath:String) {
                         .map{case (model, method) =>
                           vectors.map{vector => 
                             if(vector == null)
-                              0.0
+                              nonVectorScore
                             else
                               Some(method.invoke(model, vector).asInstanceOf[DenseVector])
                                 .map{scores =>

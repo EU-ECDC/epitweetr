@@ -534,4 +534,11 @@ object schemas {
         , StructField("user_location_loc", geoLocationSchema,true)
         ))
     }
+    val toIgnoreSchema = {
+      StructType(Seq(
+        StructField("file",StringType,true)
+        , StructField("topic",StringType,true)
+        , StructField("id",LongType,true)
+        ))
+    }
 }

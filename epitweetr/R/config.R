@@ -64,6 +64,7 @@ get_empty_config <- function() {
   ret$geolocation_threshold <- 5
   ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
   ret$spark_memory <- "12g"
+  ret$rJava <- TRUE
   ret$topics <- list()
   ret$topics_md5 <- ""
   return(ret)
@@ -88,6 +89,7 @@ setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xls
   conf$languages <- temp$languages
   conf$spark_cores <- temp$spark_cores
   conf$spark_memory <- temp$spark_memory
+  conf$rJava <- temp$rJava
   conf$geolocation_threshold <- temp$geolocation_threshold
   
   #Getting topics from excel topics files if it has changed since las load
@@ -191,6 +193,7 @@ save_config <- function(path = "data/conf.json") {
   temp$keyring <- conf$keyring
   temp$spark_cores <- conf$spark_cores
   temp$spark_memory <- conf$spark_memory
+  temp$rJava <- conf$rJava
   temp$geolocation_threshold <- conf$geolocation_threshold
   temp$topics_md5 <- conf$topics_md5
   temp$topics <- conf$topics

@@ -17,8 +17,26 @@ conf_languages_as_scala <- function() {
   return(rJava::.jarray(lang_list, "org.ecdc.twitter.Language"))
 }
 
+conf_languages_as_arg <- function() {
+  paste(
+    "langCodes '", paste(lapply(conf$languages, function(l) l$code), collapse = ","), "' ",
+    "langNames '", paste(lapply(conf$languages, function(l) l$name), collapse = ","), "' ",
+    "langPaths '", paste(lapply(conf$languages, function(l) l$vectors), collapse = ","), "' ",
+    sep = ""
+  )
+}
+
 conf_geonames_as_scala <-function() {
   return(rJava::J("org.ecdc.twitter.Geonames")$apply(conf$geonames, destination = paste(conf$dataDir, "geo", sep="/")))
+}
+
+conf_geonames_as_arg <- function() {
+  return(
+    paste(
+      "geonamesSource", paste("'", conf$geonames, "'", sep = "")
+      , "geonamesDestination", paste("'", paste(conf$dataDir, "geo", sep="/"), "'", sep = "")
+    )
+  )
 }
 
 get_spark_session <- function() {

@@ -11,20 +11,20 @@ search_loop <- function() {
     #waiting until next schedule if not pending imports to do
     wait_for <- min(unlist(lapply(1:length(conf$topics), function(i) can_wait_for(plans = conf$topics[[i]]$plan))) )
     if(wait_for > 0) {
-      message(paste("All done! going to sleep for", wait_for, "seconds"))
+      message(paste("All done! going to sleep for", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
       Sys.sleep(wait_for)
     }
     #getting ony the next plan to execute for each topic (it could be a previous unfinished plan
     next_plans <-lapply(1:length(conf$topics), function(i)  next_plan(plans = conf$topics[[i]]$plan))
 
-    #calculating ranks based on number of requets. Topics with less completed requets wil get rank = 1
-    min_requests <- min(unlist(lapply(1:length(conf$topics), function(i) if(!is.null(next_plans[[i]])) next_plans[[i]]$request else .Machine$integer.max)))
+    #calculating the minimum number of requets those plans will be executed 
+    min_requests <- Reduce(min, lapply(1:length(conf$topics), function(i) if(!is.null(next_plans[[i]])) next_plans[[i]]$request else .Machine$integer.max))
     
     #performing search for each topic with ranking = 1
     for(i in 1:length(conf$topics)) { 
       for(j in 1:length(conf$topics[[i]]$plan)) { 
         plan <- conf$topics[[i]]$plan[[j]]
-        if(plan$requests == min_requests) {
+        if(plan$requests == min_requests && is.null(plan$end_on)) {
             conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
         }
       }
@@ -35,7 +35,7 @@ search_loop <- function() {
 
 #' performing a search for a topic and updating current plan
 search_topic <- function(plan, query, topic) {
-  message(paste("searching for topic", topic, "since", plan$since_id, "until", plan$max_id))
+  message(paste("searching for topic", topic, "since", plan$since_target, "until", if(is.null(plan$since_id)) "(last tweet)" else plan$since_id))
   year <- format(Sys.time(), "%Y")
   file_name <- paste(format(Sys.time(), "%Y.%m.%d"), "json.gz", sep = ".")
   dest <- paste(conf$dataDir, "tweets", "search", topic, year, file_name, sep = "/")
@@ -47,11 +47,11 @@ search_topic <- function(plan, query, topic) {
     gz <- gzfile(dest, "a")
     write(content, gz, append=TRUE)
     close(gz)
-    reach_max <- is.data.frame(json$statuses) && nrow(json$statuses) == 100
+    got_rows <- is.data.frame(json$statuses) && nrow(json$statuses) > 0
     new_since_id = 
       if(!is.data.frame(json$statuses)) {bit64::as.integer64(json$search_metadata$since_id_str)  
       } else {Reduce(function(x, y) if(x < y) x else y, lapply(json$statuses$id_str, function(x) bit64::as.integer64(x) -1 ))}
-    request_finished(plan, less_than_count =!reach_max, max_id = json$search_metadata$max_id_str, since_id = new_since_id) 
+    request_finished(plan, got_rows = got_rows, max_id = json$search_metadata$max_id_str, since_id = new_since_id) 
   } else {
     warning(paste("Query too long for API for topic", topic), immediate. = TRUE) 
     plan$requests = plan$requests
@@ -83,7 +83,35 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
 }
 
 
-#' Create a new get plan for importing tweets using the search api
+#' 
+#' @title get_plan S3 class constructor
+#' @description Create a new get plan for importing tweets using the search api
+#' @param expected_end character(%Y-%m-%d %H:%M:%S) establishing the target end datetime of this plan
+#' @param scheduled_for character(%Y-%m-%d %H:%M:%S) establishing the expected datetime for next execution, Default: Sys.time()
+#' @param start_on character(%Y-%m-%d %H:%M:%S) establishing the datetime when this plan was fisrt executed, Default: NULL
+#' @param end_on character(%Y-%m-%d %H:%M:%S) establishing the datetime when this plan has finished, Default: NULL
+#' @param max_id integer64, the newest tweet collected by this plan represented by its tweet id. This value is defined after the first successfull request is done and does not change on rquets, Default: NULL
+#' @param since_id integer64 the oldest tweet that has currently been collected by this plan, this value is updated after each request , Default: NULL
+#' @param since_target interger64, the oldest tweetèid that is expected to be obtained by this plan, this value is set as the max_id from the previous plan + 1 Default: NULL
+#' @param results_span number of minutes after which this plan exires counting from start date , Default: 0
+#' @param requests Integer, number of requets successfully executed Default: 0
+#' @param progress Numeric, percentage of progress of current plan defined when since_target_id is known or when a request returns no more results., Default: 0
+#' @return the get_plan object defined by input parameters
+#' @details A plan is a S3 class representing a commitment to download tweets from the search API 
+#' It targetsan spacific timeframe defined from the last tweet collected by the previous plan uf any an the last tweet collected on it firt request
+#' This commitment will be valid during a period of time defined from the time of it first execution until the end_on parameter
+#' a plan will perform several requets to the search API and each time a request is performed the number of requets will be inecreased.
+#' The field schedfuled_for indicates the time when the next request is expoected to be executed.
+#' @examples 
+#' \dontrun{
+#'  #creating the default plan
+#'  get_plan()    
+#' }
+#' @seealso 
+#'  \code{\link[bit64]{as.integer64.character}}
+#' @rdname get_plan
+#' @export 
+#' @importFrom bit64 as.integer64
 get_plan <- function(
   expected_end
   , scheduled_for = Sys.time()
@@ -111,14 +139,31 @@ get_plan <- function(
   return(me) 
 }
 
-#' Calculate new 'get plans' for a particular topic
+
+#' @title Update get plans 
+#' @description Updating plans for a particular topics
+#' @param plans the existing plans for the topic, Default: list()
+#' @param target minutes for finishing a plan 
+#' @return updated list of 'get_plan'
+#' @details
 #' If no plans are set, a new plan for getting all possible tweets will be set
 #' If current plan has started and the expected end has passed, a new plan will be added for collecting new tweets (previous plan will be stored for future execution if possible)
-#' Any finished plans after the first will be discharged (note that after 7 days all should be discharged because of empty results as a measure of precaution  a max od 100 plans are stored)
+#' Any finished plans after the first will be discharged (note that after 7 days all should be discharged because of empty results as a measure of precaution  a max od 100 plans are kept)
+#' @examples 
+#' \dontrun{
+#'  #Getting deault plan
+#'  update_plans(plans = list(), schedule_span = 120) 
+#'  #Updating topics for first topic
+#'  update_plans(plans = conf$topics[[1]]$plan, schedule_span = conf$schedule_span) 
+#' }
+#' @rdname update_plans
 update_plans <- function(plans = list(), schedule_span) {
+  # Testing if there are plans present
   if(length(plans) == 0) {
+    # Getting default plan for when no existing plans are present
      return(list(get_plan(expected_end = Sys.time() + 60 * schedule_span)))
   } else if(plans[[1]]$requests > 0 && plans[[1]]$expected_end < Sys.time()) {
+    
     first <-  
       get_plan(
         expected_end = if(Sys.time()>plans[[1]]$expected_end + 60 * schedule_span) Sys.time() + 60 * schedule_span else plans[[1]]$expected_end + 60*schedule_span
@@ -137,7 +182,7 @@ update_plans <- function(plans = list(), schedule_span) {
 #' Get next plan to plan to download
 next_plan <- function(plans) {
   plans <- if("get_plan" %in% class(plans)) list(plans) else plans
-  non_ended <- plans[sapply(plans, function(x) is.null(x$end_on) && x$scheduled_for < Sys.time())]
+  non_ended <- plans[sapply(plans, function(x) is.null(x$end_on))]
   if(length(non_ended) == 0) {
      return(NULL)
   } else {
@@ -150,16 +195,16 @@ can_wait_for <- function(plans) {
   plans <- if("get_plan" %in% class(plans)) list(plans) else plans
   non_ended <- plans[sapply(plans, function(x) is.null(x$end_on))]
   if(length(non_ended) == 0) {
-     #warning("No plans are to be executed.... possible scheduler error", immediate. = TRUE)
-     return(10*60)
+     expected_end <- Reduce(min, lapply(plans, function(x) x$expected_end))
+     return(ceiling(as.numeric(difftime(expected_end, Sys.time(), units = "secs"))))
   } else {
-    return(ceiling(as.numeric(difftime(non_ended[[length(non_ended)]]$scheduled_for, Sys.time(), units = "secs"))))
+     return(0)
   }
 }
 
 
 #' next plan generic function
-request_finished <- function(current, less_than_count, max_id, since_id = NULL) {
+request_finished <- function(current, got_rows, max_id, since_id = NULL) {
   UseMethod("request_finished",current)
 }
 
@@ -168,7 +213,7 @@ request_finished <- function(current, less_than_count, max_id, since_id = NULL) 
 #' If results are non empty result span, since_id and max id are set
 #' If results are less than requested the search is supossed to be finished
 #' If results are equals to the requested limit, more tweets are expected. In that case if the expected end has not yet arrived and we can estimate the remaining number of requests the next schedule will be set to an estimation of the necessary requests to finish. If we do not know, the current schedule will be left untouched.
-request_finished.get_plan <- function(current, less_than_count, max_id, since_id = NULL) {
+request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL) {
   current$requests <- current$requests + 1 
   if(is.null(current$start_on)) {
     current$start_on = Sys.time()
@@ -180,9 +225,9 @@ request_finished.get_plan <- function(current, less_than_count, max_id, since_id
   if(!is.null(current$since_target) && !is.null(current$since_id) && !is.null(current$max_id)) {
     current$progress = as.double(current$max_id - current$since_id)/as.double(current$max_id - current$since_target)
   } 
-  if(less_than_count || (!is.null(current$since_target) && current$max_id == current$since_target)) {
+  if(!got_rows || (!is.null(current$since_target) && current$max_id == current$since_target)) {
     current$end_on <- Sys.time()
-    current$progress <- 1.0 
+    #current$progress <- 1.0 
   } else {
     if(Sys.time() < current$expected_end && current$progress > 0.0) {
       progressByRequest <- current$progress / current$requests
