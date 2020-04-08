@@ -1,6 +1,9 @@
 #Environment for storing configuration
 conf <- new.env()
 
+#' Get package name
+get_package_name <- function() environmentName(environment(setup_config))
+
 #' Get platform dependent keyring
 #'
 get_key_ring <- function(backend = NULL) {

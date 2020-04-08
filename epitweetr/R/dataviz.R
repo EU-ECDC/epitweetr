@@ -266,8 +266,7 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
       }
     }
   }
-  # Show figure in 'plots' pannel
-  fig_line
+  list("chart" = fig_line, "data" = fig) 
 }
 
 #######################################MAP#####################################
@@ -302,6 +301,7 @@ create_map <- function(s_topic=c(),geo_code = "tweet",type_date="days",date_min=
              if(length(s_topic>0)){ 
                fig_map <- (fig_map %>% dplyr::filter(topic==s_topic ))}
   mymap <- maps::map("world", fill=TRUE, col="white", bg="lightblue", ylim=c(-60, 90), mar=c(0,0,0,0))
-  points(fig_map$longitude, fig_map$latitude, col = "red", cex = 1)
+  fig <- points(fig_map$longitude, fig_map$latitude, col = "red", cex = 1)
+  list("chart" = fig, "data" = fig_map) 
 }
 

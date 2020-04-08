@@ -83,13 +83,12 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
 }
 
 
-#' 
 #' @title get_plan S3 class constructor
 #' @description Create a new get plan for importing tweets using the search api
-#' @param expected_end character(%Y-%m-%d %H:%M:%S) establishing the target end datetime of this plan
-#' @param scheduled_for character(%Y-%m-%d %H:%M:%S) establishing the expected datetime for next execution, Default: Sys.time()
-#' @param start_on character(%Y-%m-%d %H:%M:%S) establishing the datetime when this plan was fisrt executed, Default: NULL
-#' @param end_on character(%Y-%m-%d %H:%M:%S) establishing the datetime when this plan has finished, Default: NULL
+#' @param expected_end character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the target end datetime of this plan
+#' @param scheduled_for character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the expected datetime for next execution, Default: Sys.time()
+#' @param start_on character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the datetime when this plan was fisrt executed, Default: NULL
+#' @param end_on character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the datetime when this plan has finished, Default: NULL
 #' @param max_id integer64, the newest tweet collected by this plan represented by its tweet id. This value is defined after the first successfull request is done and does not change on rquets, Default: NULL
 #' @param since_id integer64 the oldest tweet that has currently been collected by this plan, this value is updated after each request , Default: NULL
 #' @param since_target interger64, the oldest tweetèid that is expected to be obtained by this plan, this value is set as the max_id from the previous plan + 1 Default: NULL
