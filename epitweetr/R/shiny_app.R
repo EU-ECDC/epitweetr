@@ -30,7 +30,7 @@ epitweetr_app <- function() {
                           shiny::fluidRow(
                             shiny::column(6, 
                                           shiny::downloadButton("download_line_data", "data"),
-                                          shiny::plotOutput("line_chart")
+                                          plotly::plotlyOutput("line_chart")
                             )
                             , shiny::column(6, 
                                           shiny::downloadButton("download_map_data", "data"),
@@ -85,9 +85,12 @@ epitweetr_app <- function() {
   }
   
   # Defining server loginc
-  server <- function(input, output) {
-    output$line_chart <- shiny::renderPlot({
-       line_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
+  server <- function(input, output, session, ...) {
+    output$line_chart <- plotly::renderPlotly({
+       chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
+       height <- session$clientData$output_p_height
+       width <- session$clientData$output_p_width
+       plotly::ggplotly(chart, height = height, width = width)
     })  
     output$map_chart <- shiny::renderPlot(
        map_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart

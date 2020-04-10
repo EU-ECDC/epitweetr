@@ -36,7 +36,9 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
                 %>% dplyr::summarise(t = sum(tweets)) 
                 %>% dplyr::arrange(desc(t)) 
                 #%>% dplyr::top_n(100)
-                %>% dplyr::filter(geo_country_code %in% s_country ))
+                %>% dplyr::filter(geo_country_code %in% s_country )
+                %>% dplyr::ungroup()
+        )
         
         fig_line <- ggplot2::ggplot(fig, ggplot2::aes(x = created_date, y = t)) +
           ggplot2::geom_line(ggplot2::aes(colour=geo_country_code, group=geo_country_code)) +
@@ -93,7 +95,9 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
                 %>% dplyr::summarise(t = sum(tweets)) 
                 %>% dplyr::arrange(desc(t)) 
                 #%>% dplyr::top_n(100)
-                %>% dplyr::filter(geo_country_code %in% s_country ))
+                %>% dplyr::filter(geo_country_code %in% s_country )
+                %>% dplyr::ungroup()
+                )
         fig$created_weeknum <-as.Date(paste(fig$created_weeknum,"1"),"%Y%U %u")
         fig_line <- ggplot2::ggplot(fig, ggplot2::aes(x = created_weeknum, y = t)) +
           ggplot2::geom_line(ggplot2::aes(colour=geo_country_code, group=geo_country_code)) +
@@ -158,7 +162,9 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
                 %>% dplyr::arrange(desc(t)) 
                 #%>% dplyr::top_n(100)
                 %>% dplyr::filter(topic==s_topic )
-                %>% dplyr::filter(geo_country_code %in% s_country ))
+                %>% dplyr::filter(geo_country_code %in% s_country )
+                %>% dplyr::ungroup()
+                )
         
         fig_line <- ggplot2::ggplot(fig, ggplot2::aes(x = created_date, y = t)) +
           ggplot2::geom_line(ggplot2::aes(colour=geo_country_code, group=geo_country_code)) +
@@ -187,7 +193,9 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
                 %>% dplyr::summarise(t = sum(tweets)) 
                 %>% dplyr::arrange(desc(t)) 
                 #%>% dplyr::top_n(100)
-                %>% dplyr::filter(topic==s_topic ))
+                %>% dplyr::filter(topic==s_topic )
+                %>% dplyr::ungroup()
+                )
         fig_line <- ggplot2::ggplot(fig, ggplot2::aes(x = created_date, y = t)) +
           ggplot2::geom_line(colour = "#65b32e") +
           ggplot2::ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
@@ -217,7 +225,10 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
                 %>% dplyr::arrange(desc(t)) 
                 #%>% dplyr::top_n(100)
                 %>% dplyr::filter(topic==s_topic )
-                %>% dplyr::filter(geo_country_code %in% s_country ))
+                %>% dplyr::filter(geo_country_code %in% s_country )
+                %>% dplyr::ungroup()
+                
+                )
         fig$created_weeknum <-as.Date(paste(fig$created_weeknum,"1"),"%Y%U %u")
         fig_line <- ggplot2::ggplot(fig, ggplot2::aes(x = created_weeknum, y = t)) +
           ggplot2::geom_line(ggplot2::aes(colour=geo_country_code, group=geo_country_code)) +
@@ -243,7 +254,9 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="days",geo_country_co
                 %>% dplyr::summarise(t = sum(tweets)) 
                 %>% dplyr::arrange(desc(t)) 
                 #%>% dplyr::top_n(100)
-                %>% dplyr::filter(topic==s_topic ))
+                %>% dplyr::filter(topic==s_topic )
+                %>% dplyr::ungroup()
+                )
         fig$created_weeknum <-as.Date(paste(fig$created_weeknum,"1"),"%Y%U %u")
         fig_line <- ggplot2::ggplot(fig, ggplot2::aes(x = created_weeknum, y = t)) +
           ggplot2::geom_line(colour = "#65b32e") +
