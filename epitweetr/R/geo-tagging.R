@@ -149,3 +149,94 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), groupBy 
  return(df)
 }
 
+#' Getting a list of regions, sub regions and countries for using as a select
+get_country_items <- function() {
+  `%>%` <- magrittr::`%>%`
+  
+  #If countries are already on cache we return them otherwise we calculate them
+  if(exists("country_items", where = cached)) {
+    return (cached$country_items)
+  }
+  else {
+    # Getting country data from package embeded csv, ignoring antartica
+    # obtained from https://gist.github.com/AdrianBinDC/621321d6083b176b3a3215c0b75f8146#file-country-bounding-boxes-md
+    countries <- read.csv(system.file("extdata", "countries.csv", package = get_package_name()), header = TRUE, stringsAsFactors=FALSE) %>% dplyr::filter(region != "")
+    # using intermediate region when available
+    countries$sub.region <- mapply(function(int, sub) {if(int == "") sub else int}, countries$intermediate.region, countries$sub.region)
+    #getting regions and subregions
+    regions <- (
+      countries 
+        %>% dplyr::group_by(region) 
+        %>% dplyr::summarize(minLat = min(minLat), minLong = min(minLong), maxLat = max(maxLat), maxLong = max(maxLong))
+        %>% dplyr::ungroup()
+    )   
+    subregions <- (
+      countries 
+        %>% dplyr::group_by(region, sub.region) 
+        %>% dplyr::summarize(minLat = min(minLat), minLong = min(minLong), maxLat = max(maxLat), maxLong = max(maxLong))
+        %>% dplyr::ungroup()
+    )   
+
+    # creating list containing results
+    items <- list()
+    # adding world items  
+    row <- 1
+    items[[row]] <- list(name = "World", codes = list(), pad = "", minLat = -90, maxLat = 90, minLong = -180, maxLong = 180 )
+    for(r in 1:nrow(regions)) {
+      row <- row + 1
+      region <- countries$region[[r]]
+      items[[row]] = list(name = region, codes = list(), pad = " -- ", minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
+      # filling region item
+      for(c in 1:nrow(countries)) {
+        if(countries$region[[c]] == region) {
+          # adding country codes for region
+          items[[row]]$codes[[length(items[[row]]$codes)+1]] <- countries$alpha.2[[c]]
+          # calculating region bounding box 
+          if(countries$minLat[[c]] < items[[row]]$minLat) items[[row]]$minLat <- countries$minLat[[c]]
+          if(countries$maxLat[[c]] > items[[row]]$maxLat) items[[row]]$maxLat <- countries$maxLat[[c]]
+          if(countries$minLong[[c]] < items[[row]]$minLong) items[[row]]$minLong <- countries$minLong[[c]]
+          if(countries$maxLong[[c]] > items[[row]]$maxLong) items[[row]]$maxLong <- countries$maxLong[[c]]
+        }
+      }
+      # Adding elements for subregions
+      for(s in 1:nrow(subregions)) {
+        if(subregions$region[[s]] == region ) {
+          row <- row + 1
+          subregion <- subregions$sub.region[[s]]
+          items[[row]] = list(name = subregion, codes = list(), pad = "  +-- ", minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
+          # filling sub region item
+          for(c in 1:nrow(countries)) {
+            if(countries$region[[c]] == region && countries$sub.region[[c]] == subregion) {
+              # adding country codes for region
+              items[[row]]$codes[[length(items[[row]]$codes)+1]] <- countries$alpha.2[[c]]
+              # calculating region bounding box 
+              if(countries$minLat[[c]] < items[[row]]$minLat) items[[row]]$minLat <- countries$minLat[[c]]
+              if(countries$maxLat[[c]] > items[[row]]$maxLat) items[[row]]$maxLat <- countries$maxLat[[c]]
+              if(countries$minLong[[c]] < items[[row]]$minLong) items[[row]]$minLong <- countries$minLong[[c]]
+              if(countries$maxLong[[c]] > items[[row]]$maxLong) items[[row]]$maxLong <- countries$maxLong[[c]]
+            }
+          }
+          # adding country items
+          for(c in 1:nrow(countries)) {
+            if(countries$region[[c]] == region && countries$sub.region[[c]] == subregion) {
+              row <- row + 1
+              country <- countries$name[[c]]
+              items[[row]] <- list(
+                name = country
+                , codes = list(countries$alpha.2[[c]])
+                , pad = "    +-- "
+                , minLat = countries$minLat[[c]]
+                , maxLat = countries$maxLat[[c]]
+                , minLong = countries$minLong[[c]]
+                , maxLong = countries$maxLing[[c]]
+              )
+            }
+          }
+        }
+      }
+    }
+    cached$country_items <- items
+    return(items)
+  }
+}
+
