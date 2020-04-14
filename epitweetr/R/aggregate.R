@@ -45,16 +45,18 @@ aggregate_tweets <- function() {
           , paste("avg(", get_tweet_location_var("latitude"), ") as tweet_latitude")
           , paste("avg(", get_user_location_var("longitude"),") as user_longitude") 
           , paste("avg(", get_user_location_var("latitude"), ") as user_latitude")
-          , "count(*) as tweets"
+          , "cast(count(*) as Integer) as tweets"
         )
       )
       if(nrow(agg_df) > 0) {
         # Calculating the created week
         agg_df$created_week <- strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G.%V")
-        agg_df$created_date <- as.Date(as.POSIXct(agg_df$created_date, origin = "1970-01-01"))
         # Filtering only tweets for current week
         agg_df <- agg_df %>% dplyr::filter(created_week == week)
-        
+        agg_df$created_week <- NULL
+        # Calculating typed week and dates
+        agg_df$created_weeknum <- as.integer(strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G%V"))
+        agg_df$created_date <- as.Date(as.POSIXct(agg_df$created_date, origin = "1970-01-01"))
         # saving the dataset to disk (with overwrite)
         message(paste("saving geolocated data for week", week))
         saveRDS(agg_df, file = file.path(conf$dataDir, "series",week, "geolocated.Rds")) 
