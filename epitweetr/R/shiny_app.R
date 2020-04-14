@@ -16,7 +16,7 @@ epitweetr_app <- function() {
                           shiny::selectInput("topics", label = shiny::h3("Topics"), multiple = FALSE, choices = d$topics),
                           shiny::selectInput("countries", label = shiny::h3("Countries"), multiple = TRUE, choices = d$countries),
                           shiny::dateRangeInput("period", label = shiny::h3("Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
-                          shiny::radioButtons("period_type", label = shiny::h3("Period type"), choices = list("Days"="days", "Weeks"="weeks"), selected = "days", inline = TRUE),
+                          shiny::radioButtons("period_type", label = shiny::h3("Period type"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
                           shiny::fluidRow(
                             shiny::column(6, 
                               shiny::downloadButton("export_pdf", "PDF")
@@ -52,8 +52,8 @@ epitweetr_app <- function() {
       ,s_country= countries
       ,type_date= period_type
       ,geo_country_code = "tweet_geo_country_code"
-      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="weeks")) "%G%V" else "%Y-%m-%d" ))
-      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="weeks")) "%G%V" else "%Y-%m-%d" ))
+      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
     )
     
   }
@@ -63,8 +63,8 @@ epitweetr_app <- function() {
       s_topic= topics
       ,type_date= period_type
       ,geo_code = "days"
-      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="weeks")) "%G%V" else "%Y-%m-%d" ))
-      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="weeks")) "%G%V" else "%Y-%m-%d" ))
+      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
     )
     
   }
