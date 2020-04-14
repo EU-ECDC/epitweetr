@@ -86,15 +86,23 @@ epitweetr_app <- function() {
   
   # Defining server loginc
   server <- function(input, output, session, ...) {
+    
     output$line_chart <- plotly::renderPlotly({
+      shiny::validate(
+        shiny::need(input$topics != '', 'Please select a topic')
+      )
        chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        plotly::ggplotly(chart, height = height, width = width)
     })  
-    output$map_chart <- shiny::renderPlot(
+    output$map_chart <- shiny::renderPlot({
+      shiny::validate(
+        shiny::need(input$topics != '', 'Please select a topic')
+      )
+    
        map_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
-    )
+    })
     output$download_line_data <- downloadHandler(
       filename = function() { 
         paste("line_dataset_", 
@@ -172,7 +180,7 @@ epitweetr_app <- function() {
 get_dashboard_data <- function() {
   dfs <- get_aggregates()
   d <- list()
-  d$topics <- unique(dfs$topic)
+  d$topics <- c("",unique(dfs$topic))
   d$countries <- {
     to_sort <- unique(union(unique(dfs$user_geo_country_code), unique(dfs$user_geo_country_code)))
     to_sort[order(to_sort)]
