@@ -33,6 +33,7 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
   #Renaming date and geo_country_code (tweet or user) ! This must be changed, if user
   colnames(df)[colnames(df)== geo_country_code] <- "geo_country_code"
   colnames(df)[colnames(df)== date] <- "date"
+  df$topic <- stringr::str_replace_all(df$topic, "%20", " ")
   if(date == "created_weeknum"){
     date_min <-as.Date(paste(date_min,"1"),"%Y%U %u")
     date_max <-as.Date(paste(date_max,"1"),"%Y%U %u")

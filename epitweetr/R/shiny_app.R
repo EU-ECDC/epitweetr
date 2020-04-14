@@ -181,6 +181,7 @@ get_dashboard_data <- function() {
   dfs <- get_aggregates()
   d <- list()
   d$topics <- c("",unique(dfs$topic))
+  d$topics <- stringr::str_replace_all(d$topics, "%20", " ")
   d$countries <- {
     to_sort <- unique(union(unique(dfs$user_geo_country_code), unique(dfs$user_geo_country_code)))
     to_sort[order(to_sort)]
