@@ -23,7 +23,9 @@ cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 #'
 #' @examples
 data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_min="1900-01-01",date_max="2100-01-01" ){
-  #Select grouping variables
+  #Importing pipe operator
+  `%>%` <- magrittr::`%>%` 
+   #Select grouping variables
   if(length(s_country) > 0){
     to_group <- c("date","geo_country_code","topic")}
   else{
@@ -97,6 +99,8 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
 #'
 #' @examples
 plot_trendline <- function(df,s_country,s_topic){
+  #Importing pipe operator
+  `%>%` <- magrittr::`%>%`
   if(length(s_country)>0){ #if several countries selected, aggregation by country
     fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = t)) +
       ggplot2::geom_line(ggplot2::aes(colour=geo_country_code, group=geo_country_code)) +
