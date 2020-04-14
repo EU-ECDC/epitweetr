@@ -16,7 +16,7 @@ import Geonames.GeoLookup
 object Tweets {
   def main(args: Array[String]): Unit = {
     val cmd = Map(
-      "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "langCodes", "langNames", "langPaths",  "parallelism")
+      "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "langCodes", "langNames", "langPaths",  "parallelism")
       , "extractLocations" -> Set("sourcePath", "destPath", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "reuseIndex", "indexPath", "minScore", "parallelism")
     )
     if(args == null || args.size < 3 || !cmd.contains(args(0)) || args.size %2 == 0 ) 
@@ -35,6 +35,7 @@ object Tweets {
              , geoPath = params.get("geoPath").get
              , pathFilter = params.get("pathFilter").get.split(",")
              , columns = params.get("columns").get.split("\\|\\|")
+             , groupBy = params.get("groupBy").get.split("\\|\\|")
              , langs = 
                  Some(Seq("langCodes", "langNames", "langPaths"))
                    .map{s => s.map(p => params(p).split(",").map(_.trim))}
@@ -181,7 +182,7 @@ object Tweets {
       case (df, None) => df
       case (df, Some(toIgnorePath)) =>
         Some((df.join(spark.read.schema(schemas.toIgnoreSchema).json(toIgnorePath).select(col("id").as("ignore_id")).distinct(), col("id")===col("ignore_id"), "left")
-                .where(col("ignore_id").isNotNull)
+                .where(col("ignore_id").isNull)
                 .drop("ignore_id")
               ,parallelism
              )
@@ -271,6 +272,7 @@ object Tweets {
       implicit val ss = storage
       extractLocations(sourcePath= sourcePath, destPath=destPath, langs = langs.toSeq, geonames=geonames, reuseIndex=reuseIndex, indexPath=indexPath, minScore=minScore, parallelism=Some(parallelism))
     }
+
   def extractLocations(sourcePath:String, destPath:String, langs:Seq[Language], geonames:Geonames, reuseIndex:Boolean = true, indexPath:String, minScore:Int, parallelism:Option[Int]=None) 
     (implicit spark:SparkSession, storage:Storage):Unit = {
     storage.ensurePathExists(destPath)
@@ -282,8 +284,15 @@ object Tweets {
       .distinct
       .sortWith(_ < _)
     
-    val doneButLast = filesDone.dropRight(1).toSet
-    val lastDone = filesDone.last
+    val doneButLast = filesDone match {
+      case s if s.isEmpty => Set[String]()
+      case s => s.dropRight(1).toSet
+    }
+    val lastDone = filesDone match {
+      case s if s.isEmpty => None
+      case s => Some(filesDone.last)
+    }
+ 
    
     val files = storage.getNode(sourcePath)
       .list(recursive = true)
@@ -306,7 +315,10 @@ object Tweets {
           , minScore = minScore
           , parallelism = parallelism
           , pathFilter = Some(s".*${file.replace(".", "\\.")}.*")
-          , ignoreIdsOn = if(file == lastDone) Some(s"$destPath/${file.take(7)}/$file.json.gz") else None
+          , ignoreIdsOn = 
+              lastDone
+                .filter(ld => file == ld)
+                .map(f => s"$destPath/${f.take(7)}/$file.json.gz")
         )
         .select((
           Seq(col("topic"), col("file"), col("lang"), col("id"))
@@ -328,14 +340,14 @@ object Tweets {
 
   }
 
-  def getTweets(tweetPath:String, geoPath:String, pathFilter:Array[String], columns:Array[String], langs:Array[Language],  parallelism:Int,  spark:SparkSession, storage:Storage):DataFrame =  
+  def getTweets(tweetPath:String, geoPath:String, pathFilter:Array[String], columns:Array[String], groupBy:Array[String], langs:Array[Language],  parallelism:Int,  spark:SparkSession, storage:Storage):DataFrame =  
   {
     implicit val s = spark
     implicit val ss = storage
-    getTweets(tweetPath:String, geoPath:String, pathFilter = pathFilter.toSeq, columns = columns.toSeq, langs.toSeq,  parallelism = Some(parallelism))
+    getTweets(tweetPath:String, geoPath:String, pathFilter = pathFilter.toSeq, columns = columns.toSeq, groupBy = groupBy.toSeq, langs.toSeq,  parallelism = Some(parallelism))
   }
       
-  def getTweets(tweetPath:String, geoPath:String, pathFilter:Seq[String], columns:Seq[String], langs:Seq[Language],  parallelism:Option[Int])
+  def getTweets(tweetPath:String, geoPath:String, pathFilter:Seq[String], columns:Seq[String], groupBy:Seq[String], langs:Seq[Language],  parallelism:Option[Int])
     (implicit spark:SparkSession, storage:Storage):DataFrame = {
       Some(
         pathFilter.map{filter =>
@@ -365,10 +377,14 @@ object Tweets {
         }
         .reduce{_.union(_)}
       )
-      .map(df => 
-        df.dropDuplicates("id", "topic")
-          .select(columns.map(c => expr(c)):_*)
-      )
+      .map(df => df.dropDuplicates("id", "topic"))
+      .map{
+        case df if(groupBy.size == 0) => 
+          df.select(columns.map(c => expr(c)):_*) 
+        case df => 
+          df.groupBy(groupBy.map(gb => expr(gb)):_*)
+            .agg(expr(columns.head), columns.drop(1).map(c => expr(c)):_*)
+      }
       .get
     }
 }

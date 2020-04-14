@@ -52,8 +52,8 @@ epitweetr_app <- function() {
       ,s_country= countries
       ,type_date= period_type
       ,geo_country_code = "tweet_geo_country_code"
-      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="weeks")) "%Y%V" else "%Y-%m-%d" ))
-      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="weeks")) "%Y%V" else "%Y-%m-%d" ))
+      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="weeks")) "%G%V" else "%Y-%m-%d" ))
+      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="weeks")) "%G%V" else "%Y-%m-%d" ))
     )
     
   }
@@ -63,8 +63,8 @@ epitweetr_app <- function() {
       s_topic= topics
       ,type_date= period_type
       ,geo_code = "days"
-      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="weeks")) "%Y%V" else "%Y-%m-%d" ))
-      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="weeks")) "%Y%V" else "%Y-%m-%d" ))
+      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="weeks")) "%G%V" else "%Y-%m-%d" ))
+      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="weeks")) "%G%V" else "%Y-%m-%d" ))
     )
     
   }

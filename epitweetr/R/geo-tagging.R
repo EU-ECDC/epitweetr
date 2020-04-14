@@ -56,7 +56,7 @@ get_tweet_location_var <- function(varname) {
       , ", linked_place_", varname
       , ", place_full_name_loc.geo_",varname
       , ", linked_place_full_name_loc.geo_",varname
-      , ") as tweet_", varname
+      , ")"
       , sep = ""
     )  
   else 
@@ -65,7 +65,7 @@ get_tweet_location_var <- function(varname) {
       , ", linked_text_loc.", varname
       , ", place_full_name_loc.",varname
       , ", linked_place_full_name_loc.",varname
-      , ") as tweet_", varname
+      , ")"
       , sep = ""
     )  
 }
@@ -76,14 +76,14 @@ get_user_location_var <- function(varname) {
     paste("coalesce("
       , "user_location_loc.geo_", varname
       , ", user_description_loc.geo_", varname
-      , ") as user_", varname
+      , ")"
       , sep = ""
     )  
   else 
     paste("coalesce("
       , "user_location_loc.", varname
       , ", user_description_loc.", varname
-      , ") as user_", varname
+      , ")" 
       , sep = ""
     )  
 }
@@ -91,7 +91,7 @@ get_user_location_var <- function(varname) {
 
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' @export
-get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*")) {
+get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), groupBy = list()) {
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$dataDir, "/tweets/search", sep = "")
  geolocated_path <- paste(conf$dataDir, "/tweets/geolocated", sep = "")
@@ -112,6 +112,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*")) {
         , geolocated_path 
         , rJava::.jarray(lapply(regexp, function(s) rJava::.jnew("java.lang.String",s)), "java.lang.String")
         , rJava::.jarray(lapply(vars, function(s) rJava::.jnew("java.lang.String",s)), "java.lang.String")
+        , rJava::.jarray(lapply(groupBy, function(s) rJava::.jnew("java.lang.String",s)), "java.lang.String")
         , langs
         , conf$spark_cores
         , spark
@@ -128,18 +129,20 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*")) {
        ,paste(
          "java"
          #, paste("-Xmx", conf$spark_memory, sep = "")
-         , paste("-Xmx", "8g", sep = "")
+         , paste("-Xmx", "4g", sep = "")
          , " -jar epitweetr/java/ecdc-twitter-bundle-assembly-1.0.jar"
          , "getTweets"
-         , "tweetPath", paste("'", tweet_path, "'", sep="")
-         , "geoPath", paste("'", geolocated_path, "'", sep = "") 
+         , "tweetPath", paste("\"", tweet_path, "\"", sep="")
+         , "geoPath", paste("\"", geolocated_path, "\"", sep = "") 
          , "pathFilter", paste("'", paste(regexp, collapse = ",") ,"'",sep="") 
-         , "columns", paste("'", paste(vars, collapse = "||") ,"'",sep="") 
+         , "columns", paste("\"", paste(vars, collapse = "||") ,"\"",sep="") 
+         , "groupBy", paste("\"", paste(groupBy, collapse = "||") ,"\"",sep="") 
          ,  conf_languages_as_arg()
          , "parallelism", conf$spark_cores 
        )
        ,sep = '\n'
-     ) 
+     )
+     #message(cmd) 
      con <- pipe(cmd)
      jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, )     
    }
