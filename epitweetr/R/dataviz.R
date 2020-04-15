@@ -33,6 +33,7 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
   #Renaming date and geo_country_code (tweet or user) ! This must be changed, if user
   colnames(df)[colnames(df)== geo_country_code] <- "geo_country_code"
   colnames(df)[colnames(df)== date] <- "date"
+  df$topic <- stringr::str_replace_all(df$topic, "%20", " ")
   if(date == "created_weeknum"){
     date_min <-as.Date(paste(date_min,"1"),"%Y%U %u")
     date_max <-as.Date(paste(date_max,"1"),"%Y%U %u")
@@ -61,8 +62,8 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
          %>% dplyr::group_by_at(to_group)
          %>% dplyr::filter(!is.na(geo_country_code) && !is.na(date))
          %>% dplyr::filter(date >= date_min && date <= date_max)
-         %>% dplyr::summarise(t = sum(tweets)) 
-         %>% dplyr::arrange(desc(t)) 
+         %>% dplyr::summarise(number_of_tweets = sum(tweets)) 
+         %>% dplyr::arrange(desc(number_of_tweets)) 
          %>% dplyr::filter(topic==s_topic )
          %>% dplyr::filter(geo_country_code %in% s_country )
          %>% dplyr::ungroup()
@@ -77,8 +78,8 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
            %>% dplyr::group_by_at(to_group)
            %>% dplyr::filter(!is.na(date))
            %>% dplyr::filter(date >= date_min && date <= date_max)
-           %>% dplyr::summarise(t = sum(tweets)) 
-           %>% dplyr::arrange(desc(t)) 
+           %>% dplyr::summarise(number_of_tweets = sum(tweets)) 
+           %>% dplyr::arrange(desc(number_of_tweets)) 
            %>% dplyr::filter(topic==s_topic )
            %>% dplyr::ungroup()
     )
@@ -102,35 +103,37 @@ plot_trendline <- function(df,s_country,s_topic){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   if(length(s_country)>0){ #if several countries selected, aggregation by country
-    fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = t)) +
-      ggplot2::geom_line(ggplot2::aes(colour=geo_country_code, group=geo_country_code)) +
+    df <- dplyr::rename(df,country = geo_country_code)
+    fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
+      ggplot2::geom_line(ggplot2::aes(colour=country, group=country)) +
       ggplot2::ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
-      ggplot2::xlab('Date') +
+      ggplot2::xlab('Day and month') +
       ggplot2::ylab('Number of tweets') +
       ggplot2::scale_colour_manual(values=cbPalette)+
-      ggplot2::scale_y_continuous(limits = c(0, max(df$t)), expand = c(0,0)) +
+      ggplot2::scale_y_continuous(limits = c(0, max(df$number_of_tweets)), expand = c(0,0)) +
       ggplot2::scale_x_date(date_labels = "%d %b",
                             expand = c(0, 0),
                             breaks = function(x) seq.Date(from = min(x), to = max(x), by = "7 days")) +
-      ggplot2::theme_classic() +
-      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 18, face = "bold"),
+      ggplot2::theme_classic(base_family = "Arial") +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 16, face = "bold"),
                      axis.text = ggplot2::element_text(colour = "black", size = 16),
                      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
                                                          margin = ggplot2::margin(-15, 0, 0, 0)),
                      axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 16),
                      axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 16))
+    df <- dplyr::rename(df,"Country" = country)
   } else{ #no countries selected, without aggregation by country #has to be factorized and need to generate all dates
-    fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = t)) +
+    fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
       ggplot2::geom_line(colour = "#65b32e") +
       ggplot2::ggtitle(paste0("Number of tweets mentioning ",s_topic)) +
-      ggplot2::xlab('Date') +
+      ggplot2::xlab('Day and month') +
       ggplot2::ylab('Number of tweets') +
-      ggplot2::scale_y_continuous(limits = c(0, max(df$t)), expand = c(0,0)) +
+      ggplot2::scale_y_continuous(limits = c(0, max(df$number_of_tweets)), expand = c(0,0)) +
       ggplot2::scale_x_date(date_labels = "%d %b",
                             expand = c(0, 0),
                             breaks = function(x) seq.Date(from = min(x), to = max(x), by = "7 days")) +
-      ggplot2::theme_classic() +
-      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 18, face = "bold"),
+      ggplot2::theme_classic(base_family = "Arial") +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 16, face = "bold"),
                      axis.text = ggplot2::element_text(colour = "black", size = 16),
                      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
                                                          margin = ggplot2::margin(-15, 0, 0, 0)),
@@ -138,8 +141,12 @@ plot_trendline <- function(df,s_country,s_topic){
                      axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 16))
     
   }
+  df <- dplyr::rename(df,"Number of tweets" = number_of_tweets, "Tweet date" = date,"Topic"= topic)
   list("chart" = fig_line, "data" = df) 
 }
+
+
+
 ######## trend_line function
 #' Title
 #'
