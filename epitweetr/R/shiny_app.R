@@ -36,6 +36,15 @@ epitweetr_app <- function() {
                                           shiny::downloadButton("download_map_data", "data"),
                                           shiny::plotOutput("map_chart")
                             )
+                          )
+                          ,shiny::fluidRow(
+                            shiny::column(6, 
+                                          shiny::downloadButton("download_topword_data", "data"),
+                                          plotly::plotlyOutput("topword_chart")
+                            )
+                            , shiny::column(6, 
+                                          shiny::downloadButton("download_other_data", "data"),
+                            )
                           ))
           )))) 
   
@@ -46,7 +55,9 @@ epitweetr_app <- function() {
                       , shiny::tabPanel("Configuration")
     )
   # Defining line chart from shiny app filters
-  line_chart_from_filters <- function(topics, countries, period_type, period) {
+  line_chart_from_filters <- function(topics, fcountries, period_type, period) {
+    regions <- get_country_items()
+    countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
     trend_line(
       s_topic= topics
       ,s_country= countries
@@ -58,11 +69,26 @@ epitweetr_app <- function() {
     
   }
   # Defining line chart from shiny app filters
-  map_chart_from_filters <- function(topics, countries, period_type, period) {
+  map_chart_from_filters <- function(topics, fcountries, period_type, period) {
+    regions <- get_country_items()
+    countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
     create_map(
       s_topic= topics
+      ,s_country = countries
+      ,geo_code = "tweet"
       ,type_date= period_type
-      ,geo_code = "days"
+      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+    )
+    
+  }
+  # Defining top words chart from shiny app filters
+  topwords_chart_from_filters <- function(topics, fcountries, period_type, period) {
+    regions <- get_country_items()
+    countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
+    create_topwords(
+      s_topic= topics
+      ,s_country = countries
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
     )
@@ -88,9 +114,9 @@ epitweetr_app <- function() {
   server <- function(input, output, session, ...) {
     
     output$line_chart <- plotly::renderPlotly({
-      shiny::validate(
-        shiny::need(input$topics != '', 'Please select a topic')
-      )
+       shiny::validate(
+         shiny::need(input$topics != '', 'Please select a topic')
+       )
        chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
@@ -100,9 +126,19 @@ epitweetr_app <- function() {
       shiny::validate(
         shiny::need(input$topics != '', 'Please select a topic')
       )
-    
+       regions <- get_country_items()
+       countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(input$countries, function(i) unlist(regions[[i]]$codes)))
        map_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
     })
+    output$topword_chart <- plotly::renderPlotly({
+       shiny::validate(
+         shiny::need(input$topics != '', 'Please select a topic')
+       )
+       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
+       height <- session$clientData$output_p_height
+       width <- session$clientData$output_p_width
+       plotly::ggplotly(chart, height = height, width = width)
+    })  
     output$download_line_data <- downloadHandler(
       filename = function() { 
         paste("line_dataset_", 
@@ -183,9 +219,9 @@ get_dashboard_data <- function() {
   d$topics <- c("",unique(dfs$topic))
   d$topics <- stringr::str_replace_all(d$topics, "%20", " ")
   d$countries <- {
-    to_sort <- unique(union(unique(dfs$user_geo_country_code), unique(dfs$user_geo_country_code)))
-    to_sort[order(to_sort)]
-  }
+    regions <- get_country_items()
+    setNames(1:length(regions), sapply(regions, function(r) paste(r$pad, r$name)))   
+  } 
   d$date_min <- strftime(as.Date(min(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
   d$date_max <- strftime(as.Date(max(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
   d$date_start <- 

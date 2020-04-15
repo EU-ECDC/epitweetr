@@ -10,7 +10,7 @@ get_stop_words <- function(language_code) {
     for(i in 1:length(conf$languages)) {
       if(conf$languages[[i]]$code == language_code && file.exists(conf$languages[[i]]$vectors)) {
         con<-gzfile(conf$languages[[i]]$vectors) 
-        fixed <- c("RT", "http", "https", "t.co") 
+        fixed <- c("RT", "http", "https", "t.co", "amp") 
         stop_words <- tail(gsub(" .*", "", readLines(con, n = 500, encoding="UTF-8")), -1)
         close(con)
         if(length(stop_words) > 0) {

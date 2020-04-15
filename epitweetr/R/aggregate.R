@@ -167,7 +167,7 @@ get_aggregated_serie <- function(serie_name, fromDate, toDate, created_start) {
     )
     top_chunk %>% 
       dplyr::group_by(tokens, topic, created_date)  %>%
-      dplyr::summarize(frequency = sum())  %>%
+      dplyr::summarize(frequency = sum(count))  %>%
       dplyr::ungroup()  %>%
       dplyr::group_by(topic, created_date)  %>%
       dplyr::top_n(n = 200, wt = frequency) %>%

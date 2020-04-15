@@ -112,7 +112,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), groupBy 
        jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, function(df) handler(df, con_tmp))
        con_tmp <- file(tmp_file, open = "r") 
        ret <- jsonlite::stream_in(con_tmp, pagesize = 10000, verbose = TRUE)
-       unlink(tmp_file)
+       #unlink(tmp_file)
        ret
      }    
    }
@@ -155,7 +155,7 @@ get_country_items <- function() {
     for(r in 1:nrow(regions)) {
       row <- row + 1
       region <- countries$region[[r]]
-      items[[row]] = list(name = region, codes = list(), pad = " -- ", minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
+      items[[row]] = list(name = region, codes = list(), pad = "-- ", minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
       # filling region item
       for(c in 1:nrow(countries)) {
         if(countries$region[[c]] == region) {
@@ -170,10 +170,10 @@ get_country_items <- function() {
       }
       # Adding elements for subregions
       for(s in 1:nrow(subregions)) {
-        if(subregions$region[[s]] == region ) {
+        if(subregions$region[[s]] == region ) {       
           row <- row + 1
           subregion <- subregions$sub.region[[s]]
-          items[[row]] = list(name = subregion, codes = list(), pad = "  +-- ", minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
+          items[[row]] = list(name = subregion, codes = list(), pad = "---- ", minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
           # filling sub region item
           for(c in 1:nrow(countries)) {
             if(countries$region[[c]] == region && countries$sub.region[[c]] == subregion) {
@@ -194,7 +194,7 @@ get_country_items <- function() {
               items[[row]] <- list(
                 name = country
                 , codes = list(countries$alpha.2[[c]])
-                , pad = "    +-- "
+                , pad = "------ "
                 , minLat = countries$minLat[[c]]
                 , maxLat = countries$maxLat[[c]]
                 , minLong = countries$minLong[[c]]

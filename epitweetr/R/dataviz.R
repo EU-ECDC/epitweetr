@@ -183,7 +183,7 @@ trend_line <- function(s_topic=c(),s_country=c(),type_date="created_date",geo_co
 #' @export
 #'
 #' @examples
-create_map <- function(s_topic=c(),geo_code = "tweet",type_date="days",date_min="1900-01-01",date_max="2100-01-01"){
+create_map <- function(s_topic=c(),s_country=c(),geo_code = "tweet",type_date="days",date_min="1900-01-01",date_max="2100-01-01"){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   type_date <- ifelse(type_date=="days","created_date","created_weeknum")
@@ -196,6 +196,7 @@ create_map <- function(s_topic=c(),geo_code = "tweet",type_date="days",date_min=
   fig_map <- (dfs
               # keep records with latitude and longitude
               %>% dplyr::filter(date >= date_min && date <= date_max)
+              %>% dplyr::filter(geo_country_code %in% s_country )
               %>% dplyr::filter(!is.na(longitude))
               %>% dplyr::filter(!is.na(latitude)))
   #only selected topic
@@ -204,4 +205,35 @@ create_map <- function(s_topic=c(),geo_code = "tweet",type_date="days",date_min=
   mymap <- maps::map("world", fill=TRUE, col="white", bg="lightblue", ylim=c(-60, 90), mar=c(0,0,0,0))
   fig <- points(fig_map$longitude, fig_map$latitude, col = "red", cex = 1)
   list("chart" = fig, "data" = fig_map) 
+}
+
+
+create_topwords <- function(s_topic=c(),s_country=c(),date_min="1900-01-01",date_max="2100-01-01") {
+  #Importing pipe operator
+  `%>%` <- magrittr::`%>%`
+
+  df <- (
+    get_aggregates("topwords")
+      %>% dplyr::filter(topic==s_topic )
+      %>% dplyr::filter(created_date >= date_min && created_date <= date_max)
+      #%>% dplyr::filter(geo_country_code %in% s_country )
+      %>% dplyr::group_by(tokens)
+      %>% dplyr::summarize(frequency = sum(frequency))
+      %>% dplyr::ungroup() 
+      %>% dplyr::arrange(-frequency) 
+      %>% head(25)
+      %>% dplyr::mutate(tokens = reorder(tokens, frequency))
+  )
+  fig <- (
+      df %>% ggplot2::ggplot(ggplot2::aes(x = tokens, y = frequency)) +
+           ggplot2::geom_col() +
+           ggplot2::xlab(NULL) +
+           ggplot2::coord_flip() +
+           ggplot2::labs(
+              x = "Count",
+              y = "Unique words",
+              title = "Top words words in period"
+           )
+    )
+  list("chart" = fig, "data" = df) 
 }
