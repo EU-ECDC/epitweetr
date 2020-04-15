@@ -1,5 +1,7 @@
 #Environment for storing configuration
 conf <- new.env()
+#Environment for storing cached data
+cached <- new.env()
 
 #' Get package name
 get_package_name <- function() environmentName(environment(setup_config))
@@ -216,4 +218,3 @@ set_twitter_app_auth <- function(app, access_token, access_token_secret, api_key
     set_secret(v, conf$twitter_auth[[v]])
   }
 }
-

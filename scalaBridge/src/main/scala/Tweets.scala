@@ -16,7 +16,7 @@ import Geonames.GeoLookup
 object Tweets {
   def main(args: Array[String]): Unit = {
     val cmd = Map(
-      "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "langCodes", "langNames", "langPaths",  "parallelism")
+      "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "filterBy", "sortBy", "langCodes", "langNames", "langPaths",  "parallelism")
       , "extractLocations" -> Set("sourcePath", "destPath", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "reuseIndex", "indexPath", "minScore", "parallelism")
     )
     if(args == null || args.size < 3 || !cmd.contains(args(0)) || args.size %2 == 0 ) 
@@ -33,9 +33,11 @@ object Tweets {
            getTweets(
              tweetPath = params.get("tweetPath").get
              , geoPath = params.get("geoPath").get
-             , pathFilter = params.get("pathFilter").get.split(",")
-             , columns = params.get("columns").get.split("\\|\\|")
-             , groupBy = params.get("groupBy").get.split("\\|\\|")
+             , pathFilter = params.get("pathFilter").get.split(",").toSeq
+             , columns = params.get("columns").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
+             , groupBy = params.get("groupBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
+             , filterBy = params.get("filterBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
+             , sortBy = params.get("sortBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
              , langs = 
                  Some(Seq("langCodes", "langNames", "langPaths"))
                    .map{s => s.map(p => params(p).split(",").map(_.trim))}
@@ -46,9 +48,7 @@ object Tweets {
                        }
                    }
                    .get
-             , parallelism = params.get("parallelism").map(_.toInt).get
-             , spark = spark
-             , storage = storage
+             , parallelism = params.get("parallelism").map(_.toInt)
            )
          ).map(df => JavaBridge.df2StdOut(df, minPartitions = params.get("parallelism").map(_.toInt).get))
       } else if(command == "extractLocations"){ 
@@ -340,14 +340,7 @@ object Tweets {
 
   }
 
-  def getTweets(tweetPath:String, geoPath:String, pathFilter:Array[String], columns:Array[String], groupBy:Array[String], langs:Array[Language],  parallelism:Int,  spark:SparkSession, storage:Storage):DataFrame =  
-  {
-    implicit val s = spark
-    implicit val ss = storage
-    getTweets(tweetPath:String, geoPath:String, pathFilter = pathFilter.toSeq, columns = columns.toSeq, groupBy = groupBy.toSeq, langs.toSeq,  parallelism = Some(parallelism))
-  }
-      
-  def getTweets(tweetPath:String, geoPath:String, pathFilter:Seq[String], columns:Seq[String], groupBy:Seq[String], langs:Seq[Language],  parallelism:Option[Int])
+  def getTweets(tweetPath:String, geoPath:String, pathFilter:Seq[String], columns:Seq[String], groupBy:Seq[String], filterBy:Seq[String], sortBy:Seq[String], langs:Seq[Language],  parallelism:Option[Int])
     (implicit spark:SparkSession, storage:Storage):DataFrame = {
       Some(
         pathFilter.map{filter =>
@@ -373,6 +366,12 @@ object Tweets {
                 .join(locations, tweets("id")===locations("lid"), "left")
                 .drop("lid")
             }
+            .map{
+              case df if(filterBy.size == 0) => 
+                df 
+              case df => 
+                df.where(filterBy.map(w => expr(w)).reduce(_ && _))
+            }
             .get
         }
         .reduce{_.union(_)}
@@ -384,6 +383,12 @@ object Tweets {
         case df => 
           df.groupBy(groupBy.map(gb => expr(gb)):_*)
             .agg(expr(columns.head), columns.drop(1).map(c => expr(c)):_*)
+      }
+      .map{
+        case df if(sortBy.size == 0) => 
+          df 
+        case df =>
+          df.orderBy(sortBy.map(ob => expr(ob)):_*)
       }
       .get
     }

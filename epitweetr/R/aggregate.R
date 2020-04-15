@@ -1,10 +1,8 @@
-#Environment for storing caches datasets
-cached <- new.env()
 
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' Saving aggregated data as weekly RDS files
 #' @export
-aggregate_tweets <- function() {
+aggregate_tweets <- function(series = list("geolocated", "topwords")) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
 
@@ -21,47 +19,33 @@ aggregate_tweets <- function() {
       week <- aggregate_weeks$week[[i]]
       fromDate <- as.Date(aggregate_weeks$fromDate[[i]], "1970-01-01") 
       toDate <- as.Date(aggregate_weeks$toDate[[i]], "1970-01-01") 
-      message(paste("Aggregation for week", week, "from", fromDate, "to", toDate))
-      #Calculating the aggregated regex to mach json files to aggregate
-      agg_regex <-lapply(fromDate:toDate, function(d) strftime(as.Date(d, "1970-01-01"), ".*%Y\\.%m\\.%d.*")) 
+      weekStart <- as.Date(aggregate_weeks$weekStart[[i]], "1970-01-01") 
+      
       # Creating week folder if does not exists
       if(!dir.exists(file.path(conf$dataDir, "series", week))) {
         dir.create(file.path(conf$dataDir, "series", week)) 
       }
-
-     
-      #Aggregating tweets by topic and country
-      agg_df <- get_geotagged_tweets(regexp = agg_regex
-        , groupBy = list(
-          "topic"
-          , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
-          , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
-          , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
-          , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
-          , paste(get_user_location_var("geo_code"), "as user_geo_code") 
-        )
-        , vars = list(
-          paste("avg(", get_tweet_location_var("longitude"),") as tweet_logitude") 
-          , paste("avg(", get_tweet_location_var("latitude"), ") as tweet_latitude")
-          , paste("avg(", get_user_location_var("longitude"),") as user_longitude") 
-          , paste("avg(", get_user_location_var("latitude"), ") as user_latitude")
-          , "cast(count(*) as Integer) as tweets"
-        )
-      )
-      if(nrow(agg_df) > 0) {
-        # Calculating the created week
-        agg_df$created_week <- strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G.%V")
-        # Filtering only tweets for current week
-        agg_df <- agg_df %>% dplyr::filter(created_week == week)
-        agg_df$created_week <- NULL
-        # Calculating typed week and dates
-        agg_df$created_weeknum <- as.integer(strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G%V"))
-        agg_df$created_date <- as.Date(as.POSIXct(agg_df$created_date, origin = "1970-01-01"))
-        # saving the dataset to disk (with overwrite)
-        message(paste("saving geolocated data for week", week))
-        saveRDS(agg_df, file = file.path(conf$dataDir, "series",week, "geolocated.Rds")) 
-      } else {
-        warning("No rows found")  
+      for(i in 1:length(series)) { 
+        # Aggregating tweets for the given serie and week
+        agg_df <- get_aggregated_serie(series[[i]], fromDate, toDate, weekStart)
+        
+        # If result is not empty proceed to filter out weeks out of scope and save aggregated week serie 
+        if(nrow(agg_df) > 0) {
+          # Calculating the created week
+          agg_df$created_week <- strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G.%V")
+          # Filtering only tweets for current week
+          agg_df <- agg_df %>% dplyr::filter(created_week == week)
+          agg_df$created_week <- NULL
+          # Casting week and date to numeric values
+          agg_df$created_weeknum <- as.integer(strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G%V"))
+          agg_df$created_date <- as.Date(as.POSIXct(agg_df$created_date, origin = "1970-01-01"))
+          
+          # saving the dataset to disk (with overwrite)
+          message(paste("saving ", series[[i]]," data for week", week))
+          saveRDS(agg_df, file = file.path(conf$dataDir, "series",week, paste(series[[i]], "Rds", sep = "."))) 
+        } else {
+          warning(paste("No rows found for", series[[i]]," on week", week ))  
+        }
       }
     }  
   }
@@ -125,9 +109,69 @@ get_aggregate_weeks <- function() {
   #Grouping by week to collect and calculating the possible input dates for each week
   (weeks_to_collect 
     %>% dplyr::group_by(week) 
-    %>% dplyr::summarise(fromDate = min(date)-10, toDate = max(date)) 
+    %>% dplyr::summarise(fromDate = min(date)-10, toDate = max(date), weekStart = min(date)) 
     %>% dplyr::ungroup())
 }
 
 
+get_aggregated_serie <- function(serie_name, fromDate, toDate, created_start) {
+  `%>%` <- magrittr::`%>%`
+  message(paste("Aggregation serie", serie_name, "(", fromDate, "to", toDate, ")"))
+ 
+  # Calculating the aggregated regex to mach json files to aggregate
+  agg_regex <-lapply(fromDate:toDate, function(d) strftime(as.Date(d, "1970-01-01"), ".*%Y\\.%m\\.%d.*")) 
 
+  if(serie_name == "geolocated") {
+    get_geotagged_tweets(regexp = agg_regex
+       , groupBy = list(
+         "topic"
+         , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
+         , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+         , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
+         , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
+         , paste(get_user_location_var("geo_code"), "as user_geo_code") 
+       )
+       , vars = list(
+         paste("avg(", get_tweet_location_var("longitude"),") as tweet_logitude") 
+         , paste("avg(", get_tweet_location_var("latitude"), ") as tweet_latitude")
+         , paste("avg(", get_user_location_var("longitude"),") as user_longitude") 
+         , paste("avg(", get_user_location_var("latitude"), ") as user_latitude")
+         , "cast(count(*) as Integer) as tweets"
+       )
+       ,filterBy = list(
+         paste("created_at >= '", strftime(created_start, "%Y-%m-%d"), "'", sep = "")
+       )  
+     )
+  } else if(serie_name == "topwords") {
+    # Getting top word aggregation for each
+    top_chunk <- get_geotagged_tweets(regexp = agg_regex
+      , vars = list(
+        "topic"
+        , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
+        , "date_format(created_at, 'yyyy-MM-dd HH:mm:ss') as created_at" 
+        , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+        , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
+        , "lang"
+        , "text"
+      )
+      , sortBy = list(
+        "topic"
+        ,"created_at" 
+      )
+      ,filterBy = list(
+         paste("created_at >= '", strftime(created_start, "%Y-%m-%d"), "'", sep = "")
+      )  
+      , handler = function(df, con_tmp) {
+          pipe_top_words(df = df, text_col = "text", lang_col = "lang", group_by = c("topic", "created_date"), max_words = 1000, con_out = con_tmp, page_size = 1000)
+      }
+    )
+    top_chunk %>% 
+      dplyr::group_by(tokens, topic, created_date)  %>%
+      dplyr::summarize(frequency = sum())  %>%
+      dplyr::ungroup()  %>%
+      dplyr::group_by(topic, created_date)  %>%
+      dplyr::top_n(n = 200, wt = frequency) %>%
+      dplyr::ungroup() 
+
+  }
+}
