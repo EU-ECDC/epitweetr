@@ -220,7 +220,7 @@ get_dashboard_data <- function() {
   d$topics<-firstup(d$topics)
   d$countries <- {
     regions <- get_country_items()
-    setNames(1:length(regions), sapply(regions, function(r) paste(r$pad, r$name)))   
+    setNames(1:length(regions), sapply(regions, function(r) r$name))   
   } 
   d$date_min <- strftime(as.Date(min(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
   d$date_max <- strftime(as.Date(max(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")

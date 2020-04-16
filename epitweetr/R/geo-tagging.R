@@ -120,12 +120,12 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), groupBy 
 }
 
 #' Getting a list of regions, sub regions and countries for using as a select
-get_country_items <- function() {
+get_country_items <- function(order = "level") {
   `%>%` <- magrittr::`%>%`
   
   #If countries are already on cache we return them otherwise we calculate them
-  if(exists("country_items", where = cached)) {
-    return (cached$country_items)
+  if(exists(paste("country_items", order, sep = ""), where = cached)) {
+    return (cached[["country_items", order, sep = ""]])
   }
   else {
     # Getting country data from package embeded csv, ignoring antartica
@@ -151,11 +151,11 @@ get_country_items <- function() {
     items <- list()
     # adding world items  
     row <- 1
-    items[[row]] <- list(name = "World", codes = list(), pad = "", minLat = -90, maxLat = 90, minLong = -180, maxLong = 180 )
+    items[[row]] <- list(name = "World", codes = list(), level = 0, minLat = -90, maxLat = 90, minLong = -180, maxLong = 180 )
     for(r in 1:nrow(regions)) {
       row <- row + 1
-      region <- countries$region[[r]]
-      items[[row]] = list(name = region, codes = list(), pad = "-- ", minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
+      region <- regions$region[[r]]
+      items[[row]] = list(name = region, codes = list(), level = 1, minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
       # filling region item
       for(c in 1:nrow(countries)) {
         if(countries$region[[c]] == region) {
@@ -173,7 +173,7 @@ get_country_items <- function() {
         if(subregions$region[[s]] == region ) {       
           row <- row + 1
           subregion <- subregions$sub.region[[s]]
-          items[[row]] = list(name = subregion, codes = list(), pad = "---- ", minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
+          items[[row]] = list(name = subregion, codes = list(), level = 2, minLat = 90, maxLat = -90, minLong = 180, maxLong = -180)
           # filling sub region item
           for(c in 1:nrow(countries)) {
             if(countries$region[[c]] == region && countries$sub.region[[c]] == subregion) {
@@ -194,7 +194,7 @@ get_country_items <- function() {
               items[[row]] <- list(
                 name = country
                 , codes = list(countries$alpha.2[[c]])
-                , pad = "------ "
+                , level = 3
                 , minLat = countries$minLat[[c]]
                 , maxLat = countries$maxLat[[c]]
                 , minLong = countries$minLong[[c]]
@@ -205,8 +205,21 @@ get_country_items <- function() {
         }
       }
     }
-    cached$country_items <- items
+    if(order == "level")
+      items <- items[order(sapply(items,function(i) {paste(i$level, i$name)}))]
+
+    cached[[paste("country_items", order, sep="_")]] <- items    
     return(items)
   }
+}
+
+#' Get country codes
+#' usage 
+#' map <- get_country_code_map()
+#' map[["FR"]] 
+get_country_code_map <- function() {
+  regions <- get_country_items()  
+  countries <- regions[sapply(regions, function(i) i$level == 3)]
+  return(setNames(sapply(countries, function(r) r$name), sapply(countries, function(r) r$code)))
 }
 

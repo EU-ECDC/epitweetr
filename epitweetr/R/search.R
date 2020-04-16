@@ -35,7 +35,7 @@ search_loop <- function() {
 
 #' performing a search for a topic and updating current plan
 search_topic <- function(plan, query, topic) {
-  message(paste("searching for topic", topic, "since", plan$since_target, "until", if(is.null(plan$since_id)) "(last tweet)" else plan$since_id))
+  message(paste("searching for topic", topic, "from", plan$since_target, "until", if(is.null(plan$since_id)) "(last tweet)" else plan$since_id))
   year <- format(Sys.time(), "%Y")
   file_name <- paste(format(Sys.time(), "%Y.%m.%d"), "json.gz", sep = ".")
   dest <- paste(conf$dataDir, "tweets", "search", topic, year, file_name, sep = "/")
