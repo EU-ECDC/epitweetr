@@ -18,8 +18,6 @@ object JavaBridge {
       SparkSession.builder()
         .master(s"local[${if(cores == 0) "*" else cores.toString}]")
         .appName("epitweetr")
-        //.config("spark.driver.memory", "4g")
-        //.config("spark.executor.memory", "2g")
         .getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
     spark

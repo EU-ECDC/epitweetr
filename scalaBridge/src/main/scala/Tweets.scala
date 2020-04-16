@@ -27,7 +27,7 @@ object Tweets {
       if(!cmd(command).subsetOf(params.keySet))
         l.msg(s"Cannot run $command, expected named parameters are ${cmd(command)}")
       else if(command == "getTweets") {
-         implicit val spark = JavaBridge.getSparkSession(params.get("cores").map(_.toInt).getOrElse(0)) 
+         implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
          implicit val storage = JavaBridge.getSparkStorage(spark) 
          Some(
            getTweets(
@@ -52,7 +52,7 @@ object Tweets {
            )
          ).map(df => JavaBridge.df2StdOut(df, minPartitions = params.get("parallelism").map(_.toInt).get))
       } else if(command == "extractLocations"){ 
-         implicit val spark = JavaBridge.getSparkSession(params.get("cores").map(_.toInt).getOrElse(0)) 
+         implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
          implicit val storage = JavaBridge.getSparkStorage(spark) 
          extractLocations(
            sourcePath =  params.get("sourcePath").get
