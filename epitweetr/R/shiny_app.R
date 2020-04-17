@@ -65,6 +65,7 @@ epitweetr_app <- function() {
       ,geo_country_code = "tweet_geo_country_code"
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,selected_countries = fcountries
     )
     
   }
