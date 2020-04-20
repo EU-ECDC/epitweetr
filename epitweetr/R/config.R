@@ -36,7 +36,9 @@ get_key_ring <- function(backend = NULL) {
     kb$keyring_set_default(kr_name)
   }
 
-  if(kb$keyring_is_locked(keyring = kr_name)) {
+  if(kb$keyring_is_locked(keyring = kr_name) && Sys.getenv("ecdc_wtitter_tool_kr_password") != "") {
+    kb$keyring_unlock(keyring = kr_name, password =  Sys.getenv("ecdc_wtitter_tool_kr_password"))
+  } else if(kb$keyring_is_locked(keyring = kr_name)) {
     kb$keyring_unlock(keyring = kr_name)
   }
   return (kb)
@@ -77,102 +79,108 @@ get_empty_config <- function() {
 
 #' Build configuration values for application from a configuration json file
 #' @export
-setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xlsx", ignore_keyring=FALSE) {
-  #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
-  temp <- 
-    if(file.exists(path)) {
-      jsonlite::read_json(path, simplifyVector = FALSE, auto_unbox = TRUE)
-    } else {
-      get_empty_config()
-    }
-  
-  #Setting config  variables filled only from json file  
-  conf$keyring <- temp$keyring
-  conf$schedule_span <- temp$schedule_span
-  conf$dataDir <- temp$dataDir
-  conf$geonames <- temp$geonames
-  conf$languages <- temp$languages
-  conf$spark_cores <- temp$spark_cores
-  conf$spark_memory <- temp$spark_memory
-  conf$rJava <- temp$rJava
-  conf$geolocation_threshold <- temp$geolocation_threshold
-  
-  #Getting topics from excel topics files if it has changed since las load
-  topics <- 
-    if(file.exists(topics_path)) {
-      t <- list()
-      t$md5 <- as.vector(tools::md5sum(topics_path))
-      if(t$md5 != temp$topics_md5) { 
-        t$df <- readxl::read_excel(topics_path)
-      }
-      t
-    } else {
-      list()
-    }
-  
-  #Meging topics from config json and topic excel topics if this last one has changed
-  #Each time a topic is found on file, all its occurrencies will be processed at the same time, to ensure consistent multi query topics updates based on position
-  if(exists("df", where = topics)) {
-    distinct_topics <- as.list(unique(topics$df$Topic))
-    adjusted_topics <- list()
-    i_adjusted <- 1
-    #For each distinct topic on excel file
-    for(i_topic in 1:length(distinct_topics)) {
-      topic <- distinct_topics[[i_topic]]
-      if(!grepl("^[A-Za-z_0-9][A-Za-z_0-9 \\-]*$", topic)) {
-        stop(paste("topic name", topic, "is invalid, it must contains only by alphanumeric letters, digits spaces '-' and '_' and not start with spaces, '-' or '_'", sep = " "))
-      }
-      i_tmp <- 1
-      queries <- topics$df[topics$df$Topic == topic, ]
-      #For each distincit query on excel file on current topic
-      for(i_query in 1:nrow(queries)) {
-        #Looking for the next matching entry in json file
-        while(i_tmp <= length(temp$topics) && temp$topics[[i_tmp]]$topic != topic) { i_tmp <- i_tmp + 1 }
-        if(i_tmp <= length(temp$topics)) {
-          #reusing an existing query
-          adjusted_topics[[i_adjusted]] <- temp$topics[[i_tmp]]
-          adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
-        } else {
-          #creating a new query  
-          adjusted_topics[[i_adjusted]] <- list()
-          adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
-          adjusted_topics[[i_adjusted]]$topic <- queries$Topic[[i_query]]
-        }
-        i_adjusted <- i_adjusted + 1
-        i_tmp <- i_tmp + 1
-      }
-    }
-    temp$topics <- adjusted_topics
-    temp$topics_md5 <- topics$md5
+setup_config <- function(paths = list(props = "data/properties.json", topics = "data/topics.json"), topics_path = "data/topics.xlsx", ignore_keyring=FALSE, save_first = list()) 
+{
+  if(length(save_first) > 0) {
+    save_config(paths = paths[unlist(save_first)])
   }
- 
-  #Loading topic related infomation on config file 
-  conf$topics_md5 <- temp$topics_md5 
-  conf$topics <- temp$topics
-  #Copying plans
-  if(length(temp$topics)>0) {
-    for(i in 1:length(temp$topics)) {
-      if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
-        conf$topics[[i]]$plan <- list()
+  #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
+  temp <- get_empty_config()
+  
+  if(exists("props", where = paths) && file.exists(paths$props)) {
+    temp = merge_configs(list(temp, jsonlite::read_json(paths$props, simplifyVector = FALSE, auto_unbox = TRUE)))
+    #Setting config  variables filled only from json file  
+    conf$keyring <- temp$keyring
+    conf$schedule_span <- temp$schedule_span
+    conf$dataDir <- temp$dataDir
+    conf$geonames <- temp$geonames
+    conf$languages <- temp$languages
+    conf$spark_cores <- temp$spark_cores
+    conf$spark_memory <- temp$spark_memory
+    conf$rJava <- temp$rJava
+    conf$geolocation_threshold <- temp$geolocation_threshold
+  }
+  if(file.exists(paths$topics)) {
+    temp = merge_configs(list(temp, jsonlite::read_json(paths$topics, simplifyVector = FALSE, auto_unbox = TRUE)))
+    #Getting topics from excel topics files if it has changed since las load
+    topics <- 
+      if(file.exists(topics_path)) {
+        t <- list()
+        t$md5 <- as.vector(tools::md5sum(topics_path))
+        if(t$md5 != temp$topics_md5) { 
+          t$df <- readxl::read_excel(topics_path)
+        }
+        t
+      } else {
+        list()
       }
-      else {
-        conf$topics[[i]]$plan <-  
-        lapply(1:length(temp$topics[[i]]$plan), 
-          function(j) get_plan(
-            expected_end = temp$topics[[i]]$plan[[j]]$expected_end
-            , scheduled_for = temp$topics[[i]]$plan[[j]]$scheduled_for
-            , start_on = temp$topics[[i]]$plan[[j]]$start_on
-            , end_on = temp$topics[[i]]$plan[[j]]$end_on
-            , max_id = temp$topics[[i]]$plan[[j]]$max_id
-            , since_id = temp$topics[[i]]$plan[[j]]$since_id
-            , since_target = temp$topics[[i]]$plan[[j]]$since_target
-            , results_span = temp$topics[[i]]$plan[[j]]$results_span
-            , requests = temp$topics[[i]]$plan[[j]]$requests
-            , progress = temp$topics[[i]]$plan[[j]]$progress
-        ))
+    
+    #Meging topics from config json and topic excel topics if this last one has changed
+    #Each time a topic is found on file, all its occurrencies will be processed at the same time, to ensure consistent multi query topics updates based on position
+    if(exists("df", where = topics)) {
+      distinct_topics <- as.list(unique(topics$df$Topic))
+      adjusted_topics <- list()
+      i_adjusted <- 1
+      #For each distinct topic on excel file
+      for(i_topic in 1:length(distinct_topics)) {
+        topic <- distinct_topics[[i_topic]]
+        if(!grepl("^[A-Za-z_0-9][A-Za-z_0-9 \\-]*$", topic)) {
+          stop(paste("topic name", topic, "is invalid, it must contains only by alphanumeric letters, digits spaces '-' and '_' and not start with spaces, '-' or '_'", sep = " "))
+        }
+        i_tmp <- 1
+        queries <- topics$df[topics$df$Topic == topic, ]
+        #For each distincit query on excel file on current topic
+        for(i_query in 1:nrow(queries)) {
+          #Looking for the next matching entry in json file
+          while(i_tmp <= length(temp$topics) && temp$topics[[i_tmp]]$topic != topic) { i_tmp <- i_tmp + 1 }
+          if(i_tmp <= length(temp$topics)) {
+            #reusing an existing query
+            adjusted_topics[[i_adjusted]] <- temp$topics[[i_tmp]]
+            adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
+          } else {
+            #creating a new query  
+            adjusted_topics[[i_adjusted]] <- list()
+            adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
+            adjusted_topics[[i_adjusted]]$topic <- queries$Topic[[i_query]]
+          }
+          i_adjusted <- i_adjusted + 1
+          i_tmp <- i_tmp + 1
+        }
       }
+      temp$topics <- adjusted_topics
+      temp$topics_md5 <- topics$md5
     }
-  } 
+ 
+    #Loading topic related infomation on config file 
+    conf$topics_md5 <- temp$topics_md5 
+    conf$topics <- temp$topics
+  
+    #Copying plans
+    if(length(temp$topics)>0) {
+      for(i in 1:length(temp$topics)) {
+        if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
+          conf$topics[[i]]$plan <- list()
+        }
+        else {
+          conf$topics[[i]]$plan <-  
+          lapply(1:length(temp$topics[[i]]$plan), 
+            function(j) get_plan(
+              expected_end = temp$topics[[i]]$plan[[j]]$expected_end
+              , scheduled_for = temp$topics[[i]]$plan[[j]]$scheduled_for
+              , start_on = temp$topics[[i]]$plan[[j]]$start_on
+              , end_on = temp$topics[[i]]$plan[[j]]$end_on
+              , max_id = temp$topics[[i]]$plan[[j]]$max_id
+              , since_id = temp$topics[[i]]$plan[[j]]$since_id
+              , since_target = temp$topics[[i]]$plan[[j]]$since_target
+              , results_span = temp$topics[[i]]$plan[[j]]$results_span
+              , requests = temp$topics[[i]]$plan[[j]]$requests
+              , progress = temp$topics[[i]]$plan[[j]]$progress
+          ))
+        }
+      }
+    } 
+  }
+  
   #Getting variables stored on keyring
   #Setting up keyring
   if(!ignore_keyring) {
@@ -189,21 +197,26 @@ setup_config <- function(path = "data/conf.json", topics_path = "data/topics.xls
 
 #' Save the configuration options to disk
 #' @export
-save_config <- function(path = "data/conf.json") {
-  temp <- list()
-  temp$dataDir <- conf$dataDir
-  temp$schedule_span <- conf$schedule_span
-  temp$geonames <- conf$geonames
-  temp$languages <- conf$languages
-  temp$keyring <- conf$keyring
-  temp$spark_cores <- conf$spark_cores
-  temp$spark_memory <- conf$spark_memory
-  temp$rJava <- conf$rJava
-  temp$geolocation_threshold <- conf$geolocation_threshold
-  temp$topics_md5 <- conf$topics_md5
-  temp$topics <- conf$topics
-  jsonlite::write_json(temp, path, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
-
+save_config <- function(paths = list(props = "data/properties.json", topics = "data/topics.json")) {
+  if(exists("props", where = paths)) {
+    temp <- list()
+    temp$dataDir <- conf$dataDir
+    temp$schedule_span <- conf$schedule_span
+    temp$geonames <- conf$geonames
+    temp$languages <- conf$languages
+    temp$keyring <- conf$keyring
+    temp$spark_cores <- conf$spark_cores
+    temp$spark_memory <- conf$spark_memory
+    temp$rJava <- conf$rJava
+    temp$geolocation_threshold <- conf$geolocation_threshold
+    jsonlite::write_json(temp, paths$props, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+  }
+  if(exists("topics", where = paths)) {
+    temp <- list()
+    temp$topics <- conf$topics
+    temp$topics_md5 <- conf$topics_md5
+    jsonlite::write_json(temp, paths$topics, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+  }
 }
 
 #' Update twitter auth tokens on configuration object
@@ -217,4 +230,19 @@ set_twitter_app_auth <- function(app, access_token, access_token_secret, api_key
   for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
     set_secret(v, conf$twitter_auth[[v]])
   }
+}
+
+#' Merging two or more configuration files as a list
+merge_configs <- function(configs) {
+  if(length(configs)==0)
+    stop("No configurations provided for merge")
+  else if(length(configs)==1)
+    configs[[1]]
+  else {
+    first <- configs[[1]]
+    rest <- merge_configs(configs[-1])
+    keys <- unique(c(names(first), names(rest)))
+    as.list(setNames(mapply(function(x, y) if(is.null(y)) x else y, first[keys], rest[keys]), keys))
+  }
+      
 }

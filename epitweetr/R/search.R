@@ -29,7 +29,7 @@ search_loop <- function() {
         }
       }
     }
-    save_config(path = paste(conf$dataDir, "conf.json", sep = "/"))
+    setup_config(paths = list(props = paste(conf$dataDir, "properties.json", sep = "/"), topics = paste(conf$dataDir, "topics.json", sep = "/")), save_first = list("topics"))
   }
 }
 
@@ -37,9 +37,32 @@ search_loop <- function() {
 search_topic <- function(plan, query, topic) {
   message(paste("searching for topic", topic, "from", plan$since_target, "until", if(is.null(plan$since_id)) "(last tweet)" else plan$since_id))
   year <- format(Sys.time(), "%Y")
-  file_name <- paste(format(Sys.time(), "%Y.%m.%d"), "json.gz", sep = ".")
-  dest <- paste(conf$dataDir, "tweets", "search", topic, year, file_name, sep = "/")
   create_dirs(topic, year) 
+  
+  file_prefix <- paste(format(Sys.time(), "%Y.%m.%d"))
+  file_pattern <- paste(format(Sys.time(), "%Y\\.%m\\.%d"))
+  dir <- paste(conf$dataDir, "tweets", "search", topic, year, sep = "/")
+ 
+  # Getting the last file matching the pattern
+  files <- sort(list.files(path = dir, pattern = file_prefix))
+  file_name <- 
+    if(length(files) == 0) paste(file_prefix, formatC(1, width = 5, format = "d", flag = "0"),"json.gz",  sep = ".")
+    else {
+      #If last file matching pattern is smaller than 100MB we keep adding to the same file else a new incremented file is created
+      last <- files[[length(files)]]
+      if(file.info(paste(dir, last, sep="/"))$size / (1024*1024) < 100)
+        last
+      else {
+        #Try to get current index after date as integer and increasing it by one, if not possible a 00001 index will be added
+        parts <- strsplit(gsub(".json.gz", "", last),split="\\.")[[1]]
+        if(length(parts)<=3 || is.na(as.integer(parts[[length(parts)]]))) 
+          paste(c(parts, formatC(1, width = 5, format = "d", flag = "0"), "json.gz"), collapse = ".")
+        else  
+          paste(c(parts[1:length(parts)-1], formatC(as.integer(parts[[length(parts)]])+1, width = 5, format = "d", flag = "0"), "json.gz"), collapse = ".")
+      }
+    } 
+ 
+  dest <- paste(conf$dataDir, "tweets", "search", topic, year, file_name, sep = "/")
   if(nchar(query)< 400) {
     resp <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target)
     content = httr::content(resp,as="text")

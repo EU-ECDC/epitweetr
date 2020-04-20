@@ -12,11 +12,6 @@ as.dataFrame <- function(spark_df, chunk_size) {
   return(jsonlite::rbind_pages(dfs))
 }
 
-conf_languages_as_scala <- function() {
-  lang_list <- lapply(conf$languages, function(l) {return(rJava::J("org.ecdc.twitter.Language")$apply(l$name, l$code, l$vectors))})
-  return(rJava::.jarray(lang_list, "org.ecdc.twitter.Language"))
-}
-
 conf_languages_as_arg <- function() {
   paste(
     "langCodes \"", paste(lapply(conf$languages, function(l) l$code), collapse = ","), "\" ",
@@ -24,10 +19,6 @@ conf_languages_as_arg <- function() {
     "langPaths \"", paste(lapply(conf$languages, function(l) l$vectors), collapse = ","), "\" ",
     sep = ""
   )
-}
-
-conf_geonames_as_scala <-function() {
-  return(rJava::J("org.ecdc.twitter.Geonames")$apply(conf$geonames, destination = paste(conf$dataDir, "geo", sep="/")))
 }
 
 conf_geonames_as_arg <- function() {

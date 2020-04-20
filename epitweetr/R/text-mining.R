@@ -57,6 +57,5 @@ pipe_top_words <- function(df, text_col, lang_col, group_by, max_words = 1000, c
       jsonlite::stream_out(wc, con_out, pagesize = page_size, verbose = FALSE) 
     }
   }
-  
 }
 

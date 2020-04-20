@@ -25,6 +25,7 @@ geotag_tweets <- function() {
       )
       ,sep = '\n'
    )
+   message(cmd)
    system(cmd)     
 }
 
@@ -74,7 +75,7 @@ get_user_location_var <- function(varname) {
 
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' @export
-get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), groupBy = list(), sortBy = list(), filterBy = list(), handler = NULL) {
+get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), handler = NULL) {
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$dataDir, "/tweets/search", sep = "")
  geolocated_path <- paste(conf$dataDir, "/tweets/geolocated", sep = "")
@@ -93,9 +94,9 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), groupBy 
          , "geoPath", paste("\"", geolocated_path, "\"", sep = "") 
          , "pathFilter", paste("'", paste(regexp, collapse = ",") ,"'",sep="") 
          , "columns", paste("\"", paste(vars, collapse = "||") ,"\"",sep="") 
-         , "groupBy", paste("\"", paste(groupBy, collapse = "||") ,"\"",sep="") 
-         , "sortBy", paste("\"", paste(sortBy, collapse = "||") ,"\"",sep="") 
-         , "filterBy", paste("\"", paste(filterBy, collapse = "||") ,"\"",sep="") 
+         , "groupBy", paste("\"", paste(group_by, collapse = "||") ,"\"",sep="") 
+         , "sortBy", paste("\"", paste(sort_by, collapse = "||") ,"\"",sep="") 
+         , "filterBy", paste("\"", paste(filter_by, collapse = "||") ,"\"",sep="") 
          ,  conf_languages_as_arg()
          , "parallelism", conf$spark_cores 
        )
