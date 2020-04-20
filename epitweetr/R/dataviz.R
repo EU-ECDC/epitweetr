@@ -117,6 +117,7 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
   if(date=="created_weeknum"){
     df$date <-as.Date(paste(df$date,"1"),"%Y%U %u")
   }
+
   return(df)
   
 }
@@ -129,16 +130,22 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
 #' @export
 #'
 #' @examples
-plot_trendline <- function(df,s_country,s_topic,date_min,date_max){
+#' 
+#Setting font family 
+font<-set_font_family("Helvetica") 
+
+plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_countries){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-  #Setting font family 
-  font<-set_font_family("Arial") 
   if(length(s_country)>0){ #if several countries selected, aggregation by country
+    #Transforming country code into label
+    regions <- get_country_items()
+    map<-get_country_code_map()
+    df$geo_country_code <- map[(df$geo_country_code)]
     df <- dplyr::rename(df,country = geo_country_code)
     fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
       ggplot2::geom_line(ggplot2::aes(colour=country)) +
-      ggplot2::labs(title=ifelse(length(s_country)==1,paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max," in ", s_country),paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max))) +
+      ggplot2::labs(title=ifelse(length(selected_countries)==1,paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(selected_countries)]]$name),paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max))) +
       ggplot2::xlab('Day and month') +
       ggplot2::ylab('Number of tweets') +
       #ggplot2::scale_y_continuous(limits = c(0, max(df$number_of_tweets)), expand = c(0,0)) +
@@ -195,13 +202,13 @@ plot_trendline <- function(df,s_country,s_topic,date_min,date_max){
 #' @export
 #'
 #' @examples
-trend_line <- function(s_topic=c(),s_country=c(),type_date="created_date",geo_country_code="tweet_geo_country_code",date_min="1900-01-01",date_max="2100-01-01"){
+trend_line <- function(s_topic=c(),s_country=c(),type_date="created_date",geo_country_code="tweet_geo_country_code",date_min="1900-01-01",date_max="2100-01-01",selected_countries){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   dfs <- get_aggregates()
   colnames(dfs)[colnames(dfs)== geo_country_code] <- "geo_country_code"
   fig <- data_treatment(dfs,s_topic,s_country, type_date, geo_country_code, date_min,date_max)
-  plot_trendline(fig,s_country,s_topic,date_min,date_max)
+  plot_trendline(fig,s_country,s_topic,date_min,date_max,selected_countries)
 }
     
 #######################################MAP#####################################
@@ -249,10 +256,8 @@ create_topwords <- function(s_topic=c(),s_country=c(),date_min="1900-01-01",date
   `%>%` <- magrittr::`%>%`
 
   df <- (get_aggregates("topwords"))
-  
     df$topic <- stringr::str_replace_all(df$topic, "%20", " ")
     df$topic<-firstup(df$topic)
-    
     df <- (df
       %>% dplyr::filter(topic==s_topic )
       %>% dplyr::filter(created_date >= date_min && created_date <= date_max)
@@ -270,10 +275,18 @@ create_topwords <- function(s_topic=c(),s_country=c(),date_min="1900-01-01",date
            ggplot2::xlab(NULL) +
            ggplot2::coord_flip() +
            ggplot2::labs(
-              x = "Count",
-              y = "Unique words",
-              title = "Top words words in period"
-           )
+              x = "Unique words",
+              y = "Count",
+              #title = "Top words words in period"
+              title = paste0("Top words of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max)
+           )+
+           ggplot2::theme_classic(base_family = get_font_family(font)) +
+           ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
+                       axis.text = ggplot2::element_text(colour = "black", size = 8),
+                       axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
+                                                           margin = ggplot2::margin(-15, 0, 0, 0)),
+                       axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
+                       axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10))
     )
   list("chart" = fig, "data" = df) 
 }

@@ -65,6 +65,7 @@ epitweetr_app <- function() {
       ,geo_country_code = "tweet_geo_country_code"
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,selected_countries = fcountries
     )
     
   }
@@ -112,7 +113,6 @@ epitweetr_app <- function() {
   
   # Defining server loginc
   server <- function(input, output, session, ...) {
-    
     output$line_chart <- plotly::renderPlotly({
        shiny::validate(
          shiny::need(input$topics != '', 'Please select a topic')
@@ -218,6 +218,7 @@ get_dashboard_data <- function() {
   d <- list()
   d$topics <- c("",unique(dfs$topic))
   d$topics <- stringr::str_replace_all(d$topics, "%20", " ")
+  d$topics<-firstup(d$topics)
   d$countries <- {
     regions <- get_country_items()
     setNames(1:length(regions), sapply(regions, function(r) r$name))   
@@ -232,3 +233,10 @@ get_dashboard_data <- function() {
   d$date_end <- d$date_max
   return(d)
 }
+
+#Capitalize first letter of a string
+firstup <- function(x) {
+       x <- tolower(x)
+       substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+       x
+   }
