@@ -17,12 +17,12 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
     aggregate_weeks <- get_aggregate_weeks(series[[i]])
   
     if(nrow(aggregate_weeks)>0) {
-      for(i in 1:nrow(aggregate_weeks)) {
-        week <- aggregate_weeks$week[[i]]
-        read_from <- as.Date(aggregate_weeks$read_from[[i]], "1970-01-01") 
-        read_to <- as.Date(aggregate_weeks$read_to[[i]], "1970-01-01") 
-        created_from <- as.Date(aggregate_weeks$created_from[[i]], "1970-01-01") 
-        created_before <- as.Date(aggregate_weeks$created_before[[i]], "1970-01-01") 
+      for(j in 1:nrow(aggregate_weeks)) {
+        week <- aggregate_weeks$week[[j]]
+        read_from <- as.Date(aggregate_weeks$read_from[[j]], "1970-01-01") 
+        read_to <- as.Date(aggregate_weeks$read_to[[j]], "1970-01-01") 
+        created_from <- as.Date(aggregate_weeks$created_from[[j]], "1970-01-01") 
+        created_before <- as.Date(aggregate_weeks$created_before[[j]], "1970-01-01") 
         
         # Creating week folder if does not exists
         if(!dir.exists(file.path(conf$dataDir, "series", week))) {
@@ -129,49 +129,69 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
 
   if(serie_name == "geolocated") {
     get_geotagged_tweets(regexp = agg_regex
-       , group_by = list(
-         "topic"
-         , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
-         , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
-         , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
-         , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
-         , paste(get_user_location_var("geo_code"), "as user_geo_code") 
+       , sources_exp = list(
+           tweet = c(
+             list("date_format(created_at, 'yyyy-MM-dd') as created_date")
+             , get_tweet_location_columns("tweet")
+           )
+           ,geo = c(
+             get_tweet_location_columns("geo") 
+             , get_user_location_columns("geo") 
+             ) 
        )
        , vars = list(
-         paste("avg(", get_tweet_location_var("longitude"),") as tweet_logitude") 
-         , paste("avg(", get_tweet_location_var("latitude"), ") as tweet_latitude")
-         , paste("avg(", get_user_location_var("longitude"),") as user_longitude") 
-         , paste("avg(", get_user_location_var("latitude"), ") as user_latitude")
-         , "cast(count(*) as Integer) as tweets"
+           paste("avg(", get_tweet_location_var("longitude"), ") as tweet_longitude") 
+           , paste("avg(", get_tweet_location_var("latitude"), ") as tweet_latitude")
+           , paste("avg(", get_user_location_var("longitude"), ") as user_longitude") 
+           , paste("avg(", get_user_location_var("latitude"), ") as user_latitude")
+           , "cast(count(*) as Integer) as tweets"
        )
        , filter_by = list(
          paste("created_at >= '", strftime(created_from, "%Y-%m-%d"), "'", sep = "")
          , paste("created_at < '", strftime(created_before, "%Y-%m-%d"), "'", sep = "")
        )  
+       , group_by = list(
+         "topic"
+         , "created_date" 
+         , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
+         , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+         , paste(get_user_location_var("geo_code"), "as user_geo_code")
+         , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code")
+       )
      )
   } else if(serie_name == "topwords") {
     # Getting top word aggregation for each
     top_chunk <- get_geotagged_tweets(regexp = agg_regex
-      , vars = list(
-        "topic"
-        , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
-        , "date_format(created_at, 'yyyy-MM-dd HH:mm:ss') as created_at" 
-        , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
-        , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
-        , "lang"
-        , "text"
-      )
+      , sources_exp = list(
+          tweet = list(
+            "date_format(created_at, 'yyyy-MM-dd') as created_date" 
+            , "date_format(created_at, 'yyyy-MM-dd HH:mm:ss') as created_at" 
+            , "lang"
+            , "text"
+           )
+          ,geo = list(
+             get_tweet_location_columns("geo") 
+          )
+        )
       , sort_by = list(
         "topic"
-        ,"created_at" 
-        , get_tweet_location_var("geo_country_code") 
+        , "created_at" 
+        , "tweet_geo_country_code" 
       )
       , filter_by = list(
          paste("created_at >= '", strftime(created_from, "%Y-%m-%d"), "'", sep = "")
          , paste("created_at < '", strftime(created_before, "%Y-%m-%d"), "'", sep = "")
       )  
+      , vars = list(
+        "topic"
+        , "created_at" 
+        , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+        , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
+        , "lang"
+        , "text"
+      )
       , handler = function(df, con_tmp) {
-          pipe_top_words(df = df, text_col = "text", lang_col = "lang", group_by = c("topic", "created_date", "tweet_geo_country_code"), max_words = 1000, con_out = con_tmp, page_size = 1000)
+          pipe_top_words(df = df, text_col = "text", lang_col = "lang", group_by = c("topic", "created_date", "tweet_geo_country_code"), max_words = 500, con_out = con_tmp, page_size = 500)
       }
     )
     top_chunk %>% 

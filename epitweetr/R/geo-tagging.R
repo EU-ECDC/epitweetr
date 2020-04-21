@@ -54,6 +54,29 @@ get_tweet_location_var <- function(varname) {
     )  
 }
 
+#' Get tweet geolocation used cols 
+get_tweet_location_columns <- function(table) {
+  if(table == "tweet")
+    list(
+      "longitude"
+      , "latitude"
+      , "place_longitude"
+      , "place_latitude"
+      , "linked_place_longitude"
+      , "linked_place_latitude"
+    )
+  else 
+    list(
+      "text_loc"
+      ,"linked_text_loc"
+      ,"place_full_name_loc"
+      ,"linked_place_full_name_loc"
+      ,"text_loc"
+      ,"linked_text_loc"
+      ,"place_full_name_loc"
+      ,"linked_place_full_name_loc"
+    )
+}
 #' Get the SQL like expression to extract user geolocation variables 
 get_user_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
@@ -71,11 +94,20 @@ get_user_location_var <- function(varname) {
       , sep = ""
     )  
 }
-
+#' Get user geolocation used cols 
+get_user_location_columns <- function(table) {
+  if(table == "tweet")
+    list()
+  else 
+    list(
+      "user_location_loc"
+      , "user_description_loc"
+      )
+}
 
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' @export
-get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), handler = NULL) {
+get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL) {
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$dataDir, "/tweets/search", sep = "")
  geolocated_path <- paste(conf$dataDir, "/tweets/geolocated", sep = "")
@@ -97,12 +129,20 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
          , "groupBy", paste("\"", paste(group_by, collapse = "||") ,"\"",sep="") 
          , "sortBy", paste("\"", paste(sort_by, collapse = "||") ,"\"",sep="") 
          , "filterBy", paste("\"", paste(filter_by, collapse = "||") ,"\"",sep="") 
+         , "sourceExpressions", paste(
+              "\""
+              , paste("tweet", paste(sources_exp$tweet, collapse = "||"), sep = "||")
+              , "|||"
+              , paste("geo", paste(sources_exp$geo, collapse = "||"), sep = "||") 
+              , "\""
+              , sep=""
+            ) 
          ,  conf_languages_as_arg()
          , "parallelism", conf$spark_cores 
        )
        ,sep = '\n'
      )
-     #message(cmd) 
+     message(cmd) 
      con <- pipe(cmd)
      if(is.null(handler)) {
        jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE)

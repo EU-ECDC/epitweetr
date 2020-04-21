@@ -71,7 +71,6 @@ get_empty_config <- function() {
   ret$geolocation_threshold <- 5
   ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
   ret$spark_memory <- "12g"
-  ret$rJava <- TRUE
   ret$topics <- list()
   ret$topics_md5 <- ""
   return(ret)
@@ -97,7 +96,6 @@ setup_config <- function(paths = list(props = "data/properties.json", topics = "
     conf$languages <- temp$languages
     conf$spark_cores <- temp$spark_cores
     conf$spark_memory <- temp$spark_memory
-    conf$rJava <- temp$rJava
     conf$geolocation_threshold <- temp$geolocation_threshold
   }
   if(file.exists(paths$topics)) {
@@ -151,34 +149,36 @@ setup_config <- function(paths = list(props = "data/properties.json", topics = "
       temp$topics_md5 <- topics$md5
     }
  
-    #Loading topic related infomation on config file 
-    conf$topics_md5 <- temp$topics_md5 
-    conf$topics <- temp$topics
+    #Loading topic related infomation on config file if topics have changed
+    if(!exists("topics_md5", where = conf) || conf$topics_md5 != temp$topics_md5) {
+      conf$topics_md5 <- temp$topics_md5 
+      conf$topics <- temp$topics
   
-    #Copying plans
-    if(length(temp$topics)>0) {
-      for(i in 1:length(temp$topics)) {
-        if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
-          conf$topics[[i]]$plan <- list()
-        }
-        else {
-          conf$topics[[i]]$plan <-  
-          lapply(1:length(temp$topics[[i]]$plan), 
-            function(j) get_plan(
-              expected_end = temp$topics[[i]]$plan[[j]]$expected_end
-              , scheduled_for = temp$topics[[i]]$plan[[j]]$scheduled_for
-              , start_on = temp$topics[[i]]$plan[[j]]$start_on
-              , end_on = temp$topics[[i]]$plan[[j]]$end_on
-              , max_id = temp$topics[[i]]$plan[[j]]$max_id
-              , since_id = temp$topics[[i]]$plan[[j]]$since_id
-              , since_target = temp$topics[[i]]$plan[[j]]$since_target
-              , results_span = temp$topics[[i]]$plan[[j]]$results_span
-              , requests = temp$topics[[i]]$plan[[j]]$requests
-              , progress = temp$topics[[i]]$plan[[j]]$progress
-          ))
+      #Copying plans
+      if(length(temp$topics)>0) {
+        for(i in 1:length(temp$topics)) {
+          if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
+            conf$topics[[i]]$plan <- list()
+          }
+          else {
+            conf$topics[[i]]$plan <-  
+            lapply(1:length(temp$topics[[i]]$plan), 
+              function(j) get_plan(
+                expected_end = temp$topics[[i]]$plan[[j]]$expected_end
+                , scheduled_for = temp$topics[[i]]$plan[[j]]$scheduled_for
+                , start_on = temp$topics[[i]]$plan[[j]]$start_on
+                , end_on = temp$topics[[i]]$plan[[j]]$end_on
+                , max_id = temp$topics[[i]]$plan[[j]]$max_id
+                , since_id = temp$topics[[i]]$plan[[j]]$since_id
+                , since_target = temp$topics[[i]]$plan[[j]]$since_target
+                , results_span = temp$topics[[i]]$plan[[j]]$results_span
+                , requests = temp$topics[[i]]$plan[[j]]$requests
+                , progress = temp$topics[[i]]$plan[[j]]$progress
+            ))
+          }
         }
       }
-    } 
+    }
   }
   
   #Getting variables stored on keyring
@@ -198,7 +198,9 @@ setup_config <- function(paths = list(props = "data/properties.json", topics = "
 #' Save the configuration options to disk
 #' @export
 save_config <- function(paths = list(props = "data/properties.json", topics = "data/topics.json")) {
+  message("path is", paths)
   if(exists("props", where = paths)) {
+    message("saving properties")
     temp <- list()
     temp$dataDir <- conf$dataDir
     temp$schedule_span <- conf$schedule_span
@@ -207,11 +209,11 @@ save_config <- function(paths = list(props = "data/properties.json", topics = "d
     temp$keyring <- conf$keyring
     temp$spark_cores <- conf$spark_cores
     temp$spark_memory <- conf$spark_memory
-    temp$rJava <- conf$rJava
     temp$geolocation_threshold <- conf$geolocation_threshold
     jsonlite::write_json(temp, paths$props, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(exists("topics", where = paths)) {
+    message("saving topics")
     temp <- list()
     temp$topics <- conf$topics
     temp$topics_md5 <- conf$topics_md5

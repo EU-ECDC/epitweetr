@@ -16,10 +16,10 @@ import Geonames.GeoLookup
 object Tweets {
   def main(args: Array[String]): Unit = {
     val cmd = Map(
-      "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "filterBy", "sortBy", "langCodes", "langNames", "langPaths",  "parallelism")
+      "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "filterBy", "sortBy", "sourceExpressions", "langCodes", "langNames", "langPaths",  "parallelism")
       , "extractLocations" -> Set("sourcePath", "destPath", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "reuseIndex", "indexPath", "minScore", "parallelism")
     )
-    if(args == null || args.size < 3 || !cmd.contains(args(0)) || args.size %2 == 0 ) 
+    if(args == null || args.size < 3 || !cmd.contains(args(0)) || args.size % 2 == 0 ) 
       l.msg(s"first argument must be within ${cmd.keys} and followed by a set of 'key' 'values' parameters, but the command ${args(0)} is followed by ${args.size -1} values")
     else {
       val command = args(0)
@@ -37,6 +37,14 @@ object Tweets {
              , columns = params.get("columns").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
              , groupBy = params.get("groupBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
              , filterBy = params.get("filterBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
+             , sourceExpressions = 
+                 params.get("sourceExpressions").get.split("\\|\\|\\|").map(_.trim).filter(_.size > 0).distinct
+                   .map(tLine => 
+                     Some(tLine.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0))
+                       .map(s => (s(0), s.drop(1)))
+                       .get
+                    )
+                   .toMap
              , sortBy = params.get("sortBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
              , langs = 
                  Some(Seq("langCodes", "langNames", "langPaths"))
@@ -51,6 +59,7 @@ object Tweets {
              , parallelism = params.get("parallelism").map(_.toInt)
            )
          ).map(df => JavaBridge.df2StdOut(df, minPartitions = params.get("parallelism").map(_.toInt).get))
+
       } else if(command == "extractLocations"){ 
          implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
          implicit val storage = JavaBridge.getSparkStorage(spark) 
@@ -340,37 +349,64 @@ object Tweets {
 
   }
 
-  def getTweets(tweetPath:String, geoPath:String, pathFilter:Seq[String], columns:Seq[String], groupBy:Seq[String], filterBy:Seq[String], sortBy:Seq[String], langs:Seq[Language],  parallelism:Option[Int])
-    (implicit spark:SparkSession, storage:Storage):DataFrame = {
+  def getTweets(
+    tweetPath:String
+    , geoPath:String
+    , pathFilter:Seq[String]
+    , columns:Seq[String]
+    , groupBy:Seq[String]
+    , filterBy:Seq[String]
+    , sortBy:Seq[String]
+    , sourceExpressions:Map[String, Seq[String]]
+    , langs:Seq[Language]
+    , parallelism:Option[Int]
+    )(implicit spark:SparkSession, storage:Storage):DataFrame = {
       Some(
         pathFilter.map{filter =>
           val tweets = getJsonTweets(path = tweetPath, parallelism = parallelism, pathFilter = Some(filter))
           val locationFiles = storage.getNode(geoPath).list(recursive = true).filter(n => n.path.endsWith(".json.gz") && n.path.matches(filter)).map{n => n.path}
-        
-          Some((tweets
-                , spark.read.schema(schemas.geoLocatedSchema).json(locationFiles: _*))
-            )
-            .map{case (tweets, locations) => 
+          val geos = spark.read.schema(schemas.geoLocatedSchema).json(locationFiles: _*)
+          val tweetsExpr = 
+            sourceExpressions.get("tweet")
+              .map(seq => seq.toSet.union(Set("id", "topic")).toSeq
+                          .map(e => expr(e))
+              )
+              .getOrElse(Seq(col("*")))
+          val geosExpr = 
+            sourceExpressions.get("geo")
+              .map(seq => seq.toSet.union(Set("id", "topic")).toSeq
+                          .map(e => expr(e))
+              )
+              .getOrElse(Seq(col("*")))
+          
+          Some((tweets, geos))
+            .map{case (tweets, geos) => 
                ( tweets
-                  .dropDuplicates("id", "topic")
                   .where(col("lang").isin(langs.map(_.code):_*))
-                ,locations
-                  .dropDuplicates("id", "topic")
+                  .select(tweetsExpr :_*)
+                ,geos
                   .where(col("lang").isin(langs.map(_.code):_*))
-                  .drop("topic", "file", "lang")
-                  .withColumnRenamed("id", "lid")
+                  .select(geosExpr :_*)
                )
             }
-            .map{ case (tweets, locations) => 
-              tweets
-                .join(locations, tweets("id")===locations("lid"), "left")
-                .drop("lid")
-            }
             .map{
-              case df if(filterBy.size == 0) => 
-                df 
-              case df => 
-                df.where(filterBy.map(w => expr(w)).reduce(_ && _))
+              case (tweets, geos) if(filterBy.size == 0) => 
+                (tweets, geos)  
+              case (tweets, geos) => 
+                (tweets.where(filterBy.map(w => expr(w)).reduce(_ && _)), geos)
+            }
+            .map{ case (tweets, geos) => 
+              (tweets.dropDuplicates("id", "topic")
+                , geos
+                  .dropDuplicates("id", "topic")
+                  .drop("topic", "file", "lang")
+                  .withColumnRenamed("id", "lid")
+              ) 
+            }
+            .map{ case (tweets, geos) => 
+              tweets
+                .join(geos, tweets("id")===geos("lid"), "left")
+                .drop("lid")
             }
             .get
         }
