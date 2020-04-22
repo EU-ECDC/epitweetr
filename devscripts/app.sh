@@ -13,5 +13,5 @@ expect ">"
 send "packageName <- \"epitweetr\"\r" 
 send "devtools::load_all(packageName)\r"
 send "epitweetr::setup_config()\r" 
-send "epitweetr::aggregate_tweets(\"topwords\")\r"
+send "epitweetr::epitweetr_app()\r"
 interact'

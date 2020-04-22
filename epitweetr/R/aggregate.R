@@ -169,14 +169,12 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
             , "lang"
             , "text"
            )
-          ,geo = list(
-             get_tweet_location_columns("geo") 
-          )
+          ,geo = get_tweet_location_columns("geo") 
         )
       , sort_by = list(
         "topic"
-        , "created_at" 
         , "tweet_geo_country_code" 
+        , "created_at" 
       )
       , filter_by = list(
          paste("created_at >= '", strftime(created_from, "%Y-%m-%d"), "'", sep = "")
@@ -184,14 +182,14 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
       )  
       , vars = list(
         "topic"
-        , "created_at" 
+        , "created_date" 
         , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
         , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
         , "lang"
         , "text"
       )
       , handler = function(df, con_tmp) {
-          pipe_top_words(df = df, text_col = "text", lang_col = "lang", group_by = c("topic", "created_date", "tweet_geo_country_code"), max_words = 500, con_out = con_tmp, page_size = 500)
+          pipe_top_words(df = df, text_col = "text", lang_col = "lang", max_words = 500, con_out = con_tmp, page_size = 500)
       }
     )
     top_chunk %>% 
@@ -205,6 +203,16 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
   } else if(serie_name == "country_counts") {
     # Getting top word aggregation for each
     top_chunk <- get_geotagged_tweets(regexp = agg_regex
+       , sources_exp = list(
+           tweet = c(
+             list("date_format(created_at, 'yyyy-MM-dd') as created_date")
+             , get_tweet_location_columns("tweet")
+           )
+           ,geo = c(
+             get_tweet_location_columns("geo") 
+             , get_user_location_columns("geo") 
+             ) 
+       )
       , group_by = list(
         "topic"
         , "date_format(created_at, 'yyyy-MM-dd') as created_date" 

@@ -72,13 +72,18 @@ get_empty_config <- function() {
   ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
   ret$spark_memory <- "12g"
   ret$topics <- list()
-  ret$topics_md5 <- ""
+  ret$topics_md5 <- "" 
   return(ret)
 }
 
 #' Build configuration values for application from a configuration json file
 #' @export
-setup_config <- function(paths = list(props = "data/properties.json", topics = "data/topics.json"), topics_path = "data/topics.xlsx", ignore_keyring=FALSE, save_first = list()) 
+setup_config <- function(
+  paths = list(props = "data/properties.json", topics = "data/topics.json")
+  , topics_path = "data/topics.xlsx"
+  , ignore_keyring = FALSE
+  , save_first = list()
+) 
 {
   if(length(save_first) > 0) {
     save_config(paths = paths[unlist(save_first)])
@@ -98,20 +103,22 @@ setup_config <- function(paths = list(props = "data/properties.json", topics = "
     conf$spark_memory <- temp$spark_memory
     conf$geolocation_threshold <- temp$geolocation_threshold
   }
-  if(file.exists(paths$topics)) {
+  if(exists("props", where = paths) && file.exists(paths$topics)) {
     temp = merge_configs(list(temp, jsonlite::read_json(paths$topics, simplifyVector = FALSE, auto_unbox = TRUE)))
     #Getting topics from excel topics files if it has changed since las load
-    topics <- 
-      if(file.exists(topics_path)) {
-        t <- list()
-        t$md5 <- as.vector(tools::md5sum(topics_path))
-        if(t$md5 != temp$topics_md5) { 
-          t$df <- readxl::read_excel(topics_path)
-        }
-        t
-      } else {
-        list()
+    
+    #If user has not ovewritten 
+    if(!file.exists(topics_path))
+      topics_path <- system.file("extdata", "topics.xlsx", package = get_package_name())
+    
+    topics <- {
+      t <- list()
+      t$md5 <- as.vector(tools::md5sum(topics_path))
+      if(t$md5 != temp$topics_md5) { 
+        t$df <- readxl::read_excel(topics_path)
       }
+      t
+    }
     
     #Meging topics from config json and topic excel topics if this last one has changed
     #Each time a topic is found on file, all its occurrencies will be processed at the same time, to ensure consistent multi query topics updates based on position
@@ -198,9 +205,7 @@ setup_config <- function(paths = list(props = "data/properties.json", topics = "
 #' Save the configuration options to disk
 #' @export
 save_config <- function(paths = list(props = "data/properties.json", topics = "data/topics.json")) {
-  message("path is", paths)
   if(exists("props", where = paths)) {
-    message("saving properties")
     temp <- list()
     temp$dataDir <- conf$dataDir
     temp$schedule_span <- conf$schedule_span
@@ -213,7 +218,6 @@ save_config <- function(paths = list(props = "data/properties.json", topics = "d
     jsonlite::write_json(temp, paths$props, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(exists("topics", where = paths)) {
-    message("saving topics")
     temp <- list()
     temp$topics <- conf$topics
     temp$topics_md5 <- conf$topics_md5
@@ -247,4 +251,17 @@ merge_configs <- function(configs) {
     as.list(setNames(mapply(function(x, y) if(is.null(y)) x else y, first[keys], rest[keys]), keys))
   }
       
+}
+
+#' Get available languagesi file path
+get_available_languages_path <- function() {
+  path <- paste(conf$dataDir, "languages.xlsx", sep = "/")
+  if(!file.exists(path))
+    path <- system.file("extdata", "languages.xlsx", package = get_package_name())
+  path
+}
+
+#' Get current available languages
+get_available_languages <- function() {
+  readxl::read_excel(get_available_languages_path()) 
 }

@@ -26,36 +26,33 @@ get_stop_words <- function(language_code) {
 }
 
 #' calculate top words for a text dataframe
-pipe_top_words <- function(df, text_col, lang_col, group_by, max_words = 1000, con_out, page_size) {
+pipe_top_words <- function(df, text_col, lang_col, max_words = 1000, con_out, page_size) {
   `%>%` <- magrittr::`%>%`
   # Tokenisation and counting top maw_words popular words
   # the count will be done separately for each present group
-  groups <- unique(data.frame(df[, group_by]))
-  colnames(groups) <- group_by
-  if(nrow(groups) > 0) {
-    for(i in 1:nrow(groups)) {
-      in_group <- df[sapply(1:nrow(df), function(j) paste(df[j, group_by], collapse = "||") == paste(groups[i,],collapse = "||")), ]
-      wc <- (
-        Reduce( #Using Language based stop words
-          x = lapply(conf$languages, function(l) {(
-                in_group
-                   %>% dplyr::filter((!!as.symbol(lang_col)) == l$code)
-                   %>% tidytext::unnest_tokens(tokens, (!!as.symbol(text_col)), drop = TRUE, stopwords=get_stop_words(l$code)) 
-             )})
-          , f = function(a, b) dplyr::bind_rows(a, b)
-          )
-          %>% dplyr::group_by(tokens) 
-          %>% dplyr::summarize(count = dplyr::n()) 
-          %>% dplyr::ungroup() 
-          %>% dplyr::arrange(-count) 
-          %>% head(max_words)
-      )
-      # Adding the grouping vars on dataframe
-      for(k in 1:length(group_by))
-        wc[[group_by[[k]]]] <- groups[i, k] 
-      # Saving the data to JSON out file 
-      jsonlite::stream_out(wc, con_out, pagesize = page_size, verbose = FALSE) 
-    }
+
+  if(!("tweet_geo_country_code" %in% colnames(df)))
+    df$tweet_geo_country_code <- NA
+  
+  wc <- {
+    temp <- Reduce( #Using Language based stop words
+      x = lapply(conf$languages, function(l) {(
+            df %>% 
+              dplyr::filter((!!as.symbol(lang_col)) == l$code) %>%
+              tidytext::unnest_tokens(tokens, (!!as.symbol(text_col)), drop = TRUE, stopwords=get_stop_words(l$code))
+         )})
+      , f = function(a, b) dplyr::bind_rows(a, b)
+      ) 
+
+    temp %>% 
+      dplyr::group_by(tokens, topic, created_date, tweet_geo_country_code)  %>%
+      dplyr::summarize(count = dplyr::n())  %>%
+      dplyr::ungroup()  %>%
+      dplyr::group_by(topic, created_date, tweet_geo_country_code)  %>%
+      dplyr::top_n(n = max_words, wt = count) %>%
+      dplyr::ungroup() 
   }
+  # Saving the data to JSON out file
+  jsonlite::stream_out(wc, con_out, pagesize = page_size, verbose = FALSE)
 }
 

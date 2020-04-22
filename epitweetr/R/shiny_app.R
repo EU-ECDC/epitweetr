@@ -3,13 +3,10 @@
 #' @export
 epitweetr_app <- function() { 
   d <- get_dashboard_data() 
-  
-  # Defining dashbioard page UI
+  c <- get_config_data()  
+  # Defining dashboard page UI
   dashboard_page <- 
     shiny::fluidPage(
-      shiny::fluidRow(
-        shiny::column(
-          12, 
           shiny::fluidRow(
             shiny::column(3, 
                           "Parameters",
@@ -43,16 +40,53 @@ epitweetr_app <- function() {
                                           plotly::plotlyOutput("topword_chart")
                             )
                             , shiny::column(6, 
-                                          shiny::downloadButton("download_other_data", "data"),
                             )
                           ))
-          )))) 
+          )) 
+  # Defining configuration
+  config_page <- 
+    shiny::fluidPage(
+      shiny::fluidRow(
+        shiny::column(4, 
+          shiny::h3("Settings"),
+          shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::textInput("conf_data_dir", label = NULL, value = conf$dataDir))),
+          shiny::fluidRow(shiny::column(3, "Schedule Span (m)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
+          shiny::fluidRow(shiny::column(3, "Password Store"), shiny::column(9, 
+            shiny::selectInput(
+              "conf_keyring", 
+              label = NULL, 
+              choices = c("wincred", "macos", "file", "secret_service", "environment"), 
+              selected = conf$keyring
+            ))), 
+          shiny::fluidRow(shiny::column(3, "Spark Cores"), shiny::column(9, shiny::numericInput("conf_spark_cores", label = NULL, value = conf$spark_cores))) ,
+          shiny::fluidRow(shiny::column(3, "Spark Memory"), shiny::column(9, shiny::textInput("conf_spark_memory", label = NULL, value = conf$spark_memory))), 
+          shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
+          shiny::h4("Twitter Authentication"),
+          shiny::fluidRow(shiny::column(3, "App Name"), shiny::column(9, shiny::passwordInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
+          shiny::fluidRow(shiny::column(3, "Api Key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
+          shiny::fluidRow(shiny::column(3, "Api Secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
+          shiny::fluidRow(shiny::column(3, "Access Token"), shiny::column(9, 
+            shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
+          ), 
+          shiny::fluidRow(shiny::column(3, "Token Secret"), shiny::column(9, 
+            shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
+          ), 
+          shiny::h4("Geonames"),
+          shiny::fluidRow(shiny::column(3, "Local Path"), shiny::column(9, shiny::textInput("conf_geonames", label = NULL, value = conf$geonames)))
+        ), 
+        shiny::column(8,
+          shiny::selectInput("lang_items", label = shiny::h3("Languages"), multiple = FALSE, choices = c$lang_items),
+          DT::dataTableOutput("config_langs"),
+          shiny::h3("Topics"),
+          DT::dataTableOutput("config_topics")
+        ))
+  ) 
   
   # Defining navigation UI
   ui <- 
     shiny::navbarPage("epitweetr"
                       , shiny::tabPanel("Trend Line", dashboard_page)
-                      , shiny::tabPanel("Configuration")
+                      , shiny::tabPanel("Configuration", config_page)
     )
   # Defining line chart from shiny app filters
   line_chart_from_filters <- function(topics, fcountries, period_type, period) {
@@ -205,6 +239,19 @@ epitweetr_app <- function() {
          export_dashboard("md_document", file, input$topics, input$countries, input$period_type, input$period)
       }
     ) 
+    output$config_langs <- DT::renderDataTable(
+      DT::datatable(c$langs)
+    ) 
+    output$config_topics <- DT::renderDataTable({
+      `%>%` <- magrittr::`%>%`
+      c$topics %>%
+        DT::datatable(
+          colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress (last)" = "LastProgress", "Requests (last)" = "LastRequests"),
+          filter = "top",
+          escape = TRUE
+        ) %>%
+        DT::formatPercentage(columns = c("Progress (last)"))
+    }) 
   } 
   # Printing PID 
   message(Sys.getpid())
@@ -234,9 +281,30 @@ get_dashboard_data <- function() {
   return(d)
 }
 
+#Get default data for config page 
+get_config_data <- function() {
+  ret <- list()
+  langs <- get_available_languages()
+  ret$lang_items <- setNames(langs$Code, langs$`Full Label`)
+  ret$topics <- data.frame(
+    Topics = sapply(conf$topics, function(t) t$topic), 
+    Query = sapply(conf$topics, function(t) t$query), 
+    QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
+    ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
+    LastProgress = sapply(conf$topics, function(t) t$plan[[1]]$progress), 
+    LastRequests = sapply(conf$topics, function(t) t$plan[[1]]$requests)
+  )
+  ret$langs <- data.frame(
+    Language = sapply(conf$languages, function(l) l$name)
+    , Code = sapply(conf$languages, function(l) l$code)
+    , Vectors = sapply(conf$languages, function(l) l$vectors)
+  ) 
+  ret  
+}
+
 #Capitalize first letter of a string
 firstup <- function(x) {
-       x <- tolower(x)
-       substr(x, 1, 1) <- toupper(substr(x, 1, 1))
-       x
-   }
+  x <- tolower(x)
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
