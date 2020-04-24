@@ -29,7 +29,7 @@ search_loop <- function() {
         }
       }
     }
-    setup_config(paths = list(props = paste(conf$dataDir, "properties.json", sep = "/"), topics = paste(conf$dataDir, "topics.json", sep = "/")), save_first = list("topics"))
+    setup_config(data_dir = conf$data_dir, save_first = list("topics"))
   }
 }
 
@@ -41,7 +41,7 @@ search_topic <- function(plan, query, topic) {
   
   file_prefix <- paste(format(Sys.time(), "%Y.%m.%d"))
   file_pattern <- paste(format(Sys.time(), "%Y\\.%m\\.%d"))
-  dir <- paste(conf$dataDir, "tweets", "search", topic, year, sep = "/")
+  dir <- paste(conf$data_dir, "tweets", "search", topic, year, sep = "/")
  
   # Getting the last file matching the pattern
   files <- sort(list.files(path = dir, pattern = file_prefix))
@@ -62,7 +62,7 @@ search_topic <- function(plan, query, topic) {
       }
     } 
  
-  dest <- paste(conf$dataDir, "tweets", "search", topic, year, file_name, sep = "/")
+  dest <- paste(conf$data_dir, "tweets", "search", topic, year, file_name, sep = "/")
   if(nchar(query)< 400) {
     resp <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target)
     content = httr::content(resp,as="text")
@@ -262,16 +262,16 @@ request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL
 
 #' create topic directories if they do not exists
 create_dirs <- function(topic, year) {
-  if(!file.exists(paste(conf$dataDir, sep = "/"))){
-    dir.create(paste(conf$dataDir, sep = "/"), showWarnings = FALSE)
+  if(!file.exists(paste(conf$data_dir, sep = "/"))){
+    dir.create(paste(conf$data_dir, sep = "/"), showWarnings = FALSE)
   }  
-  if(!file.exists(paste(conf$dataDir, "tweets", sep = "/"))){
-    dir.create(paste(conf$dataDir, "tweets", sep = "/"), showWarnings = FALSE)
+  if(!file.exists(paste(conf$data_dir, "tweets", sep = "/"))){
+    dir.create(paste(conf$data_dir, "tweets", sep = "/"), showWarnings = FALSE)
   }  
-  if(!file.exists(paste(conf$dataDir, "tweets", "search", topic, sep = "/"))){
-    dir.create(paste(conf$dataDir, "tweets", "search", topic,  sep = "/"), showWarnings = FALSE)
+  if(!file.exists(paste(conf$data_dir, "tweets", "search", topic, sep = "/"))){
+    dir.create(paste(conf$data_dir, "tweets", "search", topic,  sep = "/"), showWarnings = FALSE)
   }  
-  if(!file.exists(paste(conf$dataDir, "tweets", "search", topic, year , sep = "/"))){
-    dir.create(paste(conf$dataDir, "tweets", "search", topic, year, sep = "/"), showWarnings = FALSE)
+  if(!file.exists(paste(conf$data_dir, "tweets", "search", topic, year , sep = "/"))){
+    dir.create(paste(conf$data_dir, "tweets", "search", topic, year, sep = "/"), showWarnings = FALSE)
   }  
 }

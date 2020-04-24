@@ -3,9 +3,9 @@
 #' @export
 geotag_tweets <- function() {
  # Creating parameters from configuration file as java objects
- tweet_path <- paste(conf$dataDir, "/tweets/search", sep = "")
- geolocated_path <- paste(conf$dataDir, "/tweets/geolocated", sep = "")
- index_path <- paste(conf$dataDir, "/geo/lang_vectors.index", sep = "") 
+ tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
+ geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
+ index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
 
     cmd <- paste(
       "export OPENBLAS_NUM_THREADS=1"
@@ -109,8 +109,8 @@ get_user_location_columns <- function(table) {
 #' @export
 get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL) {
  # Creating parameters from configuration file as java objects
- tweet_path <- paste(conf$dataDir, "/tweets/search", sep = "")
- geolocated_path <- paste(conf$dataDir, "/tweets/geolocated", sep = "")
+ tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
+ geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
   
  # Geolocating all non located tweets before current hour
  # If by configuration Rjava is activated it will be used for direct integration with JVM. Otherwise a system call will be performed
@@ -151,9 +151,11 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
        #message(tmp_file)
        con_tmp <- file(tmp_file, open = "wb") 
        jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, function(df) handler(df, con_tmp))
+       close(con_tmp)
        con_tmp <- file(tmp_file, open = "r") 
        ret <- jsonlite::stream_in(con_tmp, pagesize = 10000, verbose = TRUE)
-       #unlink(tmp_file)
+       close(con_tmp)
+       unlink(tmp_file)
        ret
      }    
    }

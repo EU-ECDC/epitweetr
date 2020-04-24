@@ -49,7 +49,7 @@ epitweetr_app <- function() {
       shiny::fluidRow(
         shiny::column(4, 
           shiny::h3("Settings"),
-          shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::textInput("conf_data_dir", label = NULL, value = conf$dataDir))),
+          shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::textInput("conf_data_dir", label = NULL, value = conf$data_dir))),
           shiny::fluidRow(shiny::column(3, "Schedule Span (m)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
           shiny::fluidRow(shiny::column(3, "Password Store"), shiny::column(9, 
             shiny::selectInput(

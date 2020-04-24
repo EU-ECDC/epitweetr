@@ -66,27 +66,31 @@ get_empty_config <- function() {
    if(.Platform$OS.type == "windows") "wincred"
    else if(.Platform$OS.type == "mac") "macos"
    else "file"
-  ret$dataDir <- paste(getwd(),"data", sep = "/")
+  ret$data_dir <- paste(getwd(),"data", sep = "/")
   ret$schedule_span <- 90
+  ret$schedule_start_hour <- 8
   ret$geolocation_threshold <- 5
   ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
   ret$spark_memory <- "12g"
   ret$topics <- list()
-  ret$topics_md5 <- "" 
+  ret$topics_md5 <- ""
   return(ret)
 }
 
 #' Build configuration values for application from a configuration json file
 #' @export
 setup_config <- function(
-  paths = list(props = "data/properties.json", topics = "data/topics.json")
-  , topics_path = "data/topics.xlsx"
+  data_dir = "data"
   , ignore_keyring = FALSE
   , save_first = list()
 ) 
 {
+
+  paths <- list(props = paste(data_dir, "properties.json", sep = "/"), topics = paste(data_dir, "topics.json", sep = "/"))
+  topics_path <- paste(data_dir, "topics.xlsx", sep = "/")
+
   if(length(save_first) > 0) {
-    save_config(paths = paths[unlist(save_first)])
+    save_config(data_dir = data_dir, properties = "props" %in% save_first, "topics" %in% save_first)
   }
   #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
   temp <- get_empty_config()
@@ -96,7 +100,8 @@ setup_config <- function(
     #Setting config  variables filled only from json file  
     conf$keyring <- temp$keyring
     conf$schedule_span <- temp$schedule_span
-    conf$dataDir <- temp$dataDir
+    conf$schedule_start_hour <- temp$schedule_start_hour
+    conf$data_dir <- temp$data_dir
     conf$geonames <- temp$geonames
     conf$languages <- temp$languages
     conf$spark_cores <- temp$spark_cores
@@ -204,24 +209,25 @@ setup_config <- function(
 
 #' Save the configuration options to disk
 #' @export
-save_config <- function(paths = list(props = "data/properties.json", topics = "data/topics.json")) {
-  if(exists("props", where = paths)) {
+save_config <- function(data_dir = "data", properties= TRUE, topics = TRUE) {
+  if(properties) {
     temp <- list()
-    temp$dataDir <- conf$dataDir
+    temp$data_dir <- conf$data_dir
     temp$schedule_span <- conf$schedule_span
+    temp$schedule_start_hour <- conf$schedule_start_hour
     temp$geonames <- conf$geonames
     temp$languages <- conf$languages
     temp$keyring <- conf$keyring
     temp$spark_cores <- conf$spark_cores
     temp$spark_memory <- conf$spark_memory
     temp$geolocation_threshold <- conf$geolocation_threshold
-    jsonlite::write_json(temp, paths$props, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+    jsonlite::write_json(temp, paste(data_dir, "properties.json", sep="/"), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
-  if(exists("topics", where = paths)) {
+  if(topics) {
     temp <- list()
     temp$topics <- conf$topics
     temp$topics_md5 <- conf$topics_md5
-    jsonlite::write_json(temp, paths$topics, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+    jsonlite::write_json(temp, paste(data_dir, "topics.json", sep = "/"), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
 }
 
@@ -255,7 +261,7 @@ merge_configs <- function(configs) {
 
 #' Get available languagesi file path
 get_available_languages_path <- function() {
-  path <- paste(conf$dataDir, "languages.xlsx", sep = "/")
+  path <- paste(conf$data_dir, "languages.xlsx", sep = "/")
   if(!file.exists(path))
     path <- system.file("extdata", "languages.xlsx", package = get_package_name())
   path
@@ -264,4 +270,11 @@ get_available_languages_path <- function() {
 #' Get current available languages
 get_available_languages <- function() {
   readxl::read_excel(get_available_languages_path()) 
+}
+
+#' Check config setup before continue
+stop_if_no_config <- function(error_message = "Cannot continue wihout setting up a configuration") {
+  if(!file.exists(conf$data_dir)) {
+    stop("Cannot register please setup configuration")  
+  }
 }

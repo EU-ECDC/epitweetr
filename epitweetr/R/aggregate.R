@@ -8,8 +8,8 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
 
 
   # Creating series folder if does not exists
-  if(!dir.exists(file.path(conf$dataDir, "series"))) {
-    dir.create(file.path(conf$dataDir, "series")) 
+  if(!dir.exists(file.path(conf$data_dir, "series"))) {
+    dir.create(file.path(conf$data_dir, "series")) 
   }
 
   for(i in 1:length(series)) { 
@@ -25,8 +25,8 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
         created_before <- as.Date(aggregate_weeks$created_before[[j]], "1970-01-01") 
         
         # Creating week folder if does not exists
-        if(!dir.exists(file.path(conf$dataDir, "series", week))) {
-          dir.create(file.path(conf$dataDir, "series", week)) 
+        if(!dir.exists(file.path(conf$data_dir, "series", week))) {
+          dir.create(file.path(conf$data_dir, "series", week)) 
         }
 
         # Aggregating tweets for the given serie and week
@@ -45,7 +45,7 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
           
           # saving the dataset to disk (with overwrite)
           message(paste("saving ", series[[i]]," data for week", week))
-          saveRDS(agg_df, file = file.path(conf$dataDir, "series",week, paste(series[[i]], "Rds", sep = "."))) 
+          saveRDS(agg_df, file = file.path(conf$data_dir, "series",week, paste(series[[i]], "Rds", sep = "."))) 
         } else {
           warning(paste("No rows found for", series[[i]]," on week", week ))  
         }
@@ -69,8 +69,8 @@ get_aggregates <- function(dataset = "geolocated", cache = TRUE) {
     return (cached[[dataset]])
   }
   else {
-    files <- list.files(path = file.path(conf$dataDir, "series"), recursive=TRUE, pattern = paste(dataset, ".Rds", sep=""))
-    dfs <- lapply(files, function (file) readRDS(file.path(conf$dataDir, "series", file)))
+    files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".Rds", sep=""))
+    dfs <- lapply(files, function (file) readRDS(file.path(conf$data_dir, "series", file)))
     ret <- jsonlite::rbind_pages(dfs)
     if(cache) cached[[dataset]] <- ret
     return(ret)
@@ -86,16 +86,16 @@ get_aggregate_weeks <- function(dataset) {
   `%>%` <- magrittr::`%>%`
   
   #getting collected dates based on search files
-  collected_dates <- list.files(file.path(conf$dataDir, "tweets", "search"), recursive=TRUE)
+  collected_dates <- list.files(file.path(conf$data_dir, "tweets", "search"), recursive=TRUE)
   collected_dates <- collected_dates[grepl(".*\\.json.gz", collected_dates)]
   collected_dates <- unique(sapply(collected_dates, function(f) {as.Date(gsub("\\.", "-", substr(tail(strsplit(f, "/")[[1]], n=1), 1, 10)))}))
   collected_dates <- data.frame(date = collected_dates, week = sapply(collected_dates, function(d) strftime(as.Date(d, "1970-01-01"), format = "%G.%V")))
 
   #creating the series folder if it does not exists
-  ifelse(!dir.exists(file.path(conf$dataDir, "series")), dir.create(file.path(conf$dataDir, "series")), FALSE)
+  ifelse(!dir.exists(file.path(conf$data_dir, "series")), dir.create(file.path(conf$data_dir, "series")), FALSE)
   
   #aggregated weeks
-  aggregated_weeks <- list.files(file.path(conf$dataDir, "series"), recursive=FALSE)
+  aggregated_weeks <- list.files(file.path(conf$data_dir, "series"), recursive=FALSE)
   aggregated_weeks <- aggregated_weeks[grepl(paste(".*", dataset, "\\.Rds", sep = ""), aggregated_weeks)] 
   aggregated_weeks <- sapply(aggregated_weeks, function(w) gsub(paste("/", dataset, "\\.Rds", sep = ""), "",w))
   aggregated_dates <- collected_dates[sapply(collected_dates$week, function(w) w %in% aggregated_weeks ), ]
