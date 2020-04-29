@@ -1,7 +1,9 @@
 
 #' Search for all tweets on topics defined on configuration
 #' @export
-search_loop <- function() {
+search_loop <- function(data_dir = paste(getwd(), "data", sep = "/")) {
+  setup_config(data_dir = data_dir)
+  register_search_runner()
   while(TRUE) {
     #Calculating 'get plans' for incompleted imports that has not been able to finish after schedule span minutes
     for(i in 1:length(conf$topics)) {
@@ -274,4 +276,12 @@ create_dirs <- function(topic, year) {
   if(!file.exists(paste(conf$data_dir, "tweets", "search", topic, year , sep = "/"))){
     dir.create(paste(conf$data_dir, "tweets", "search", topic, year, sep = "/"), showWarnings = FALSE)
   }  
+}
+
+#' Get time difference since last request
+last_search_time <- function() {
+  topics <- list.files(path=paste(conf$data_dir, "tweets", "search", sep="/"))
+  current_year <- lapply(topics, function(t) list.files(path=paste(conf$data_dir, "tweets", "search", t, sep="/"), pattern = strftime(Sys.time(), format = "%y$"), full.names=TRUE))
+  last_child <- sapply(current_year, function(y) sort(list.files(path = y, pattern = "*.gz", full.names=TRUE), decreasing=TRUE)[[1]])
+  sort(file.mtime(last_child), decreasing=TRUE)[[1]]
 }

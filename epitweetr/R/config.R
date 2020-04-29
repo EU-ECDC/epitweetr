@@ -69,6 +69,16 @@ get_empty_config <- function() {
   ret$data_dir <- paste(getwd(),"data", sep = "/")
   ret$schedule_span <- 90
   ret$schedule_start_hour <- 8
+  ret$languages <- list(
+    list(code="en", name="English", vectors=NA, status="added"),
+    list(code="fr", name="French", vectors=NA, status="added"),
+    list(code="es", name="Spanish", vectors=NA, status="added"),
+    list(code="pt", name="Portuguese", vectors=NA, status="added")
+  )
+  ret$lang_updated_on <- NA
+  ret$geonames_updated_on <- NA
+  ret$geonames <- NA
+  ret$geonames_url <- "http://download.geonames.org/export/dump/allCountries.zip"
   ret$geolocation_threshold <- 5
   ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
   ret$spark_memory <- "12g"
@@ -87,7 +97,7 @@ setup_config <- function(
 {
 
   paths <- list(props = paste(data_dir, "properties.json", sep = "/"), topics = paste(data_dir, "topics.json", sep = "/"))
-  topics_path <- paste(data_dir, "topics.xlsx", sep = "/")
+  topics_path <- get_topics_path(data_dir)
 
   if(length(save_first) > 0) {
     save_config(data_dir = data_dir, properties = "props" %in% save_first, "topics" %in% save_first)
@@ -98,12 +108,15 @@ setup_config <- function(
   if(exists("props", where = paths) && file.exists(paths$props)) {
     temp = merge_configs(list(temp, jsonlite::read_json(paths$props, simplifyVector = FALSE, auto_unbox = TRUE)))
     #Setting config  variables filled only from json file  
+    conf$data_dir <- temp$data_dir
     conf$keyring <- temp$keyring
     conf$schedule_span <- temp$schedule_span
     conf$schedule_start_hour <- temp$schedule_start_hour
-    conf$data_dir <- temp$data_dir
-    conf$geonames <- temp$geonames
     conf$languages <- temp$languages
+    conf$lang_updated_on <- temp$lang_updated_on
+    conf$geonames_updated_on <- temp$geonames_updated_on
+    conf$geonames <- temp$geonames
+    conf$geonames_url <- temp$geonames_url
     conf$spark_cores <- temp$spark_cores
     conf$spark_memory <- temp$spark_memory
     conf$geolocation_threshold <- temp$geolocation_threshold
@@ -113,8 +126,6 @@ setup_config <- function(
     #Getting topics from excel topics files if it has changed since las load
     
     #If user has not ovewritten 
-    if(!file.exists(topics_path))
-      topics_path <- system.file("extdata", "topics.xlsx", package = get_package_name())
     
     topics <- {
       t <- list()
@@ -215,8 +226,11 @@ save_config <- function(data_dir = "data", properties= TRUE, topics = TRUE) {
     temp$data_dir <- conf$data_dir
     temp$schedule_span <- conf$schedule_span
     temp$schedule_start_hour <- conf$schedule_start_hour
-    temp$geonames <- conf$geonames
     temp$languages <- conf$languages
+    temp$lang_updated_on <- conf$lang_updated_on
+    temp$geonames_updated_on <- conf$geonames_updated_on
+    temp$geonames_url <- conf$geonames_url
+    temp$geonames <- conf$geonames
     temp$keyring <- conf$keyring
     temp$spark_cores <- conf$spark_cores
     temp$spark_memory <- conf$spark_memory
@@ -259,7 +273,7 @@ merge_configs <- function(configs) {
       
 }
 
-#' Get available languagesi file path
+#' Get available languages file path
 get_available_languages_path <- function() {
   path <- paste(conf$data_dir, "languages.xlsx", sep = "/")
   if(!file.exists(path))
@@ -277,4 +291,12 @@ stop_if_no_config <- function(error_message = "Cannot continue wihout setting up
   if(!file.exists(conf$data_dir)) {
     stop("Cannot register please setup configuration")  
   }
+}
+
+#' Get topics file path either from user or package location
+get_topics_path <- function(data_dir = conf$data_dir) {
+    topics_path <- paste(data_dir, "topics.xlsx", sep = "/")
+    if(!file.exists(topics_path))
+      topics_path <- system.file("extdata", "topics.xlsx", package = get_package_name())
+    return(topics_path)
 }

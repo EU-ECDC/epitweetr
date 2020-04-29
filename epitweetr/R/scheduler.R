@@ -1,45 +1,67 @@
 #' Run the search loop runner
 #' @export
-register_runner <- function(name) {
-  setup_config()
+register_search_runner <- function() {
+  stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
   register_runner("search")
-  search_loop() 
+}
+
+#' Get search runner execution status
+#' @export
+is_search_running <- function() {
+  stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
+  get_running_task_pid("search")>=0
+}
+
+#' Get search runner execution status
+#' @export
+is_detect_running <- function() {
+  stop_if_no_config(paste("Cannot check detect batch status for search without configuration setup")) 
+  get_running_task_pid("detect")>=0
+}
+
+#' Get runner active PID
+get_running_task_pid <- function(name) {
+  pid_path <- paste(conf$data_dir, "/",name, ".PID", sep = "")
+  if(file.exists(pid_path)) {
+    # Getting last runner pid
+    last_pid <- as.integer(readChar(pid_path, file.info(pid_path)$size))
+      # Checking if last_pid is still running
+    pid_running <- ( 
+      if(.Platform$OS.type == "windows") system(paste(
+        'tasklist /nh /fi "pid eq ',last_pid,'" | find /i "R" >nul && (
+         exit 1
+        ) || (
+         exit 0
+        )')) == 0 
+      else if(.Platform$OS.type == "mac") system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0 
+      else system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0
+    )
+    if(pid_running)
+      last_pid
+    else
+      -1
+  }
+  else -1
 }
 
 
 #' Register as the scheduler runner if there is no other scheduler running or quit otherwise
-#' @export
 register_runner <- function(name) {
   stop_if_no_config(paste("Cannot register ", name ," without configuration setup")) 
   # getting current 
   pid <- Sys.getpid()
-  pid_path <- paste(conf$data_dir, name, ".PID", sep = "/")
-  if(file.exists(pid_path)) {
-    # Getting last runner pid
-    last_pid <- as.integer(readChar(pid_path, file.info(pid_path)$size))
-    if(last_pid != pid) {
-      # Checking if last_pid is still running
-      pid_running <- ( 
-        if(.Platform$OS.type == "windows") system(paste(
-          'tasklist /nh /fi "pid eq ',last_pid,'" | find /i "R" >nul && (
-           exit 1
-          ) || (
-           exit 0
-          )')) == 0 
-        else if(.Platform$OS.type == "mac") system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0 
-        else system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0
-      )
-      if(pid_running)
-        stop(paste("Runner ", name ,"PID:", last_pid, "is already running"))
-    }
+  last_pid <- get_running_task_pid(name)
+  if(last_pid >= 0 && last_pid != pid) {
+     stop(paste("Runner ", name ,"PID:", last_pid, "is already running"))
   }
   # If here means that the current process has to register as the runner service
+  pid_path <- paste(conf$data_dir, "/",name, ".PID", sep = "")
   write(pid, file = pid_path, append = FALSE)
-  
 }
+
 # Getting the scheduler task lists with scheduled_for times updates.
 # If tasks file exits it will read it, or get default taks otherwise
-get_tasks <-function() {
+get_tasks <-function(statuses = list()) {
   stop_if_no_config()
   tasks_path <- paste(conf$data_dir, "tasks.json", sep = "/")
   tasks <- if(file.exists(tasks_path)) {
@@ -48,7 +70,9 @@ get_tasks <-function() {
     # casting date time values
     for(i in 1:length(t)) {
       t[[i]]$scheduled_for <- if(class(t[[i]]$scheduled_for) == "numeric")  as.POSIXlt(t[[i]]$scheduled_for/1000,  origin="1970-01-01") else NA
-      t[[i]]$last_executed <- if(class(t[[i]]$last_executed) == "numeric")  as.POSIXlt(t[[i]]$last_executed/1000,  origin="1970-01-01") else NA
+      t[[i]]$last_start <- if(class(t[[i]]$last_start) == "numeric")  as.POSIXlt(t[[i]]$last_start/1000,  origin="1970-01-01") else NA
+      t[[i]]$last_end <- if(class(t[[i]]$last_end) == "numeric")  as.POSIXlt(t[[i]]$last_end/1000,  origin="1970-01-01") else NA
+      t[[i]]$status <- if(class(t[[i]]$status) == "character")  t[[i]]$status else NA
     }
     t
   } else {
@@ -58,62 +82,76 @@ get_tasks <-function() {
     ret$geonames <- list(
       task = "geonames",
       order = 1,
-      last_executed = NA,
+      last_start = NA,
+      last_end = NA,
+      status = NA,
       scheduled_for = NA,
-      active = TRUE,
-      url = "http://download.geonames.org/export/dump/allCountries.zip"  
     )
     #get geonames
     ret$languages <- list(
       task = "languages",
       order = 2,
-      last_executed = NA,
+      last_start = NA,
+      last_end = NA,
+      status = NA,
       scheduled_for = NA,
-      active = TRUE,
-      codes = lapply(conf$languages, function(l) l$code), 
-      add_remove = lapply(conf$languages, function(l) 1), 
-      urls = {
-        langs <- get_available_languages()
-        lnames <- setNames(langs$Url, langs$Code)
-        lapply(conf$languages, function(l) lnames[l$code])
-      }
     )
     #geo tag
     ret$geotag <- list(
       task = "geotag",
       order = 3,
-      last_executed = NA,
+      last_start = NA,
+      last_end = NA,
       scheduled_for = NA,
-      active = TRUE 
     )
     #aggregate
     ret$aggregate <- list(
       task = "aggregate",
       order = 4,
-      last_executed = NA,
+      last_start = NA,
+      last_end = NA,
+      status = NA,
       scheduled_for = NA,
-      active = TRUE 
     )
     #alerts
     ret$alerts <- list(
       task = "alerts",
       order = 5,
-      last_executed = NA,
+      last_start = NA,
+      last_end = NA,
+      status = NA,
       scheduled_for = NA,
-      active = TRUE 
     )
     ret
   }
+  # Activating one shot tasks with configuration changes
+  if(in_pending_status(tasks$geonames)) {
+     tasks$geonames$url = conf$geonames_url  
+     tasks$geonames$status -> "pending" 
+  }
+    
+  if(in_pending_status(tasks$languages)) {
+    tasks$languages$codes = lapply(conf$languages, function(l) l$code) 
+    tasks$languages$add_remove = lapply(conf$languages, function(l) 1) 
+    tasks$languages$urls = {
+      langs <- get_available_languages()
+      lnames <- setNames(langs$Url, langs$Code)
+      lapply(conf$languages, function(l) lnames[l$code])
+    }
+    tasks$languages$status <- "pending" 
+  }
+
   # Updating next execution time for each task
   now <- Sys.time()
   sorted_tasks <- order(sapply(tasks, function(l) l$order))
   for(i in sorted_tasks) {
-    # Setting default values if scheduled_for is not set or if scheduled for is the past
-    if(tasks[[i]]$active && (is.na(tasks[[i]]$scheduled_for) || now >= tasks[[i]]$scheduled_for )) {
+    # Scheduling pending tasks
+    if(tasks[[i]]$status %in% c("pending", "failed")) {
+      tasks[[i]]$status <- "scheduled"
       if(tasks[[i]]$task %in% c("geonames", "languages")) {
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
       } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) {
-          if(is.na(tasks[[i]]$last_executed)) { 
+          if(is.na(tasks[[i]]$last_end)) { 
             tasks[[i]]$scheduled_for <- now + (i - 1)/1000
           } else if(tasks[[i]]$last_excuted >= tasks[[i]]$scheduled_for) {
             # the last schedule was already executed a new schedule has to be set
@@ -128,12 +166,57 @@ get_tasks <-function() {
             #if next slot is in future set it. If it is in past, set now
             tasks[[i]]$scheduled_for <- if(next_slot < now) next_slot else now + (i - 1)/1000
           } 
-      } 
+      }
     }  
-
   }
-  jsonlite::write_json(tasks, tasks_path, pretty = TRUE, force = TRUE, auto_unbox = TRUE, POSIXt="epoch")
-  tasks
+  save_tasks(tasks)
+  if(length(statuses)==0)
+    tasks
+  else
+    tasks[sapply(tasks, function(t) t$status %in% statuses)]
 }
 
+#' saves the provided task lists to the data directory.
+#'
+#' @export
+save_tasks <- function(tasks) {
+  stop_if_no_config()
+  tasks_path <- paste(conf$data_dir, "tasks.json", sep = "/")
+  jsonlite::write_json(tasks, tasks_path, pretty = TRUE, force = TRUE, auto_unbox = TRUE, POSIXt="epoch")
+}
 
+#' Infinite looop executing tasks respecting the order and time scheduling window.
+#' Included tasks are 
+#' If tasks file exits it will read it, or get default taks otherwise
+#' @export
+scheduler_loop <-function() {
+  setup_config(data_dir = conf$data_dir)
+  while(TRUE) {
+    # getting tasks to execute 
+    tasks <- get_tasks()
+    i_next <- order(sapply(tasks, function(t) if(t$status == "scheduled") t$scheduled_for else Sys.time()+3600+order))[[1]]
+    
+    save_tasks(tasks)
+
+    setup_config(data_dir = conf$data_dir)
+  }
+
+}
+
+#' Check if provided task is in pending status
+in_pending_status <- function(task) {
+  (
+    (is.na(task$status) || task$status %in% c("pending", "success", "failure")) 
+    &&
+    (
+      (task$task == "geonames" 
+        && !is.na(conf$geonames_updated_on)
+        && (is.na(task$last_end) || task$last_end < conf$geonames_updated_on)
+      ) || (
+       task$task == "languages" 
+        && !is.na(conf$lang_updated_on)
+        && (is.na(task$last_end) || task$last_end < conf$lang_updated_on)
+      )  
+    )
+  )  
+}

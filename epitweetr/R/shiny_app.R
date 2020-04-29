@@ -2,8 +2,9 @@
 #' Running the epitwitter app
 #' @export
 epitweetr_app <- function() { 
-  d <- get_dashboard_data() 
-  c <- get_config_data()  
+  d <- refresh_dashboard_data() 
+  c <- refresh_config_data()
+
   # Defining dashboard page UI
   dashboard_page <- 
     shiny::fluidPage(
@@ -48,7 +49,28 @@ epitweetr_app <- function() {
     shiny::fluidPage(
       shiny::fluidRow(
         shiny::column(4, 
-          shiny::h3("Settings"),
+          shiny::h3("Status"),
+          shiny::fluidRow(
+            shiny::column(4, "Tweet Search"), 
+            shiny::column(4, shiny::htmlOutput("search_running")),
+            shiny::column(4, shiny::actionButton("acivate_search", "activate"))
+          ),
+          shiny::fluidRow(
+            shiny::column(4, "Geonames"), 
+            shiny::column(4, shiny::htmlOutput("geonames_status")),
+            shiny::column(4, shiny::actionButton("update_geonames", "update"))
+          ),
+          shiny::fluidRow(
+            shiny::column(4, "Languages"), 
+            shiny::column(4, shiny::htmlOutput("languages_status")),
+            shiny::column(4, shiny::actionButton("update_languages", "update"))
+          ),
+          shiny::fluidRow(
+            shiny::column(4, "Detection pipeline"), 
+            shiny::column(4, shiny::htmlOutput("detect_running")),
+            shiny::column(4, shiny::actionButton("activate_scheduler", "activate"))
+          ),
+          shiny::h3("General"),
           shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::textInput("conf_data_dir", label = NULL, value = conf$data_dir))),
           shiny::fluidRow(shiny::column(3, "Schedule Span (m)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
           shiny::fluidRow(shiny::column(3, "Password Store"), shiny::column(9, 
@@ -62,23 +84,63 @@ epitweetr_app <- function() {
           shiny::fluidRow(shiny::column(3, "Spark Memory"), shiny::column(9, shiny::textInput("conf_spark_memory", label = NULL, value = conf$spark_memory))), 
           shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
           shiny::h4("Twitter Authentication"),
-          shiny::fluidRow(shiny::column(3, "App Name"), shiny::column(9, shiny::passwordInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
-          shiny::fluidRow(shiny::column(3, "Api Key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
-          shiny::fluidRow(shiny::column(3, "Api Secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
-          shiny::fluidRow(shiny::column(3, "Access Token"), shiny::column(9, 
-            shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
+          shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9
+            , shiny::radioButtons(
+              "twitter_auth"
+              , label = NULL
+              , choices = list("Delegated" = "delegated", "App" = "app")
+              , selected = if(c$app_auth) "app" else "delegated" 
+              ))
+          ),
+          shiny::conditionalPanel(
+            condition = "input.twitter_auth == 'delegated'",
+            shiny::fluidRow(shiny::column(12, "When choosing 'delegate' twitter authentication you will have to use your twitter credentials to authorize the twitter application for the rtweet package (https://rtweet.info/) to access twitter on your behalf (full rights provided).")), 
+            shiny::fluidRow(shiny::column(12, "DISCLAIMER: Rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs.")),
+          ),
+          shiny::conditionalPanel(
+            condition = "input.twitter_auth == 'app'",
+            shiny::fluidRow(shiny::column(3, "App Name"), shiny::column(9, shiny::passwordInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
+            shiny::fluidRow(shiny::column(3, "Api Key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
+            shiny::fluidRow(shiny::column(3, "Api Secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
+            shiny::fluidRow(shiny::column(3, "Access Token"), shiny::column(9, 
+              shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
+            ), 
+            shiny::fluidRow(shiny::column(3, "Token Secret"), shiny::column(9, 
+              shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
+            )
           ), 
-          shiny::fluidRow(shiny::column(3, "Token Secret"), shiny::column(9, 
-            shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
-          ), 
-          shiny::h4("Geonames"),
-          shiny::fluidRow(shiny::column(3, "Local Path"), shiny::column(9, shiny::textInput("conf_geonames", label = NULL, value = conf$geonames)))
+          shiny::actionButton("save_properties", "Update Properties"),
         ), 
         shiny::column(8,
-          shiny::selectInput("lang_items", label = shiny::h3("Languages"), multiple = FALSE, choices = c$lang_items),
-          DT::dataTableOutput("config_langs"),
+          shiny::fluidRow(
+            shiny::column(6,
+              shiny::h3("Languages"),
+              shiny::fluidRow(
+                shiny::column(4, shiny::h5("Available Languages")),
+                shiny::column(2, shiny::downloadButton("conf_lang_download", "Download")),
+                shiny::column(6, shiny::fileInput("conf_lang_upload", label = NULL , buttonLabel = "Upload")),
+              ),
+              shiny::fluidRow(
+                shiny::column(4, shiny::h5("Active Languages")),
+                shiny::column(6, shiny::uiOutput("lang_items_0")),
+                shiny::column(1, shiny::actionButton("conf_lang_add", "+")),
+                shiny::column(1, shiny::actionButton("conf_lang_remove", "-")),
+              ),
+              DT::dataTableOutput("config_langs")
+            ),
+            shiny::column(6,
+              shiny::h3("Detection Pipeline"),
+              DT::dataTableOutput("tasks_df")
+            )
+          ),
           shiny::h3("Topics"),
-          DT::dataTableOutput("config_topics")
+          shiny::fluidRow(
+            shiny::column(2, shiny::h5("Available Topics")),
+            shiny::column(1, shiny::downloadButton("conf_topics_download", "Download")),
+            shiny::column(3, shiny::fileInput("conf_topics_upload", label = NULL, buttonLabel = "Upload")),
+            shiny::column(4, shiny::span()),
+          ),
+          DT::dataTableOutput("config_topics"),
         ))
   ) 
   
@@ -173,7 +235,7 @@ epitweetr_app <- function() {
        width <- session$clientData$output_p_width
        plotly::ggplotly(chart, height = height, width = width)
     })  
-    output$download_line_data <- downloadHandler(
+    output$download_line_data <- shiny::downloadHandler(
       filename = function() { 
         paste("line_dataset_", 
           "_", paste(input$topics, collapse="-"), 
@@ -191,7 +253,7 @@ epitweetr_app <- function() {
           row.names = FALSE)
       }
     ) 
-    output$download_map_data <- downloadHandler(
+    output$download_map_data <- shiny::downloadHandler(
       filename = function() { 
         paste("map_dataset_", 
           "_", paste(input$topics, collapse="-"), 
@@ -209,7 +271,7 @@ epitweetr_app <- function() {
           row.names = FALSE)
       }
     ) 
-    output$export_pdf <- downloadHandler(
+    output$export_pdf <- shiny::downloadHandler(
       filename = function() { 
         paste("epitweetr_dashboard_", 
           "_", paste(input$topics, collapse="-"), 
@@ -224,7 +286,7 @@ epitweetr_app <- function() {
          export_dashboard("pdf_document", file, input$topics, input$countries, input$period_type, input$period)
       }
     ) 
-    output$export_md <- downloadHandler(
+    output$export_md <- shiny::downloadHandler(
       filename = function() { 
         paste("epitweetr_dashboard_", 
           "_", paste(input$topics, collapse="-"), 
@@ -238,12 +300,23 @@ epitweetr_app <- function() {
       content = function(file) { 
          export_dashboard("md_document", file, input$topics, input$countries, input$period_type, input$period)
       }
-    ) 
-    output$config_langs <- DT::renderDataTable(
+    )
+    shiny::observe({
+      # Timer for updating task status  
+      shiny::invalidateLater(10000)
+      refresh_config_data(c, list("tasks"))
+    }) 
+    output$config_langs <- DT::renderDataTable({
+      c$langs_refresh_flag()
       DT::datatable(c$langs)
+    }) 
+    output$tasks_df <- DT::renderDataTable(
+      DT::datatable(c$tasks_df)
     ) 
     output$config_topics <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
+      # Adding a dependency to topics refresh
+      c$topics_refresh_flag()
       c$topics %>%
         DT::datatable(
           colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress (last)" = "LastProgress", "Requests (last)" = "LastRequests"),
@@ -251,6 +324,101 @@ epitweetr_app <- function() {
           escape = TRUE
         ) %>%
         DT::formatPercentage(columns = c("Progress (last)"))
+    })
+    output$search_running = shiny::renderText({
+      # Adding a dependency to task refresh
+      c$tasks_refresh_flag()
+      paste(
+        "<span",
+        " style='color:", if(c$search_running) "#348017'" else "#F75D59'",
+        ">",
+        paste(
+          if(c$search_running) "Running" else "Stopped"
+          , "("
+          , round(c$search_diff, 2)
+          , units(c$search_diff)
+          , "ago)" 
+          ),
+        "</span>"
+        ,sep=""
+    )})
+    output$detect_running <- shiny::renderText({
+      # Adding a dependency to lang refresh
+      c$langs_refresh_flag()
+      paste(
+        "<span",
+        " style='color:", if(c$detect_running) "#348017'" else "#F75D59'",
+        ">",
+        if(c$detect_running) "Running" else "Stopped",
+        "</span>"
+        ,sep=""
+      )})
+    output$lang_items_0 <- shiny::renderUI({
+      # Adding a dependency to lang refresh
+      c$langs_refresh_flag()
+      shiny::selectInput("lang_items", label = NULL, multiple = FALSE, choices = c$lang_items)
+    })
+    output$geonames_status <- shiny::renderText({
+      # Adding a dependency to task refresh
+      c$tasks_refresh_flag()
+      paste(
+        "<span",
+        " style='color:", 
+          if(c$geonames_status %in% c("n/a", "error"))
+            "#F75D59'"
+          else if(c$geonames_status %in% c("success")) 
+            "#348017'" 
+          else 
+            "#2554C7'", 
+        ">",
+        c$geonames_status,
+        "</span>"
+        ,sep=""
+      )})
+    output$languages_status <- shiny::renderText({
+      # Adding a dependency to task refresh
+      c$tasks_refresh_flag()
+      paste(
+        "<span",
+        " style='color:", 
+          if(c$languages_status %in% c("n/a", "error"))
+            "#F75D59'"
+          else if(c$languages_status %in% c("success")) 
+            "#348017'" 
+          else 
+            "#2554C7'", 
+        ">",
+        c$languages_status,
+        "</span>"
+        ,sep=""
+      )})
+    output$conf_topics_download <- shiny::downloadHandler(
+      filename = function() "topics.xlsx",
+      content = function(file) { 
+        file.copy(get_topics_path(), file) 
+      }
+    )
+    shiny::observe({
+      df <- input$conf_topics_upload
+      if(!is.null(df) && nrow(df)>0) {
+        uploaded <- df$datapath[[1]]
+        file.copy(uploaded, paste(conf$data_dir, "topics.xlsx", sep = "/"), overwrite=TRUE) 
+        refresh_config_data(c, list("topics"))
+      }
+    }) 
+    output$conf_lang_download <- shiny::downloadHandler(
+      filename = function() "languages.xlsx",
+      content = function(file) { 
+        file.copy(get_available_languages_path(), file) 
+      }
+    ) 
+    shiny::observe({
+      df <- input$conf_lang_upload
+      if(!is.null(df) && nrow(df)>0) {
+        uploaded <- df$datapath[[1]]
+        file.copy(uploaded, paste(conf$data_dir, "languages.xlsx", sep = "/"), overwrite=TRUE) 
+        refresh_config_data(c, list("langs"))
+      }
     }) 
   } 
   # Printing PID 
@@ -260,46 +428,85 @@ epitweetr_app <- function() {
 }
 
 #' Get default data for dashoard
-get_dashboard_data <- function() {
+refresh_dashboard_data <- function(e = new.env()) {
   dfs <- get_aggregates()
-  d <- list()
-  d$topics <- c("",unique(dfs$topic))
-  d$topics <- stringr::str_replace_all(d$topics, "%20", " ")
-  d$topics<-firstup(d$topics)
-  d$countries <- {
+  e$topics <- c("",unique(dfs$topic))
+  e$topics <- stringr::str_replace_all(e$topics, "%20", " ")
+  e$topics <- firstup(e$topics)
+  e$countries <- {
     regions <- get_country_items()
     setNames(1:length(regions), sapply(regions, function(r) r$name))   
   } 
-  d$date_min <- strftime(as.Date(min(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
-  d$date_max <- strftime(as.Date(max(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
-  d$date_start <- 
+  e$date_min <- strftime(as.Date(min(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
+  e$date_max <- strftime(as.Date(max(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
+  e$date_start <- 
     if(max(dfs$created_date) - min(dfs$created_date) < 90) 
-      d$date_min 
+      e$date_min 
   else 
     strftime(as.Date(max(dfs$created_date), origin ='1970-01-01') - 90, format = "%Y-%m-%d")
-  d$date_end <- d$date_max
-  return(d)
+  e$date_end <- e$date_max
+  return(e)
 }
 
-#Get default data for config page 
-get_config_data <- function() {
-  ret <- list()
-  langs <- get_available_languages()
-  ret$lang_items <- setNames(langs$Code, langs$`Full Label`)
-  ret$topics <- data.frame(
-    Topics = sapply(conf$topics, function(t) t$topic), 
-    Query = sapply(conf$topics, function(t) t$query), 
-    QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
-    ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
-    LastProgress = sapply(conf$topics, function(t) t$plan[[1]]$progress), 
-    LastRequests = sapply(conf$topics, function(t) t$plan[[1]]$requests)
-  )
-  ret$langs <- data.frame(
-    Language = sapply(conf$languages, function(l) l$name)
-    , Code = sapply(conf$languages, function(l) l$code)
-    , Vectors = sapply(conf$languages, function(l) l$vectors)
-  ) 
-  ret  
+#Get or update default data for config page 
+refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks")) {
+  # Refreshing configuration
+  setup_config(data_dir = conf$data_dir)
+
+  # Updating language related fields
+  if("langs" %in% limit) {
+    langs <- get_available_languages()
+    if(!exists("langs_refresh_flag", where = e)) {
+      e$langs_refresh_flag <- shiny::reactiveVal()
+    } else 
+      e$langs_refresh_flag(Sys.time())
+    e$lang_items <- setNames(langs$Code, langs$`Full Label`)
+    e$langs <- data.frame(
+      Language = sapply(conf$languages, function(l) l$name)
+      , Code = sapply(conf$languages, function(l) l$code)
+      , Vectors = sapply(conf$languages, function(l) l$vectors)
+    )
+  }
+  # Updating topics related fields
+  if("topics" %in% limit) {
+    # Updating the reactive value tasks_refresh to force dependencies invalidation
+    if(!exists("topics_refresh_flag", where = e)) {
+      e$topics_refresh_flag <- shiny::reactiveVal()
+    } else 
+      e$topics_refresh_flag(Sys.time())
+    e$topics <- data.frame(
+      Topics = sapply(conf$topics, function(t) t$topic), 
+      Query = sapply(conf$topics, function(t) t$query), 
+      QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
+      ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
+      LastProgress = sapply(conf$topics, function(t) t$plan[[1]]$progress), 
+      LastRequests = sapply(conf$topics, function(t) t$plan[[1]]$requests)
+    )
+  }
+  # Updating tasks related fields
+  if("tasks" %in% limit) {
+    # Updating the reactive value tasks_refresh to force dependencies invalidation
+    if(!exists("tasks_refresh_flag", where = e)) {
+      e$tasks_refresh_flag <- shiny::reactiveVal()
+    } else 
+      e$tasks_refresh_flag(Sys.time())
+    e$tasks <- get_tasks() 
+    e$search_running <- is_search_running() 
+    e$search_diff <- Sys.time() - last_search_time()
+    e$detect_running <- is_detect_running() 
+    e$geonames_status <- if(in_pending_status(e$tasks$geonames)) "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$geonames$status 
+    e$languages_status <- if(in_pending_status(e$tasks$languages))  "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$languages$status 
+    e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
+    e$tasks_df <- data.frame(
+      Task = sapply(e$tasks, function(t) t$task), 
+      Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "Pensing" else t$status), 
+      Scheduled = sapply(e$tasks, function(t) strftime(t$scheduled_for, format = "%Y-%m-%d %H:%M:%OS")), 
+      `Last Start` = sapply(e$tasks, function(t) strftime(t$last_start, format = "%Y-%m-%d %H:%M:%OS")), 
+      `Last End` = sapply(e$tasks, function(t) strftime(t$last_end, format = "%Y-%m-%d %H:%M:%OS"))
+    )
+    row.names(e$tasks_df) <- sapply(e$tasks, function(t) t$order) 
+  }
+  return(e)
 }
 
 #Capitalize first letter of a string
