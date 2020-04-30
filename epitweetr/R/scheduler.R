@@ -59,8 +59,7 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
-# Getting the scheduler task lists with scheduled_for times updates.
-# If tasks file exits it will read it, or get default taks otherwise
+# Getting the scheduler task lists with current statusi updated.
 get_tasks <-function(statuses = list()) {
   stop_if_no_config()
   tasks_path <- paste(conf$data_dir, "tasks.json", sep = "/")
@@ -85,7 +84,7 @@ get_tasks <-function(statuses = list()) {
       last_start = NA,
       last_end = NA,
       status = NA,
-      scheduled_for = NA,
+      scheduled_for = NA
     )
     #get geonames
     ret$languages <- list(
@@ -94,7 +93,7 @@ get_tasks <-function(statuses = list()) {
       last_start = NA,
       last_end = NA,
       status = NA,
-      scheduled_for = NA,
+      scheduled_for = NA
     )
     #geo tag
     ret$geotag <- list(
@@ -102,7 +101,8 @@ get_tasks <-function(statuses = list()) {
       order = 3,
       last_start = NA,
       last_end = NA,
-      scheduled_for = NA,
+      status = NA,
+      scheduled_for = NA
     )
     #aggregate
     ret$aggregate <- list(
@@ -111,7 +111,7 @@ get_tasks <-function(statuses = list()) {
       last_start = NA,
       last_end = NA,
       status = NA,
-      scheduled_for = NA,
+      scheduled_for = NA
     )
     #alerts
     ret$alerts <- list(
@@ -120,33 +120,69 @@ get_tasks <-function(statuses = list()) {
       last_start = NA,
       last_end = NA,
       status = NA,
-      scheduled_for = NA,
+      scheduled_for = NA
     )
     ret
   }
   # Activating one shot tasks with configuration changes
   if(in_pending_status(tasks$geonames)) {
      tasks$geonames$url = conf$geonames_url  
-     tasks$geonames$status -> "pending" 
+     tasks$geonames$status <- "pending" 
   }
     
-  if(in_pending_status(tasks$languages)) {
-    tasks$languages$codes = lapply(conf$languages, function(l) l$code) 
-    tasks$languages$add_remove = lapply(conf$languages, function(l) 1) 
-    tasks$languages$urls = {
-      langs <- get_available_languages()
-      lnames <- setNames(langs$Url, langs$Code)
-      lapply(conf$languages, function(l) lnames[l$code])
-    }
-    tasks$languages$status <- "pending" 
-  }
+  # Updating languages tasks
+  langs <- get_available_languages()
+  lcodes <- langs$Code
+  lurls <- setNames(langs$Url, langs$Code)
+  lnames <- setNames(langs$Label, langs$Code)
+  conf_codes <- sapply(conf$languages, function(l) l$code)
+  task_codes <- tasks$languages$codes
+  update_times <- setNames(sapply(conf$languages, function(l) l$modified_on), sapply(conf$languages, function(l) l$code))
+  
+  to_remove <- lcodes[sapply(lcodes, function(c) c %in% task_codes && !(c %in% conf_codes))]
+  to_add <- lcodes[sapply(lcodes, function(c) !(c %in% task_codes) && (c %in% conf_codes))]
+  to_update <- lcodes[sapply(lcodes, function(c) (c %in% task_codes) && (c %in% conf_codes) 
+    && ( is.na(tasks$languages$last_start)
+       || is.na(tasks$languages$last_end)
+       || strptime(update_times[c], "%Y-%m-%d %H:%M:%S") > tasks$languages$last_start 
+       || tasks$languages$last_start > tasks$languages$last_end
+    ))]
+  done <- lcodes[sapply(lcodes, function(c) (c %in% task_codes) && (c %in% conf_codes) 
+    && (strptime(update_times[c], "%Y-%m-%d %H:%M:%S") <= tasks$languages$last_start
+       || tasks$languages$last_start <= tasks$languages$last_end
+    ))]
 
+  tasks$languages$codes = as.list(c(to_remove, to_add, to_update, done))
+  tasks$languages$statuses = as.list(c(
+    sapply(to_remove, function(l) "to remove"), 
+    sapply(to_add, function(l) "to add"), 
+    sapply(to_update, function(l) "to update"), 
+    sapply(to_remove, function(l) "to remove") 
+  ))
+  tasks$languages$urls = lapply(tasks$languages$codes, function(c) lurls[c])
+  tasks$languages$names = lapply(tasks$languages$codes, function(c) lnames[c])
+  tasks$languages$status <- (
+    if(length(to_remove) + length(to_add) + length(to_update) > 0) 
+      "pending"
+    else
+      tasks$languages$status
+  ) 
+  if(length(statuses)==0)
+    tasks
+  else
+    tasks[sapply(tasks, function(t) t$status %in% statuses)]
+}
+
+# Getting the scheduler task lists with scheduled_for times updates.
+# If tasks file exits it will read it, or get default taks otherwise
+plan_tasks <-function(statuses = list()) {
+  tasks <- get_tasks(statuses)
   # Updating next execution time for each task
   now <- Sys.time()
   sorted_tasks <- order(sapply(tasks, function(l) l$order))
   for(i in sorted_tasks) {
     # Scheduling pending tasks
-    if(tasks[[i]]$status %in% c("pending", "failed")) {
+    if(!is.na(tasks[[i]]$status) && tasks[[i]]$status %in% c("pending", "failed")) {
       tasks[[i]]$status <- "scheduled"
       if(tasks[[i]]$task %in% c("geonames", "languages")) {
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
@@ -211,11 +247,11 @@ in_pending_status <- function(task) {
     (
       (task$task == "geonames" 
         && !is.na(conf$geonames_updated_on)
-        && (is.na(task$last_end) || task$last_end < conf$geonames_updated_on)
+        && (is.na(task$last_end) || task$last_end < strptime(conf$geonames_updated_on, "%Y-%m-%d %H:%M:%S"))
       ) || (
        task$task == "languages" 
         && !is.na(conf$lang_updated_on)
-        && (is.na(task$last_end) || task$last_end < conf$lang_updated_on)
+        && (is.na(task$last_end) || task$last_end < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
       )  
     )
   )  

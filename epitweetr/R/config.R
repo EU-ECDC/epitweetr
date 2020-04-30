@@ -70,10 +70,10 @@ get_empty_config <- function() {
   ret$schedule_span <- 90
   ret$schedule_start_hour <- 8
   ret$languages <- list(
-    list(code="en", name="English", vectors=NA, status="added"),
-    list(code="fr", name="French", vectors=NA, status="added"),
-    list(code="es", name="Spanish", vectors=NA, status="added"),
-    list(code="pt", name="Portuguese", vectors=NA, status="added")
+    list(code="en", name="English", vectors=paste(ret$data_dir, "languages/en.txt.gz", sep = "/"), modified_on=strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+    list(code="fr", name="French", vectors=paste(ret$data_dir, "languages/fr.txt.gz", sep = "/"), modified_on=strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+    list(code="es", name="Spanish", vectors=paste(ret$data_dir, "languages/es.txt.gz", sep = "/"), modified_on=strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+    list(code="pt", name="Portuguese", vectors=paste(ret$data_dir, "languages/pt.txt.gz", sep = "/"), modified_on=strftime(Sys.time(), "%Y-%m-%d %H:%M:%S"))
   )
   ret$lang_updated_on <- NA
   ret$geonames_updated_on <- NA
@@ -92,6 +92,8 @@ get_empty_config <- function() {
 setup_config <- function(
   data_dir = "data"
   , ignore_keyring = FALSE
+  , ignore_properties = FALSE
+  , ignore_topics = FALSE
   , save_first = list()
 ) 
 {
@@ -105,7 +107,7 @@ setup_config <- function(
   #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
   temp <- get_empty_config()
   
-  if(exists("props", where = paths) && file.exists(paths$props)) {
+  if(!ignore_properties && exists("props", where = paths) && file.exists(paths$props)) {
     temp = merge_configs(list(temp, jsonlite::read_json(paths$props, simplifyVector = FALSE, auto_unbox = TRUE)))
     #Setting config  variables filled only from json file  
     conf$data_dir <- temp$data_dir
@@ -121,7 +123,7 @@ setup_config <- function(
     conf$spark_memory <- temp$spark_memory
     conf$geolocation_threshold <- temp$geolocation_threshold
   }
-  if(exists("props", where = paths) && file.exists(paths$topics)) {
+  if(!ignore_topics && exists("props", where = paths) && file.exists(paths$topics)) {
     temp = merge_configs(list(temp, jsonlite::read_json(paths$topics, simplifyVector = FALSE, auto_unbox = TRUE)))
     #Getting topics from excel topics files if it has changed since las load
     
@@ -300,3 +302,37 @@ get_topics_path <- function(data_dir = conf$data_dir) {
       topics_path <- system.file("extdata", "topics.xlsx", package = get_package_name())
     return(topics_path)
 }
+
+#' Remove language 
+remove_config_language <- function(code) {
+  # Timestaming action 
+  conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  # Removing the language
+  conf$languages <- conf$languages[sapply(conf$languages, function(l) l$code != code)] 
+}
+
+#' Add language
+add_config_language <- function(code, name) {
+  # Timestaming action 
+  conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  index <- (1:length(conf$languages))[sapply(conf$languages, function(l) l$code == code)]
+  if(length(index)>0) {
+    # Language code is already on the task list
+    conf$languages[[index]]$code <- code
+    conf$languages[[index]]$name <- name
+    conf$languages[[index]]$vectors=paste(conf$data_dir, "/languages/", code, ".txt.gz", sep = "")
+    conf$languages[[index]]$modified_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  } else {
+    # Language code is not the list
+    conf$languages <- c(
+      conf$languages,
+      list(list(
+        code = code,
+        name = name,
+        vectors = paste(conf$data_dir, "/languages/", code, ".txt.gz", sep = ""),
+        modified_on = strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      ))
+    )
+  } 
+}
+
