@@ -263,19 +263,24 @@ request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL
 }
 
 #' create topic directories if they do not exists
-create_dirs <- function(topic, year) {
+create_dirs <- function(topic = NA, year = NA) {
   if(!file.exists(paste(conf$data_dir, sep = "/"))){
     dir.create(paste(conf$data_dir, sep = "/"), showWarnings = FALSE)
   }  
   if(!file.exists(paste(conf$data_dir, "tweets", sep = "/"))){
     dir.create(paste(conf$data_dir, "tweets", sep = "/"), showWarnings = FALSE)
-  }  
-  if(!file.exists(paste(conf$data_dir, "tweets", "search", topic, sep = "/"))){
-    dir.create(paste(conf$data_dir, "tweets", "search", topic,  sep = "/"), showWarnings = FALSE)
-  }  
-  if(!file.exists(paste(conf$data_dir, "tweets", "search", topic, year , sep = "/"))){
-    dir.create(paste(conf$data_dir, "tweets", "search", topic, year, sep = "/"), showWarnings = FALSE)
-  }  
+  }
+  if(!file.exists(paste(conf$data_dir, "tweets", "search", sep = "/"))){
+    dir.create(paste(conf$data_dir, "tweets", "search", sep = "/"), showWarnings = FALSE)
+  }
+  if(!is.na(topic) && !is.na(year)) {
+    if(!file.exists(paste(conf$data_dir, "tweets", "search", topic, sep = "/"))){
+      dir.create(paste(conf$data_dir, "tweets", "search", topic,  sep = "/"), showWarnings = FALSE)
+    }  
+    if(!file.exists(paste(conf$data_dir, "tweets", "search", topic, year , sep = "/"))){
+      dir.create(paste(conf$data_dir, "tweets", "search", topic, year, sep = "/"), showWarnings = FALSE)
+    } 
+  }
 }
 
 #' Get time difference since last request
@@ -283,5 +288,8 @@ last_search_time <- function() {
   topics <- list.files(path=paste(conf$data_dir, "tweets", "search", sep="/"))
   current_year <- lapply(topics, function(t) list.files(path=paste(conf$data_dir, "tweets", "search", t, sep="/"), pattern = strftime(Sys.time(), format = "%y$"), full.names=TRUE))
   last_child <- sapply(current_year, function(y) sort(list.files(path = y, pattern = "*.gz", full.names=TRUE), decreasing=TRUE)[[1]])
-  sort(file.mtime(last_child), decreasing=TRUE)[[1]]
+  if(length(last_child)>0)
+    sort(file.mtime(last_child), decreasing=TRUE)[[1]]
+  else
+    NA
 }

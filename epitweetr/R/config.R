@@ -26,12 +26,12 @@ get_key_ring <- function(backend = NULL) {
   } else {
     kb <- keyring::backend_env$new()
   }
-  kr_name <- Sys.getenv("kr_name") 
-  if(kb$has_keyring_support()) {
+  kr_name <- NULL
+  if(keyring == "file" ) {
+     kr_name <- Sys.getenv("kr_name") 
      krs <- kb$keyring_list()
      if(nrow(krs[krs$keyring == kr_name,]) == 0) {
        kb$keyring_create(kr_name)
-       #kb$.__enclos_env__$private$keyring_create_direct(kr_name, kr_passphrase)
      }
     kb$keyring_set_default(kr_name)
   }
@@ -90,7 +90,7 @@ get_empty_config <- function() {
 #' Build configuration values for application from a configuration json file
 #' @export
 setup_config <- function(
-  data_dir = "data"
+  data_dir = paste(getwd(), "data", sep = "/")
   , ignore_keyring = FALSE
   , ignore_properties = FALSE
   , ignore_topics = FALSE
@@ -107,8 +107,10 @@ setup_config <- function(
   #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
   temp <- get_empty_config()
   
-  if(!ignore_properties && exists("props", where = paths) && file.exists(paths$props)) {
-    temp = merge_configs(list(temp, jsonlite::read_json(paths$props, simplifyVector = FALSE, auto_unbox = TRUE)))
+  if(!ignore_properties && exists("props", where = paths)) {
+    if(file.exists(paths$props)) {
+      temp = merge_configs(list(temp, jsonlite::read_json(paths$props, simplifyVector = FALSE, auto_unbox = TRUE)))
+    }
     #Setting config  variables filled only from json file  
     conf$data_dir <- temp$data_dir
     conf$keyring <- temp$keyring
@@ -123,8 +125,10 @@ setup_config <- function(
     conf$spark_memory <- temp$spark_memory
     conf$geolocation_threshold <- temp$geolocation_threshold
   }
-  if(!ignore_topics && exists("props", where = paths) && file.exists(paths$topics)) {
-    temp = merge_configs(list(temp, jsonlite::read_json(paths$topics, simplifyVector = FALSE, auto_unbox = TRUE)))
+  if(!ignore_topics && exists("props", where = paths)){
+    if(file.exists(paths$topics)) {
+      temp = merge_configs(list(temp, jsonlite::read_json(paths$topics, simplifyVector = FALSE, auto_unbox = TRUE)))
+    }
     #Getting topics from excel topics files if it has changed since las load
     
     #If user has not ovewritten 
@@ -223,6 +227,11 @@ setup_config <- function(
 #' Save the configuration options to disk
 #' @export
 save_config <- function(data_dir = "data", properties= TRUE, topics = TRUE) {
+  # creating data directory if does nor exists
+  if(!file.exists(conf$data_dir)){
+    dir.create(conf$data_dir, showWarnings = FALSE)
+  }  
+
   if(properties) {
     temp <- list()
     temp$data_dir <- conf$data_dir
@@ -290,8 +299,15 @@ get_available_languages <- function() {
 
 #' Check config setup before continue
 stop_if_no_config <- function(error_message = "Cannot continue wihout setting up a configuration") {
-  if(!file.exists(conf$data_dir)) {
+  if(!exists("data_dir", where = conf)) {
     stop("Cannot register please setup configuration")  
+  }
+}
+
+#' Call config if necessary
+setup_config_if_not_already <- function() {
+  if(!exists("data_dir", where = conf)) {
+    setup_config() 
   }
 }
 

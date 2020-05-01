@@ -9,7 +9,7 @@ search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
 
 #' Get twitter token
 get_token <- function() {
-  if(exists("access_token", where = conf$twitter_auth)) {  
+  if(exists("access_token", where = conf$twitter_auth) && conf$twitter_auth$access_token!="") {  
     if(file.exists("~/.rtweet_token.rds")) file.remove("~/.rtweet_token.rds")
     token <- rtweet::create_token(
       app = conf$twitter_auth$app
@@ -19,7 +19,15 @@ get_token <- function() {
       , access_secret = conf$twitter_auth$access_token_secret)
     token <- rtweet::bearer_token(token)
   } else {
-    token <- rtweet::get_token()  
+    token <- (
+       if(interactive())
+         rtweet::get_token()
+       else if(file.exists("~/.rtweet_token.rds")){
+         readRDS("~/.rtweet_token.rds")
+       } else {
+         stop("Cannot get a token on an non interactive session. Create it from configuration page first")
+       }
+     )
   } 
   return(token)
 }
@@ -97,10 +105,10 @@ twitter_get <- function(url, i = 0, retries = 20) {
       Sys.sleep(towait + 10)  
     }
     conf$token = NULL
-    writeLines(httr::content(res,as="text"), "lasterror.log")
+    writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
     return(twitter_get(url, i = i + 1, retries = retries))
   } else if(res$status_code <= 401 || res$status_code <= 403) {
-    writeLines(httr::content(res,as="text"), "lasterror.log")
+    writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
     stop(paste("Unauthorized by twitter API"))
   } else if(i <= retries) {
       message(paste("Error status code ",res$status_code,"returned by twitter API waiting for", i*i, "seconds before retry with a new token"))  
@@ -109,7 +117,7 @@ twitter_get <- function(url, i = 0, retries = 20) {
       conf$token = NULL
       return(twitter_get(url, i = i + 1, retries = retries))
   } else {
-     writeLines(httr::content(res,as="text"), "lasterror.log")
+     writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
      stop(paste("Run out of option to call API after",i, "retries. URL tryed:", url ))
   }
 }

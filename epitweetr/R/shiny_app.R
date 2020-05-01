@@ -2,6 +2,9 @@
 #' Running the epitwitter app
 #' @export
 epitweetr_app <- function() { 
+  # Seting up configuration if not already done
+  setup_config_if_not_already()
+  # Loading data for dashboard and configuration
   d <- refresh_dashboard_data() 
   c <- refresh_config_data()
 
@@ -10,39 +13,45 @@ epitweetr_app <- function() {
     shiny::fluidPage(
           shiny::fluidRow(
             shiny::column(3, 
-                          "Parameters",
-                          shiny::selectInput("topics", label = shiny::h3("Topics"), multiple = FALSE, choices = d$topics),
-                          shiny::selectInput("countries", label = shiny::h3("Countries"), multiple = TRUE, choices = d$countries),
-                          shiny::dateRangeInput("period", label = shiny::h3("Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
-                          shiny::radioButtons("period_type", label = shiny::h3("Period type"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
-                          shiny::fluidRow(
-                            shiny::column(6, 
-                              shiny::downloadButton("export_pdf", "PDF")
-                            ),
-                            shiny::column(6, 
-                              shiny::downloadButton("export_md", "Md")
-                            )
-                          )
+              ################################################
+              ######### DASBOARD FILTERS #####################
+              ################################################
+              "Filters",
+              shiny::selectInput("topics", label = shiny::h3("Topics"), multiple = FALSE, choices = d$topics),
+              shiny::selectInput("countries", label = shiny::h3("Countries"), multiple = TRUE, choices = d$countries),
+              shiny::dateRangeInput("period", label = shiny::h3("Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
+              shiny::radioButtons("period_type", label = shiny::h3("Period type"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
+              shiny::fluidRow(
+                shiny::column(6, 
+                  shiny::downloadButton("export_pdf", "PDF")
+                ),
+                shiny::column(6, 
+                  shiny::downloadButton("export_md", "Md")
+                )
+              )
             ), 
             shiny::column(9, 
-                          shiny::fluidRow(
-                            shiny::column(6, 
-                                          shiny::downloadButton("download_line_data", "data"),
-                                          plotly::plotlyOutput("line_chart")
-                            )
-                            , shiny::column(6, 
-                                          shiny::downloadButton("download_map_data", "data"),
-                                          shiny::plotOutput("map_chart")
-                            )
-                          )
-                          ,shiny::fluidRow(
-                            shiny::column(6, 
-                                          shiny::downloadButton("download_topword_data", "data"),
-                                          plotly::plotlyOutput("topword_chart")
-                            )
-                            , shiny::column(6, 
-                            )
-                          ))
+              ################################################
+              ######### DASBOARD PLOTS #######################
+              ################################################
+              shiny::fluidRow(
+                shiny::column(6, 
+                              shiny::downloadButton("download_line_data", "data"),
+                              plotly::plotlyOutput("line_chart")
+                )
+                , shiny::column(6, 
+                              shiny::downloadButton("download_map_data", "data"),
+                              shiny::plotOutput("map_chart")
+                )
+              )
+              ,shiny::fluidRow(
+                shiny::column(6, 
+                              shiny::downloadButton("download_topword_data", "data"),
+                              plotly::plotlyOutput("topword_chart")
+                )
+                , shiny::column(6, 
+                )
+              ))
           )) 
   # Defining configuration
   config_page <- 
@@ -56,7 +65,7 @@ epitweetr_app <- function() {
           shiny::fluidRow(
             shiny::column(4, "Tweet Search"), 
             shiny::column(4, shiny::htmlOutput("search_running")),
-            shiny::column(4, shiny::actionButton("acivate_search", "activate"))
+            shiny::column(4, shiny::actionButton("activate_search", "activate"))
           ),
           shiny::fluidRow(
             shiny::column(4, "Geonames"), 
@@ -336,7 +345,8 @@ epitweetr_app <- function() {
         "<span",
         " style='color:", if(c$search_running) "#348017'" else "#F75D59'",
         ">",
-        paste(
+        if(is.na(c$search_diff)) "Stopped"
+	else paste(
           if(c$search_running) "Running" else "Stopped"
           , "("
           , round(c$search_diff, 2)
@@ -391,6 +401,13 @@ epitweetr_app <- function() {
         "</span>"
         ,sep=""
       )})
+
+
+    shiny::observeEvent(input$activate_search, {
+      register_search_runner_task()
+      refresh_config_data(c, list("tasks"))
+    })
+
     ######### PROPERTIES LOGIC ##################
     shiny::observeEvent(input$save_properties, {
       conf$data_dir <- input$conf_data_dir
@@ -410,6 +427,7 @@ epitweetr_app <- function() {
       }
       else {
         set_twitter_app_auth(app = "", api_key = "", api_secret = "", access_token = "", access_token_secret = "")
+        get_token()
       }
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
     })
@@ -553,8 +571,8 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
       Query = sapply(conf$topics, function(t) t$query), 
       QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
       ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
-      LastProgress = sapply(conf$topics, function(t) t$plan[[1]]$progress), 
-      LastRequests = sapply(conf$topics, function(t) t$plan[[1]]$requests)
+      LastProgress = sapply(conf$topics, function(t) {if(length(t$plan)>0) t$plan[[1]]$progress else 0}), 
+      LastRequests = sapply(conf$topics, function(t) {if(length(t$plan)>0) t$plan[[1]]$requests else 0})
     )
   }
   # Updating tasks related fields
