@@ -65,18 +65,21 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
 get_aggregates <- function(dataset = "geolocated", cache = TRUE) {
   
   #If dataset is already on cache return it
-  if(exists(dataset, where = cached) && nrow(cached[[dataset]]) > 0) {
+  if(cache && exists(dataset, where = cached) && nrow(cached[[dataset]]) > 0) {
     return (cached[[dataset]])
   }
   else {
     files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".Rds", sep=""))
     if(length(files) == 0) {
-      warning(paste("Dataset ", dataset, " not found in ", conf$data_dir, ". Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
+      warning(paste("Dataset ", dataset, " not found in any wek folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
+      return (data.frame(created_date=as.Date(character()),topic=character()))
     }
-    dfs <- lapply(files, function (file) readRDS(file.path(conf$data_dir, "series", file)))
-    ret <- jsonlite::rbind_pages(dfs)
-    if(cache) cached[[dataset]] <- ret
-    return(ret)
+    else {
+      dfs <- lapply(files, function (file) readRDS(file.path(conf$data_dir, "series", file)))
+      ret <- jsonlite::rbind_pages(dfs)
+      if(cache) cached[[dataset]] <- ret
+      return(ret)
+    }
   }
 } 
 
@@ -208,7 +211,7 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
     top_chunk <- get_geotagged_tweets(regexp = agg_regex
        , sources_exp = list(
            tweet = c(
-             list("date_format(created_at, 'yyyy-MM-dd') as created_date")
+             list("created_at")
              , get_tweet_location_columns("tweet")
            )
            ,geo = c(
@@ -221,8 +224,6 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
         , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
         , "date_format(created_at, 'HH') as created_hour" 
         , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
-        , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
-        , "lang"
       )
       , vars = list(
         "cast(count(*) as Integer) as tweets"
