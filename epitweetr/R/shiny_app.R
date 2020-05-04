@@ -1,9 +1,12 @@
 
 #' Running the epitwitter app
 #' @export
-epitweetr_app <- function() { 
+epitweetr_app <- function(data_dir = NA) { 
   # Seting up configuration if not already done
-  setup_config_if_not_already()
+  if(is.na(data_dir) )
+    setup_config_if_not_already()
+  else
+    setup_config(data_dir)
   # Loading data for dashboard and configuration
   d <- refresh_dashboard_data() 
   c <- refresh_config_data()
@@ -16,11 +19,10 @@ epitweetr_app <- function() {
               ################################################
               ######### DASBOARD FILTERS #####################
               ################################################
-              "Filters",
               shiny::selectInput("topics", label = shiny::h3("Topics"), multiple = FALSE, choices = d$topics),
-              shiny::selectInput("countries", label = shiny::h3("Countries"), multiple = TRUE, choices = d$countries),
-              shiny::dateRangeInput("period", label = shiny::h3("Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
-              shiny::radioButtons("period_type", label = shiny::h3("Period type"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
+              shiny::selectInput("countries", label = shiny::h3("Countries & regions"), multiple = TRUE, choices = d$countries),
+              shiny::dateRangeInput("period", label = shiny::h3("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
+              shiny::radioButtons("period_type", label = shiny::h3("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
               shiny::fluidRow(
                 shiny::column(6, 
                   shiny::downloadButton("export_pdf", "PDF")
@@ -171,7 +173,7 @@ epitweetr_app <- function() {
   # Defining navigation UI
   ui <- 
     shiny::navbarPage("epitweetr"
-                      , shiny::tabPanel("Trend Line", dashboard_page)
+                      , shiny::tabPanel("Dashboard", dashboard_page)
                       , shiny::tabPanel("Configuration", config_page)
     )
   # Defining line chart from shiny app filters
@@ -237,26 +239,20 @@ epitweetr_app <- function() {
     ######### DASHBOARD LOGIC ######################
     ################################################
     output$line_chart <- plotly::renderPlotly({
-       shiny::validate(
-         shiny::need(input$topics != '', 'Please select a topic')
-       )
+       can_render(input, d)
        chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        plotly::ggplotly(chart, height = height, width = width)
     })  
     output$map_chart <- shiny::renderPlot({
-      shiny::validate(
-        shiny::need(input$topics != '', 'Please select a topic')
-      )
+       can_render(input, d)
        regions <- get_country_items()
        countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(input$countries, function(i) unlist(regions[[i]]$codes)))
        map_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
     })
     output$topword_chart <- plotly::renderPlotly({
-       shiny::validate(
-         shiny::need(input$topics != '', 'Please select a topic')
-       )
+       can_render(input, d)
        chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
@@ -601,9 +597,18 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   return(e)
 }
 
-#Capitalize first letter of a string
+# Capitalize first letter of a string
 firstup <- function(x) {
   x <- tolower(x)
   substr(x, 1, 1) <- toupper(substr(x, 1, 1))
   x
 }
+
+# validate that dashboard can be rendered
+can_render <- function(input, d) {
+  shiny::validate(
+      shiny::need(file.exists(conf$data_dir), 'Please go to configuration ans setup tweet collection (no data directory found)')
+      , shiny::need(length(d$topics)>0, paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure this is the right folder, and that the aggregated task has successfully run"))
+      , shiny::need(input$topics != '', 'Please select a topic')
+  )
+} 

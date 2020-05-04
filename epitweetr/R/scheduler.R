@@ -10,25 +10,27 @@ register_search_runner_task <- function() {
   stop_if_no_config(paste("Cannot register scheduled task without configuration setup")) 
   #rscript <- file.path(R.home("bin"), "Rscript")
   
-  if(.Platform$OS.type == "windows") {
-    #Search loop command with current data dir and copy it to user folder
-    search_script_base <- system.file("extdata", "search.R", package = get_package_name())
-    search_script_folder <- paste(gsub("\\\\", "/", Sys.getenv("USERPROFILE")), "epitweetr", sep = "/")
-    if(!file.exists(search_script_folder)){
-      dir.create(search_script_folder, showWarnings = FALSE)
-    }  
-    search_script <- paste(search_script_folder, "search.R", sep = "/")
-    file.copy(from = search_script_base, to = search_script, overwrite = TRUE)
 
-    taskscheduleR::taskscheduler_create(
-      taskname = "epitweetr_search_loop"
-      , rscript = search_script
-      , schedule = "HOUR"
-      , rscript_args = conf$data_dir
-      , schtasks_extra="/F"
-    )
-    #taskscheduleR::taskscheduler_runnow(taskname = "epitweetr_search_loop")
-     
+  if(.Platform$OS.type == "windows") {
+    if(requireNamespace("taskscheduleR", quietly = TRUE)) {
+      #Search loop command with current data dir and copy it to user folder
+      search_script_base <- system.file("extdata", "search.R", package = get_package_name())
+      search_script_folder <- paste(gsub("\\\\", "/", Sys.getenv("USERPROFILE")), "epitweetr", sep = "/")
+      if(!file.exists(search_script_folder)){
+        dir.create(search_script_folder, showWarnings = FALSE)
+      }  
+      search_script <- paste(search_script_folder, "search.R", sep = "/")
+      file.copy(from = search_script_base, to = search_script, overwrite = TRUE)
+
+      taskscheduleR::taskscheduler_create(
+        taskname = "epitweetr_search_loop"
+        , rscript = search_script
+        , schedule = "HOUR"
+        , rscript_args = conf$data_dir
+        , schtasks_extra="/F"
+      )
+    }
+    else stop("Please install taskscheduler Package")
   } else {
      Stop("Not implemetef yet or this OS")
   }
@@ -58,10 +60,12 @@ get_running_task_pid <- function(name) {
       # Checking if last_pid is still running
     pid_running <- ( 
       if(.Platform$OS.type == "windows") {
-	length(system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE)) > 1
+        length(system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE)) > 1
       }
-      else if(.Platform$OS.type == "mac") system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0 
-      else system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0
+      else if(.Platform$OS.type == "mac") 
+        system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0 
+      else 
+        system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0
     )
     if(pid_running)
       last_pid

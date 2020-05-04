@@ -65,11 +65,14 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
 get_aggregates <- function(dataset = "geolocated", cache = TRUE) {
   
   #If dataset is already on cache return it
-  if(exists(dataset, where = cached)) {
+  if(exists(dataset, where = cached) && nrow(cached[[dataset]]) > 0) {
     return (cached[[dataset]])
   }
   else {
     files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".Rds", sep=""))
+    if(length(files) == 0) {
+      warning(paste("Dataset ", dataset, " not found in ", conf$data_dir, ". Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
+    }
     dfs <- lapply(files, function (file) readRDS(file.path(conf$data_dir, "series", file)))
     ret <- jsonlite::rbind_pages(dfs)
     if(cache) cached[[dataset]] <- ret
