@@ -47,23 +47,19 @@ firstup <- function(x) {
 #' @export
 #'
 #' @examples
-data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_min="1900-01-01",date_max="2100-01-01" ){
+data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_min="1900-01-01",date_max="2100-01-01", alpha = 0.025, no_historic = 7 ){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%` 
-   #Select grouping variables
-  if(length(s_country) > 0){
-    to_group <- c("date","geo_country_code","topic")}
-  else{
-    to_group <-c("date","topic")}
   #If user_geo_country_code selected, get the location of user and tweet. If different, use user location
-  if(geo_country_code == "user_geo_country_code"){ 
-    df$user_geo_country_code <- dplyr::coalesce(df$user_geo_country_code,df$tweet_geo_country_code)
-  }
+  #if(geo_country_code == "user_geo_country_code"){ 
+  #  df$user_geo_country_code <- dplyr::coalesce(df$user_geo_country_code,df$tweet_geo_country_code)
+  #}
   #Renaming date and geo_country_code (tweet or user) 
-  colnames(df)[colnames(df)== geo_country_code] <- "geo_country_code"
-  colnames(df)[colnames(df)== date] <- "date"
-  df$topic <- stringr::str_replace_all(df$topic, "%20", " ")
-  df$topic<-firstup(df$topic)
+  #colnames(df)[colnames(df)== geo_country_code] <- "geo_country_code"
+  df$tweet_geo_country_code <- "geo_country_code"
+  #colnames(df)[colnames(df)== date] <- "date"
+  
+  
   if(date == "created_weeknum"){
     date_min <-as.Date(paste(date_min,"1"),"%Y%U %u")
     date_max <-as.Date(paste(date_max,"1"),"%Y%U %u")
@@ -78,44 +74,34 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
     date_max <- as.integer(strftime(date_max, format = "%Y%V"))
     
   }
-  date_df <- tibble::tibble()
-  if(length(s_country)>0){
-  for(i in 1:length(s_country)){
-    date_df <- rbind(date_df,cbind.data.frame("dates" = dates,"geo_country_code"= rep(s_country[i],length(dates)),"topic" = rep(s_topic,length(dates))))
-  }
   
-  df <- (df
-         %>% dplyr::full_join(date_df, by = c("date"="dates","geo_country_code"="geo_country_code","topic"="topic")))
-  df$tweets <- replace(df$tweets, is.na(df$tweets),0)
-  
-  df <- (df
-         %>% dplyr::group_by_at(to_group)
-         %>% dplyr::filter(!is.na(geo_country_code) && !is.na(date))
-         %>% dplyr::filter(date >= date_min && date <= date_max)
-         %>% dplyr::summarise(number_of_tweets = sum(tweets)) 
-         %>% dplyr::arrange(desc(number_of_tweets)) 
-         %>% dplyr::filter(topic==s_topic )
-         %>% dplyr::filter(geo_country_code %in% s_country )
-         %>% dplyr::ungroup()
-  )
-  } else {
-    date_df <- rbind(date_df,cbind.data.frame("dates" = dates,"topic" = rep(s_topic,length(dates))))
-  
-    df <- (df
-           %>% dplyr::full_join(date_df, by = c("date"="dates","topic"="topic")))
-    df$tweets <- replace(df$tweets, is.na(df$tweets),0)
-    df <- (df
-           %>% dplyr::group_by_at(to_group)
-           %>% dplyr::filter(!is.na(date))
-           %>% dplyr::filter(date >= date_min && date <= date_max)
-           %>% dplyr::summarise(number_of_tweets = sum(tweets)) 
-           %>% dplyr::arrange(desc(number_of_tweets)) 
-           %>% dplyr::filter(topic==s_topic )
-           %>% dplyr::ungroup()
-    )
-  }
+  s_country <- if(length(s_country)>0) s_country else list(NA)
+  series <- lapply(1:length(s_country), function(i) {
+    alerts <- 
+      get_alerts(
+        topic = s_topic, 
+        country_codes= if(is.na(s_country[[i]])) list() else list(s_country[[i]]), 
+        start = as.Date(date_min), 
+        end = as.Date(date_max), 
+        no_historic=no_historic, 
+        alpha=alpha
+      )
+    alerts$topic <- firstup(stringr::str_replace_all(s_topic, "%20", " "))
+    alerts <- dplyr::rename(alerts, date = reporting_date) 
+    alerts <- dplyr::rename(alerts, number_of_tweets = count) 
+    alerts$date <- as.Date(alerts$date, origin = '1970-01-01')
+    alerts$geo_country_code <- if(is.na(s_country[[i]])) "All" else s_country[[i]]
+    alerts
+  })
+
+  df <- Reduce(x = series, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
+    
   if(date=="created_weeknum"){
-    df$date <-as.Date(paste(df$date,"1"),"%Y%U %u")
+    df <- df %>% 
+      dplyr::group_by(week = strftime(date, "%G%V"), topic, geo_country_code) %>% 
+      dplyr::summarise(c = sum(count), a = max(alert), d = min(date)) %>% 
+      dplyr::select(d , c, a, topic, geo_country_code) %>% 
+      dplyr::rename(date = d, count = c, alert = a)
   }
 
   return(df)
@@ -205,7 +191,7 @@ plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_count
 trend_line <- function(s_topic=c(),s_country=c(),type_date="created_date",geo_country_code="tweet_geo_country_code",date_min="1900-01-01",date_max="2100-01-01",selected_countries){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-  dfs <- get_aggregates()
+  dfs <- get_aggregates("country_counts")
   colnames(dfs)[colnames(dfs)== geo_country_code] <- "geo_country_code"
   fig <- data_treatment(dfs,s_topic,s_country, type_date, geo_country_code, date_min,date_max)
   plot_trendline(fig,s_country,s_topic,date_min,date_max,selected_countries)
@@ -256,12 +242,13 @@ create_topwords <- function(s_topic=c(),s_country=c(),date_min="1900-01-01",date
   `%>%` <- magrittr::`%>%`
 
   df <- (get_aggregates("topwords"))
-    df$topic <- stringr::str_replace_all(df$topic, "%20", " ")
-    df$topic<-firstup(df$topic)
-    df <- (df
-      %>% dplyr::filter(topic==s_topic )
-      %>% dplyr::filter(created_date >= date_min && created_date <= date_max)
-      #%>% dplyr::filter(geo_country_code %in% s_country )
+  df <- (df
+      %>% dplyr::filter(
+        topic==s_topic 
+        & created_date >= date_min 
+        & created_date <= date_max
+        & (if(length(s_country)==0) TRUE else tweet_geo_country_code %in% s_country )
+      )
       %>% dplyr::group_by(tokens)
       %>% dplyr::summarize(frequency = sum(frequency))
       %>% dplyr::ungroup() 

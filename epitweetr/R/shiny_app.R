@@ -19,10 +19,10 @@ epitweetr_app <- function(data_dir = NA) {
               ################################################
               ######### DASBOARD FILTERS #####################
               ################################################
-              shiny::selectInput("topics", label = shiny::h3("Topics"), multiple = FALSE, choices = d$topics),
-              shiny::selectInput("countries", label = shiny::h3("Countries & regions"), multiple = TRUE, choices = d$countries),
-              shiny::dateRangeInput("period", label = shiny::h3("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
-              shiny::radioButtons("period_type", label = shiny::h3("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
+              shiny::selectInput("topics", label = shiny::h4("Topics"), multiple = FALSE, choices = d$topics),
+              shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
+              shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
+              shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
               shiny::fluidRow(
                 shiny::column(6, 
                   shiny::downloadButton("export_pdf", "PDF")
@@ -514,10 +514,13 @@ epitweetr_app <- function(data_dir = NA) {
 
 #' Get default data for dashoard
 refresh_dashboard_data <- function(e = new.env()) {
-  dfs <- get_aggregates()
-  e$topics <- c("",unique(dfs$topic))
-  e$topics <- stringr::str_replace_all(e$topics, "%20", " ")
-  e$topics <- firstup(e$topics)
+  dfs <- get_aggregates("country_counts")
+  e$topics <- {
+    codes <- c("",unique(dfs$topic))
+    names <- stringr::str_replace_all(codes, "%20", " ")
+    names <- firstup(names)
+    setNames(codes, names)   
+  }
   e$countries <- {
     regions <- get_country_items()
     setNames(1:length(regions), sapply(regions, function(r) r$name))   
