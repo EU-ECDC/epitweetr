@@ -123,18 +123,21 @@ font<-set_font_family("Helvetica")
 plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_countries){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
+
   if(length(s_country)>0){ #if several countries selected, aggregation by country
     #Transforming country code into label
     regions <- get_country_items()
     map<-get_country_code_map()
     df$geo_country_code <- map[(df$geo_country_code)]
     df <- dplyr::rename(df,country = geo_country_code)
+    time_alarm <- data.frame(date = df$date[which(df$alert == 1)], country = df$country[which(df$alert == 1)], y = 0)
+    
     fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
       ggplot2::geom_line(ggplot2::aes(colour=country)) +
+      ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2) +
       ggplot2::labs(title=ifelse(length(selected_countries)==1,paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(selected_countries)]]$name),paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max))) +
       ggplot2::xlab('Day and month') +
       ggplot2::ylab('Number of tweets') +
-      #ggplot2::scale_y_continuous(limits = c(0, max(df$number_of_tweets)), expand = c(0,0)) +
       ggplot2::scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
       ggplot2::scale_x_date(date_labels = "%d %b",
                             expand = c(0, 0),
@@ -147,10 +150,14 @@ plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_count
                      axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
                      axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10),
                      legend.position=ifelse(length(s_country)==1,"none","top"))
+    
     df <- dplyr::rename(df,"Country" = country)
   } else{ #no countries selected, without aggregation by country #has to be factorized and need to generate all dates
+    time_alarm <- data.frame(date = df$date[which(df$alert == 1)], y = 0)
+    
     fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
       ggplot2::geom_line(colour = "#65b32e") +
+      ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = "#65b32e"), shape = 2) +
       ggplot2::labs(title=paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max)) +
       ggplot2::xlab('Day and month') +
       ggplot2::ylab('Number of tweets') +
@@ -188,12 +195,22 @@ plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_count
 #' @export
 #'
 #' @examples
-trend_line <- function(s_topic=c(),s_country=c(),type_date="created_date",geo_country_code="tweet_geo_country_code",date_min="1900-01-01",date_max="2100-01-01",selected_countries){
+trend_line <- function(
+  s_topic=c()
+  , s_country=c()
+  , type_date="created_date"
+  , geo_country_code="tweet_geo_country_code"
+  , date_min="1900-01-01"
+  , date_max="2100-01-01"
+  , selected_countries
+  , alpha = 0.025
+  , no_historic = 7 
+  ){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   dfs <- get_aggregates("country_counts")
   colnames(dfs)[colnames(dfs)== geo_country_code] <- "geo_country_code"
-  fig <- data_treatment(dfs,s_topic,s_country, type_date, geo_country_code, date_min,date_max)
+  fig <- data_treatment(dfs,s_topic,s_country, type_date, geo_country_code, date_min,date_max, alpha, no_historic)
   plot_trendline(fig,s_country,s_topic,date_min,date_max,selected_countries)
 }
     

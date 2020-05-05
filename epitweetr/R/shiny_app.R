@@ -23,6 +23,8 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
               shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
               shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
+              shiny::sliderInput("alpha_filter", label = shiny::h4("Alpha"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
+              shiny::numericInput("history_filter", label = shiny::h4("Detection days"), value = conf$alert_history),
               shiny::fluidRow(
                 shiny::column(6, 
                   shiny::downloadButton("export_pdf", "PDF")
@@ -87,6 +89,10 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           ######### GENERAL PROPERTIES ###################
           ################################################
+          shiny::h3("Alert Detection"),
+          shiny::fluidRow(shiny::column(3, "Default alpha"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005))),
+          shiny::fluidRow(shiny::column(3, "Default detection lag"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
+          
           shiny::h3("General"),
           shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::textInput("conf_data_dir", label = NULL, value = conf$data_dir))),
           shiny::fluidRow(shiny::column(3, "Schedule Span (m)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
@@ -177,7 +183,7 @@ epitweetr_app <- function(data_dir = NA) {
                       , shiny::tabPanel("Configuration", config_page)
     )
   # Defining line chart from shiny app filters
-  line_chart_from_filters <- function(topics, fcountries, period_type, period) {
+  line_chart_from_filters <- function(topics, fcountries, period_type, period, alpha, no_history) {
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
     trend_line(
@@ -188,6 +194,8 @@ epitweetr_app <- function(data_dir = NA) {
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,selected_countries = fcountries
+      ,alpha = alpha
+      ,no_historic = no_history
     )
     
   }
@@ -240,7 +248,7 @@ epitweetr_app <- function(data_dir = NA) {
     ################################################
     output$line_chart <- plotly::renderPlotly({
        can_render(input, d)
-       chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
+       chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        plotly::ggplotly(chart, height = height, width = width)
@@ -271,7 +279,7 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          line_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$data,
+          line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter )$data,
           file, 
           row.names = FALSE)
       }
@@ -412,6 +420,8 @@ epitweetr_app <- function(data_dir = NA) {
       conf$spark_cores <- input$conf_spark_cores 
       conf$spark_memory <- input$conf_spark_memory
       conf$geolocation_threshold <- input$geolocation_threshold 
+      conf$alert_alpha <- input$conf_alpha 
+      conf$alert_history <- input$conf_history 
       if(input$twitter_auth == "app") {
         set_twitter_app_auth(
           app = input$twitter_app, 
