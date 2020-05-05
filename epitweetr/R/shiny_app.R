@@ -205,8 +205,8 @@ epitweetr_app <- function(data_dir = NA) {
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
     create_map(
       s_topic= topics
-      ,s_country = countries
-      ,geo_code = "tweet"
+      ,s_country = fcountries
+      ,geo_code = "tweet_geo_country_code"
       ,type_date= period_type
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))

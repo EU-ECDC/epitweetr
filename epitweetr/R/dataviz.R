@@ -227,29 +227,29 @@ trend_line <- function(
 #' @export
 #'
 #' @examples
-create_map <- function(s_topic=c(),s_country=c(),geo_code = "tweet",type_date="days",date_min="1900-01-01",date_max="2100-01-01"){
+create_map <- function(s_topic=c(),s_country=c(),geo_code = "tweet",type_date="created_date",date_min="1900-01-01",date_max="2100-01-01"){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-  type_date <- ifelse(type_date=="days","created_date","created_weeknum")
-  longitude <- ifelse(geo_code=="tweet","tweet_longitude","user_longitude")
-  latitude <- ifelse(geo_code=="tweet","tweet_latitude","user_latitude")
-  dfs <- get_aggregates()
-  dfs$topic <- stringr::str_replace_all(dfs$topic, "%20", " ")
-  dfs$topic<-firstup(dfs$topic)
+  dfs <- get_aggregates("country_counts")
+  map<-get_country_code_map()
+  dfs$tweet_geo_country_code <- map[(dfs$tweet_geo_country_code)]
   colnames(dfs)[colnames(dfs)== type_date] <- "date"
-  colnames(dfs)[colnames(dfs)== longitude] <- "longitude"
-  colnames(dfs)[colnames(dfs)== latitude] <- "latitude"
+  regions <- get_country_items()#ou je l'envoie dans parametres?
+  long <- unlist(lapply(as.integer(1:length(regions)), function(i) mean(c(regions[[i]]$minLong,regions[[i]]$maxLong),na.rm=T)))
+  lat <- unlist(lapply(as.integer(1:length(regions)), function(i) mean(c(regions[[i]]$minLat,regions[[i]]$maxLat),na.rm=T)))
+  names<- unlist(lapply(as.integer(1:length(regions)), function(i) c(regions[[i]]$name)))
+  location <-data.frame(lat,long,names)
   fig_map <- (dfs
+              %>% dplyr::left_join(location, by = c("tweet_geo_country_code" = "names"))
               # keep records with latitude and longitude
-              %>% dplyr::filter(date >= date_min && date <= date_max)
-              %>% dplyr::filter(geo_country_code %in% s_country )
-              %>% dplyr::filter(!is.na(longitude))
-              %>% dplyr::filter(!is.na(latitude)))
-  #only selected topic
-  if(length(s_topic>0)){ 
-    fig_map <- (fig_map %>% dplyr::filter(topic==s_topic ))}
+              %>% dplyr::filter(topic == s_topic 
+                                & date >= date_min 
+                                & date <= date_max
+                                & !is.na(long)
+                                & !is.na(lat)))
+              #%>% dplyr::filter(geo_country_code %in% s_country )
   mymap <- maps::map("world", fill=TRUE, col="white", bg="lightblue", ylim=c(-60, 90), mar=c(0,0,0,0))
-  fig <- points(fig_map$longitude, fig_map$latitude, col = "red", cex = 1)
+  fig <- points(fig_map$long, fig_map$lat, col = "red", cex = 1)
   list("chart" = fig, "data" = fig_map) 
 }
 
