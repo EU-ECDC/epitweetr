@@ -84,6 +84,8 @@ get_empty_config <- function() {
   ret$spark_memory <- "12g"
   ret$topics <- list()
   ret$topics_md5 <- ""
+  ret$alert_alpha <- 0.025
+  ret$alert_history <- 7
   return(ret)
 }
 
@@ -124,6 +126,8 @@ setup_config <- function(
     conf$spark_cores <- temp$spark_cores
     conf$spark_memory <- temp$spark_memory
     conf$geolocation_threshold <- temp$geolocation_threshold
+    conf$alert_alpha <- temp$alert_alpha
+    conf$alert_history <- temp$alert_history
   }
   if(!ignore_topics && exists("props", where = paths)){
     if(file.exists(paths$topics)) {
@@ -246,6 +250,8 @@ save_config <- function(data_dir = "data", properties= TRUE, topics = TRUE) {
     temp$spark_cores <- conf$spark_cores
     temp$spark_memory <- conf$spark_memory
     temp$geolocation_threshold <- conf$geolocation_threshold
+    temp$alert_alpha <- conf$alert_alpha
+    temp$alert_history <- conf$alert_alpha
     jsonlite::write_json(temp, paste(data_dir, "properties.json", sep="/"), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {
