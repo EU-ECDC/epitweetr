@@ -4,22 +4,38 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: pdf_document
 params:
   topics: ["COVID-19"]
-  countries: ["FR", "EU"]
+  countries: ["1", "2"]
   period_type: "day"
   period: ["2020-01-01", "2020-03-31"]
+  alert_alpha: 0.025
+  alert_historic: 7
 ---
+
+```{r include=FALSE}
+regions <- get_country_items()
+countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(params$countries), function(i) unlist(regions[[i]]$codes)))
+region_names <- lapply(as.integer(params$countries), function(i) regions[[i]]$name)
+
+```
 
 # EpitweetR dashboard
 Parameters
 
 * Topics: `r params$topics`
-* Countries: `r params$countries`
+* Regions: `r region_names`
 * Period type: `r params$period_type`
 * Period: `r params$period`
+* Alert detection confidence (alpha): `r params$alert_alpha`
+* Aletrt detection lag: `r params$alert_historic`
 
 ## Line chart
 ```{r, echo = FALSE}
-line_chart_from_filters(params$topics, params$countries, params$period_type, params$period)$chart
+line_chart_from_filters(params$topics, params$countries, params$period_type, params$period, params$alert_alpha, params$alert_historic)$chart
+```
+
+## Top words chart
+```{r, echo = FALSE}
+topwords_chart_from_filters(params$topics, params$countries, params$period_type, params$period)$chart
 ```
 
 ## Map Chart
