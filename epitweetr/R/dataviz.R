@@ -248,8 +248,9 @@ create_map <- function(s_topic=c(),s_country=c(),geo_code = "tweet",type_date="c
                                 & !is.na(long)
                                 & !is.na(lat)))
               #%>% dplyr::filter(geo_country_code %in% s_country )
+  fig_map$log_tweets <- log(fig_map$tweets)
   mymap <- maps::map("world", fill=TRUE, col="white", bg="lightblue", ylim=c(-60, 90), mar=c(0,0,0,0))
-  fig <- points(fig_map$long, fig_map$lat, col = "red", cex = 1)
+  fig <- points(fig_map$long, fig_map$lat, col = "blue", cex = sqrt(fig_map$log_tweets),lwd=.4)
   list("chart" = fig, "data" = fig_map) 
 }
 
