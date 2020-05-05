@@ -226,7 +226,7 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Rmarkdown dasboard export
-  export_dashboard <- function(format, file, topics, countries, period_type, period) {
+  export_dashboard <- function(format, file, topics, countries, period_type, period, alpha, no_historic) {
     rmarkdown::render(
       system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
       output_format = format, 
@@ -236,6 +236,8 @@ epitweetr_app <- function(data_dir = NA) {
         , "countries" = countries
         , "period_type" = period_type
         , "period" = period
+        , "alert_alpha" = alpha
+        , "alert_historic" = no_historic
       ),
       quiet = TRUE
     ) 
@@ -279,7 +281,7 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter )$data,
+          line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter)$data,
           file, 
           row.names = FALSE)
       }
@@ -314,7 +316,7 @@ epitweetr_app <- function(data_dir = NA) {
         )
       },
       content = function(file) { 
-         export_dashboard("pdf_document", file, input$topics, input$countries, input$period_type, input$period)
+         export_dashboard("pdf_document", file, input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter)
       }
     ) 
     output$export_md <- shiny::downloadHandler(
@@ -329,7 +331,7 @@ epitweetr_app <- function(data_dir = NA) {
         )
       },
       content = function(file) { 
-         export_dashboard("md_document", file, input$topics, input$countries, input$period_type, input$period)
+         export_dashboard("md_document", file, input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter)
       }
     )
     ################################################
@@ -529,7 +531,7 @@ refresh_dashboard_data <- function(e = new.env()) {
     codes <- c("",unique(dfs$topic))
     names <- stringr::str_replace_all(codes, "%20", " ")
     names <- firstup(names)
-    setNames(codes, names)   
+    sort(setNames(codes, names))
   }
   e$countries <- {
     regions <- get_country_items()
