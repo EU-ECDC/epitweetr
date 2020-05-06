@@ -230,28 +230,51 @@ trend_line <- function(
 create_map <- function(s_topic=c(),s_country=c(),geo_code = "tweet",type_date="created_date",date_min="1900-01-01",date_max="2100-01-01"){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-  dfs <- get_aggregates("country_counts")
-  map<-get_country_code_map()
-  dfs$tweet_geo_country_code <- map[(dfs$tweet_geo_country_code)]
-  colnames(dfs)[colnames(dfs)== type_date] <- "date"
-  regions <- get_country_items()#ou je l'envoie dans parametres?
-  long <- unlist(lapply(as.integer(1:length(regions)), function(i) mean(c(regions[[i]]$minLong,regions[[i]]$maxLong),na.rm=T)))
-  lat <- unlist(lapply(as.integer(1:length(regions)), function(i) mean(c(regions[[i]]$minLat,regions[[i]]$maxLat),na.rm=T)))
-  names<- unlist(lapply(as.integer(1:length(regions)), function(i) c(regions[[i]]$name)))
-  location <-data.frame(lat,long,names)
-  fig_map <- (dfs
-              %>% dplyr::left_join(location, by = c("tweet_geo_country_code" = "names"))
-              # keep records with latitude and longitude
-              %>% dplyr::filter(topic == s_topic 
-                                & date >= date_min 
-                                & date <= date_max
-                                & !is.na(long)
-                                & !is.na(lat)))
-              #%>% dplyr::filter(geo_country_code %in% s_country )
-  fig_map$log_tweets <- log(fig_map$tweets)
-  mymap <- maps::map("world", fill=TRUE, col="white", bg="lightblue", ylim=c(-60, 90), mar=c(0,0,0,0))
-  fig <- points(fig_map$long, fig_map$lat, col = "blue", cex = sqrt(fig_map$log_tweets),lwd=.4)
-  list("chart" = fig, "data" = fig_map) 
+  df <- get_aggregates("country_counts")
+  colnames(df)[colnames(df)== "tweet_geo_country_code"] <- "country_code"
+  # aggregating by country
+  df <- (df %>% 
+    dplyr::filter(
+        topic==s_topic 
+        & !is.na(country_code)
+        & created_date >= date_min 
+        & created_date <= date_max
+        & (if(length(s_country)==0) TRUE else country_code %in% s_country )
+    ) %>% 
+    dplyr::group_by(country_code) %>% 
+    dplyr::summarize(count = sum(tweets)) %>% 
+    dplyr::ungroup() 
+  )
+
+  # Addinf country properties
+  regions <- get_country_items()
+  map <- get_country_index_map()
+  df$Country <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$name else NA)
+  df$Long <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) mean(c(regions[[i]]$minLong,regions[[i]]$maxLong)) else NA)
+  df$Lat <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) mean(c(regions[[i]]$minLat,regions[[i]]$maxLat)) else NA)
+  df$MinLat <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$minLat else NA)
+  df$MaxLat <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$maxLat else NA)
+  df$MinLong <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$minLong else NA)
+  df$MaxLong <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$maxLong else NA)
+
+  minLong <- min(df$MinLong, na.rm = TRUE)
+  maxLong <- max(df$MaxLong, na.rm = TRUE)
+  minLat <- min(df$MinLat, na.rm = TRUE)
+  maxLat <- max(df$MaxLat, na.rm = TRUE)
+  maxCount <- max(df$count)
+  mymap <- maps::map(
+    "world"
+    , fill=TRUE
+    , col=rgb(red =210/255, green = 230/255, blue = 230/255)
+    , bg="white"
+    , ylim=c(if(minLat>-60) minLat else -60, if(maxLat< 90) maxLat else 90)
+    , xlim = c(minLong, maxLong)
+    , border = "gray"
+  ) #, ylim=c(-60, 90), mar=c(0,0,0,0)
+  
+  fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255), cex = 4 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 21) #circle line
+  fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5), cex = 4 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 19) #filled circlee
+  list("chart" = fig, "data" = df) 
 }
 
 
@@ -276,7 +299,7 @@ create_topwords <- function(s_topic=c(),s_country=c(),date_min="1900-01-01",date
   )
   fig <- (
       df %>% ggplot2::ggplot(ggplot2::aes(x = tokens, y = frequency)) +
-           ggplot2::geom_col() +
+           ggplot2::geom_col(fill = "#7EB750") +
            ggplot2::xlab(NULL) +
            ggplot2::coord_flip() +
            ggplot2::labs(

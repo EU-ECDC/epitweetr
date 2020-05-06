@@ -82,6 +82,7 @@ get_geo_counts <- function(topic, country_codes = list(), start = NA, end = NA) 
 
 # Getting alerts
 get_alerts <- function(topic, country_codes = list(), start = NA, end = NA, alpha = 0.025, no_historic = 7) {
+  `%>%` <- magrittr::`%>%`
   # Getting counts from no_historic + 1 days bufore start if available 
   counts <- get_geo_counts(topic, country_codes, start - (no_historic - 1) , end)
   #filling missing values with zeros if any

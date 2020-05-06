@@ -174,6 +174,7 @@ get_country_items <- function(order = "level") {
     # Getting country data from package embeded csv, ignoring antartica
     # obtained from https://gist.github.com/AdrianBinDC/621321d6083b176b3a3215c0b75f8146#file-country-bounding-boxes-md
     countries <- read.csv(system.file("extdata", "countries.csv", package = get_package_name()), header = TRUE, stringsAsFactors=FALSE, fileEncoding="UTF-8") %>% dplyr::filter(region != "")
+
     # using intermediate region when available
     countries$sub.region <- mapply(function(int, sub) {if(int == "") sub else int}, countries$intermediate.region, countries$sub.region)
     #getting regions and subregions
@@ -264,5 +265,16 @@ get_country_code_map <- function() {
   regions <- get_country_items()  
   countries <- regions[sapply(regions, function(i) i$level == 3)]
   return(setNames(sapply(countries, function(r) r$name), sapply(countries, function(r) r$code)))
+}
+
+#' Get country indexes
+#' usage 
+#' map <- get_country_index_map()
+#' map[["FR"]] 
+get_country_index_map <- function() {
+  regions <- get_country_items()
+  all_index <- 1:length(regions) 
+  indexes <- all_index[sapply(all_index, function(i) regions[[i]]$level == 3)]
+  return(setNames(indexes, sapply(indexes, function(i) regions[[i]]$code)))
 }
 

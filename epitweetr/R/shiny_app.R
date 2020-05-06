@@ -205,7 +205,7 @@ epitweetr_app <- function(data_dir = NA) {
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
     create_map(
       s_topic= topics
-      ,s_country = fcountries
+      ,s_country = countries
       ,geo_code = "tweet_geo_country_code"
       ,type_date= period_type
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
@@ -257,8 +257,6 @@ epitweetr_app <- function(data_dir = NA) {
     })  
     output$map_chart <- shiny::renderPlot({
        can_render(input, d)
-       regions <- get_country_items()
-       countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(input$countries, function(i) unlist(regions[[i]]$codes)))
        map_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
     })
     output$topword_chart <- plotly::renderPlotly({
