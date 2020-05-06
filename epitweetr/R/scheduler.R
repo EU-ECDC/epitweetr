@@ -90,7 +90,7 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
-# Getting the scheduler task lists with current statusi updated.
+# Getting the scheduler task lists with current status updated.
 get_tasks <-function(statuses = list()) {
   stop_if_no_config()
   tasks_path <- paste(conf$data_dir, "tasks.json", sep = "/")
@@ -205,7 +205,7 @@ get_tasks <-function(statuses = list()) {
 }
 
 # Getting the scheduler task lists with scheduled_for times updates.
-# If tasks file exits it will read it, or get default taks otherwise
+# If tasks file exits it will read it, or get default tasks otherwise
 plan_tasks <-function(statuses = list()) {
   tasks <- get_tasks(statuses)
   # Updating next execution time for each task
@@ -256,7 +256,7 @@ save_tasks <- function(tasks) {
 #' Included tasks are 
 #' If tasks file exits it will read it, or get default taks otherwise
 #' @export
-scheduler_loop <-function() {
+tasks_loop <-function() {
   setup_config(data_dir = conf$data_dir)
   while(TRUE) {
     # getting tasks to execute 

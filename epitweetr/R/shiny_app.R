@@ -519,7 +519,7 @@ epitweetr_app <- function(data_dir = NA) {
   # Printing PID 
   message(Sys.getpid())
   # Launching the app
-  shiny::shinyApp(ui = ui, server = server)
+  shiny::shinyApp(ui = ui, server = server, options = options(shiny.fullstacktrace = TRUE))
 }
 
 #' Get default data for dashoard

@@ -85,17 +85,23 @@ get_alerts <- function(topic, country_codes = list(), start = NA, end = NA, alph
   `%>%` <- magrittr::`%>%`
   # Getting counts from no_historic + 1 days bufore start if available 
   counts <- get_geo_counts(topic, country_codes, start - (no_historic - 1) , end)
-  #filling missing values with zeros if any
-  date_range <- min(counts$reporting_date):max(counts$reporting_date)
-  missing_dates <- date_range[sapply(date_range, function(d) !(d %in% counts$reporting_date))]
-  if(length(missing_dates > 0)) {
-    missing_dates <- data.frame(reporting_date = missing_dates, count = 0)
-    counts <- dplyr::bind_rows(counts, missing_dates) %>% dplyr::arrange(reporting_date) 
-  }
+  if(nrow(counts) > 0) {
+    #filling missing values with zeros if any
+    date_range <- min(counts$reporting_date):max(counts$reporting_date)
+    missing_dates <- date_range[sapply(date_range, function(d) !(d %in% counts$reporting_date))]
+    if(length(missing_dates > 0)) {
+      missing_dates <- data.frame(reporting_date = missing_dates, count = 0)
+      counts <- dplyr::bind_rows(counts, missing_dates) %>% dplyr::arrange(reporting_date) 
+    }
  
-  #Calculating alerts 
-  alerts <- ears_t(counts$count, alpha=alpha, no_historic= no_historic)
-  counts$alert <- alerts$alarm0
-  counts$limit <- alerts$U0
-  counts
+    #Calculating alerts 
+    alerts <- ears_t(counts$count, alpha=alpha, no_historic= no_historic)
+    counts$alert <- alerts$alarm0
+    counts$limit <- alerts$U0
+    counts
+  } else {
+    counts$alert <- NA
+    counts$limit <- NA
+    counts
+  }
 }

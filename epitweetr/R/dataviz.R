@@ -130,11 +130,12 @@ plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_count
     map<-get_country_code_map()
     df$geo_country_code <- map[(df$geo_country_code)]
     df <- dplyr::rename(df,country = geo_country_code)
-    time_alarm <- data.frame(date = df$date[which(df$alert == 1)], country = df$country[which(df$alert == 1)], y = 0)
+    time_alarm <- data.frame(date = df$date[which(df$alert == 1)], country = df$country[which(df$alert == 1)], y = vapply(which(df$alert == 1), function(i) 0, double(1)))
     
     fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
-      ggplot2::geom_line(ggplot2::aes(colour=country)) +
-      ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2) +
+      ggplot2::geom_line(ggplot2::aes(colour=country)) + {
+        if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2) 
+      } +
       ggplot2::labs(title=ifelse(length(selected_countries)==1,paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(selected_countries)]]$name),paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max))) +
       ggplot2::xlab('Day and month') +
       ggplot2::ylab('Number of tweets') +
@@ -153,11 +154,12 @@ plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_count
     
     df <- dplyr::rename(df,"Country" = country)
   } else{ #no countries selected, without aggregation by country #has to be factorized and need to generate all dates
-    time_alarm <- data.frame(date = df$date[which(df$alert == 1)], y = 0)
+    time_alarm <- data.frame(date = df$date[which(df$alert == 1)], y = vapply(which(df$alert == 1), function(i) 0, double(1)))
     
     fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
-      ggplot2::geom_line(colour = "#65b32e") +
-      ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = "#65b32e"), shape = 2) +
+      ggplot2::geom_line(colour = "#65b32e") + {
+        if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = "#65b32e"), shape = 2)
+      } + 
       ggplot2::labs(title=paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max)) +
       ggplot2::xlab('Day and month') +
       ggplot2::ylab('Number of tweets') +

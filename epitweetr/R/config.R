@@ -251,7 +251,7 @@ save_config <- function(data_dir = "data", properties= TRUE, topics = TRUE) {
     temp$spark_memory <- conf$spark_memory
     temp$geolocation_threshold <- conf$geolocation_threshold
     temp$alert_alpha <- conf$alert_alpha
-    temp$alert_history <- conf$alert_alpha
+    temp$alert_history <- conf$alert_history
     jsonlite::write_json(temp, paste(data_dir, "properties.json", sep="/"), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {
