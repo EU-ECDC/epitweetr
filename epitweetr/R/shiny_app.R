@@ -23,8 +23,8 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
               shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
               shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
-              shiny::sliderInput("alpha_filter", label = shiny::h4("Alpha"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
-              shiny::numericInput("history_filter", label = shiny::h4("Detection days"), value = conf$alert_history),
+              shiny::sliderInput("alpha_filter", label = shiny::h4("Alert confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
+              shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
               shiny::fluidRow(
                 shiny::column(6, 
                   shiny::downloadButton("export_pdf", "PDF")

@@ -172,7 +172,9 @@ plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_count
                      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
                                                          margin = ggplot2::margin(-15, 0, 0, 0)),
                      axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
-                     axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10))
+                     axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10),
+                     legend.position="none"
+                     )
     
   }
   df <- dplyr::rename(df,"Number of tweets" = number_of_tweets, "Tweet date" = date,"Topic"= topic)
