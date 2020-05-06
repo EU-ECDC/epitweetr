@@ -90,8 +90,8 @@ epitweetr_app <- function(data_dir = NA) {
           ######### GENERAL PROPERTIES ###################
           ################################################
           shiny::h3("Alert Detection"),
-          shiny::fluidRow(shiny::column(3, "Default alpha"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005))),
-          shiny::fluidRow(shiny::column(3, "Default detection lag"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
+          shiny::fluidRow(shiny::column(3, "Default alert confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005))),
+          shiny::fluidRow(shiny::column(3, "Default days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
           
           shiny::h3("General"),
           shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::textInput("conf_data_dir", label = NULL, value = conf$data_dir))),
