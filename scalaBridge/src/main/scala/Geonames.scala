@@ -3,9 +3,10 @@ package org.ecdc.twitter
 import demy.storage.{Storage, WriteMode, FSNode}
 import demy.util.{log => l, util}
 import demy.mllib.index.implicits._
-import org.apache.spark.sql.{SparkSession, Column, Dataset}
+import org.apache.spark.sql.{SparkSession, Column, Dataset, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import Language.LangTools
 
 
 case class Geonames(source:String, destination:String) {
@@ -13,50 +14,107 @@ case class Geonames(source:String, destination:String) {
   val allGeosPath = s"$destination/all-geos.parquet"
   val allGeosIndex = s"$destination/all-geos.parquet.index"
 
-  def geoLocate(
-    ds:Dataset[_]
-    , geoTexts:Seq[Column]
+  def geolocateText(
+    text:Seq[String]
+    , lang:Seq[String] = Seq[String]()
     , maxLevDistance:Int = 1
-    , termWeightsCols:Seq[Option[String]]=Seq[Option[String]]()
-    , reuseExistingIndex:Boolean = true
-    , minScore:Int = 170
+    , minScore:Int = 10
     , nGram:Int = 3
-    , stopWords:Set[String] = Set[String]()
-    , tokenizeRegex:Option[String]=None
-    )(implicit storage:Storage) = {
-
-    implicit val spark = ds.sparkSession
+    , tokenizerRegex:String = Language.simpleSplitter
+    , langs:Seq[Language] = Seq[Language]()
+    , reuseGeoIndex:Boolean = true
+    , langIndexPath:String = null
+    , reuseLangIndex:Boolean = true
+  )(implicit spark:SparkSession, storage:Storage) = {
     import spark.implicits._
-    val termWeightsPadded = geoTexts.zipWithIndex.map{case (col, i) => if(termWeightsCols.size > i) termWeightsCols(i) else None}
-    ds.luceneLookups(
-      right = this.getDataset()
-      , queries = geoTexts.zip(termWeightsPadded).map{
-          case(geoText, None) => geoText
-          case(geoText, Some(termWeight)) => when(col(termWeight).isNotNull, geoText).as(geoText.toString.split("`").last)
-        }
-      , popularity = Some(col("pop"))
-      , text =  expr("concat(coalesce(city, ''), ' ', coalesce(adm4, ''), ' ', coalesce(adm3, ''), ' ', coalesce(adm2, ''), ' ', coalesce(adm1, ''), ' ', coalesce(adm4, ''), ' ', coalesce(country, ''))")
-      , rightSelect = Array(
-          $"id".as("geo_id"), $"name".as("geo_name"), $"code".as("geo_code"), $"geo_type", $"country_code".as("geo_country_code")
-          , $"country".as("geo_country"), $"city".as("geo_city"), $"adm1".as("geo_adm1"), $"adm2".as("geo_adm2"), $"adm3".as("geo_adm3"), $"adm4".as("geo_adm4")
-          , $"population".as("geo_population"), $"pop".as("geo_pop"),  $"latitude".as("geo_latitude"), $"longitude".as("geo_longitude"))
-      , leftSelect= Array(col("*"))
-      , maxLevDistance=maxLevDistance
-      , indexPath= this.allGeosIndex
-      , reuseExistingIndex = reuseExistingIndex
-      , indexPartitions = 1
-      , maxRowsInMemory= 1
-      , indexScanParallelism = 1
-      , tokenizeRegex = tokenizeRegex
+    this.geolocateDS(
+      ds = 
+        if(langs.size > 0)
+          text.zip(lang).toDF("text", "lang")
+        else
+          text.toDF("text")
+      , textLangCols = 
+        if(langs.size > 0)
+          Map("text" ->Some("lang"))
+        else 
+          Map("text" -> None)
+      , maxLevDistance = maxLevDistance
       , minScore = minScore
-      , boostAcronyms = true
-      , termWeightsColumnNames = termWeightsPadded
-//      , strategy="demy.mllib.index.StandardStrategy"
-      , stopWords = stopWords
-      , strategy="demy.mllib.index.NgramStrategy"
-      , strategyParams=Map(("nNgrams", nGram.toString))
-   )
-    
+      , nGram = nGram
+      , tokenizerRegex = tokenizerRegex
+      , langs = langs
+      , reuseGeoIndex = reuseGeoIndex
+      , langIndexPath = langIndexPath
+      , reuseLangIndex = reuseLangIndex
+    )
+  }
+  
+  def geolocateDS(
+    ds:Dataset[_]
+    , textLangCols:Map[String, Option[String]]
+    , maxLevDistance:Int = 1
+    , minScore:Int
+    , nGram:Int = 3
+    , tokenizerRegex:String = Language.simpleSplitter 
+    , langs:Seq[Language] = Seq[Language]()
+    , reuseGeoIndex:Boolean = true
+    , langIndexPath:String = null
+    , reuseLangIndex:Boolean = true
+    )(implicit storage:Storage):DataFrame  = {
+      implicit val spark = ds.sparkSession
+      import spark.implicits._
+      Some(ds)
+        .map{
+          case ds if langs.size > 0 =>
+            ds.vectorize(langs, reuseLangIndex, langIndexPath, textLangCols, tokenizerRegex)
+              .addLikehoods(
+                 languages = langs
+                 , geonames = this
+                 , vectorsColNames = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol.map(langCol => s"${textCol}_vec")}
+                 , langCodeColNames = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol}
+                 , likehoodColNames  = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol.map(langCol => s"${textCol}_geolike")}
+              )
+          case ds => ds.toDF
+        }
+        .map{df:DataFrame =>
+          val geoTexts = textLangCols.toSeq.map{case (textCol, oLang) => col(textCol)} 
+          val termWeightsCols = textLangCols.toSeq.map{case (textCol, oLang) => oLang.map(lang => s"${textCol}_geolike")}
+          val stopWords = langs.flatMap(l => l.getStopWords).toSet
+        
+          val termWeightsPadded = geoTexts.zipWithIndex.map{case (col, i) => if(termWeightsCols.size > i) termWeightsCols(i) else None}
+          df.luceneLookups(
+            right = this.getDataset()
+            , queries = geoTexts.zip(termWeightsPadded).map{
+                case(geoText, None) => geoText
+                case(geoText, Some(termWeight)) => when(col(termWeight).isNotNull, geoText).as(geoText.toString.split("`").last)
+              }
+            , popularity = Some(col("pop"))
+            , text =  expr("concat(coalesce(city, ''), ' ', coalesce(adm4, ''), ' ', coalesce(adm3, ''), ' ', coalesce(adm2, ''), ' ', coalesce(adm1, ''), ' ', coalesce(adm4, ''), ' ', coalesce(country, ''))")
+            , rightSelect = Array(
+                $"id".as("geo_id"), $"name".as("geo_name"), $"code".as("geo_code"), $"geo_type", $"country_code".as("geo_country_code")
+                , $"country".as("geo_country"), $"city".as("geo_city"), $"adm1".as("geo_adm1"), $"adm2".as("geo_adm2"), $"adm3".as("geo_adm3"), $"adm4".as("geo_adm4")
+                , $"population".as("geo_population"), $"pop".as("geo_pop"),  $"latitude".as("geo_latitude"), $"longitude".as("geo_longitude"))
+            , leftSelect= Array(col("*"))
+            , maxLevDistance=maxLevDistance
+            , indexPath= this.allGeosIndex
+            , reuseExistingIndex = reuseGeoIndex
+            , indexPartitions = 1
+            , maxRowsInMemory= 1
+            , indexScanParallelism = 1
+            , tokenizeRegex = Some(tokenizerRegex)
+            , minScore = minScore
+            , boostAcronyms = true
+            , termWeightsColumnNames = termWeightsPadded
+//            , strategy="demy.mllib.index.StandardStrategy"
+            , stopWords = stopWords
+            , strategy="demy.mllib.index.NgramStrategy"
+            , strategyParams=Map(("nNgrams", nGram.toString))
+        )
+      }
+      .map(df => 
+        df.toDF(df.schema.map(f => if(f.name.endsWith("_res")) f.name.replace("_res", "_loc") else f.name):_* )
+      )
+      .get
   }
   def getDataset(reuseExisting:Boolean = true)(implicit spark:SparkSession, storage:Storage) = {
     import spark.implicits._
@@ -208,7 +266,7 @@ case class Geonames(source:String, destination:String) {
           .union(countries)
           .repartition(32, expr("cast(id/100000 as int)"))
           .withColumn("city_code", when($"city".isNotNull, $"code").as("city_code"))
-          .withColumn("pop", expr("(log(10000+population)/10 + case when substring(geo_type, 0,3)='PPL' then 0.2 when substring(geo_type, 0,3)='PCL'then 0.3 else 0.0 end)"))
+          .withColumn("pop", expr("(log(1000+population)/10 + case when substring(geo_type, 0,3)='PPL' then 0.4 when substring(geo_type, 0,3)='PCL'then 0.8 else 0.0 end)"))
         , path = allGeosPath
         , reuseExisting = false
       )
@@ -226,10 +284,31 @@ case class Geonames(source:String, destination:String) {
 }
 
 object Geonames {
-  implicit class GeoLookup(val ds: Dataset[_]) {
-    def geoLookup(geoTexts:Seq[Column], geoNames:Geonames, maxLevDistance:Int = 1, termWeightsCols:Seq[Option[String]]=Seq[Option[String]](), reuseExistingIndex:Boolean = true,  minScore:Int = 170, nGram:Int = 3, stopWords:Set[String]=Set[String](), tokenizeRegex:Option[String]=None)
-      (implicit storage:Storage) = {
-      geoNames.geoLocate(ds, geoTexts, maxLevDistance, termWeightsCols, reuseExistingIndex,  minScore,  nGram, stopWords, tokenizeRegex) 
+  implicit class Geolocate(val ds: Dataset[_]) {
+    def geolocate(
+      textLangCols:Map[String, Option[String]]
+      , maxLevDistance:Int = 1
+      , minScore:Int
+      , nGram:Int = 3
+      , tokenizerRegex:String = Language.simpleSplitter
+      , langs:Seq[Language]= Seq[Language]()
+      , geonames:Geonames
+      , reuseGeoIndex:Boolean = true
+      , langIndexPath:String = null
+      , reuseLangIndex:Boolean = true
+    ) (implicit storage:Storage) = {
+        geonames.geolocateDS(
+          ds = ds
+          , textLangCols = textLangCols
+          , maxLevDistance = maxLevDistance
+          , minScore = minScore
+          , nGram = nGram
+          , tokenizerRegex = tokenizerRegex
+          , langs = langs
+          , reuseGeoIndex = reuseGeoIndex
+          , langIndexPath = langIndexPath
+          , reuseLangIndex = reuseLangIndex
+        ) 
     }
   }
 }

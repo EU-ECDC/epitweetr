@@ -11,7 +11,7 @@ conf_languages_as_arg <- function() {
 conf_geonames_as_arg <- function() {
   return(
     paste(
-      "geonamesSource", paste("\"", conf$geonames, "\"", sep = "")
+      "geonamesSource", paste("\"", file.path(conf$data_dir, "geo", "allCountries.txt"), "\"", sep = "")
       , "geonamesDestination", paste("\"", paste(conf$data_dir, "geo", sep="/"), "\"", sep = "")
     )
   )

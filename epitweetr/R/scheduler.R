@@ -100,8 +100,8 @@ get_tasks <-function(statuses = list()) {
     # casting date time values
     for(i in 1:length(t)) {
       t[[i]]$scheduled_for <- if(class(t[[i]]$scheduled_for) == "numeric")  as.POSIXlt(t[[i]]$scheduled_for/1000,  origin="1970-01-01") else NA
-      t[[i]]$last_start <- if(class(t[[i]]$last_start) == "numeric")  as.POSIXlt(t[[i]]$last_start/1000,  origin="1970-01-01") else NA
-      t[[i]]$last_end <- if(class(t[[i]]$last_end) == "numeric")  as.POSIXlt(t[[i]]$last_end/1000,  origin="1970-01-01") else NA
+      t[[i]]$started_on <- if(class(t[[i]]$started_on) == "numeric")  as.POSIXlt(t[[i]]$started_on/1000,  origin="1970-01-01") else NA
+      t[[i]]$end_on <- if(class(t[[i]]$end_on) == "numeric")  as.POSIXlt(t[[i]]$end_on/1000,  origin="1970-01-01") else NA
       t[[i]]$status <- if(class(t[[i]]$status) == "character")  t[[i]]$status else NA
     }
     t
@@ -112,8 +112,8 @@ get_tasks <-function(statuses = list()) {
     ret$geonames <- list(
       task = "geonames",
       order = 1,
-      last_start = NA,
-      last_end = NA,
+      started_on = NA,
+      end_on = NA,
       status = NA,
       scheduled_for = NA
     )
@@ -121,8 +121,8 @@ get_tasks <-function(statuses = list()) {
     ret$languages <- list(
       task = "languages",
       order = 2,
-      last_start = NA,
-      last_end = NA,
+      started_on = NA,
+      end_on = NA,
       status = NA,
       scheduled_for = NA
     )
@@ -130,8 +130,8 @@ get_tasks <-function(statuses = list()) {
     ret$geotag <- list(
       task = "geotag",
       order = 3,
-      last_start = NA,
-      last_end = NA,
+      started_on = NA,
+      end_on = NA,
       status = NA,
       scheduled_for = NA
     )
@@ -139,8 +139,8 @@ get_tasks <-function(statuses = list()) {
     ret$aggregate <- list(
       task = "aggregate",
       order = 4,
-      last_start = NA,
-      last_end = NA,
+      started_on = NA,
+      end_on = NA,
       status = NA,
       scheduled_for = NA
     )
@@ -148,8 +148,8 @@ get_tasks <-function(statuses = list()) {
     ret$alerts <- list(
       task = "alerts",
       order = 5,
-      last_start = NA,
-      last_end = NA,
+      started_on = NA,
+      end_on = NA,
       status = NA,
       scheduled_for = NA
     )
@@ -173,14 +173,16 @@ get_tasks <-function(statuses = list()) {
   to_remove <- lcodes[sapply(lcodes, function(c) c %in% task_codes && !(c %in% conf_codes))]
   to_add <- lcodes[sapply(lcodes, function(c) !(c %in% task_codes) && (c %in% conf_codes))]
   to_update <- lcodes[sapply(lcodes, function(c) (c %in% task_codes) && (c %in% conf_codes) 
-    && ( is.na(tasks$languages$last_start)
-       || is.na(tasks$languages$last_end)
-       || strptime(update_times[c], "%Y-%m-%d %H:%M:%S") > tasks$languages$last_start 
-       || tasks$languages$last_start > tasks$languages$last_end
+    && ( is.na(tasks$languages$started_on)
+       || is.na(tasks$languages$end_on)
+       || (!is.null(update_times[[c]]) && strptime(update_times[[c]], "%Y-%m-%d %H:%M:%S") > tasks$languages$started_on)
+       || tasks$languages$started_on > tasks$languages$end_on
     ))]
   done <- lcodes[sapply(lcodes, function(c) (c %in% task_codes) && (c %in% conf_codes) 
-    && (strptime(update_times[c], "%Y-%m-%d %H:%M:%S") <= tasks$languages$last_start
-       || tasks$languages$last_start <= tasks$languages$last_end
+    && (!is.na(tasks$languages$started_on)
+      && ! is.na(tasks$languages$end_on)
+      && (is.null(update_times[[c]]) || strptime(update_times[c], "%Y-%m-%d %H:%M:%S") <= tasks$languages$started_on)
+      && tasks$languages$started_on <= tasks$languages$end_on
     ))]
 
   tasks$languages$codes = as.list(c(to_remove, to_add, to_update, done))
@@ -188,12 +190,15 @@ get_tasks <-function(statuses = list()) {
     sapply(to_remove, function(l) "to remove"), 
     sapply(to_add, function(l) "to add"), 
     sapply(to_update, function(l) "to update"), 
-    sapply(to_remove, function(l) "to remove") 
+    sapply(done, function(l) "done") 
   ))
   tasks$languages$urls = lapply(tasks$languages$codes, function(c) lurls[c])
   tasks$languages$names = lapply(tasks$languages$codes, function(c) lnames[c])
+  tasks$languages$vectors = lapply(tasks$languages$codes, function(c) {
+    conf$tasks$languages = sapply(conf$languages[sapply(conf$languages, function(l) l$code == c)], function(l) l$vectors)  
+  })
   tasks$languages$status <- (
-    if(length(to_remove) + length(to_add) + length(to_update) > 0) 
+    if(tasks$languages$status != "running" &&  length(to_remove) + length(to_add) + length(to_update) > 0) 
       "pending"
     else
       tasks$languages$status
@@ -218,7 +223,7 @@ plan_tasks <-function(statuses = list()) {
       if(tasks[[i]]$task %in% c("geonames", "languages")) {
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
       } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) {
-          if(is.na(tasks[[i]]$last_end)) { 
+          if(is.na(tasks[[i]]$end_on)) { 
             tasks[[i]]$scheduled_for <- now + (i - 1)/1000
           } else if(tasks[[i]]$last_excuted >= tasks[[i]]$scheduled_for) {
             # the last schedule was already executed a new schedule has to be set
@@ -254,18 +259,42 @@ save_tasks <- function(tasks) {
 
 #' Infinite looop executing tasks respecting the order and time scheduling window.
 #' Included tasks are 
-#' If tasks file exits it will read it, or get default taks otherwise
+#' If tasks file exits it will read it, or get default task otherwise
 #' @export
 tasks_loop <-function() {
   setup_config(data_dir = conf$data_dir)
   while(TRUE) {
     # getting tasks to execute 
-    tasks <- get_tasks()
-    i_next <- order(sapply(tasks, function(t) if(t$status == "scheduled") t$scheduled_for else Sys.time()+3600+order))[[1]]
+    tasks <- plan_tasks()
+    i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed")) as.numeric(t$scheduled_for) else as.numeric(Sys.time())+3600+t$order))[[1]] 
+    if(tasks[[i_next]]$status == "failed" && (is.na(tasks[[i_next]]$status) || tasks[[i_next]]$failures > 3)) {
+      tasks[[i_next]]$status = "aborted"
+      tasks[[i_next]]$message = "Cannot continue mas number of retries reached"
+      save_tasks(tasks)
+      stop("Cannot continue mas number of retries reached")
+    }
     
-    save_tasks(tasks)
+    message(paste("Executing task", tasks[[i_next]]$task))
+    if(tasks[[i_next]]$task == "geonames") {
+      tasks <- update_geonames(tasks)  
+    }
+    else if(tasks[[i_next]]$task == "languages") {
+      tasks <- update_languages(tasks)  
+    }
+    else if(tasks[[i_next]]$task == "geotag") {
+      tasks <- geotags_tweets(tasks) 
+    }
+    else if(tasks[[i_next]]$task == "aggregate") {
+      tasks <- aggregate_tweets(tasks = tasks) 
+    }
+    else if(tasks[[i_next]]$task == "alerts") {
+      tasks <- generate_alerts(tasks)
+    }
 
+    save_tasks(tasks)
     setup_config(data_dir = conf$data_dir)
+    # To remove
+    Sys.sleep(1)
   }
 
 }
@@ -278,12 +307,103 @@ in_pending_status <- function(task) {
     (
       (task$task == "geonames" 
         && !is.na(conf$geonames_updated_on)
-        && (is.na(task$last_end) || task$last_end < strptime(conf$geonames_updated_on, "%Y-%m-%d %H:%M:%S"))
+        && (is.na(task$end_on) || task$end_on < strptime(conf$geonames_updated_on, "%Y-%m-%d %H:%M:%S"))
       ) || (
        task$task == "languages" 
         && !is.na(conf$lang_updated_on)
-        && (is.na(task$last_end) || task$last_end < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
+        && (is.na(task$end_on) || task$end_on < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
       )  
     )
   )  
+}
+
+
+
+#' Updating geonames task for reporting progress on geonames refresh
+update_geonames_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
+  if(start) tasks$geonames$started_on = Sys.time() 
+  if(end) tasks$geonames$end_on = Sys.time() 
+  tasks$geonames$status =  status
+  tasks$geonames$message = message
+  if(status == "failed") {
+    if(exists("failures", where = tasks$geonames))
+      tasks$geonames$failures = tasks$geonames$failures + 1
+    else
+      tasks$geonames$failures = 1
+  }
+  save_tasks(tasks)
+  return(tasks)
+}
+
+#' Updating task for reporting progress on languages refresh
+update_languages_task <- function(tasks, status, message, start = FALSE, end = FALSE, lang_code = character(0), lang_start = FALSE, lang_done = FALSE) {
+  if(start) tasks$languages$started_on = Sys.time() 
+  if(end) tasks$languages$end_on = Sys.time()
+  for(i in 1:length(tasks$languages$code)) {
+    if(tasks$languages$code[[i]] == lang_code && lang_start) tasks$languages$statuses[[i]] = "running"
+    if(tasks$languages$code[[i]] == lang_code && lang_done) tasks$languages$statuses[[i]] = "done"
+  }     
+  tasks$languages$status =  status
+  tasks$languages$message = message
+  if(status == "failed") {
+    if(exists("failures", where = tasks$languages))
+      tasks$languages$failures = tasks$languages$failures + 1
+    else
+      tasks$languages$failures = 1
+  } else if(status == "success")
+      tasks$languages$failures = 0
+    
+  save_tasks(tasks)
+  return(tasks)
+}
+
+
+#' Updating geotag task for reporting progress on geotagging
+update_geotag_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
+  if(start) tasks$geotag$started_on = Sys.time() 
+  if(end) tasks$geotag$end_on = Sys.time() 
+  tasks$geotag$status =  status
+  tasks$geotag$message = message
+  if(status == "failed") {
+    if(exists("failures", where = tasks$geotag))
+      tasks$geotag$failures = tasks$geotag$failures + 1
+    else
+      tasks$geotag$failures = 1
+  }
+  save_tasks(tasks)
+  return(tasks)
+
+}
+
+#' Updating aggregate task for reporting progress on aggregation
+update_aggregate_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
+  if(start) tasks$aggregate$started_on = Sys.time() 
+  if(end) tasks$aggregate$end_on = Sys.time() 
+  tasks$aggregate$status =  status
+  tasks$aggregatr$message = message
+  if(status == "failed") {
+    if(exists("failures", where = tasks$aggregate))
+      tasks$aggregatr$failures = tasks$aggregate$failures + 1
+    else
+      tasks$aggregate$failures = 1
+  }
+  save_tasks(tasks)
+  return(tasks)
+
+}
+
+#' Updating alert task for reporting progress on alert detection
+update_alerts_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
+  if(start) tasks$alerts$started_on = Sys.time() 
+  if(end) tasks$alerts$end_on = Sys.time() 
+  tasks$alerts$status =  status
+  tasks$alerts$message = message
+  if(status == "failed") {
+    if(exists("failures", where = tasks$alerts))
+      tasks$alerts$failures = tasks$alerts$failures + 1
+    else
+      tasks$alerts$failures = 1
+  }
+  save_tasks(tasks)
+  return(tasks)
 }

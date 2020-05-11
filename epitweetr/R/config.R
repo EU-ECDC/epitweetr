@@ -77,7 +77,6 @@ get_empty_config <- function() {
   )
   ret$lang_updated_on <- NA
   ret$geonames_updated_on <- NA
-  ret$geonames <- NA
   ret$geonames_url <- "http://download.geonames.org/export/dump/allCountries.zip"
   ret$geolocation_threshold <- 5
   ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
@@ -121,7 +120,6 @@ setup_config <- function(
     conf$languages <- temp$languages
     conf$lang_updated_on <- temp$lang_updated_on
     conf$geonames_updated_on <- temp$geonames_updated_on
-    conf$geonames <- temp$geonames
     conf$geonames_url <- temp$geonames_url
     conf$spark_cores <- temp$spark_cores
     conf$spark_memory <- temp$spark_memory
@@ -245,7 +243,6 @@ save_config <- function(data_dir = "data", properties= TRUE, topics = TRUE) {
     temp$lang_updated_on <- conf$lang_updated_on
     temp$geonames_updated_on <- conf$geonames_updated_on
     temp$geonames_url <- conf$geonames_url
-    temp$geonames <- conf$geonames
     temp$keyring <- conf$keyring
     temp$spark_cores <- conf$spark_cores
     temp$spark_memory <- conf$spark_memory

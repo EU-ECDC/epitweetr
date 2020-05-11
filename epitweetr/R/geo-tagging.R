@@ -1,32 +1,42 @@
 #' Launches the geo-tagging loop
 #' This function will geoloacte all tweets before the current hour that has not been already geolocated
 #' @export
-geotag_tweets <- function() {
- # Creating parameters from configuration file as java objects
- tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
- geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
- index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
+geotag_tweets <- function(tasks = get_tasks()) {
+  # Creating parameters from configuration file as java objects
+  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
+  geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
+  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
 
+  tryCatch({
+    tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
     cmd <- paste(
       "export OPENBLAS_NUM_THREADS=1"
       ,paste(
         "java"
         , paste("-Xmx", conf$spark_memory, sep = "")
-        , " -jar epitweetr/java/ecdc-twitter-bundle-assembly-1.0.jar"
+        , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
         , "extractLocations"
         , "sourcePath", paste("'", tweet_path, "'", sep="")
         , "destPath", paste("'", geolocated_path, "'", sep = "") 
         ,  conf_languages_as_arg()
         ,  conf_geonames_as_arg()
-        , "reuseIndex", "true"
-        , "indexPath", paste("'", index_path, "'", sep = "")
+        , "langIndexPath", paste("'", index_path, "'", sep = "")
         , "minScore" , conf$geolocation_threshold
         , "parallelism", conf$spark_cores 
       )
       ,sep = '\n'
-   )
-   message(cmd)
-   system(cmd)     
+    )
+    message(cmd)
+    system(cmd)
+    
+    # Setting status to succès
+    tasks <- update_geotag_task(tasks, "success", "", end = TRUE)
+
+  }, error = function(error_condition) {
+    # Setting status to failed
+    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," languages", error_condition))
+  })
+  return(tasks)
 }
 
 #' Get the SQL like expression to extract tweet geolocation variables 
@@ -115,12 +125,13 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
  # Geolocating all non located tweets before current hour
  # If by configuration Rjava is activated it will be used for direct integration with JVM. Otherwise a system call will be performed
  df <- {
+     half_mem <- paste(ceiling(as.integer(gsub("[^0-9]*", "", conf$spark_memory))/2), gsub("[0-9]*", "", conf$spark_memory), sep = "")
      cmd <- paste(
        "export OPENBLAS_NUM_THREADS=1"
        ,paste(
          "java"
-         , paste("-Xmx", "4g", sep = "")
-         , " -jar epitweetr/java/ecdc-twitter-bundle-assembly-1.0.jar"
+         , paste("-Xmx", half_mem, sep = "")
+         , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
          , "getTweets"
          , "tweetPath", paste("\"", tweet_path, "\"", sep="")
          , "geoPath", paste("\"", geolocated_path, "\"", sep = "") 
@@ -142,7 +153,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
        )
        ,sep = '\n'
      )
-     message(cmd) 
+     #message(cmd) 
      con <- pipe(cmd)
      if(is.null(handler)) {
        jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE)
@@ -160,6 +171,35 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
      }    
    }
  return(df)
+}
+#' Get a sample of todays tweet for evaluatin geolocation threshold
+#' @export
+get_todays_sample_tweets <- function(limit = 1000) {
+ # Creating parameters from configuration file as java objects
+ tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
+ index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
+
+ half_mem <- paste(ceiling(as.integer(gsub("[^0-9]*", "", conf$spark_memory))/2), gsub("[0-9]*", "", conf$spark_memory), sep = "")
+ 
+ cmd <- paste(
+   "export OPENBLAS_NUM_THREADS=1"
+   ,paste(
+     "java"
+     , paste("-Xmx", half_mem, sep = "")
+     , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
+     , "getSampleTweets"
+     , "tweetPath", paste("'", tweet_path, "'", sep="")
+     , "pathFilter", paste("'", strftime(Sys.time(), format = ".*%Y\\.%m\\.%d.*") ,"'",sep="") 
+     ,  conf_languages_as_arg()
+     ,  conf_geonames_as_arg()
+     , "langIndexPath", paste("'", index_path, "'", sep = "")
+     , "limit" , limit
+   )
+   ,sep = '\n'
+ )
+ message(cmd)
+ con <- pipe(cmd)
+ return(jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE))
 }
 
 #' Getting a list of regions, sub regions and countries for using as a select
@@ -276,5 +316,124 @@ get_country_index_map <- function() {
   all_index <- 1:length(regions) 
   indexes <- all_index[sapply(all_index, function(i) regions[[i]]$level == 3)]
   return(setNames(indexes, sapply(indexes, function(i) regions[[i]]$code)))
+}
+
+#' Dowloading and indexing a fresh version of geonames database from the  provided URL
+update_geonames <- function(tasks) {
+  tryCatch({
+    tasks <- update_geonames_task(tasks, "running", "downloading", start = TRUE)
+    # Create geo folder if it does not exists
+    if(!file.exists(file.path(conf$data_dir, "geo"))) {
+      dir.create(file.path(conf$data_dir, "geo"))   
+    }
+    # Downloading geonames
+    temp <- tempfile()
+    temp_dir <- tempdir()
+    download.file(tasks$geonames$url, temp, mode="wb")
+    
+    # Decompressing file
+    tasks <- update_geonames_task(tasks, "running", "decompressing")
+    unzip(zipfile = temp, files = "allCountries.txt", exdir = temp_dir)
+    file.remove(temp)
+    file.rename(from = file.path(temp_dir, "allCountries.txt"), to = file.path(conf$data_dir, "geo", "allCountries.txt"))
+    
+    # Assembling geonames datasets
+    tasks <- update_geonames_task(tasks, "running", "assembling")
+    cmd <- paste(
+      "export OPENBLAS_NUM_THREADS=1"
+      ,paste(
+        "java"
+        , paste("-Xmx", conf$spark_memory, sep = "")
+        , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
+        , "updateGeonames"
+        , conf_geonames_as_arg()
+        , "assemble", paste("\"TRUE\"",sep="") 
+        , "index", paste("\"FALSE\"",sep="") 
+        , "parallelism", conf$spark_cores 
+      )
+      ,sep = '\n'
+    )
+    message(cmd) 
+    system(cmd)
+    
+    # Indexing geonames datasets
+    tasks <- update_geonames_task(tasks, "running", "indexing")
+    cmd <- paste(
+      "export OPENBLAS_NUM_THREADS=1"
+      ,paste(
+        "java"
+        , paste("-Xmx", conf$spark_memory, sep = "")
+        , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
+        , "updateGeonames"
+        , conf_geonames_as_arg()
+        , "assemble", paste("\"FALSE\"",sep="") 
+        , "index", paste("\"TRUE\"",sep="") 
+        , "parallelism", conf$spark_cores 
+      )
+      ,sep = '\n'
+    )
+    message(cmd) 
+    system(cmd)
+    
+    # Setting status to succès
+    tasks <- update_geonames_task(tasks, "success", "", end = TRUE)
+    
+  }, error = function(error_condition) {
+    # Setting status to failed
+    tasks <- update_geonames_task(tasks, "failed", paste("failed while", tasks$geonames$message," geonames", error_condition))
+  })
+  return(tasks)
+}
+
+
+#' Dowloading and indexing a fresh version of language models tagges for update
+update_languages <- function(tasks) {
+  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
+  tryCatch({
+    tasks <- update_languages_task(tasks, "running", "downloading", start = TRUE)
+
+    # Create languages folder if it does not exist
+    if(!file.exists(file.path(conf$data_dir, "languages"))) {
+      dir.create(file.path(conf$data_dir, "languages"))   
+    }
+
+    # executing actions per language
+    for(i in 1:length(tasks$languages$statuses)) {
+      # downloading when necessary
+      if(tasks$languages$statuses[[i]] %in% c("to add", "to update")) {
+        tasks <- update_languages_task(tasks, "running", paste("downloading", tasks$languages$name[[i]]), lang_code = tasks$languages$code[[i]], lang_start = TRUE)
+        temp <- tempfile()
+        download.file(tasks$languages$url[[i]],temp,mode="wb")
+        file.rename(from = file.path(temp), to = tasks$languages$vectors[[i]])
+        tasks <- update_languages_task(tasks, "running", paste("downloaded", tasks$languages$name[[i]]), lang_code = tasks$languages$code[[i]], lang_done = TRUE)
+      }  
+    }
+    # Indexing languages
+    tasks <- update_languages_task(tasks, "running", "indexing")
+    cmd <- paste(
+      "export OPENBLAS_NUM_THREADS=1"
+      ,paste(
+        "java"
+        , paste("-Xmx", conf$spark_memory, sep = "")
+        , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
+        , "updateLanguages"
+        , conf_geonames_as_arg()
+        , conf_languages_as_arg()
+        , "langIndexPath", paste("'", index_path, "'", sep = "")
+        , "parallelism", conf$spark_cores 
+      )
+      ,sep = '\n'
+    )
+    message(cmd) 
+    system(cmd)
+    
+    # Setting status to succès
+    tasks <- update_languages_task(tasks, "success", "", end = TRUE)
+    
+  }, error = function(error_condition) {
+    # Setting status to failed
+    tasks <- update_languages_task(tasks, "failed", paste("failed while", tasks$languages$message," languages", error_condition))
+  })
+  return(tasks)
 }
 

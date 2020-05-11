@@ -1,3 +1,18 @@
+#' Realize alert detection on tweet counts by countries
+#' @export
+generate_alerts <- function(tasks = get_tasks()) {
+  tryCatch({
+    tasks <- update_alerts_task(tasks, "running", "processing", start = TRUE)
+    
+    # Setting status to succès
+    tasks <- update_alerts_task(tasks, "success", "", end = TRUE)
+
+  }, error = function(error_condition) {
+    # Setting status to failed
+    tasks <- update_alerts_task(tasks, "failed", paste("failed while", tasks$alerts$message," alerts ", error_condition))
+  })
+  return(tasks)
+}
 
 #' Simple algorithm for outbreak detection, extends the ears algorithm
 #'

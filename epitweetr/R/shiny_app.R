@@ -106,6 +106,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Spark Cores"), shiny::column(9, shiny::numericInput("conf_spark_cores", label = NULL, value = conf$spark_cores))) ,
           shiny::fluidRow(shiny::column(3, "Spark Memory"), shiny::column(9, shiny::textInput("conf_spark_memory", label = NULL, value = conf$spark_memory))), 
           shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
+          shiny::fluidRow(shiny::column(3, "Geonames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
           shiny::h4("Twitter Authentication"),
           shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9
             , shiny::radioButtons(
@@ -412,6 +413,17 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(c, list("tasks"))
     })
 
+    shiny::observeEvent(input$update_geonames, {
+      conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      refresh_config_data(c, list("tasks"))
+    })
+
+    shiny::observeEvent(input$update_languages, {
+      conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      refresh_config_data(c, list("tasks"))
+    })
     ######### PROPERTIES LOGIC ##################
     shiny::observeEvent(input$save_properties, {
       conf$data_dir <- input$conf_data_dir
@@ -420,6 +432,7 @@ epitweetr_app <- function(data_dir = NA) {
       conf$spark_cores <- input$conf_spark_cores 
       conf$spark_memory <- input$conf_spark_memory
       conf$geolocation_threshold <- input$geolocation_threshold 
+      conf$geonames_url <- input$geonames_url 
       conf$alert_alpha <- input$conf_alpha 
       conf$alert_history <- input$conf_history 
       if(input$twitter_auth == "app") {
@@ -596,14 +609,15 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     e$search_diff <- Sys.time() - last_search_time()
     e$detect_running <- is_detect_running() 
     e$geonames_status <- if(in_pending_status(e$tasks$geonames)) "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$geonames$status 
-    e$languages_status <- if(in_pending_status(e$tasks$languages))  "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$languages$status 
+    e$languages_status <- if(in_pending_status(e$tasks$languages))  "pending" else if(is.na(e$tasks$languages$status)) "n/a" else e$tasks$languages$status 
     e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
     e$tasks_df <- data.frame(
       Task = sapply(e$tasks, function(t) t$task), 
-      Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "Pensing" else t$status), 
-      Scheduled = sapply(e$tasks, function(t) strftime(t$scheduled_for, format = "%Y-%m-%d %H:%M:%OS")), 
-      `Last Start` = sapply(e$tasks, function(t) strftime(t$last_start, format = "%Y-%m-%d %H:%M:%OS")), 
-      `Last End` = sapply(e$tasks, function(t) strftime(t$last_end, format = "%Y-%m-%d %H:%M:%OS"))
+      Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "Pending" else t$status), 
+      Scheduled = sapply(e$tasks, function(t) strftime(t$scheduled_for, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')), 
+      `Last Start` = sapply(e$tasks, function(t) strftime(t$started_on, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')), 
+      `Last End` = sapply(e$tasks, function(t) strftime(t$end_on, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')),
+      Message = sapply(e$tasks, function(t) if(exists("message", where = t) && !is.null(t$message)) t$message else "")
     )
     row.names(e$tasks_df) <- sapply(e$tasks, function(t) t$order) 
   }

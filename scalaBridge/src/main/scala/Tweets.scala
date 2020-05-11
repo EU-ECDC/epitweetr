@@ -10,14 +10,18 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions.{col, udf, input_file_name, explode, coalesce, when, lit, concat, struct, expr}
 import java.sql.Timestamp
 import demy.mllib.text.Word2VecApplier
-import Language.AddLikehood
-import Geonames.GeoLookup
+import Language.LangTools
+import Geonames.Geolocate
  
 object Tweets {
+  val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+|RT"
   def main(args: Array[String]): Unit = {
     val cmd = Map(
       "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "filterBy", "sortBy", "sourceExpressions", "langCodes", "langNames", "langPaths",  "parallelism")
-      , "extractLocations" -> Set("sourcePath", "destPath", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "reuseIndex", "indexPath", "minScore", "parallelism")
+      , "getSampleTweets" -> Set("tweetPath", "pathFilter", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "limit")
+      , "extractLocations" -> Set("sourcePath", "destPath", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "minScore", "parallelism")
+      , "updateGeonames" -> Set("geonamesSource", "geonamesDestination", "assemble", "index", "parallelism")
+      , "updateLanguages" -> Set("langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "parallelism")
     )
     if(args == null || args.size < 3 || !cmd.contains(args(0)) || args.size % 2 == 0 ) 
       l.msg(s"first argument must be within ${cmd.keys} and followed by a set of 'key' 'values' parameters, but the command ${args(0)} is followed by ${args.size -1} values")
@@ -26,7 +30,29 @@ object Tweets {
       val params = Seq.range(0, (args.size -1)/2).map(i => (args(i*2 + 1), args(i*2 + 2))).toMap
       if(!cmd(command).subsetOf(params.keySet))
         l.msg(s"Cannot run $command, expected named parameters are ${cmd(command)}")
-      else if(command == "getTweets") {
+      else if(command == "getSampleTweets") {
+         implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
+         implicit val storage = JavaBridge.getSparkStorage(spark) 
+         Some(
+           getSampleTweets(
+             tweetPath = params.get("tweetPath").get
+             , pathFilter = params.get("pathFilter")
+             , langs = 
+                 Some(Seq("langCodes", "langNames", "langPaths"))
+                   .map{s => s.map(p => params(p).split(",").map(_.trim))}
+                   .map{case Seq(codes, names, paths) =>
+                     codes.zip(names.zip(paths))
+                       .map{case (code, (name, path)) =>
+                          Language(name = name, code = code, vectorsPath = path)
+                       }
+                   }
+                   .get
+             , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get)
+             , langIndexPath = params.get("langIndexPath").get
+             , limit = params.get("limit").get.toInt
+           )
+         ).map(df => JavaBridge.df2StdOut(df))
+      } else if(command == "getTweets") {
          implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
          implicit val storage = JavaBridge.getSparkStorage(spark) 
          Some(
@@ -77,19 +103,44 @@ object Tweets {
                  }
                  .get
            , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get)
-           , reuseIndex = params.get("reuseIndex").map(_.toBoolean).get
-           , indexPath = params.get("indexPath").get
+           , langIndexPath = params.get("langIndexPath").get
            , minScore = params.get("minScore").map(_.toInt).get
-           , parallelism = params.get("parallelism").map(_.toInt).get
-           , spark = spark
-           , storage = storage
+           , parallelism = params.get("parallelism").map(_.toInt)
+         )
+      } else if(command == "updateGeonames") {
+         implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
+         implicit val storage = JavaBridge.getSparkStorage(spark)
+         import spark.implicits._
+         val geonames = Geonames(params.get("geonamesSource").get, params.get("geonamesDestination").get)
+         if(params.get("assemble").map(s => s.toBoolean).getOrElse(false))
+           geonames.getDataset(reuseExisting = false)
+         if(params.get("index").map(s => s.toBoolean).getOrElse(false)) {
+           geonames.geolocateText(text=Seq("Viva Chile")).show
+         }
+      } else if(command == "updateLanguages"){ 
+         implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
+         implicit val storage = JavaBridge.getSparkStorage(spark) 
+         Language.updateLanguages(
+           langs = 
+               Some(Seq("langCodes", "langNames", "langPaths"))
+                 .map{s => s.map(p => params(p).split(",").map(_.trim))}
+                 .map{case Seq(codes, names, paths) =>
+                   codes.zip(names.zip(paths))
+                     .map{case (code, (name, path)) =>
+                        Language(name = name, code = code, vectorsPath = path)
+                     }
+                 }
+                 .get
+           , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get)
+           , indexPath = params.get("langIndexPath").get
+           , parallelism = params.get("parallelism").map(_.toInt)
          )
       } else {
         throw new Exception("Not implemented @epi") 
       }
     } 
   }
-  val textLangCols =  
+  val defaultTextLangCols =  
     Map(
       "text"->Some("lang")
       , "linked_text"->Some("linked_lang")
@@ -158,8 +209,8 @@ object Tweets {
           , col("tweet.created_at")
           , col("tweet.lang")
           , coalesce(col("tweet.retweeted_status.lang"), col("tweet.quoted_status.lang")).as("linked_lang")
-          , col("tweet.coordinates.coordinates").getItem(0).as("longitude")
-          , col("tweet.coordinates.coordinates").getItem(1).as("latitude")
+          , col("tweet.coordinates.coordinates").getItem(0).as("tweet_longitude")
+          , col("tweet.coordinates.coordinates").getItem(1).as("tweet_latitude")
           , coalesce(col("tweet.retweeted_status.coordinates.coordinates").getItem(0), col("tweet.quoted_status.coordinates.coordinates").getItem(0)).as("linked_longitude")
           , coalesce(col("tweet.retweeted_status.coordinates.coordinates").getItem(1), col("tweet.quoted_status.coordinates.coordinates").getItem(1)).as("linked_latitude")
           , col("tweet.place.place_type")
@@ -177,10 +228,13 @@ object Tweets {
         )
   }
 
-  def getJsonTweetsVectorized(path:String, langs:Seq[Language], reuseIndex:Boolean = true, indexPath:String, parallelism:Option[Int]=None, pathFilter:Option[String]=None, ignoreIdsOn:Option[String]=None)(implicit spark:SparkSession, storage:Storage) = {
-    val vectors =  langs.map(l => l.getVectorsDF().select(concat(col("word"), lit("LANG"), col("lang")).as("word"), col("vector"))).reduce(_.union(_))
-    val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+|RT"
-    val simpleSplitter = "\\s+"
+  def getJsonTweetsToGeolocate(
+    path:String
+    , langs:Seq[Language]
+    , parallelism:Option[Int]=None
+    , pathFilter:Option[String]=None
+    , ignoreIdsOn:Option[String]=None
+  )(implicit spark:SparkSession, storage:Storage) = {
     Some(
       (Tweets.getJsonTweets(path = path, parallelism = parallelism, pathFilter = pathFilter)
           .where(col("lang").isin(langs.map(l => l.code):_*))
@@ -203,86 +257,21 @@ object Tweets {
               df
           }.get
     }
-    .map(df => df
-      .luceneLookups(right = vectors
-        , queries = textLangCols.toSeq.flatMap{
-            case (textCol, Some(lang)) => 
-              Some(
-                udf((text:String, lang:String) =>
-                  if(text == null) 
-                    Array[String]() 
-                  else 
-                    text.replaceAll(twitterSplitter, " ")
-                      .split(simpleSplitter)
-                      .filter(_.size > 0)
-                      .map(w => s"${w}LANG$lang")
-                 ).apply(col(textCol), col(lang)).as(textCol)
-               )
-            case _ => None
-          }
-        , popularity = None
-        , text = col("word")
-        , rightSelect= Array(col("vector"))
-        , leftSelect= Array(col("*"))
-        , maxLevDistance = 0
-        , indexPath = indexPath
-        , reuseExistingIndex = reuseIndex
-        , indexPartitions = 1
-        , maxRowsInMemory=1
-        , indexScanParallelism = 1
-        , tokenizeRegex = None
-        , caseInsensitive = false
-        , minScore = 0.0
-        , boostAcronyms=false
-        , strategy="demy.mllib.index.StandardStrategy"
-    ))
-    .map(df => 
-      df.toDF(df.schema.map(f => if(f.name.endsWith("_res")) f.name.replace("_res", "_vec") else f.name):_* )
-    )
     .get
   }
+  
 
 
-  def getJsonTweetWithLocations(path:String, langs:Seq[Language], geonames:Geonames, reuseIndex:Boolean = true, indexPath:String, minScore:Int, parallelism:Option[Int]=None, pathFilter:Option[String]=None, ignoreIdsOn:Option[String]=None)
-    (implicit spark:SparkSession, storage:Storage) = {
-     val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+|RT"
-     Some(
-       this.getJsonTweetsVectorized(path = path, langs = langs, reuseIndex = reuseIndex, indexPath = indexPath, parallelism = parallelism, pathFilter = pathFilter, ignoreIdsOn = ignoreIdsOn)
-         .addLikehoods(
-           languages = langs
-           , geonames = geonames
-           , vectorsColNames = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol.map(langCol => s"${textCol}_vec")}
-           , langCodeColNames = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol}
-           , likehoodColNames  = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol.map(langCol => s"${textCol}_geolike")}
-        )
-        .withColumnRenamed("longitude", "tweet_longitude")
-        .withColumnRenamed("latitude", "tweet_latitude")
-        .geoLookup(
-          geoTexts = textLangCols.toSeq.map{case (textCol, oLang) => col(textCol)} 
-          , geoNames = geonames
-          , maxLevDistance= 0
-          , termWeightsCols = textLangCols.toSeq.map{case (textCol, oLang) => oLang.map(lang => s"${textCol}_geolike")}
-          , reuseExistingIndex = reuseIndex
-          , minScore = minScore
-          , nGram = 3
-          , stopWords = langs.flatMap(l => l.getStopWords).toSet
-          , tokenizeRegex = Some(twitterSplitter)
-          )
-    )
-    .map(df => 
-      df.toDF(df.schema.map(f => if(f.name.endsWith("_res")) f.name.replace("_res", "_loc") else f.name):_* )
-    )
-    .get
-  }
-
-  def extractLocations(sourcePath:String, destPath:String, langs:Array[Language], geonames:Geonames, reuseIndex:Boolean, indexPath:String, minScore:Int, parallelism:Int, spark:SparkSession, storage:Storage):Unit
-    =  {
-      implicit val s = spark
-      implicit val ss = storage
-      extractLocations(sourcePath= sourcePath, destPath=destPath, langs = langs.toSeq, geonames=geonames, reuseIndex=reuseIndex, indexPath=indexPath, minScore=minScore, parallelism=Some(parallelism))
-    }
-
-  def extractLocations(sourcePath:String, destPath:String, langs:Seq[Language], geonames:Geonames, reuseIndex:Boolean = true, indexPath:String, minScore:Int, parallelism:Option[Int]=None) 
+  def extractLocations(
+    sourcePath:String
+    , destPath:String
+    , langs:Seq[Language]
+    , geonames:Geonames
+    , langIndexPath:String
+    , minScore:Int
+    , parallelism:Option[Int]=None
+    , textLangCols:Map[String, Option[String]] = defaultTextLangCols
+    ) 
     (implicit spark:SparkSession, storage:Storage):Unit = {
     storage.ensurePathExists(destPath)
     val filesDone = storage.getNode(destPath)
@@ -315,35 +304,46 @@ object Tweets {
 
     files.foreach{file => 
       l.msg(s"geolocating tweets for $file") 
-      val df = Tweets.getJsonTweetWithLocations(
+      Some(
+        Tweets.getJsonTweetsToGeolocate(
           path = sourcePath
           , langs=langs
-          , geonames = geonames
-          , reuseIndex = reuseIndex
-          , indexPath=indexPath
-          , minScore = minScore
           , parallelism = parallelism
           , pathFilter = Some(s".*${file.replace(".", "\\.")}.*")
           , ignoreIdsOn = 
               lastDone
                 .filter(ld => file == ld)
                 .map(f => s"$destPath/${f.take(7)}/$file.json.gz")
-        )
-        .select((
-          Seq(col("topic"), col("file"), col("lang"), col("id"))
-            ++ textLangCols.keys.toSeq
-                .map(c => s"${c}_loc")
-                .map(c => when(col(s"$c.geo_id").isNotNull, struct(Seq("geo_id","geo_name", "geo_code","geo_type","geo_country_code", "geo_longitude", "geo_latitude").map(cc => col(s"$c.$cc")):_*)).as(c))
-          ):_*
-        )
-        .withColumn("is_geo_located"
-          , when(textLangCols.keys.toSeq.map(c => col(s"${c}_loc").isNull).reduce( _ && _)
-           , false
-           ).otherwise(true)
-        )
-      df.write.mode("append").options(Map("compression" -> "gzip"))
-        .json(s"$destPath/${file.take(7)}/$file.json.gz")
-      df.unpersist
+          )
+          .geolocate(
+            textLangCols = textLangCols
+            , minScore = minScore
+            , maxLevDistance = 0
+            , nGram = 3
+            , tokenizerRegex = twitterSplitter
+            , geonames = geonames
+            , reuseGeoIndex = true
+            , langIndexPath=langIndexPath
+            , reuseLangIndex = true
+          )
+          .select((
+            Seq(col("topic"), col("file"), col("lang"), col("id"))
+              ++ textLangCols.keys.toSeq
+                  .map(c => s"${c}_loc")
+                  .map(c => when(col(s"$c.geo_id").isNotNull, struct(Seq("geo_id","geo_name", "geo_code","geo_type","geo_country_code", "geo_longitude", "geo_latitude").map(cc => col(s"$c.$cc")):_*)).as(c))
+            ):_*
+          )
+          .withColumn("is_geo_located"
+            , when(textLangCols.keys.toSeq.map(c => col(s"${c}_loc").isNull).reduce( _ && _)
+             , false
+             ).otherwise(true)
+          )
+      )
+      .map{df => 
+        df.write.mode("append").options(Map("compression" -> "gzip"))
+          .json(s"$destPath/${file.take(7)}/$file.json.gz")
+        df.unpersist
+      }
     }
     l.msg(s"geolocation finished successfully") 
 
@@ -427,5 +427,38 @@ object Tweets {
           df.orderBy(sortBy.map(ob => expr(ob)):_*)
       }
       .get
+  }
+  def getSampleTweets(
+    tweetPath:String
+    , pathFilter:Option[String]=None
+    , langs:Seq[Language]
+    , geonames:Geonames 
+    , langIndexPath:String
+    , limit:Int
+  )(implicit spark:SparkSession, storage:Storage)  = {
+    Tweets.getJsonTweets(path = tweetPath, pathFilter = pathFilter)
+      .select("id", "text", "lang")
+      .where(col("lang").isin(langs.map(l => l.code):_*))
+      .geolocate(
+        textLangCols = Map("text" ->Some("lang"))
+        , maxLevDistance = 0
+        , minScore = 0
+        , nGram = 3
+        , tokenizerRegex = Tweets.twitterSplitter
+        , langs = langs
+        , geonames = geonames
+        , langIndexPath = langIndexPath
+      )
+      .select(
+        col("id")
+        , col("text")
+        , col("lang")
+        , col("geo_name")
+        , col("geo_type")
+        , col("geo_country_code")
+        , udf((c:String) => if(c==null) null else c.split(",").head).apply(col("geo_country")).as("country")
+        , col("_score_").as("score")
+        , col("_tags_").as("tagged"))
+      .limit(limit)    
     }
 }

@@ -2,62 +2,72 @@
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' Saving aggregated data as weekly RDS files
 #' @export
-aggregate_tweets <- function(series = list("geolocated", "topwords", "country_counts")) {
+aggregate_tweets <- function(series = list("geolocated", "topwords", "country_counts"), tasks = get_tasks()) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
 
+  tryCatch({
+    # Setting task status to running
+    tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
+    # Creating series folder if does not exists
+    if(!dir.exists(file.path(conf$data_dir, "series"))) {
+      dir.create(file.path(conf$data_dir, "series")) 
+    }
 
-  # Creating series folder if does not exists
-  if(!dir.exists(file.path(conf$data_dir, "series"))) {
-    dir.create(file.path(conf$data_dir, "series")) 
-  }
-
-  for(i in 1:length(series)) { 
-    # Getting a dataframe with dates and weeks to aggregate
-    aggregate_weeks <- get_aggregate_weeks(series[[i]])
-  
-    if(nrow(aggregate_weeks)>0) {
-      for(j in 1:nrow(aggregate_weeks)) {
-        week <- aggregate_weeks$week[[j]]
-        read_from <- as.Date(aggregate_weeks$read_from[[j]], "1970-01-01") 
-        read_to <- as.Date(aggregate_weeks$read_to[[j]], "1970-01-01") 
-        created_from <- as.Date(aggregate_weeks$created_from[[j]], "1970-01-01") 
-        created_before <- as.Date(aggregate_weeks$created_before[[j]], "1970-01-01") 
-        
-        # Creating week folder if does not exists
-        if(!dir.exists(file.path(conf$data_dir, "series", week))) {
-          dir.create(file.path(conf$data_dir, "series", week)) 
-        }
-
-        # Aggregating tweets for the given serie and week
-        agg_df <- get_aggregated_serie(series[[i]], read_from, read_to, created_from, created_before)
-        
-        # If result is not empty proceed to filter out weeks out of scope and save aggregated week serie 
-        if(nrow(agg_df) > 0) {
-          # Calculating the created week
-          agg_df$created_week <- strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G.%V")
-          # Filtering only tweets for current week
-          agg_df <- agg_df %>% dplyr::filter(created_week == week)
-          agg_df$created_week <- NULL
-          # Casting week and date to numeric values
-          agg_df$created_weeknum <- as.integer(strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G%V"))
-          agg_df$created_date <- as.Date(as.POSIXct(agg_df$created_date, origin = "1970-01-01"))
+    for(i in 1:length(series)) { 
+      # Getting a dataframe with dates and weeks to aggregate
+      aggregate_weeks <- get_aggregate_weeks(series[[i]])
+    
+      if(nrow(aggregate_weeks)>0) {
+        for(j in 1:nrow(aggregate_weeks)) {
+          week <- aggregate_weeks$week[[j]]
+          read_from <- as.Date(aggregate_weeks$read_from[[j]], "1970-01-01") 
+          read_to <- as.Date(aggregate_weeks$read_to[[j]], "1970-01-01") 
+          created_from <- as.Date(aggregate_weeks$created_from[[j]], "1970-01-01") 
+          created_before <- as.Date(aggregate_weeks$created_before[[j]], "1970-01-01") 
           
-          # saving the dataset to disk (with overwrite)
-          message(paste("saving ", series[[i]]," data for week", week))
-          saveRDS(agg_df, file = file.path(conf$data_dir, "series",week, paste(series[[i]], "Rds", sep = "."))) 
-        } else {
-          warning(paste("No rows found for", series[[i]]," on week", week ))  
+          # Creating week folder if does not exists
+          if(!dir.exists(file.path(conf$data_dir, "series", week))) {
+            dir.create(file.path(conf$data_dir, "series", week)) 
+          }
+
+          # Aggregating tweets for the given serie and week
+          agg_df <- get_aggregated_serie(series[[i]], read_from, read_to, created_from, created_before)
+          
+          # If result is not empty proceed to filter out weeks out of scope and save aggregated week serie 
+          if(nrow(agg_df) > 0) {
+            # Calculating the created week
+            agg_df$created_week <- strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G.%V")
+            # Filtering only tweets for current week
+            agg_df <- agg_df %>% dplyr::filter(created_week == week)
+            agg_df$created_week <- NULL
+            # Casting week and date to numeric values
+            agg_df$created_weeknum <- as.integer(strftime(as.POSIXct(agg_df$created_date, origin = "1970-01-01"), format = "%G%V"))
+            agg_df$created_date <- as.Date(as.POSIXct(agg_df$created_date, origin = "1970-01-01"))
+            
+            # saving the dataset to disk (with overwrite)
+            message(paste("saving ", series[[i]]," data for week", week))
+            saveRDS(agg_df, file = file.path(conf$data_dir, "series",week, paste(series[[i]], "Rds", sep = "."))) 
+          } else {
+            warning(paste("No rows found for", series[[i]]," on week", week ))  
+          }
         }
-      }
-    }  
-  }
+      }  
+    }
  
-  #saving geolocated files by week
-  sapply(unique(agg_df$created_weeknum),  function(week) {
-    #taking only variables for one week
+    #saving geolocated files by week
+    sapply(unique(agg_df$created_weeknum),  function(week) {
+      #taking only variables for one week
+    })
+    message("aggregation done!")
+    # Setting status to succès
+    tasks <- update_aggregate_task(tasks, "success", "", end = TRUE)
+
+  }, error = function(error_condition) {
+    # Setting status to failed
+    tasks <- update_aggregate_taks(tasks, "failed", paste("failed while", tasks$aggregate$message," languages", error_condition))
   })
-  message("aggregation done!")
+  return(tasks)
 }
 
 #' Getting already aggregated datasets
