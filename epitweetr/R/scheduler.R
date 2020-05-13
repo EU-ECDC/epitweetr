@@ -24,11 +24,11 @@ register_detect_runner_task <- function() {
   register_runner_task("detect")
 }
 #' Register task and start it
-register_search_runner_task <- function(task_name) {
+register_runner_task <- function(task_name) {
   stop_if_no_config(paste("Cannot register scheduled task without configuration setup")) 
   #rscript <- file.path(R.home("bin"), "Rscript")
   
-  script_name = paste(task_name, "R", sep = ".")
+  script_name <- paste(task_name, "R", sep = ".")
 
   if(.Platform$OS.type == "windows") {
     if(requireNamespace("taskscheduleR", quietly = TRUE)) {

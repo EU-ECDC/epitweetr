@@ -161,7 +161,7 @@ object Language {
       val vectors = Language.multiLangVectors(langs)
 
       //Building vector index index is built 
-      Seq(("Viva Chile","ES"), ("We did a very good job", "EN")).toDF("text", "lang")
+      Seq(("Viva Chile","es"), ("We did a very good job", "en")).toDF("text", "lang")
         .luceneLookup(right = vectors
           , query = udf((text:String, lang:String) => text.split(" ").map(w => s"${w}LANG$lang")).apply(col("text"), col("lang")).as("tokens")
           , popularity = None

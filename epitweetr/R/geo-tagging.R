@@ -12,11 +12,11 @@ geotag_tweets <- function(tasks = get_tasks()) {
     spark_job(
       paste(
 	, "extractLocations"
-        , "sourcePath", paste("'", tweet_path, "'", sep="")
-        , "destPath", paste("'", geolocated_path, "'", sep = "") 
+        , "sourcePath", paste("\"", tweet_path, "\"", sep="")
+        , "destPath", paste("\"", geolocated_path, "\"", sep = "") 
         ,  conf_languages_as_arg()
         ,  conf_geonames_as_arg()
-        , "langIndexPath", paste("'", index_path, "'", sep = "")
+        , "langIndexPath", paste("\"", index_path, "\"", sep = "")
         , "minScore" , conf$geolocation_threshold
         , "parallelism", conf$spark_cores 
       )
@@ -123,7 +123,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
        "getTweets"
        ,"tweetPath", paste("\"", tweet_path, "\"", sep="")
        ,"geoPath", paste("\"", geolocated_path, "\"", sep = "") 
-       ,"pathFilter", paste("'", paste(regexp, collapse = ",") ,"'",sep="") 
+       ,"pathFilter", shQuote(paste(regexp, collapse = ",")) 
        ,"columns", paste("\"", paste(vars, collapse = "||") ,"\"",sep="") 
        ,"groupBy", paste("\"", paste(group_by, collapse = "||") ,"\"",sep="") 
        ,"sortBy", paste("\"", paste(sort_by, collapse = "||") ,"\"",sep="") 
@@ -153,11 +153,11 @@ get_todays_sample_tweets <- function(limit = 1000) {
  spark_df(
    paste(
      , "getSampleTweets"
-     , "tweetPath", paste("'", tweet_path, "'", sep="")
-     , "pathFilter", paste("'", strftime(Sys.time(), format = ".*%Y\\.%m\\.%d.*") ,"'",sep="") 
+     , "tweetPath", paste("\"", tweet_path, "\"", sep="")
+     , "pathFilter", paste("\"", strftime(Sys.time(), format = ".*%Y\\.%m\\.%d.*") ,"\"",sep="") 
      ,  conf_languages_as_arg()
      ,  conf_geonames_as_arg()
-     , "langIndexPath", paste("'", index_path, "'", sep = "")
+     , "langIndexPath", paste("\"", index_path, "\"", sep = "")
      , "limit" , limit
    )
  )
@@ -362,7 +362,7 @@ update_languages <- function(tasks) {
         "updateLanguages"
         , conf_geonames_as_arg()
         , conf_languages_as_arg()
-        , "langIndexPath", paste("'", index_path, "'", sep = "")
+        , "langIndexPath", paste("\"", index_path, "\"", sep = "")
         , "parallelism", conf$spark_cores 
       )
     )
