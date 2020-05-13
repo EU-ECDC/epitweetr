@@ -4,12 +4,15 @@ set SPARK_VERSION=2.4.5
 set JAVA_HOME=C:\Program Files\AdoptOpenJDK\jdk-8.0.252.09-hotspot
 set PATH=%PATH%;%JAVA_HOME%\bin
 
-cd %cdir%\scalaBridge
-sbt assembly
+cd "%cdir%\scalaBridge"
+call sbt assembly
 
-copy %cdir%\scalaBridge\target\scala-2.11\ecdc-twitter-bundle-assembly-1.0.jar %cdir%\epitweetr\java
+if not exist "%cdir%\epitweetr\java" mkdir "%cdir%\epitweetr\java"
+
+copy "%cdir%\scalaBridge\target\scala-2.11\ecdc-twitter-bundle-assembly-1.0.jar" "%cdir%\epitweetr\java"
 
 cd %cdir%\epitweetr
-Rscript ..\devscripts\package.R
+call Rscript ..\devscripts\package.R
 
 cd %cdir%
+

@@ -9,13 +9,9 @@ geotag_tweets <- function(tasks = get_tasks()) {
 
   tryCatch({
     tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
-    cmd <- paste(
-      "export OPENBLAS_NUM_THREADS=1"
-      ,paste(
-        "java"
-        , paste("-Xmx", conf$spark_memory, sep = "")
-        , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
-        , "extractLocations"
+    spark_job(
+      paste(
+	, "extractLocations"
         , "sourcePath", paste("'", tweet_path, "'", sep="")
         , "destPath", paste("'", geolocated_path, "'", sep = "") 
         ,  conf_languages_as_arg()
@@ -24,10 +20,7 @@ geotag_tweets <- function(tasks = get_tasks()) {
         , "minScore" , conf$geolocation_threshold
         , "parallelism", conf$spark_cores 
       )
-      ,sep = '\n'
     )
-    message(cmd)
-    system(cmd)
     
     # Setting status to succès
     tasks <- update_geotag_task(tasks, "success", "", end = TRUE)
@@ -45,7 +38,7 @@ get_tweet_location_var <- function(varname) {
     paste("coalesce("
       , "text_loc.geo_", varname
       , ", linked_text_loc.geo_", varname
-      , ", ", varname
+      , ", tweet_", varname
       , ", place_", varname
       , ", linked_place_", varname
       , ", place_full_name_loc.geo_",varname
@@ -68,8 +61,8 @@ get_tweet_location_var <- function(varname) {
 get_tweet_location_columns <- function(table) {
   if(table == "tweet")
     list(
-      "longitude"
-      , "latitude"
+      "tweet_longitude"
+      , "tweet_latitude"
       , "place_longitude"
       , "place_latitude"
       , "linked_place_longitude"
@@ -123,70 +116,42 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
  geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
   
  # Geolocating all non located tweets before current hour
- # If by configuration Rjava is activated it will be used for direct integration with JVM. Otherwise a system call will be performed
- df <- {
-     half_mem <- paste(ceiling(as.integer(gsub("[^0-9]*", "", conf$spark_memory))/2), gsub("[0-9]*", "", conf$spark_memory), sep = "")
-     cmd <- paste(
-       "export OPENBLAS_NUM_THREADS=1"
-       ,paste(
-         "java"
-         , paste("-Xmx", half_mem, sep = "")
-         , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
-         , "getTweets"
-         , "tweetPath", paste("\"", tweet_path, "\"", sep="")
-         , "geoPath", paste("\"", geolocated_path, "\"", sep = "") 
-         , "pathFilter", paste("'", paste(regexp, collapse = ",") ,"'",sep="") 
-         , "columns", paste("\"", paste(vars, collapse = "||") ,"\"",sep="") 
-         , "groupBy", paste("\"", paste(group_by, collapse = "||") ,"\"",sep="") 
-         , "sortBy", paste("\"", paste(sort_by, collapse = "||") ,"\"",sep="") 
-         , "filterBy", paste("\"", paste(filter_by, collapse = "||") ,"\"",sep="") 
-         , "sourceExpressions", paste(
-              "\""
-              , paste("tweet", paste(sources_exp$tweet, collapse = "||"), sep = "||")
-              , "|||"
-              , paste("geo", paste(sources_exp$geo, collapse = "||"), sep = "||") 
-              , "\""
-              , sep=""
-            ) 
-         ,  conf_languages_as_arg()
-         , "parallelism", conf$spark_cores 
-       )
-       ,sep = '\n'
+ # System call will be performed to execute java based geolocation
+ # json results are pippedf as dataframe
+ df <- spark_df(
+    paste(
+       "getTweets"
+       ,"tweetPath", paste("\"", tweet_path, "\"", sep="")
+       ,"geoPath", paste("\"", geolocated_path, "\"", sep = "") 
+       ,"pathFilter", paste("'", paste(regexp, collapse = ",") ,"'",sep="") 
+       ,"columns", paste("\"", paste(vars, collapse = "||") ,"\"",sep="") 
+       ,"groupBy", paste("\"", paste(group_by, collapse = "||") ,"\"",sep="") 
+       ,"sortBy", paste("\"", paste(sort_by, collapse = "||") ,"\"",sep="") 
+       ,"filterBy", paste("\"", paste(filter_by, collapse = "||") ,"\"",sep="") 
+       ,"sourceExpressions", paste(
+          "\""
+          , paste("tweet", paste(sources_exp$tweet, collapse = "||"), sep = "||")
+          , "|||"
+          , paste("geo", paste(sources_exp$geo, collapse = "||"), sep = "||") 
+          , "\""
+          , sep=""
+        ) 
+       ,conf_languages_as_arg()
+       ,"parallelism", conf$spark_cores 
      )
-     #message(cmd) 
-     con <- pipe(cmd)
-     if(is.null(handler)) {
-       jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE)
-     } else {
-       tmp_file <- tempfile(pattern = "epitweetr", fileext = ".json")
-       #message(tmp_file)
-       con_tmp <- file(tmp_file, open = "wb") 
-       jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, function(df) handler(df, con_tmp))
-       close(con_tmp)
-       con_tmp <- file(tmp_file, open = "r") 
-       ret <- jsonlite::stream_in(con_tmp, pagesize = 10000, verbose = TRUE)
-       close(con_tmp)
-       unlink(tmp_file)
-       ret
-     }    
-   }
+    , handler
+ )
  return(df)
 }
+
 #' Get a sample of todays tweet for evaluatin geolocation threshold
 #' @export
 get_todays_sample_tweets <- function(limit = 1000) {
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
-
- half_mem <- paste(ceiling(as.integer(gsub("[^0-9]*", "", conf$spark_memory))/2), gsub("[0-9]*", "", conf$spark_memory), sep = "")
- 
- cmd <- paste(
-   "export OPENBLAS_NUM_THREADS=1"
-   ,paste(
-     "java"
-     , paste("-Xmx", half_mem, sep = "")
-     , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
+ spark_df(
+   paste(
      , "getSampleTweets"
      , "tweetPath", paste("'", tweet_path, "'", sep="")
      , "pathFilter", paste("'", strftime(Sys.time(), format = ".*%Y\\.%m\\.%d.*") ,"'",sep="") 
@@ -195,11 +160,7 @@ get_todays_sample_tweets <- function(limit = 1000) {
      , "langIndexPath", paste("'", index_path, "'", sep = "")
      , "limit" , limit
    )
-   ,sep = '\n'
  )
- message(cmd)
- con <- pipe(cmd)
- return(jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE))
 }
 
 #' Getting a list of regions, sub regions and countries for using as a select
@@ -339,41 +300,27 @@ update_geonames <- function(tasks) {
     
     # Assembling geonames datasets
     tasks <- update_geonames_task(tasks, "running", "assembling")
-    cmd <- paste(
-      "export OPENBLAS_NUM_THREADS=1"
-      ,paste(
-        "java"
-        , paste("-Xmx", conf$spark_memory, sep = "")
-        , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
-        , "updateGeonames"
+    spark_job(
+       paste(
+        "updateGeonames"
         , conf_geonames_as_arg()
         , "assemble", paste("\"TRUE\"",sep="") 
         , "index", paste("\"FALSE\"",sep="") 
         , "parallelism", conf$spark_cores 
       )
-      ,sep = '\n'
     )
-    message(cmd) 
-    system(cmd)
     
     # Indexing geonames datasets
     tasks <- update_geonames_task(tasks, "running", "indexing")
-    cmd <- paste(
-      "export OPENBLAS_NUM_THREADS=1"
-      ,paste(
-        "java"
-        , paste("-Xmx", conf$spark_memory, sep = "")
-        , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
-        , "updateGeonames"
+    spark_job(
+      paste(
+        "updateGeonames"
         , conf_geonames_as_arg()
         , "assemble", paste("\"FALSE\"",sep="") 
         , "index", paste("\"TRUE\"",sep="") 
         , "parallelism", conf$spark_cores 
       )
-      ,sep = '\n'
     )
-    message(cmd) 
-    system(cmd)
     
     # Setting status to succès
     tasks <- update_geonames_task(tasks, "success", "", end = TRUE)
@@ -410,22 +357,15 @@ update_languages <- function(tasks) {
     }
     # Indexing languages
     tasks <- update_languages_task(tasks, "running", "indexing")
-    cmd <- paste(
-      "export OPENBLAS_NUM_THREADS=1"
-      ,paste(
-        "java"
-        , paste("-Xmx", conf$spark_memory, sep = "")
-        , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
-        , "updateLanguages"
+    spark_job(
+      paste(
+        "updateLanguages"
         , conf_geonames_as_arg()
         , conf_languages_as_arg()
         , "langIndexPath", paste("'", index_path, "'", sep = "")
         , "parallelism", conf$spark_cores 
       )
-      ,sep = '\n'
     )
-    message(cmd) 
-    system(cmd)
     
     # Setting status to succès
     tasks <- update_languages_task(tasks, "success", "", end = TRUE)

@@ -65,7 +65,7 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
 
   }, error = function(error_condition) {
     # Setting status to failed
-    tasks <- update_aggregate_taks(tasks, "failed", paste("failed while", tasks$aggregate$message," languages", error_condition))
+    tasks <- update_aggregate_task(tasks, "failed", paste("failed while", tasks$aggregate$message," languages", error_condition))
   })
   return(tasks)
 }

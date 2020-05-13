@@ -8,6 +8,6 @@ if (length(args)==0) {
 } 
 
 data_dir <- args[1]
-epitweetr::tasks_loop(data_dir)  
+epitweetr::detect_loop(data_dir)  
 
 

@@ -1,30 +1,49 @@
-#' Run the search loop runner
+#' Registers the search runner for the current process
 #' @export
 register_search_runner <- function() {
   stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
   register_runner("search")
 }
+
+
+#' Registers the detect runner for the current process
+#' @export
+register_detect_runner <- function() {
+  stop_if_no_config(paste("Cannot check running status for detect without configuration setup")) 
+  register_runner("detect")
+}
+
 #' Register search runner task and start it
 #' @export
 register_search_runner_task <- function() {
+  register_runner_task("search")
+}
+#' Register detect runner task and start it
+#' @export
+register_detect_runner_task <- function() {
+  register_runner_task("detect")
+}
+#' Register task and start it
+register_search_runner_task <- function(task_name) {
   stop_if_no_config(paste("Cannot register scheduled task without configuration setup")) 
   #rscript <- file.path(R.home("bin"), "Rscript")
   
+  script_name = paste(task_name, "R", sep = ".")
 
   if(.Platform$OS.type == "windows") {
     if(requireNamespace("taskscheduleR", quietly = TRUE)) {
-      #Search loop command with current data dir and copy it to user folder
-      search_script_base <- system.file("extdata", "search.R", package = get_package_name())
-      search_script_folder <- paste(gsub("\\\\", "/", Sys.getenv("USERPROFILE")), "epitweetr", sep = "/")
-      if(!file.exists(search_script_folder)){
-        dir.create(search_script_folder, showWarnings = FALSE)
+      #Command with current data dir and copy it to user folder
+      script_base <- system.file("extdata", script_name, package = get_package_name())
+      script_folder <- paste(gsub("\\\\", "/", Sys.getenv("USERPROFILE")), "epitweetr", sep = "/")
+      if(!file.exists(script_folder)){
+        dir.create(script_folder, showWarnings = FALSE)
       }  
-      search_script <- paste(search_script_folder, "search.R", sep = "/")
-      file.copy(from = search_script_base, to = search_script, overwrite = TRUE)
+      script <- paste(script_folder, script_name, sep = "/")
+      file.copy(from = script_base, to = script, overwrite = TRUE)
 
       taskscheduleR::taskscheduler_create(
-        taskname = "epitweetr_search_loop"
-        , rscript = search_script
+        taskname = paste("epitweetr", task_name, "loop", sep = "_")
+        , rscript = script
         , schedule = "HOUR"
         , rscript_args = conf$data_dir
         , schtasks_extra="/F"
@@ -91,7 +110,7 @@ register_runner <- function(name) {
 }
 
 # Getting the scheduler task lists with current status updated.
-get_tasks <-function(statuses = list()) {
+get_tasks <- function(statuses = list()) {
   stop_if_no_config()
   tasks_path <- paste(conf$data_dir, "tasks.json", sep = "/")
   tasks <- if(file.exists(tasks_path)) {
@@ -198,7 +217,7 @@ get_tasks <-function(statuses = list()) {
     conf$tasks$languages = sapply(conf$languages[sapply(conf$languages, function(l) l$code == c)], function(l) l$vectors)  
   })
   tasks$languages$status <- (
-    if(tasks$languages$status != "running" &&  length(to_remove) + length(to_add) + length(to_update) > 0) 
+    if((is.na(tasks$languages$status) || tasks$languages$status != "running") &&  length(to_remove) + length(to_add) + length(to_update) > 0) 
       "pending"
     else
       tasks$languages$status
@@ -219,12 +238,12 @@ plan_tasks <-function(statuses = list()) {
   for(i in sorted_tasks) {
     # Scheduling pending tasks
     if(tasks[[i]]$task %in% c("geonames", "languages")) {
-      if(!is.na(tasks[[i]]$status) && tasks[[i]]$status %in% c("pending", "failed")) {
+      if(!is.na(tasks[[i]]$status) && tasks[[i]]$status %in% c("pending", "failed", "running")) {
         tasks[[i]]$status <- "scheduled"
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
       }
     } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) { 
-      if(is.na(tasks[[i]]$status) || tasks[[i]]$status %in% c("pending", "failed")) {
+      if(is.na(tasks[[i]]$status) || tasks[[i]]$status %in% c("pending", "failed", "running")) {
         tasks[[i]]$status <- "scheduled"
         if(is.na(tasks[[i]]$end_on)) { 
           tasks[[i]]$scheduled_for <- now + (i - 1)/1000
@@ -261,16 +280,16 @@ save_tasks <- function(tasks) {
 }
 
 #' Infinite looop executing tasks respecting the order and time scheduling window.
-#' Included tasks are 
+#' Included tasks are update geonames, update vectors, geotag, aggregate and alert detection 
 #' If tasks file exits it will read it, or get default task otherwise
 #' @export
-tasks_loop <-function() {
-  setup_config(data_dir = conf$data_dir)
+detect_loop <-function(data_dir = paste(getwd(), "data", sep = "/")) {
+  setup_config(data_dir = data_dir)
   while(TRUE) {
     # getting tasks to execute 
     tasks <- plan_tasks()
     i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed")) as.numeric(t$scheduled_for) else as.numeric(Sys.time())+3600+t$order))[[1]] 
-    if(tasks[[i_next]]$status == "failed" && (is.na(tasks[[i_next]]$status) || tasks[[i_next]]$failures > 3)) {
+    if(tasks[[i_next]]$status %in% c("failed", "running") && (is.na(tasks[[i_next]]$status) || tasks[[i_next]]$failures > 3)) {
       tasks[[i_next]]$status = "aborted"
       tasks[[i_next]]$message = "Cannot continue mas number of retries reached"
       save_tasks(tasks)
@@ -285,7 +304,7 @@ tasks_loop <-function() {
       tasks <- update_languages(tasks)  
     }
     else if(tasks[[i_next]]$task == "geotag") {
-      tasks <- geotags_tweets(tasks) 
+      tasks <- geotag_tweets(tasks) 
     }
     else if(tasks[[i_next]]$task == "aggregate") {
       tasks <- aggregate_tweets(tasks = tasks) 

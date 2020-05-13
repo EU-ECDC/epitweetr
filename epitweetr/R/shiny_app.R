@@ -413,6 +413,11 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(c, list("tasks"))
     })
 
+    shiny::observeEvent(input$activate_scheduler, {
+      register_scheduler_runner_task()
+      refresh_config_data(c, list("tasks"))
+    })
+
     shiny::observeEvent(input$update_geonames, {
       conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
