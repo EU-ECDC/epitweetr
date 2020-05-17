@@ -14,13 +14,14 @@ generate_alerts <- function(tasks = get_tasks()) {
   return(tasks)
 }
 
+
 #' Simple algorithm for outbreak detection, extends the ears algorithm
 #'
 #' @param ts A numeric vector containing the counts of the univariate
 #'           time series to monitor. The last time point in ts is
 #'           investigated
 #' @param alpha The upper limit is computed as the limit of a one-sided
-#'              (1-alpha)*100% prediction interval
+#'              (1-alpha) times 100prc prediction interval
 #' @param no_historic Number of previous values i.e -1, -2, ..., no_historic
 #'                    to include when computing baseline parameters
 #' @return A named vector containing the monitored time point,
@@ -53,9 +54,8 @@ ears_t <- function(ts, alpha=0.025, no_historic=7L) {
 
 }
 
-get_geo_counts <- function(topic, country_codes = list(), start = NA, end = NA) {
+get_geo_counts <- function(df = get_aggregates("country_counts"), topic, country_codes = list(), start = NA, end = NA, country_code_col = "tweet_geo_country_code") {
   `%>%` <- magrittr::`%>%`
-  df <- get_aggregates(dataset = "country_counts")
   last_day <- max(as.POSIXlt(df$created_date))
   # Calculating end day hour which is going to be the last fully collected hour when 
   # requesting the last colleted dates or 23h if it is a fully collected day 
@@ -86,7 +86,7 @@ get_geo_counts <- function(topic, country_codes = list(), start = NA, end = NA) 
   # filtering by country codes
   df <- (
     if(length(country_codes) == 0) df 
-    else dplyr::filter(df, tweet_geo_country_code %in% country_codes)
+    else dplyr::filter(df, (!!as.symbol(country_code_col)) %in% country_codes)
   )
   # group by reporting date
   df %>%
@@ -96,10 +96,10 @@ get_geo_counts <- function(topic, country_codes = list(), start = NA, end = NA) 
 }
 
 # Getting alerts
-get_alerts <- function(topic, country_codes = list(), start = NA, end = NA, alpha = 0.025, no_historic = 7) {
+get_alerts <- function(df= get_aggregates("country_counts"), topic, country_codes = list(), country_code_col = "tweet_geo_country_code", start = NA, end = NA, alpha = 0.025, no_historic = 7) {
   `%>%` <- magrittr::`%>%`
   # Getting counts from no_historic + 1 days bufore start if available 
-  counts <- get_geo_counts(topic, country_codes, start - (no_historic - 1) , end)
+  counts <- get_geo_counts(df, topic, country_codes, start - (no_historic - 1) , end, country_code_col)
   if(nrow(counts) > 0) {
     #filling missing values with zeros if any
     date_range <- min(counts$reporting_date):max(counts$reporting_date)

@@ -1,8 +1,12 @@
 
 #' Search for all tweets on topics defined on configuration
 #' @export
-search_loop <- function(data_dir = paste(getwd(), "data", sep = "/")) {
-  setup_config(data_dir = data_dir)
+search_loop <-  function(data_dir = NA) {
+  if(is.na(data_dir) )
+    setup_config_if_not_already()
+  else
+    setup_config(data_dir = data_dir)
+  
   register_search_runner()
   while(TRUE) {
     #Calculating 'get plans' for incompleted imports that has not been able to finish after schedule span minutes

@@ -152,7 +152,11 @@ object Tweets {
       , "linked_place_full_name"->None.asInstanceOf[Option[String]]
     )
   def getSearchJson(path:String, parallelism:Option[Int]=None, pathFilter:Option[String]=None)(implicit spark:SparkSession, storage:Storage) = {
-    val files = storage.getNode(path).list(recursive = true).filter(n => n.path.endsWith(".json.gz") && pathFilter.map(f => n.path.matches(f)).getOrElse(true)).map{n => n.path}.toArray
+    val files = 
+      storage.getNode(path).list(recursive = true)
+        .map{n => n.path.replace("\\", "/")}
+        .filter(p => p.endsWith(".json.gz") && pathFilter.map(f => p.matches(f)).getOrElse(true))
+        .toArray
     Some(spark.read.option("timestampFormat", "EEE MMM dd HH:mm:ss ZZZZZ yyyy").schema(schemas.searchAPI)
       .json(files: _*)
       .withColumn("topic", udf((p:String)=>p.split("/").reverse(2)).apply(input_file_name()))
@@ -277,7 +281,8 @@ object Tweets {
     val filesDone = storage.getNode(destPath)
       .list(recursive = true)
       .filter(n => n.path.endsWith(".json.gz") && n.isDirectory)
-      .map(_.path).map(p => p.split("/").reverse)
+      .map(_.path.replace("\\", "/"))
+      .map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
       .distinct
       .sortWith(_ < _)
@@ -295,7 +300,8 @@ object Tweets {
     val files = storage.getNode(sourcePath)
       .list(recursive = true)
       .filter(n => n.path.endsWith(".json.gz"))
-      .map(_.path).map(p => p.split("/").reverse)
+      .map(_.path.replace("\\", "/"))
+      .map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
       .filter(p => !doneButLast(p))
       .distinct
@@ -321,6 +327,7 @@ object Tweets {
             , maxLevDistance = 0
             , nGram = 3
             , tokenizerRegex = twitterSplitter
+            , langs = langs 
             , geonames = geonames
             , reuseGeoIndex = true
             , langIndexPath=langIndexPath
@@ -364,7 +371,11 @@ object Tweets {
       Some(
         pathFilter.map{filter =>
           val tweets = getJsonTweets(path = tweetPath, parallelism = parallelism, pathFilter = Some(filter))
-          val locationFiles = storage.getNode(geoPath).list(recursive = true).filter(n => n.path.endsWith(".json.gz") && n.path.matches(filter)).map{n => n.path}
+          val locationFiles = 
+            storage.getNode(geoPath)
+              .list(recursive = true)
+              .map(_.path.replace("\\", "/"))
+              .filter(p => p.endsWith(".json.gz") && p.matches(filter))
           val geos = spark.read.schema(schemas.geoLocatedSchema).json(locationFiles: _*)
           val tweetsExpr = 
             sourceExpressions.get("tweet")

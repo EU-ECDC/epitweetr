@@ -8,7 +8,7 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
 
   tryCatch({
     # Setting task status to running
-    tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
+    tasks <- update_aggregate_task(tasks, "running", "processing", start = TRUE)
     # Creating series folder if does not exists
     if(!dir.exists(file.path(conf$data_dir, "series"))) {
       dir.create(file.path(conf$data_dir, "series")) 
@@ -32,6 +32,7 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
           }
 
           # Aggregating tweets for the given serie and week
+          tasks <- update_aggregate_task(tasks, "running", paste("serie",  series[[i]], "from", read_from, "to", read_to))
           agg_df <- get_aggregated_serie(series[[i]], read_from, read_to, created_from, created_before)
           
           # If result is not empty proceed to filter out weeks out of scope and save aggregated week serie 
@@ -147,8 +148,8 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
     get_geotagged_tweets(regexp = agg_regex
        , sources_exp = list(
            tweet = c(
-             list("date_format(created_at, 'yyyy-MM-dd') as created_date")
-             , get_tweet_location_columns("tweet")
+             list("date_format(created_at, 'yyyy-MM-dd') as created_date", "is_retweet")
+             , get_user_location_columns("tweet")
            )
            ,geo = c(
              get_tweet_location_columns("geo") 
@@ -160,7 +161,8 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
            , paste("avg(", get_tweet_location_var("latitude"), ") as tweet_latitude")
            , paste("avg(", get_user_location_var("longitude"), ") as user_longitude") 
            , paste("avg(", get_user_location_var("latitude"), ") as user_latitude")
-           , "cast(count(*) as Integer) as tweets"
+           , "cast(sum(case when is_retweet then 1 else 0 end) as Integer) as retweets"
+           , "cast(sum(case when is_retweet then 0 else 1 end) as Integer) as tweets"
        )
        , filter_by = list(
          paste("created_at >= '", strftime(created_from, "%Y-%m-%d"), "'", sep = "")
@@ -180,12 +182,13 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
     top_chunk <- get_geotagged_tweets(regexp = agg_regex
       , sources_exp = list(
           tweet = list(
-            "date_format(created_at, 'yyyy-MM-dd') as created_date" 
+            "date_format(created_at, 'yyyy-MM-dd') as created_date"
+	    , "is_retweet"
             , "date_format(created_at, 'yyyy-MM-dd HH:mm:ss') as created_at" 
             , "lang"
             , "text"
            )
-          ,geo = get_tweet_location_columns("geo") 
+          ,geo = get_user_location_columns("geo") 
         )
       , sort_by = list(
         "topic"
@@ -221,8 +224,8 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
     top_chunk <- get_geotagged_tweets(regexp = agg_regex
        , sources_exp = list(
            tweet = c(
-             list("created_at")
-             , get_tweet_location_columns("tweet")
+             list("created_at", "is_retweet")
+             , get_user_location_columns("tweet")
            )
            ,geo = c(
              get_tweet_location_columns("geo") 
@@ -234,9 +237,11 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
         , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
         , "date_format(created_at, 'HH') as created_hour" 
         , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+        , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
       )
       , vars = list(
-        "cast(count(*) as Integer) as tweets"
+        "cast(sum(case when is_retweet then 1 else 0 end) as Integer) as retweets"
+        , "cast(sum(case when is_retweet then 0 else 1 end) as Integer) as tweets"
        )
       , filter_by = list(
          paste("created_at >= '", strftime(created_from, "%Y-%m-%d"), "'", sep = "")

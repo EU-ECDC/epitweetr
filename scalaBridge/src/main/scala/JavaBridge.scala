@@ -5,6 +5,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions.{unix_timestamp, col}
 import demy.storage.Storage
 import scala.collection.JavaConverters._
+import java.io.{BufferedWriter, OutputStreamWriter}
 import demy.util.{log => l, util}
 
 case class StringIterator(it:Iterator[String]) {
@@ -24,7 +25,9 @@ object JavaBridge {
   }
   def getSparkStorage(spark:SparkSession) = Storage.getSparkStorage
 
-  def df2StdOut(df:Dataset[_], minPartitions:Int = 200):Unit  = 
+  def df2StdOut(df:Dataset[_], minPartitions:Int = 200):Unit  = { 
+    val out = new OutputStreamWriter(System.out, "UTF-8")
+    val ls = System.getProperty("line.separator")
     Some(df)
       .map(df => df.select(df.schema.map{
           case StructField(name, LongType, _, _) => col(name).cast(StringType) 
@@ -43,8 +46,12 @@ object JavaBridge {
       }
       .map(df => df.toJSON.toLocalIterator.asScala)
       .get
-      .foreach(println _)
-
+      .foreach{line => 
+        out.write(line, 0, line.length)
+        out.write(ls, 0, ls.length)
+        out.flush()
+      }
+  }
   def df2JsonIterator(df:Dataset[_], chunkSize:Int = 1000, minPartitions:Int = 200):StringIterator  = 
     Some(df)
       .map(df => df.select(df.schema.map{

@@ -3,6 +3,22 @@ print(getwd())
 if(!("devtools" %in% installed.packages()[,"Package"]))
   install.packages("devtools")
 
-devtools::install_deps(pkg = ".", dependencies = TRUE)
 devtools::document()
-devtools::install()
+devtools::build(binary=TRUE)
+
+if(!file.exists("install")){
+  dir.create("install", showWarnings = FALSE)
+}
+
+installer_name <- (
+  if(.Platform$OS.type == "windows")
+    "epitweetr_0.0.0.9000.zip" 
+  else
+    "epitweetr_0.0.0.9000.tar.gz" 
+)
+file.rename(file.path("..", installer_name), file.path("..", "install", installer_name))
+
+detach("package:epitweetr", unload=TRUE)
+#devtools::install_local(path =  file.path("install", installer_name), dependencies = TRUE)
+install.packages(file.path("..", "install", installer_name), dependencies = TRUE)
+

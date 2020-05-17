@@ -91,7 +91,7 @@ get_empty_config <- function() {
 #' Build configuration values for application from a configuration json file
 #' @export
 setup_config <- function(
-  data_dir = paste(getwd(), "data", sep = "/")
+  data_dir = if(exists("data_dir", where = conf)) conf$data_dir else paste(getwd(), "data", sep = "/")
   , ignore_keyring = FALSE
   , ignore_properties = FALSE
   , ignore_topics = FALSE
@@ -228,7 +228,7 @@ setup_config <- function(
 
 #' Save the configuration options to disk
 #' @export
-save_config <- function(data_dir = "data", properties= TRUE, topics = TRUE) {
+save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRUE) {
   # creating data directory if does nor exists
   if(!file.exists(conf$data_dir)){
     dir.create(conf$data_dir, showWarnings = FALSE)

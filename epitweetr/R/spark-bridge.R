@@ -1,3 +1,11 @@
+java_path <-  function() {
+  if(Sys.getenv("JAVA_HOME")=="") 
+    "java"
+  else if(.Platform$OS.type == "windows")
+    paste("\"", Sys.getenv("JAVA_HOME"), "\\bin\\" , "java\"", sep = "")
+  else
+    paste("\"", Sys.getenv("JAVA_HOME"), "/bin/" , "java\"", sep = "")
+}
 
 #' getting a string for passing  languages as paramater for system calls
 conf_languages_as_arg <- function() {
@@ -27,11 +35,11 @@ spark_job <- function(args) {
       "export OPENBLAS_NUM_THREADS=1"
     }
     else {
-      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=system.file("inst", package = get_package_name()))
+      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=system.file("hadoop", package = get_package_name()))
       "" 
     }
     ,paste(
-      "java"
+      java_path() 
       , paste("-Xmx", conf$spark_memory, sep = "")
       , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
       , args
@@ -51,32 +59,34 @@ spark_df <- function(args, handler = NULL) {
     if(.Platform$OS.type != "windows") 
       "export OPENBLAS_NUM_THREADS=1"
     else {
-      paste(
-        "set OPENBLAS_NUM_THREADS=1"
-        ,paste("set HADOOP_HOME=\"", system.file("inst", package = get_package_name()), "\"", sep = "")
-	,sep = "\n"
-      )
+      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=system.file("hadoop", package = get_package_name()))
+      "" 
     }
    ,paste(
-     "java"
+      paste(
+        if(.Platform$OS.type == "windows") "call "
+	, java_path()
+	, sep = ""
+       )
+     , "-Dfile.encoding=UTF8"
      , paste("-Xmx", half_mem, sep = "")
      , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
-      , args
+     , args
     )
     ,sep = '\n'
   )
   message(cmd) 
-  con <- pipe(cmd)
+  con <- pipe(cmd, encoding = "UTF-8")
   if(is.null(handler)) {
-    jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE)
+    jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, encoding="UTF-8")
   } else {
     tmp_file <- tempfile(pattern = "epitweetr", fileext = ".json")
     #message(tmp_file)
     con_tmp <- file(tmp_file, open = "wb") 
-    jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, function(df) handler(df, con_tmp))
+    jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, function(df) handler(df, con_tmp), encoding="UTF-8")
     close(con_tmp)
     con_tmp <- file(tmp_file, open = "r") 
-    ret <- jsonlite::stream_in(con_tmp, pagesize = 10000, verbose = TRUE)
+    ret <- jsonlite::stream_in(con_tmp, pagesize = 10000, verbose = TRUE, encoding="UTF-8")
     close(con_tmp)
     unlink(tmp_file)
     ret

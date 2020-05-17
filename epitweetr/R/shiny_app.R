@@ -23,6 +23,8 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
               shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
               shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
+              shiny::checkboxInput("with_retweets", label = shiny::h4("Include Retweets/Quotes"), value = FALSE),
+              shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
               shiny::sliderInput("alpha_filter", label = shiny::h4("Alert confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
               shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
               shiny::fluidRow(
@@ -84,7 +86,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(4, "Detection pipeline"), 
             shiny::column(4, shiny::htmlOutput("detect_running")),
-            shiny::column(4, shiny::actionButton("activate_scheduler", "activate"))
+            shiny::column(4, shiny::actionButton("activate_detect", "activate"))
           ),
           ################################################
           ######### GENERAL PROPERTIES ###################
@@ -184,38 +186,37 @@ epitweetr_app <- function(data_dir = NA) {
                       , shiny::tabPanel("Configuration", config_page)
     )
   # Defining line chart from shiny app filters
-  line_chart_from_filters <- function(topics, fcountries, period_type, period, alpha, no_history) {
-    regions <- get_country_items()
-    countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
+  line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type,alpha, no_history) {
     trend_line(
-      s_topic= topics
-      ,s_country= countries
+      topic = topics
+      ,countries= countries
       ,type_date= period_type
-      ,geo_country_code = "tweet_geo_country_code"
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
-      ,selected_countries = fcountries
+      ,with_retweets= with_retweets
+      ,location_type = location_type
       ,alpha = alpha
       ,no_historic = no_history
     )
     
   }
   # Defining line chart from shiny app filters
-  map_chart_from_filters <- function(topics, fcountries, period_type, period) {
+  map_chart_from_filters <- function(topics, fcountries, period_type, period, with_retweets, location_type) {
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
     create_map(
       s_topic= topics
       ,s_country = countries
-      ,geo_code = "tweet_geo_country_code"
       ,type_date= period_type
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,with_retweets= with_retweets
+      ,location_type = location_type
     )
     
   }
   # Defining top words chart from shiny app filters
-  topwords_chart_from_filters <- function(topics, fcountries, period_type, period) {
+  topwords_chart_from_filters <- function(topics, fcountries, period_type, period, with_retweets, location_type) {
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
     create_topwords(
@@ -223,11 +224,13 @@ epitweetr_app <- function(data_dir = NA) {
       ,s_country = countries
       ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
       ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,with_retweets= with_retweets
+      ,location_type = location_type
     )
     
   }
   # Rmarkdown dasboard export
-  export_dashboard <- function(format, file, topics, countries, period_type, period, alpha, no_historic) {
+  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, no_historic) {
     rmarkdown::render(
       system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
       output_format = format, 
@@ -237,6 +240,8 @@ epitweetr_app <- function(data_dir = NA) {
         , "countries" = countries
         , "period_type" = period_type
         , "period" = period
+        , "with_retweets"= with_retweets
+        , "location_type" = location_type
         , "alert_alpha" = alpha
         , "alert_historic" = no_historic
       ),
@@ -362,8 +367,8 @@ epitweetr_app <- function(data_dir = NA) {
         ,sep=""
     )})
     output$detect_running <- shiny::renderText({
-      # Adding a dependency to lang refresh
-      c$langs_refresh_flag()
+      # Adding a dependency to task refresh
+      c$tasks_refresh_flag()
       paste(
         "<span",
         " style='color:", if(c$detect_running) "#348017'" else "#F75D59'",
@@ -372,6 +377,7 @@ epitweetr_app <- function(data_dir = NA) {
         "</span>"
         ,sep=""
       )})
+
     output$geonames_status <- shiny::renderText({
       # Adding a dependency to task refresh
       c$tasks_refresh_flag()
@@ -413,8 +419,8 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(c, list("tasks"))
     })
 
-    shiny::observeEvent(input$activate_scheduler, {
-      register_scheduler_runner_task()
+    shiny::observeEvent(input$activate_detect, {
+      register_detect_runner_task()
       refresh_config_data(c, list("tasks"))
     })
 

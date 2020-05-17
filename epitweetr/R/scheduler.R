@@ -228,8 +228,8 @@ get_tasks <- function(statuses = list()) {
     tasks[sapply(tasks, function(t) t$status %in% statuses)]
 }
 
-# Getting the scheduler task lists with scheduled_for times updates.
-# If tasks file exits it will read it, or get default tasks otherwise
+#' Getting the scheduler task lists with scheduled_for times updates.
+#' pan If tasks file exits it will read it, or get default tasks otherwise
 plan_tasks <-function(statuses = list()) {
   tasks <- get_tasks(statuses)
   # Updating next execution time for each task
@@ -243,14 +243,14 @@ plan_tasks <-function(statuses = list()) {
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
       }
     } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) { 
-      if(is.na(tasks[[i]]$status) || tasks[[i]]$status %in% c("pending", "failed", "running")) {
+      if(is.na(tasks[[i]]$status) || tasks[[i]]$status %in% c("pending", "failed", "running", "success")) {
         tasks[[i]]$status <- "scheduled"
         if(is.na(tasks[[i]]$end_on)) { 
           tasks[[i]]$scheduled_for <- now + (i - 1)/1000
-        } else if(tasks[[i]]$last_excuted >= tasks[[i]]$scheduled_for) {
+        } else if(tasks[[i]]$end_on >= tasks[[i]]$scheduled_for) {
           # the last schedule was already executed a new schedule has to be set
-          span <- ret$schedule_span
-          start_hour <- ret$schedule_start_hour
+          span <- conf$schedule_span
+          start_hour <- conf$schedule_start_hour
           per_day <- as.integer(24 * 60/span)
           # calculating possible next slot for
           hour_slots <- sort((c(0:(per_day-1)) * (span/60) + start_hour) %% 24)
@@ -258,7 +258,7 @@ plan_tasks <-function(statuses = list()) {
           day_slots <- hour_slots * 60 * 60 + (as.POSIXlt(as.Date(tasks[[i]]$scheduled_for)))
           next_slot <- day_slots[day_slots > tasks[[i]]$scheduled_for][[1]]
           #if next slot is in future set it. If it is in past, set now
-          tasks[[i]]$scheduled_for <- if(next_slot < now) next_slot else now + (i - 1)/1000
+          tasks[[i]]$scheduled_for <- if(next_slot > now) next_slot else now + (i - 1)/1000
         } 
       }
     }  
@@ -283,40 +283,47 @@ save_tasks <- function(tasks) {
 #' Included tasks are update geonames, update vectors, geotag, aggregate and alert detection 
 #' If tasks file exits it will read it, or get default task otherwise
 #' @export
-detect_loop <-function(data_dir = paste(getwd(), "data", sep = "/")) {
-  setup_config(data_dir = data_dir)
+detect_loop <- function(data_dir = NA) {
+  if(is.na(data_dir) )
+    setup_config_if_not_already()
+  else
+    setup_config(data_dir = data_dir)
+  register_detect_runner()  
   while(TRUE) {
     # getting tasks to execute 
     tasks <- plan_tasks()
-    i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed")) as.numeric(t$scheduled_for) else as.numeric(Sys.time())+3600+t$order))[[1]] 
-    if(tasks[[i_next]]$status %in% c("failed", "running") && (is.na(tasks[[i_next]]$status) || tasks[[i_next]]$failures > 3)) {
-      tasks[[i_next]]$status = "aborted"
-      tasks[[i_next]]$message = "Cannot continue mas number of retries reached"
-      save_tasks(tasks)
-      stop("Cannot continue mas number of retries reached")
-    }
-    
-    message(paste("Executing task", tasks[[i_next]]$task))
-    if(tasks[[i_next]]$task == "geonames") {
-      tasks <- update_geonames(tasks)  
-    }
-    else if(tasks[[i_next]]$task == "languages") {
-      tasks <- update_languages(tasks)  
-    }
-    else if(tasks[[i_next]]$task == "geotag") {
-      tasks <- geotag_tweets(tasks) 
-    }
-    else if(tasks[[i_next]]$task == "aggregate") {
-      tasks <- aggregate_tweets(tasks = tasks) 
-    }
-    else if(tasks[[i_next]]$task == "alerts") {
-      tasks <- generate_alerts(tasks)
-    }
+    if(length(tasks[sapply(tasks, function(t) !is.na(t$status) && t$status %in% c("scheduled", "failed"))])>0) {
+      i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed")) as.numeric(t$scheduled_for) else as.numeric(Sys.time())+3600+t$order))[[1]] 
 
-    save_tasks(tasks)
+      if(tasks[[i_next]]$status %in% c("failed", "running") && (is.na(tasks[[i_next]]$status) || tasks[[i_next]]$failures > 3)) {
+        tasks[[i_next]]$status = "aborted"
+        tasks[[i_next]]$message = "Cannot continue mas number of retries reached"
+        save_tasks(tasks)
+        stop("Cannot continue mas number of retries reached")
+      }
+      
+      message(paste("Executing task", tasks[[i_next]]$task))
+      if(tasks[[i_next]]$task == "geonames") {
+        tasks <- update_geonames(tasks)  
+      }
+      else if(tasks[[i_next]]$task == "languages") {
+        tasks <- update_languages(tasks)  
+      }
+      else if(tasks[[i_next]]$task == "geotag") {
+        tasks <- geotag_tweets(tasks) 
+      }
+      else if(tasks[[i_next]]$task == "aggregate") {
+        tasks <- aggregate_tweets(tasks = tasks) 
+      }
+      else if(tasks[[i_next]]$task == "alerts") {
+        tasks <- generate_alerts(tasks)
+      }
+
+      save_tasks(tasks)
+    }
     setup_config(data_dir = conf$data_dir)
     # To remove
-    Sys.sleep(1)
+    Sys.sleep(5)
   }
 
 }
@@ -402,10 +409,10 @@ update_aggregate_task <- function(tasks, status, message, start = FALSE, end = F
   if(start) tasks$aggregate$started_on = Sys.time() 
   if(end) tasks$aggregate$end_on = Sys.time() 
   tasks$aggregate$status =  status
-  tasks$aggregatr$message = message
+  tasks$aggregate$message = message
   if(status == "failed") {
     if(exists("failures", where = tasks$aggregate))
-      tasks$aggregatr$failures = tasks$aggregate$failures + 1
+      tasks$aggregate$failures = tasks$aggregate$failures + 1
     else
       tasks$aggregate$failures = 1
   }

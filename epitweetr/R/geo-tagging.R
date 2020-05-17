@@ -11,7 +11,7 @@ geotag_tweets <- function(tasks = get_tasks()) {
     tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
     spark_job(
       paste(
-	, "extractLocations"
+	"extractLocations"
         , "sourcePath", paste("\"", tweet_path, "\"", sep="")
         , "destPath", paste("\"", geolocated_path, "\"", sep = "") 
         ,  conf_languages_as_arg()
@@ -38,11 +38,6 @@ get_tweet_location_var <- function(varname) {
     paste("coalesce("
       , "text_loc.geo_", varname
       , ", linked_text_loc.geo_", varname
-      , ", tweet_", varname
-      , ", place_", varname
-      , ", linked_place_", varname
-      , ", place_full_name_loc.geo_",varname
-      , ", linked_place_full_name_loc.geo_",varname
       , ")"
       , sep = ""
     )  
@@ -50,8 +45,6 @@ get_tweet_location_var <- function(varname) {
     paste("coalesce("
       , "text_loc.", varname
       , ", linked_text_loc.", varname
-      , ", place_full_name_loc.",varname
-      , ", linked_place_full_name_loc.",varname
       , ")"
       , sep = ""
     )  
@@ -59,6 +52,41 @@ get_tweet_location_var <- function(varname) {
 
 #' Get tweet geolocation used cols 
 get_tweet_location_columns <- function(table) {
+  if(table == "tweet")
+    list(
+    )
+  else 
+    list(
+      "text_loc"
+      ,"linked_text_loc"
+    )
+}
+#' Get the SQL like expression to extract user geolocation variables 
+get_user_location_var <- function(varname) {
+  if(varname == "longitude" || varname == "latitude")
+    paste("coalesce("
+      , "tweet_", varname
+      , ", place_", varname
+      , ", place_full_name_loc.geo_",varname
+      , ", linked_place_", varname
+      , ", linked_place_full_name_loc.geo_",varname
+      , ", user_location_loc.geo_", varname
+      , ", user_description_loc.geo_", varname
+      , ")"
+      , sep = ""
+    )  
+  else 
+    paste("coalesce("
+      , "place_full_name_loc.",varname
+      , ", linked_place_full_name_loc.",varname
+      , ", user_location_loc.", varname
+      , ", user_description_loc.", varname
+      , ")" 
+      , sep = ""
+    )  
+}
+#' Get user geolocation used cols 
+get_user_location_columns <- function(table) {
   if(table == "tweet")
     list(
       "tweet_longitude"
@@ -70,41 +98,14 @@ get_tweet_location_columns <- function(table) {
     )
   else 
     list(
-      "text_loc"
-      ,"linked_text_loc"
-      ,"place_full_name_loc"
-      ,"linked_place_full_name_loc"
-      ,"text_loc"
-      ,"linked_text_loc"
-      ,"place_full_name_loc"
-      ,"linked_place_full_name_loc"
-    )
-}
-#' Get the SQL like expression to extract user geolocation variables 
-get_user_location_var <- function(varname) {
-  if(varname == "longitude" || varname == "latitude")
-    paste("coalesce("
-      , "user_location_loc.geo_", varname
-      , ", user_description_loc.geo_", varname
-      , ")"
-      , sep = ""
-    )  
-  else 
-    paste("coalesce("
-      , "user_location_loc.", varname
-      , ", user_description_loc.", varname
-      , ")" 
-      , sep = ""
-    )  
-}
-#' Get user geolocation used cols 
-get_user_location_columns <- function(table) {
-  if(table == "tweet")
-    list()
-  else 
-    list(
       "user_location_loc"
       , "user_description_loc"
+      , "place_full_name_loc"
+      , "linked_place_full_name_loc"
+      , "text_loc"
+      , "linked_text_loc"
+      , "place_full_name_loc"
+      , "linked_place_full_name_loc"
       )
 }
 
@@ -117,7 +118,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
   
  # Geolocating all non located tweets before current hour
  # System call will be performed to execute java based geolocation
- # json results are pippedf as dataframe
+ # json results are piped as dataframe
  df <- spark_df(
     paste(
        "getTweets"
@@ -152,7 +153,7 @@ get_todays_sample_tweets <- function(limit = 1000) {
  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
  spark_df(
    paste(
-     , "getSampleTweets"
+     "getSampleTweets"
      , "tweetPath", paste("\"", tweet_path, "\"", sep="")
      , "pathFilter", paste("\"", strftime(Sys.time(), format = ".*%Y\\.%m\\.%d.*") ,"\"",sep="") 
      ,  conf_languages_as_arg()
@@ -174,7 +175,7 @@ get_country_items <- function(order = "level") {
   else {
     # Getting country data from package embeded csv, ignoring antartica
     # obtained from https://gist.github.com/AdrianBinDC/621321d6083b176b3a3215c0b75f8146#file-country-bounding-boxes-md
-    countries <- read.csv(system.file("extdata", "countries.csv", package = get_package_name()), header = TRUE, stringsAsFactors=FALSE, fileEncoding="UTF-8") %>% dplyr::filter(region != "")
+    countries <- read.csv(system.file("extdata", "countries.csv", package = get_package_name()), header = TRUE, stringsAsFactors=FALSE, fileEncoding="UTF-8", , na.strings=c()) %>% dplyr::filter(region != "")
 
     # using intermediate region when available
     countries$sub.region <- mapply(function(int, sub) {if(int == "") sub else int}, countries$intermediate.region, countries$sub.region)

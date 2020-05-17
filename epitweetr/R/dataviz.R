@@ -1,34 +1,32 @@
 
-#' Search for all tweets on topics defined on configuration
-#' @param varname 
+#' Generates the trend line report with alerts
 #'
-#' @export
-
-
-
-#Function to set the font family
-set_font_family <- function(varname){
-  return(varname)
-}
-
-#Function to get the font family
-get_font_family <- function(font){
-  return (font)
-}
-
-#Capitalize first letter of a string
-#' Title
-#'
-#' @param x 
+#' @param s_topic 
+#' @param s_country 
+#' @param type_date 
+#' @param geo_country_code 
+#' @param date_min 
+#' @param date_max 
 #'
 #' @return
 #' @export
 #'
 #' @examples
-firstup <- function(x) {
-  x <- tolower(x)
-  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
-  x
+trend_line <- function(
+  topic
+  , countries=c(1)
+  , type_date="created_date"
+  , date_min="1900-01-01"
+  , date_max="2100-01-01"
+  , with_retweets = FALSE
+  , location_type = "tweet"
+  , alpha = 0.025
+  , no_historic = 7 
+  ){
+  #Importing pipe operator
+  df <- get_aggregates("country_counts")
+  df <- trend_line_prepare(df,topic,countries, type_date, date_min,date_max, with_retweets, location_type, alpha, no_historic)
+  plot_trendline(df,countries,topic,date_min,date_max)
 }
 
 
@@ -47,58 +45,68 @@ firstup <- function(x) {
 #' @export
 #'
 #' @examples
-data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_min="1900-01-01",date_max="2100-01-01", alpha = 0.025, no_historic = 7 ){
+trend_line_prepare <- function(
+    df
+    , topic
+    , countries = c(1)
+    , date_type = c("creted_date")
+    , date_min = "1900-01-01"
+    , date_max ="2100-01-01"
+    , with_retweets = FALSE
+    , location_type = "tweet" 
+    , alpha = 0.025
+    , no_historic = 7 )
+{
   #Importing pipe operator
   `%>%` <- magrittr::`%>%` 
-  #If user_geo_country_code selected, get the location of user and tweet. If different, use user location
-  #if(geo_country_code == "user_geo_country_code"){ 
-  #  df$user_geo_country_code <- dplyr::coalesce(df$user_geo_country_code,df$tweet_geo_country_code)
-  #}
-  #Renaming date and geo_country_code (tweet or user) 
-  #colnames(df)[colnames(df)== geo_country_code] <- "geo_country_code"
-  df$tweet_geo_country_code <- "geo_country_code"
-  #colnames(df)[colnames(df)== date] <- "date"
+
+  # Getting regios details
+  regions <- get_country_items()
   
+  # Adding retwets if requested
+  if(with_retweets)
+    df$tweets <- df$retweets + df$tweets
   
-  if(date == "created_weeknum"){
-    date_min <-as.Date(paste(date_min,"1"),"%Y%U %u")
-    date_max <-as.Date(paste(date_max,"1"),"%Y%U %u")
-    #df$created_weeknum <-as.Date(paste(df$created_weeknum,"1"),"%Y%U %u")
-  }
-  
-  #Getting all dates for selected s_country and topic  !! What to do if all s_country selected ? 
-  dates <- seq(as.Date(date_min), as.Date(date_max), "weeks")
-  if(date=="created_weeknum"){
-    dates <- as.integer(strftime(dates, format = "%Y%V"))
-    date_min <- as.integer(strftime(date_min, format = "%Y%V"))
-    date_max <- as.integer(strftime(date_max, format = "%Y%V"))
-    
-  }
-  
-  s_country <- if(length(s_country)>0) s_country else list(NA)
-  series <- lapply(1:length(s_country), function(i) {
+  # Setting country codes as requested location types as requested
+  df <- 
+    Reduce(
+      x = c(
+         if(location_type %in% c("tweet", "both"))
+	   list(df %>% dplyr::rename(geo_country_code = tweet_geo_country_code) %>% dplyr::select(-user_geo_country_code))
+	 else list()
+         , if(location_type %in% c("user", "both"))
+	   list(df %>% dplyr::rename(geo_country_code = user_geo_country_code) %>% dplyr::select(-tweet_geo_country_code))
+	 else list()
+        )
+      , f = function(df1, df2) {dplyr::bind_rows(df1, df2)}
+    )
+
+  series <- lapply(1:length(countries), function(i) {
+    country_codes <- 
     alerts <- 
       get_alerts(
-        topic = s_topic, 
-        country_codes= if(is.na(s_country[[i]])) list() else list(s_country[[i]]), 
+	df = df,
+        topic = topic, 
+        country_codes = regions[[countries[[i]]]]$codes,
+	country_code_col = "geo_country_code",
         start = as.Date(date_min), 
         end = as.Date(date_max), 
         no_historic=no_historic, 
         alpha=alpha
       )
-    alerts$topic <- firstup(stringr::str_replace_all(s_topic, "%20", " "))
+    alerts$topic <- firstup(stringr::str_replace_all(topic, "%20", " "))
     alerts <- dplyr::rename(alerts, date = reporting_date) 
     alerts <- dplyr::rename(alerts, number_of_tweets = count) 
     alerts$date <- as.Date(alerts$date, origin = '1970-01-01')
-    alerts$geo_country_code <- if(is.na(s_country[[i]])) "All" else s_country[[i]]
+    alerts$country <- regions[[countries[[i]]]]$name
     alerts
   })
 
   df <- Reduce(x = series, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
     
-  if(date=="created_weeknum"){
+  if(date_type =="created_weeknum"){
     df <- df %>% 
-      dplyr::group_by(week = strftime(date, "%G%V"), topic, geo_country_code) %>% 
+      dplyr::group_by(week = strftime(date, "%G%V"), topic, country) %>% 
       dplyr::summarise(c = sum(count), a = max(alert), d = min(date)) %>% 
       dplyr::select(d , c, a, topic, geo_country_code) %>% 
       dplyr::rename(date = d, count = c, alert = a)
@@ -117,106 +125,48 @@ data_treatment <- function(df,s_topic,s_country, date, geo_country_code, date_mi
 #'
 #' @examples
 #' 
-#Setting font family 
-font<-set_font_family("Helvetica") 
 
-plot_trendline <- function(df,s_country,s_topic,date_min,date_max,selected_countries){
+plot_trendline <- function(df,countries,topic,date_min,date_max){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
 
-  if(length(s_country)>0){ #if several countries selected, aggregation by country
-    #Transforming country code into label
-    regions <- get_country_items()
-    map<-get_country_code_map()
-    df$geo_country_code <- map[(df$geo_country_code)]
-    df <- dplyr::rename(df,country = geo_country_code)
-    time_alarm <- data.frame(date = df$date[which(df$alert == 1)], country = df$country[which(df$alert == 1)], y = vapply(which(df$alert == 1), function(i) 0, double(1)))
-    
-    fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
-      ggplot2::geom_line(ggplot2::aes(colour=country)) + {
-        if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2) 
-      } +
-      ggplot2::labs(title=ifelse(length(selected_countries)==1,paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(selected_countries)]]$name),paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max))) +
-      ggplot2::xlab('Day and month') +
-      ggplot2::ylab('Number of tweets') +
-      ggplot2::scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
-      ggplot2::scale_x_date(date_labels = "%d %b",
-                            expand = c(0, 0),
-                            breaks = function(x) seq.Date(from = min(x), to = max(x), by = "7 days")) +
-      ggplot2::theme_classic(base_family = get_font_family(font)) +
-      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold",lineheight = 0.9),
-                     axis.text = ggplot2::element_text(colour = "black", size = 8),
-                     axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
-                                                         margin = ggplot2::margin(-15, 0, 0, 0)),
-                     axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
-                     axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10),
-                     legend.position=ifelse(length(s_country)==1,"none","top"))
-    
-    df <- dplyr::rename(df,"Country" = country)
-  } else{ #no countries selected, without aggregation by country #has to be factorized and need to generate all dates
-    time_alarm <- data.frame(date = df$date[which(df$alert == 1)], y = vapply(which(df$alert == 1), function(i) 0, double(1)))
-    
-    fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
-      ggplot2::geom_line(colour = "#65b32e") + {
-        if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = "#65b32e"), shape = 2)
-      } + 
-      ggplot2::labs(title=paste0("Number of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max)) +
-      ggplot2::xlab('Day and month') +
-      ggplot2::ylab('Number of tweets') +
-      ggplot2::scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
-      #ggplot2::scale_y_continuous(limits = c(0, max(df$number_of_tweets)), expand = c(0,0)) +
-      ggplot2::scale_x_date(date_labels = "%d %b",
-                            expand = c(0, 0),
-                            breaks = function(x) seq.Date(from = min(x), to = max(x), by = "7 days")) +
-      ggplot2::theme_classic(base_family = get_font_family(font)) +
-      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
-                     axis.text = ggplot2::element_text(colour = "black", size = 8),
-                     axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
-                                                         margin = ggplot2::margin(-15, 0, 0, 0)),
-                     axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
-                     axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10),
-                     legend.position="none"
-                     )
-    
-  }
+  time_alarm <- data.frame(date = df$date[which(df$alert == 1)], country = df$country[which(df$alert == 3)], y = vapply(which(df$alert == 1), function(i) 0, double(1)))
+  
+  fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets)) +
+    ggplot2::geom_line(ggplot2::aes(colour=country)) + {
+      if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2) 
+    } +
+    ggplot2::labs(
+      title=ifelse(length(countries)==1,
+        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name),
+        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions")
+      )
+    ) +
+    ggplot2::xlab('Day and month') +
+    ggplot2::ylab('Number of tweets') +
+    ggplot2::scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
+    ggplot2::scale_x_date(date_labels = "%d %b",
+                          expand = c(0, 0),
+                          breaks = function(x) seq.Date(from = min(x), to = max(x), by = "7 days")) +
+    ggplot2::theme_classic(base_family = get_font_family()) +
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold",lineheight = 0.9),
+                   axis.text = ggplot2::element_text(colour = "black", size = 8),
+                   axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
+                                                       margin = ggplot2::margin(-15, 0, 0, 0)),
+                   axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
+                   axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10),
+                   legend.position=ifelse(length(countries)==1,"none","top")
+    )
+  
+  df <- dplyr::rename(df,"Country" = country)
+  
+
   df <- dplyr::rename(df,"Number of tweets" = number_of_tweets, "Tweet date" = date,"Topic"= topic)
   list("chart" = fig_line, "data" = df) 
 }
 
 
 
-######## trend_line function
-#' Title
-#'
-#' @param s_topic 
-#' @param s_country 
-#' @param type_date 
-#' @param geo_country_code 
-#' @param date_min 
-#' @param date_max 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-trend_line <- function(
-  s_topic=c()
-  , s_country=c()
-  , type_date="created_date"
-  , geo_country_code="tweet_geo_country_code"
-  , date_min="1900-01-01"
-  , date_max="2100-01-01"
-  , selected_countries
-  , alpha = 0.025
-  , no_historic = 7 
-  ){
-  #Importing pipe operator
-  `%>%` <- magrittr::`%>%`
-  dfs <- get_aggregates("country_counts")
-  colnames(dfs)[colnames(dfs)== geo_country_code] <- "geo_country_code"
-  fig <- data_treatment(dfs,s_topic,s_country, type_date, geo_country_code, date_min,date_max, alpha, no_historic)
-  plot_trendline(fig,s_country,s_topic,date_min,date_max,selected_countries)
-}
     
 #######################################MAP#####################################
 #' Title
@@ -312,7 +262,7 @@ create_topwords <- function(s_topic=c(),s_country=c(),date_min="1900-01-01",date
               #title = "Top words words in period"
               title = paste0("Top words of tweets mentioning ",s_topic,"\n from ",date_min, " to ",date_max)
            )+
-           ggplot2::theme_classic(base_family = get_font_family(font)) +
+           ggplot2::theme_classic(base_family = get_font_family()) +
            ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
                        axis.text = ggplot2::element_text(colour = "black", size = 8),
                        axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
@@ -321,4 +271,28 @@ create_topwords <- function(s_topic=c(),s_country=c(),date_min="1900-01-01",date
                        axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10))
     )
   list("chart" = fig, "data" = df) 
+}
+
+
+
+#Function to get the font family
+get_font_family <- function(){
+  if(.Platform$OS.type == "windows") 
+    "sans"
+  else "Helvetica"
+}
+
+#Capitalize first letter of a string
+#' Title
+#'
+#' @param x 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+firstup <- function(x) {
+  x <- tolower(x)
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
 }
