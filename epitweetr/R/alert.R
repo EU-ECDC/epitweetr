@@ -30,7 +30,7 @@ generate_alerts <- function(tasks = get_tasks()) {
 ears_t <- function(ts, alpha=0.025, no_historic=7L) {
   `%>%` <- magrittr::`%>%`
   if (length(ts) < no_historic) {
-    warning("Time series has to be longer than the specified number of historic values to use.")
+    #warning("Time series has to be longer than the specified number of historic values to use.")
   }
   t(sapply(1:length(ts), function(t) {
     if(t <  no_historic + 1)
@@ -54,7 +54,15 @@ ears_t <- function(ts, alpha=0.025, no_historic=7L) {
 
 }
 
-get_geo_counts <- function(df = get_aggregates("country_counts"), topic, country_codes = list(), start = NA, end = NA, country_code_col = "tweet_geo_country_code") {
+get_geo_counts <- function(
+    df = get_aggregates("country_counts")
+    , topic
+    , country_codes = list()
+    , start = NA
+    , end = NA
+    , country_code_col = "tweet_geo_country_code"
+    , known_user_col = "known_original"
+    ) {
   `%>%` <- magrittr::`%>%`
   last_day <- max(as.POSIXlt(df$created_date))
   # Calculating end day hour which is going to be the last fully collected hour when 
@@ -88,15 +96,25 @@ get_geo_counts <- function(df = get_aggregates("country_counts"), topic, country
     if(length(country_codes) == 0) df 
     else dplyr::filter(df, (!!as.symbol(country_code_col)) %in% country_codes)
   )
+  
   # group by reporting date
   df %>%
     dplyr::group_by(reporting_date) %>% 
-    dplyr::summarise(count = sum(tweets)) %>% 
+    dplyr::summarise(count = sum(tweets), known_users = sum((!!as.symbol(known_user_col)))) %>% 
     dplyr::ungroup()
 }
 
 # Getting alerts
-get_alerts <- function(df= get_aggregates("country_counts"), topic, country_codes = list(), country_code_col = "tweet_geo_country_code", start = NA, end = NA, alpha = 0.025, no_historic = 7) {
+get_alerts <- function(
+    df= get_aggregates("country_counts")
+    , topic, country_codes = list()
+    , country_code_col = "tweet_geo_country_code"
+    , known_user_col = "known_original"
+    , start = NA
+    , end = NA
+    , alpha = 0.025
+    , no_historic = 7
+  ) {
   `%>%` <- magrittr::`%>%`
   # Getting counts from no_historic + 1 days bufore start if available 
   counts <- get_geo_counts(df, topic, country_codes, start - (no_historic - 1) , end, country_code_col)
@@ -113,7 +131,10 @@ get_alerts <- function(df= get_aggregates("country_counts"), topic, country_code
     alerts <- ears_t(counts$count, alpha=alpha, no_historic= no_historic)
     counts$alert <- alerts$alarm0
     counts$limit <- alerts$U0
-    counts
+    if(is.na(start))
+      counts
+    else
+      counts %>% dplyr::filter(reporting_date >= start)
   } else {
     counts$alert <- NA
     counts$limit <- NA

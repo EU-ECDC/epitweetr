@@ -7,7 +7,7 @@ geotag_tweets <- function(tasks = get_tasks()) {
   geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
   index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
 
-  tryCatch({
+  tasks <- tryCatch({
     tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
     spark_job(
       paste(
@@ -24,10 +24,15 @@ geotag_tweets <- function(tasks = get_tasks()) {
     
     # Setting status to succès
     tasks <- update_geotag_task(tasks, "success", "", end = TRUE)
-
+    tasks
+  }, warning = function(error_condition) {
+    # Setting status to failed
+    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," languages", error_condition))
+    tasks
   }, error = function(error_condition) {
     # Setting status to failed
     tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," languages", error_condition))
+    tasks
   })
   return(tasks)
 }
@@ -111,7 +116,7 @@ get_user_location_columns <- function(table) {
 
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' @export
-get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL) {
+get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL, params = NULL) {
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
  geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
@@ -139,6 +144,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
         ) 
        ,conf_languages_as_arg()
        ,"parallelism", conf$spark_cores 
+       ,if(!is.null(params)) paste("params", shQuote(params)) else ""
      )
     , handler
  )
@@ -282,7 +288,7 @@ get_country_index_map <- function() {
 
 #' Dowloading and indexing a fresh version of geonames database from the  provided URL
 update_geonames <- function(tasks) {
-  tryCatch({
+  tasks <- tryCatch({
     tasks <- update_geonames_task(tasks, "running", "downloading", start = TRUE)
     # Create geo folder if it does not exists
     if(!file.exists(file.path(conf$data_dir, "geo"))) {
@@ -325,10 +331,15 @@ update_geonames <- function(tasks) {
     
     # Setting status to succès
     tasks <- update_geonames_task(tasks, "success", "", end = TRUE)
-    
+    tasks
+  }, warning = function(error_condition) {
+    # Setting status to failed
+    tasks <- update_geonames_task(tasks, "failed", paste("failed while", tasks$geonames$message," geonames", error_condition))
+    tasks
   }, error = function(error_condition) {
     # Setting status to failed
     tasks <- update_geonames_task(tasks, "failed", paste("failed while", tasks$geonames$message," geonames", error_condition))
+    tasks
   })
   return(tasks)
 }
@@ -337,7 +348,7 @@ update_geonames <- function(tasks) {
 #' Dowloading and indexing a fresh version of language models tagges for update
 update_languages <- function(tasks) {
   index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
-  tryCatch({
+  tasks <- tryCatch({
     tasks <- update_languages_task(tasks, "running", "downloading", start = TRUE)
 
     # Create languages folder if it does not exist
@@ -370,10 +381,15 @@ update_languages <- function(tasks) {
     
     # Setting status to succès
     tasks <- update_languages_task(tasks, "success", "", end = TRUE)
-    
+    tasks
+  }, warning = function(error_condition) {
+    # Setting status to failed
+    tasks <- update_languages_task(tasks, "failed", paste("failed while", tasks$languages$message," languages", error_condition))
+    tasks
   }, error = function(error_condition) {
     # Setting status to failed
     tasks <- update_languages_task(tasks, "failed", paste("failed while", tasks$languages$message," languages", error_condition))
+    tasks
   })
   return(tasks)
 }

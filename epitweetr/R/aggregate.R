@@ -6,7 +6,7 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
 
-  tryCatch({
+  tasks <- tryCatch({
     # Setting task status to running
     tasks <- update_aggregate_task(tasks, "running", "processing", start = TRUE)
     # Creating series folder if does not exists
@@ -63,10 +63,20 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
     message("aggregation done!")
     # Setting status to succès
     tasks <- update_aggregate_task(tasks, "success", "", end = TRUE)
+    tasks
 
   }, error = function(error_condition) {
     # Setting status to failed
+    message("Failed...")
+    message(paste("failed while", tasks$aggregate$message," languages", error_condition))
     tasks <- update_aggregate_task(tasks, "failed", paste("failed while", tasks$aggregate$message," languages", error_condition))
+    tasks
+  }, warning = function(error_condition) {
+    # Setting status to failed
+    message("Failed...")
+    message(paste("failed while", tasks$aggregate$message," languages", error_condition))
+    tasks <- update_aggregate_task(tasks, "failed", paste("failed while", tasks$aggregate$message," languages", error_condition))
+    tasks
   })
   return(tasks)
 }
@@ -206,6 +216,7 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
         , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
         , "lang"
         , "text"
+	, "is_retweet"
       )
       , handler = function(df, con_tmp) {
           pipe_top_words(df = df, text_col = "text", lang_col = "lang", max_words = 500, con_out = con_tmp, page_size = 500)
@@ -213,18 +224,34 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
     )
     top_chunk %>% 
       dplyr::group_by(tokens, topic, created_date, tweet_geo_country_code)  %>%
-      dplyr::summarize(frequency = sum(count))  %>%
+      dplyr::summarize(frequency = sum(count), original = sum(original), retweets = sum(retweets))  %>%
       dplyr::ungroup()  %>%
       dplyr::group_by(topic, created_date, tweet_geo_country_code)  %>%
       dplyr::top_n(n = 200, wt = frequency) %>%
       dplyr::ungroup() 
 
   } else if(serie_name == "country_counts") {
-    # Getting top word aggregation for each
-    top_chunk <- get_geotagged_tweets(regexp = agg_regex
+    # Getting the expression for known users
+    known_user <- 
+      paste("user_name in ('"
+        , paste(get_known_users(), collapse="','")
+	, "') or linked_user_name in ('"
+        , paste(get_known_users(), collapse="','")
+	, "') ",
+	sep = ""
+      )
+    replacementfile <- tempfile(pattern = "repl", fileext = ".txt")
+    f <-file(replacementfile)
+    writeLines(c(
+      paste("@known_retweets:cast(sum(case when is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_retweets")
+      , paste("@known_original:cast(sum(case when not is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_original")
+      ), f)
+    close(f) 
+    # Aggregation by country level
+    get_geotagged_tweets(regexp = agg_regex
        , sources_exp = list(
            tweet = c(
-             list("created_at", "is_retweet")
+             list("created_at", "is_retweet", "user_name", "linked_user_name")
              , get_user_location_columns("tweet")
            )
            ,geo = c(
@@ -242,11 +269,14 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
       , vars = list(
         "cast(sum(case when is_retweet then 1 else 0 end) as Integer) as retweets"
         , "cast(sum(case when is_retweet then 0 else 1 end) as Integer) as tweets"
+        , "@known_retweets"
+        , "@known_original"
        )
       , filter_by = list(
          paste("created_at >= '", strftime(created_from, "%Y-%m-%d"), "'", sep = "")
          , paste("created_at < '", strftime(created_before, "%Y-%m-%d"), "'", sep = "")
-      )  
+      )
+      , params = replacementfile
     )
   }
 }

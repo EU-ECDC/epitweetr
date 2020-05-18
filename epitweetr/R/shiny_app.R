@@ -23,7 +23,8 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
               shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
               shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
-              shiny::checkboxInput("with_retweets", label = shiny::h4("Include Retweets/Quotes"), value = FALSE),
+              shiny::h4("Include Retweets/Quotes"),
+	      shiny::checkboxInput("with_retweets", label = NULL, value = FALSE),
               shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
               shiny::sliderInput("alpha_filter", label = shiny::h4("Alert confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
               shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
@@ -157,10 +158,19 @@ epitweetr_app <- function(data_dir = NA) {
               ),
               DT::dataTableOutput("config_langs")
             ),
+            shiny::column(6,
+            ################################################
+            ######### IMPORTANT USERS ######################
+            ################################################
+              shiny::h3("Important Users"),
+              shiny::fluidRow(
+                shiny::column(4, shiny::h5("User file")),
+                shiny::column(2, shiny::downloadButton("conf_users_download", "Download")),
+                shiny::column(6, shiny::fileInput("conf_users_upload", label = NULL , buttonLabel = "Upload")),
+              ),
             ################################################
             ######### DETECTION PANEL ######################
             ################################################
-            shiny::column(6,
               shiny::h3("Detection Pipeline"),
               DT::dataTableOutput("tasks_df")
             )
@@ -189,10 +199,10 @@ epitweetr_app <- function(data_dir = NA) {
   line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type,alpha, no_history) {
     trend_line(
       topic = topics
-      ,countries= countries
+      ,countries= as.integer(countries)
       ,type_date= period_type
-      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
-      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,date_min = period[[1]]
+      ,date_max = period[[2]]
       ,with_retweets= with_retweets
       ,location_type = location_type
       ,alpha = alpha
@@ -201,15 +211,13 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Defining line chart from shiny app filters
-  map_chart_from_filters <- function(topics, fcountries, period_type, period, with_retweets, location_type) {
-    regions <- get_country_items()
-    countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
+  map_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type) {
     create_map(
-      s_topic= topics
-      ,s_country = countries
+      topic= topics
+      ,countries = countries
       ,type_date= period_type
-      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
-      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      ,date_min = period[[1]]
+      ,date_max = period[[2]]
       ,with_retweets= with_retweets
       ,location_type = location_type
     )
@@ -220,10 +228,10 @@ epitweetr_app <- function(data_dir = NA) {
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
     create_topwords(
-      s_topic= topics
-      ,s_country = countries
-      ,date_min = strftime(period[[1]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
-      ,date_max = strftime(period[[2]], format = (if(isTRUE(period_type=="created_weeknum")) "%G%V" else "%Y-%m-%d" ))
+      topic= topics
+      ,country_codes = countries
+      ,date_min = period[[1]]
+      ,date_max = period[[2]]
       ,with_retweets= with_retweets
       ,location_type = location_type
     )
@@ -256,18 +264,18 @@ epitweetr_app <- function(data_dir = NA) {
     ################################################
     output$line_chart <- plotly::renderPlotly({
        can_render(input, d)
-       chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter)$chart
+       chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type , input$alpha_filter, input$history_filter)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        plotly::ggplotly(chart, height = height, width = width)
     })  
     output$map_chart <- shiny::renderPlot({
        can_render(input, d)
-       map_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
+       map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
     })
     output$topword_chart <- plotly::renderPlotly({
        can_render(input, d)
-       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$chart
+       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        plotly::ggplotly(chart, height = height, width = width)
@@ -285,7 +293,7 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter)$data,
+          line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, input$alpha_filter, input$history_filter)$data,
           file, 
           row.names = FALSE)
       }
@@ -303,7 +311,7 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          map_chart_from_filters(input$topics, input$countries, input$period_type, input$period)$data,
+          map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$data,
           file, 
           row.names = FALSE)
       }
@@ -320,7 +328,7 @@ epitweetr_app <- function(data_dir = NA) {
         )
       },
       content = function(file) { 
-         export_dashboard("pdf_document", file, input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter)
+         export_dashboard("pdf_document", file, input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, input$alpha_filter, input$history_filter)
       }
     ) 
     output$export_md <- shiny::downloadHandler(
@@ -462,7 +470,21 @@ epitweetr_app <- function(data_dir = NA) {
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
     })
     
-
+    ######### IMPORTANT USERS LOGIC ###########
+    output$conf_users_download <- shiny::downloadHandler(
+      filename = function() "users.xlsx",
+      content = function(file) { 
+        file.copy(get_known_users_path(), file) 
+      }
+    )
+    
+    shiny::observe({
+      df <- input$conf_users_upload
+      if(!is.null(df) && nrow(df)>0) {
+        uploaded <- df$datapath[[1]]
+        file.copy(uploaded, paste(conf$data_dir, "users.xlsx", sep = "/"), overwrite=TRUE) 
+      }
+    })
     ######### LANGUAGE LOGIC ##################
     output$config_langs <- DT::renderDataTable({
       # Adding dependency with lang refresh

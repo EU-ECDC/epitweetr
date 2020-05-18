@@ -1,5 +1,5 @@
 #!/bin/bash
-set HADOOP_HOME="c:/Users/pancho/github/ecdc-twitter-tool/epitweetr/inst"
+set HADOOP_HOME="c:/Users/pancho/github/ecdc-twitter-tool/epitweetr/inst/hadoop"
 set PATH=%PATH%;%HADOOP_HOME%\bin
 set SPARK_VERSION=2.4.5
 set SBT_OPTS="-Xmx6G"

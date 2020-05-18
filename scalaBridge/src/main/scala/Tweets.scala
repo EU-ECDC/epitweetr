@@ -54,24 +54,42 @@ object Tweets {
          ).map(df => JavaBridge.df2StdOut(df))
       } else if(command == "getTweets") {
          implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
-         implicit val storage = JavaBridge.getSparkStorage(spark) 
+         implicit val storage = JavaBridge.getSparkStorage(spark)
+         val qParams = 
+           params.get("params")
+             .map(pFile => 
+                storage.getNode(pFile)
+                  .getContentAsString.split("\n|\r\n")
+                  .map(l => (l.substring(0, l.indexOf(":")), l.substring(l.indexOf(":")+1)))
+             ) 
          Some(
            getTweets(
              tweetPath = params.get("tweetPath").get
              , geoPath = params.get("geoPath").get
              , pathFilter = params.get("pathFilter").get.split(",").toSeq
              , columns = params.get("columns").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
+               .map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
              , groupBy = params.get("groupBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
+                 .map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
              , filterBy = params.get("filterBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
+                 .map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
              , sourceExpressions = 
                  params.get("sourceExpressions").get.split("\\|\\|\\|").map(_.trim).filter(_.size > 0).distinct
                    .map(tLine => 
-                     Some(tLine.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0))
+                     Some(
+                       tLine
+                         .split("\\|\\|")
+                         .toSeq
+                         .map(_.trim)
+                         .filter(_.size > 0)
+                         .map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
+                       )
                        .map(s => (s(0), s.drop(1)))
                        .get
                     )
                    .toMap
              , sortBy = params.get("sortBy").get.split("\\|\\|").toSeq.map(_.trim).filter(_.size > 0)
+                 .map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
              , langs = 
                  Some(Seq("langCodes", "langNames", "langPaths"))
                    .map{s => s.map(p => params(p).split(",").map(_.trim))}
@@ -207,8 +225,10 @@ object Tweets {
           , coalesce(col("tweet.retweeted_status.user.description"), col("tweet.quoted_status.user.description")).as("linked_user_description")
           , col("tweet.retweeted_status").isNotNull.as("is_retweet")
           , col("tweet.user.screen_name")
+          , col("tweet.user.name").as("user_name")
           , col("tweet.user.id").as("user_id") 
           , col("tweet.user.location").as("user_location") 
+          , coalesce(col("tweet.retweeted_status.user.name"), col("tweet.quoted_status.user.name")).as("linked_user_name")
           , coalesce(col("tweet.retweeted_status.user.location"), col("tweet.quoted_status.user.location")).as("linked_user_location")
           , col("tweet.created_at")
           , col("tweet.lang")

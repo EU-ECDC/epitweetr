@@ -79,6 +79,7 @@ get_empty_config <- function() {
   ret$geonames_updated_on <- NA
   ret$geonames_url <- "http://download.geonames.org/export/dump/allCountries.zip"
   ret$geolocation_threshold <- 5
+  ret$known_users <- list()
   ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
   ret$spark_memory <- "12g"
   ret$topics <- list()
@@ -121,6 +122,7 @@ setup_config <- function(
     conf$lang_updated_on <- temp$lang_updated_on
     conf$geonames_updated_on <- temp$geonames_updated_on
     conf$geonames_url <- temp$geonames_url
+    conf$known_users <- temp$known_users
     conf$spark_cores <- temp$spark_cores
     conf$spark_memory <- temp$spark_memory
     conf$geolocation_threshold <- temp$geolocation_threshold
@@ -244,6 +246,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$geonames_updated_on <- conf$geonames_updated_on
     temp$geonames_url <- conf$geonames_url
     temp$keyring <- conf$keyring
+    temp$known_users <- conf$known_users
     temp$spark_cores <- conf$spark_cores
     temp$spark_memory <- conf$spark_memory
     temp$geolocation_threshold <- conf$geolocation_threshold
@@ -312,6 +315,24 @@ setup_config_if_not_already <- function() {
   if(!exists("data_dir", where = conf)) {
     setup_config() 
   }
+}
+
+#' Get topics file path either from user or package location
+get_known_users_path <- function(data_dir = conf$data_dir) {
+    users_path <- paste(data_dir, "users.xlsx", sep = "/")
+    if(!file.exists(users_path))
+      users_path <- system.file("extdata", "users.xlsx", package = get_package_name())
+    return(users_path)
+}
+
+#' Get current known users
+get_known_users <- function() {
+  readxl::read_excel(get_known_users_path())[[1]] 
+}
+
+#' Save know users to json filr
+export_known_users <- function() {
+  jsonlite::write_json(get_known_users(), path = file.path(conf$data_dir, "known_users.json"))
 }
 
 #' Get topics file path either from user or package location

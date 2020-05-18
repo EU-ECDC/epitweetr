@@ -78,15 +78,15 @@ spark_df <- function(args, handler = NULL) {
   message(cmd) 
   con <- pipe(cmd, encoding = "UTF-8")
   if(is.null(handler)) {
-    jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, encoding="UTF-8")
+    jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE)
   } else {
     tmp_file <- tempfile(pattern = "epitweetr", fileext = ".json")
     #message(tmp_file)
-    con_tmp <- file(tmp_file, open = "wb") 
-    jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, function(df) handler(df, con_tmp), encoding="UTF-8")
+    con_tmp <- file(tmp_file, open = "w", encoding = "UTF-8") 
+    jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE, function(df) handler(df, con_tmp))
     close(con_tmp)
-    con_tmp <- file(tmp_file, open = "r") 
-    ret <- jsonlite::stream_in(con_tmp, pagesize = 10000, verbose = TRUE, encoding="UTF-8")
+    con_tmp <- file(tmp_file, open = "r", encoding = "UTF-8") 
+    ret <- jsonlite::stream_in(con_tmp, pagesize = 10000, verbose = TRUE)
     close(con_tmp)
     unlink(tmp_file)
     ret
