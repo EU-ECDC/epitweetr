@@ -89,7 +89,7 @@ case class Geonames(source:String, destination:String) {
                 case(geoText, Some(termWeight)) => when(col(termWeight).isNotNull, geoText).as(geoText.toString.split("`").last)
               }
             , popularity = Some(col("pop"))
-            , text =  expr("concat(coalesce(city, ''), ' ', coalesce(adm4, ''), ' ', coalesce(adm3, ''), ' ', coalesce(adm2, ''), ' ', coalesce(adm1, ''), ' ', coalesce(adm4, ''), ' ', coalesce(country, ''))")
+            , text =  expr("concat(coalesce(city, ''), ' ', coalesce(adm4, ''), ' ', coalesce(adm3, ''), ' ', coalesce(adm2, ''), ' ', coalesce(adm1, ''), ' ', coalesce(country, ''))")
             , rightSelect = Array(
                 $"id".as("geo_id"), $"name".as("geo_name"), $"code".as("geo_code"), $"geo_type", $"country_code".as("geo_country_code")
                 , $"country".as("geo_country"), $"city".as("geo_city"), $"adm1".as("geo_adm1"), $"adm2".as("geo_adm2"), $"adm3".as("geo_adm3"), $"adm4".as("geo_adm4")
@@ -116,7 +116,7 @@ case class Geonames(source:String, destination:String) {
       )
       .get
   }
-  def getDataset(reuseExisting:Boolean = true)(implicit spark:SparkSession, storage:Storage) = {
+  def getDataset(reuseExisting:Boolean = true, simplify:Boolean = false)(implicit spark:SparkSession, storage:Storage) = {
     import spark.implicits._
     //Reading Source
     /*http://www.geonames.org/export/codes.html*/
@@ -258,15 +258,25 @@ case class Geonames(source:String, destination:String) {
 
       //Writing all to disk
       val allGeos = util.checkpoint(
-        df = cities
-          .union(adm1)
-          .union(adm2)
-          .union(adm3)
-          .union(adm4)
-          .union(countries)
-          .repartition(32, expr("cast(id/100000 as int)"))
-          .withColumn("city_code", when($"city".isNotNull, $"code").as("city_code"))
-          .withColumn("pop", expr("(log(1000+population)/10 + case when substring(geo_type, 0,3)='PPL' then 0.4 when substring(geo_type, 0,3)='PCL'then 0.8 else 0.0 end)"))
+        df = Some(
+          cities
+            .union(adm1)
+            .union(adm2)
+            .union(adm3)
+            .union(adm4)
+            .union(countries)
+            .repartition(32, expr("cast(id/100000 as int)"))
+            .withColumn("city_code", when($"city".isNotNull, $"code").as("city_code"))
+            .withColumn("pop", expr("(log(1000+population)/10 + case when substring(geo_type, 0,3)='PPL' then 0.4 when substring(geo_type, 0,3)='PCL'then 0.8 else 0.0 end)"))
+          ).map{
+            case df if simplify => 
+              df.withColumn("adm1", lit(""))
+                .withColumn("adm2", lit(""))
+                .withColumn("adm3", lit(""))
+                .withColumn("adm4", lit(""))
+                .where(col("population") > 0)
+            case df => df 
+          }.get
         , path = allGeosPath
         , reuseExisting = false
       )

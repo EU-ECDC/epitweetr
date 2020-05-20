@@ -14,7 +14,7 @@ installer_name <- (
   if(.Platform$OS.type == "windows")
     "epitweetr_0.0.0.9000.zip" 
   else
-    "epitweetr_0.0.0.9000.tar.gz" 
+    "epitweetr_0.0.0.9000_R_x86_64-pc-linux-gnu.tar.gz" 
 )
 file.rename(file.path("..", installer_name), file.path("..", "install", installer_name))
 

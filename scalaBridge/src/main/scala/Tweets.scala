@@ -133,9 +133,9 @@ object Tweets {
          import spark.implicits._
          val geonames = Geonames(params.get("geonamesSource").get, params.get("geonamesDestination").get)
          if(params.get("assemble").map(s => s.toBoolean).getOrElse(false))
-           geonames.getDataset(reuseExisting = false)
+           geonames.getDataset(reuseExisting = false, simplify = true)
          if(params.get("index").map(s => s.toBoolean).getOrElse(false)) {
-           geonames.geolocateText(text=Seq("Viva Chile")).show
+           geonames.geolocateText(text=Seq("Viva Chile"), reuseGeoIndex = false).show
          }
       } else if(command == "updateLanguages"){ 
          implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
