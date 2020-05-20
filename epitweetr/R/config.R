@@ -86,6 +86,7 @@ get_empty_config <- function() {
   ret$topics_md5 <- ""
   ret$alert_alpha <- 0.025
   ret$alert_history <- 7
+  ret$use_mkl <- FALSE
   return(ret)
 }
 

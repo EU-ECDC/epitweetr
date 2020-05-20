@@ -6,6 +6,24 @@ java_path <-  function() {
   else
     paste("\"", Sys.getenv("JAVA_HOME"), "/bin/" , "java\"", sep = "")
 }
+set_blas_env <- function() {
+  if(.Platform$OS.type == "windows") {
+    if(conf$use_mkl && file.exists("C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/redist/intel64_win/mkl")) {
+      mkl_path = "C:\\Program Files (x86)\\IntelSWTools\\compilers_and_libraries\\windows\\redist\\intel64_win\\mkl"
+      Sys.setenv(PATH = paste(mkl_path, Sys.getenv("PATH"), sep = ";"))
+    }
+  }
+}
+
+get_blas_java_opt <- function() {
+  if(.Platform$OS.type == "windows") {
+    if(conf$use_mkl && file.exists("C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/redist/intel64_win/mkl")) {
+      "-Dcom.github.fommil.netlib.NativeSystemBLAS.natives=mkl_rt.dll"
+    } else ""
+  }
+  else ""
+
+}
 
 #' getting a string for passing  languages as paramater for system calls
 conf_languages_as_arg <- function() {
@@ -30,6 +48,7 @@ conf_geonames_as_arg <- function() {
 
 #' making a spark call via system call
 spark_job <- function(args) {
+  set_blas_env()
   cmd <- paste(
     if(.Platform$OS.type != "windows") { 
       "export OPENBLAS_NUM_THREADS=1"
@@ -41,6 +60,7 @@ spark_job <- function(args) {
     ,paste(
       java_path() 
       , paste("-Xmx", conf$spark_memory, sep = "")
+      , paste(get_blas_java_opt())
       , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
       , args
     )
@@ -54,6 +74,7 @@ spark_job <- function(args) {
 
 #' getting a spark data frame by piping a system call
 spark_df <- function(args, handler = NULL) {
+  set_blas_env()
   half_mem <- paste(ceiling(as.integer(gsub("[^0-9]*", "", conf$spark_memory))/2), gsub("[0-9]*", "", conf$spark_memory), sep = "")
   cmd <- paste(
     if(.Platform$OS.type != "windows") 
@@ -70,14 +91,22 @@ spark_df <- function(args, handler = NULL) {
        )
      , "-Dfile.encoding=UTF8"
      , paste("-Xmx", half_mem, sep = "")
+     , paste(get_blas_java_opt())
      , paste(" -jar", system.file("java", "ecdc-twitter-bundle-assembly-1.0.jar", package = get_package_name()))
      , args
     )
     ,sep = '\n'
   )
   message(cmd) 
-  con <- pipe(cmd, encoding = "UTF-8")
-  if(is.null(handler)) {
+  con <- if(.Platform$OS.type == "windows") {
+    t <- tempfile()
+    tcmd <- paste(cmd, shQuote(t), sep=" >")
+    shell(tcmd)
+    file(t, encoding = "UTF-8")
+  } else {
+    pipe(cmd, encoding = "UTF-8")
+  }
+  df <- if(is.null(handler)) {
     jsonlite::stream_in(con, pagesize = 10000, verbose = TRUE)
   } else {
     tmp_file <- tempfile(pattern = "epitweetr", fileext = ".json")
@@ -91,4 +120,6 @@ spark_df <- function(args, handler = NULL) {
     unlink(tmp_file)
     ret
   }
+  if(.Platform$OS.type == "windows") unlink(t)
+  df
 }

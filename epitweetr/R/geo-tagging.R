@@ -2,6 +2,7 @@
 #' This function will geoloacte all tweets before the current hour that has not been already geolocated
 #' @export
 geotag_tweets <- function(tasks = get_tasks()) {
+  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
   # Creating parameters from configuration file as java objects
   tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
   geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
@@ -117,6 +118,7 @@ get_user_location_columns <- function(table) {
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' @export
 get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL, params = NULL) {
+ stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
  geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
@@ -153,7 +155,9 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 
 #' Get a sample of todays tweet for evaluatin geolocation threshold
 #' @export
-get_todays_sample_tweets <- function(limit = 1000) {
+get_todays_sample_tweets <- function(limit = 1000, full = false) {
+ stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
+
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
@@ -166,6 +170,8 @@ get_todays_sample_tweets <- function(limit = 1000) {
      ,  conf_geonames_as_arg()
      , "langIndexPath", paste("\"", index_path, "\"", sep = "")
      , "limit" , limit
+     , "parallelism" , conf$spark_cores
+     , "full", full
    )
  )
 }

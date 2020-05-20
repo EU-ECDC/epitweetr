@@ -109,7 +109,8 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
-# Getting the scheduler task lists with current status updated.
+#' Getting the scheduler task lists with current status updated.
+#' @export
 get_tasks <- function(statuses = list()) {
   stop_if_no_config()
   tasks_path <- paste(conf$data_dir, "tasks.json", sep = "/")
