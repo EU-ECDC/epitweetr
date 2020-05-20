@@ -130,6 +130,7 @@ setup_config <- function(
     conf$geolocation_threshold <- temp$geolocation_threshold
     conf$alert_alpha <- temp$alert_alpha
     conf$alert_history <- temp$alert_history
+    conf$use_mkl <- temp$use_mkl
   }
   if(!ignore_topics && exists("props", where = paths)){
     if(file.exists(paths$topics)) {
@@ -254,6 +255,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$geolocation_threshold <- conf$geolocation_threshold
     temp$alert_alpha <- conf$alert_alpha
     temp$alert_history <- conf$alert_history
+    temp$use_mkl <- conf$use_mkl
     jsonlite::write_json(temp, paste(data_dir, "properties.json", sep="/"), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {
