@@ -346,6 +346,7 @@ update_geonames <- function(tasks) {
 
 
 #' Dowloading and indexing a fresh version of language models tagges for update
+#' @export
 update_languages <- function(tasks) {
   index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
   tasks <- tryCatch({

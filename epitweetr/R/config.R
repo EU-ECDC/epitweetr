@@ -119,6 +119,7 @@ setup_config <- function(
     conf$schedule_span <- temp$schedule_span
     conf$schedule_start_hour <- temp$schedule_start_hour
     conf$languages <- temp$languages
+    for(i in 1:length(conf$languages)) {conf$languages[[i]]$vectors <- file.path(conf$data_dir, "languages", paste(conf$languages[[i]]$code, "txt", "gz", sep = "."))} 
     conf$lang_updated_on <- temp$lang_updated_on
     conf$geonames_updated_on <- temp$geonames_updated_on
     conf$geonames_url <- temp$geonames_url

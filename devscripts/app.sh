@@ -11,7 +11,7 @@ expect -c '
 spawn R
 expect ">"
 send "packageName <- \"epitweetr\"\r" 
-send "devtools::load_all(packageName)\r"
-send "epitweetr::setup_config()\r" 
+send "devtools::load_all(\"/home/fod/github/ecdc-twitter-tool/epitweetr\")\r"
+send "epitweetr::setup_config(\"/home/fod/github/ecdc-twitter-tool/data\")\r" 
 send "epitweetr::epitweetr_app()\r"
 interact'
