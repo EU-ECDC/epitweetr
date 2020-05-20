@@ -83,7 +83,7 @@ case class Geonames(source:String, destination:String) {
         
           val termWeightsPadded = geoTexts.zipWithIndex.map{case (col, i) => if(termWeightsCols.size > i) termWeightsCols(i) else None}
           df.luceneLookups(
-            right = this.getDataset()
+            right = this.getDataset(simplify=true)
             , queries = geoTexts.zip(termWeightsPadded).map{
                 case(geoText, None) => geoText
                 case(geoText, Some(termWeight)) => when(col(termWeight).isNotNull, geoText).as(geoText.toString.split("`").last)
