@@ -18,7 +18,7 @@ object Tweets {
   def main(args: Array[String]): Unit = {
     val cmd = Map(
       "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "filterBy", "sortBy", "sourceExpressions", "langCodes", "langNames", "langPaths",  "parallelism")
-      , "getSampleTweets" -> Set("tweetPath", "pathFilter", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "limit")
+      , "getSampleTweets" -> Set("tweetPath", "pathFilter", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "limit", "parallelism")
       , "extractLocations" -> Set("sourcePath", "destPath", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "minScore", "parallelism")
       , "updateGeonames" -> Set("geonamesSource", "geonamesDestination", "assemble", "index", "parallelism")
       , "updateLanguages" -> Set("langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "parallelism")
@@ -50,6 +50,8 @@ object Tweets {
              , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get)
              , langIndexPath = params.get("langIndexPath").get
              , limit = params.get("limit").get.toInt
+             , full = params.get("full").map(_.toBoolean).getOrElse(false)
+             , parallelism = params.get("parallelism").map(_.toInt)
            )
          ).map(df => JavaBridge.df2StdOut(df))
       } else if(command == "getTweets") {
@@ -180,7 +182,7 @@ object Tweets {
       .withColumn("topic", udf((p:String)=>p.split("/").reverse(2)).apply(input_file_name()))
       .withColumn("file",  udf((p:String)=>p.split("/").reverse(0)).apply(input_file_name()))
     )
-    .map(df => parallelism match {case Some(p) => df.repartition(p) case _ => df})
+    //.map(df => parallelism match {case Some(p) => df.repartition(p) case _ => df})
     .get 
   }
   
@@ -466,30 +468,41 @@ object Tweets {
     , geonames:Geonames 
     , langIndexPath:String
     , limit:Int
+    , full:Boolean
+    , parallelism:Option[Int]
   )(implicit spark:SparkSession, storage:Storage)  = {
-    Tweets.getJsonTweets(path = tweetPath, pathFilter = pathFilter)
-      .select("id", "text", "lang")
-      .where(col("lang").isin(langs.map(l => l.code):_*))
-      .geolocate(
-        textLangCols = Map("text" ->Some("lang"))
-        , maxLevDistance = 0
-        , minScore = 0
-        , nGram = 3
-        , tokenizerRegex = Tweets.twitterSplitter
-        , langs = langs
-        , geonames = geonames
-        , langIndexPath = langIndexPath
-      )
-      .select(
-        col("id")
-        , col("text")
-        , col("lang")
-        , col("geo_name")
-        , col("geo_type")
-        , col("geo_country_code")
-        , udf((c:String) => if(c==null) null else c.split(",").head).apply(col("geo_country")).as("country")
-        , col("_score_").as("score")
-        , col("_tags_").as("tagged"))
-      .limit(limit)    
-    }
+    Some(
+      Tweets.getJsonTweets(path = tweetPath, pathFilter = pathFilter, parallelism = parallelism)
+        .select((if(full) Seq(col("*")) else Seq(col("id"), col("text"), col("lang"))):_*)
+        .where(col("lang").isin(langs.map(l => l.code):_*))
+        .limit(limit) 
+      ).map(df => parallelism.map(p => df.repartition(p)).getOrElse(df))
+      .map(df =>
+      df
+        .geolocate(
+          textLangCols = if(full) defaultTextLangCols else Map("text" ->Some("lang"))
+          , maxLevDistance = 0
+          , minScore = 0
+          , nGram = 3
+          , tokenizerRegex = Tweets.twitterSplitter
+          , langs = langs
+          , geonames = geonames
+          , langIndexPath = langIndexPath
+        )
+        .select(
+          (
+            if(full) Seq(col("*"))
+            else Seq(
+               col("id")
+             , col("text")
+             , col("lang")
+             , col("geo_name")
+             , col("geo_type")
+             , col("geo_country_code")
+             , udf((c:String) => if(c==null) null else c.split(",").head).apply(col("geo_country")).as("country")
+             , col("_score_").as("score")
+             , col("_tags_").as("tagged"))
+           ):_*)
+      ).get
+  }
 }

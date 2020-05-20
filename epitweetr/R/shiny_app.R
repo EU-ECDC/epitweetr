@@ -26,7 +26,7 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::h4("Include Retweets/Quotes"),
 	      shiny::checkboxInput("with_retweets", label = NULL, value = FALSE),
               shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
-              shiny::sliderInput("alpha_filter", label = shiny::h4("Alert confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
+              shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
               shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
               shiny::fluidRow(
                 shiny::column(6, 
@@ -92,8 +92,8 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           ######### GENERAL PROPERTIES ###################
           ################################################
-          shiny::h3("Alert Detection"),
-          shiny::fluidRow(shiny::column(3, "Default alert confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005))),
+          shiny::h3("Signal Detection"),
+          shiny::fluidRow(shiny::column(3, "Default confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005))),
           shiny::fluidRow(shiny::column(3, "Default days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
           
           shiny::h3("General"),
