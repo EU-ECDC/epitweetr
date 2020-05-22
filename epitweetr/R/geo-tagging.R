@@ -84,15 +84,7 @@ get_user_location_var <- function(varname) {
   else 
     paste("coalesce("
       , "place_full_name_loc.",varname
-      , ",ncisco.
-      
-      It must be so frustrating that there is a problem with the VM, that should be so much more efficient.
-      
-      Bon courage and take care,
-      
-      Esther
-      
-       linked_place_full_name_loc.",varname
+      , ", linked_place_full_name_loc.",varname
       , ", user_location_loc.", varname
       , ", user_description_loc.", varname
       , ")" 
