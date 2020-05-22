@@ -182,7 +182,7 @@ object Tweets {
       .withColumn("topic", udf((p:String)=>p.split("/").reverse(2)).apply(input_file_name()))
       .withColumn("file",  udf((p:String)=>p.split("/").reverse(0)).apply(input_file_name()))
     )
-    //.map(df => parallelism match {case Some(p) => df.repartition(p) case _ => df})
+    .map(df => parallelism match {case Some(p) => df.repartition(p) case _ => df})
     .get 
   }
   
