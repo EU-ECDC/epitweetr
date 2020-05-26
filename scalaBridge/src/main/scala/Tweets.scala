@@ -300,14 +300,14 @@ object Tweets {
     ) 
     (implicit spark:SparkSession, storage:Storage):Unit = {
     storage.ensurePathExists(destPath)
-    val filesDone = storage.getNode(destPath)
+    val filesDone = (storage.getNode(destPath)
       .list(recursive = true)
       .filter(n => n.path.endsWith(".json.gz") && n.isDirectory)
       .map(_.path.replace("\\", "/"))
       .map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
       .distinct
-      .sortWith(_ < _)
+      .sortWith(_ < _))
     
     val doneButLast = filesDone match {
       case s if s.isEmpty => Set[String]()

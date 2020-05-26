@@ -18,6 +18,7 @@ object JavaBridge {
     val spark = 
       SparkSession.builder()
         .master(s"local[${if(cores == 0) "*" else cores.toString}]")
+        .config("spark.sql.files.ignoreCorruptFiles", true)
         .appName("epitweetr")
         .getOrCreate()
     spark.sparkContext.setLogLevel("WARN")

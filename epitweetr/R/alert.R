@@ -64,7 +64,7 @@ get_geo_counts <- function(
     , known_user_col = "known_original"
     ) {
   `%>%` <- magrittr::`%>%`
-  last_day <- max(as.POSIXlt(df$created_date))
+  last_day <- max(as.Date(df$created_date))
   # Calculating end day hour which is going to be the last fully collected hour when 
   # requesting the last colleted dates or 23h if it is a fully collected day 
   last_full_hour <- (

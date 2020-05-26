@@ -122,7 +122,7 @@ get_aggregate_weeks <- function(dataset) {
   ifelse(!dir.exists(file.path(conf$data_dir, "series")), dir.create(file.path(conf$data_dir, "series")), FALSE)
   
   #aggregated weeks
-  aggregated_weeks <- list.files(file.path(conf$data_dir, "series"), recursive=FALSE)
+  aggregated_weeks <- list.files(file.path(conf$data_dir, "series"), recursive=TRUE)
   aggregated_weeks <- aggregated_weeks[grepl(paste(".*", dataset, "\\.Rds", sep = ""), aggregated_weeks)] 
   aggregated_weeks <- sapply(aggregated_weeks, function(w) gsub(paste("/", dataset, "\\.Rds", sep = ""), "",w))
   aggregated_dates <- collected_dates[sapply(collected_dates$week, function(w) w %in% aggregated_weeks ), ]

@@ -7,11 +7,8 @@
 #' @param geo_country_code 
 #' @param date_min 
 #' @param date_max 
-#'
-#' @return
 #' @export
 #'
-#' @examples
 trend_line <- function(
   topic
   , countries=c(1)
@@ -40,11 +37,7 @@ trend_line <- function(
 #' @param s_country 
 #' @param date_min 
 #' @param date_max 
-#'
-#' @return
 #' @export
-#'
-#' @examples
 trend_line_prepare <- function(
     df
     , topic
@@ -124,20 +117,14 @@ trend_line_prepare <- function(
 #' Plot trend_line
 #'
 #' @param df 
-#'
-#' @return
 #' @export
-#'
-#' @examples
-#' 
-
 plot_trendline <- function(df,countries,topic,date_min,date_max){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   regions <- get_country_items()
 
-  time_alarm <- data.frame(date = df$date[which(df$alert == 1)], country = df$country[which(df$alert == 3)], y = vapply(which(df$alert == 1), function(i) 0, double(1)))
-  df$tooltip = paste("\nKnown users tweets: ", df$known_users, "\nKnown users ratio: ", df$known_ratio,"\nAlert: ", df$alert, "\nThreshold: ", df$limit, sep = "")
+  time_alarm <- data.frame(date = df$date[which(df$alert == 1)], country = df$country[which(df$alert == 1)], y = vapply(which(df$alert == 1), function(i) 0, double(1)), tooltip = "")
+  df$tooltip <- paste("\nKnown users tweets: ", df$known_users, "\nKnown users ratio: ", df$known_ratio,"\nAlert: ", df$alert, "\nThreshold: ", df$limit, sep = "")
 
   fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = tooltip)) +
     ggplot2::geom_line(ggplot2::aes(colour=country)) + {
@@ -155,7 +142,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
     ggplot2::scale_x_date(date_labels = "%Y-%m-%d",
                           expand = c(0, 0),
                           breaks = function(x) {
-			    days <- max(x) - min(x)
+			    days <- as.numeric(max(x) - min(x))
 			    if(days < 7) seq.Date(from = min(x), to = max(x), by = "1 days")
 			    else if(days %% 7 == 0) seq.Date(from = min(x), to = max(x), by = "7 days")
 			    else c(seq.Date(from = min(x), to = max(x), by = "7 days"), max(x))
@@ -190,10 +177,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
 #' @param date_min 
 #' @param date_max 
 #'
-#' @return
 #' @export
-#'
-#' @examples
 create_map <- function(topic=c(),countries=c(),type_date="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet"){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
@@ -219,11 +203,11 @@ create_map <- function(topic=c(),countries=c(),type_date="created_date",date_min
       , f = function(df1, df2) {dplyr::bind_rows(df1, df2)}
     )
 
-
+  f_topic <- topic
   # aggregating by country
   df <- (df %>% 
     dplyr::filter(
-        topic==topic 
+        topic==f_topic
         & !is.na(country_code)
         & created_date >= date_min 
         & created_date <= date_max
@@ -265,15 +249,16 @@ create_map <- function(topic=c(),countries=c(),type_date="created_date",date_min
   list("chart" = fig, "data" = df) 
 }
 
-
+#' Create topwords chart
+#' @export
 create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-01-01"),date_max=as.Date("2100-01-01"), with_retweets = FALSE, location_type = "tweet") {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-
+  f_topic <- topic
   df <- (get_aggregates("topwords"))
   df <- (df
       %>% dplyr::filter(
-        topic == topic 
+        topic == f_topic 
         & created_date >= date_min 
         & created_date <= date_max
         & (if(length(country_codes)==0) TRUE else tweet_geo_country_code %in% country_codes )
@@ -281,6 +266,7 @@ create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-0
   if(!with_retweets) df$frequency <- df$original
 
   df <- (df
+      %>% dplyr::filter(!is.na(frequency))
       %>% dplyr::group_by(tokens)
       %>% dplyr::summarize(frequency = sum(frequency))
       %>% dplyr::ungroup() 
@@ -323,11 +309,6 @@ get_font_family <- function(){
 #' Title
 #'
 #' @param x 
-#'
-#' @return
-#' @export
-#'
-#' @examples
 firstup <- function(x) {
   x <- tolower(x)
   substr(x, 1, 1) <- toupper(substr(x, 1, 1))
