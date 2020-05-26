@@ -10,8 +10,6 @@ export ecdc_wtitter_tool_kr_password=$pass
 expect -c '
 spawn R
 expect ">"
-send "packageName <- \"epitweetr\"\r" 
-send "devtools::load_all(packageName)\r"
-send "epitweetr::setup_config()\r" 
-send "epitweetr::aggregate_tweets(\"topwords\")\r"
+send "epitweetr::setup_config(\"/media/fod/Bluellet/datapub/epitweetr\")\r" 
+send "epitweetr::aggregate_tweets(\"country_counts\")\r"
 interact'

@@ -23,5 +23,5 @@ file.rename(file.path("..", installer_name), file.path("..", "install", installe
 
 detach("package:epitweetr", unload=TRUE)
 #devtools::install_local(path =  file.path("install", installer_name), dependencies = TRUE)
-install.packages(file.path("..", "install", installer_name), dependencies = TRUE)
+install.packages(file.path("..", "install", installer_name[[2]]), dependencies = TRUE)
 
