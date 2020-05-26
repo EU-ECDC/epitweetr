@@ -123,7 +123,12 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
   `%>%` <- magrittr::`%>%`
   regions <- get_country_items()
 
-  time_alarm <- data.frame(date = df$date[which(df$alert == 1)], country = df$country[which(df$alert == 1)], y = vapply(which(df$alert == 1), function(i) 0, double(1)), tooltip = "")
+  time_alarm <- data.frame(
+    date = df$date[which(df$alert == 1)], 
+    country = df$country[which(df$alert == 1)], 
+    y = vapply(which(df$alert == 1), function(i) 0, double(1)), 
+    tooltip =  vapply(which(df$alert == 1), function(i) "", character(1))
+  )
   df$tooltip <- paste("\nKnown users tweets: ", df$known_users, "\nKnown users ratio: ", df$known_ratio,"\nAlert: ", df$alert, "\nThreshold: ", df$limit, sep = "")
 
   fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = tooltip)) +
