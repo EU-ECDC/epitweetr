@@ -24,9 +24,11 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
               shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
               shiny::h4("Include Retweets/Quotes"),
-	      shiny::checkboxInput("with_retweets", label = NULL, value = FALSE),
+	            shiny::checkboxInput("with_retweets", label = NULL, value = FALSE),
               shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
               shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
+              shiny::h4("Bonferrony correction"),
+	            shiny::checkboxInput("bonferroni_correction", label = NULL, value = FALSE),
               shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
               shiny::fluidRow(
                 shiny::column(6, 
@@ -110,13 +112,12 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Spark Memory"), shiny::column(9, shiny::textInput("conf_spark_memory", label = NULL, value = conf$spark_memory))), 
           shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
           shiny::fluidRow(shiny::column(3, "Geonames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
-          shiny::h4("Twitter Authentication"),
-          shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9
+          shiny::fluidRow(shiny::column(3, "Twitter Authentication"), shiny::column(9
             , shiny::radioButtons(
               "twitter_auth"
               , label = NULL
-              , choices = list("Delegated" = "delegated", "App" = "app")
-              , selected = if(c$app_auth) "app" else "delegated" 
+              , choices = list("Twitter Account" = "delegated", "App" = "app")
+              , selected = if(c$app_auth) "Twitter Developer App" else "delegated" 
               ))
           ),
           shiny::conditionalPanel(
@@ -196,10 +197,10 @@ epitweetr_app <- function(data_dir = NA) {
                       , shiny::tabPanel("Configuration", config_page)
     )
   # Defining line chart from shiny app filters
-  line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type,alpha, no_history) {
+  line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type,alpha, no_history, bonferroni_correction) {
     trend_line(
       topic = topics
-      ,countries= as.integer(countries)
+      ,countries= if(length(countries) == 0) c(1) else as.integer(countries)
       ,type_date= period_type
       ,date_min = period[[1]]
       ,date_max = period[[2]]
@@ -207,6 +208,7 @@ epitweetr_app <- function(data_dir = NA) {
       ,location_type = location_type
       ,alpha = alpha
       ,no_historic = no_history
+      ,bonferroni_correction = bonferroni_correction
     )
     
   }
@@ -214,7 +216,7 @@ epitweetr_app <- function(data_dir = NA) {
   map_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type) {
     create_map(
       topic= topics
-      ,countries = countries
+      ,countries= if(length(countries) == 0) c(1) else as.integer(countries)
       ,type_date= period_type
       ,date_min = period[[1]]
       ,date_max = period[[2]]
@@ -225,8 +227,9 @@ epitweetr_app <- function(data_dir = NA) {
   }
   # Defining top words chart from shiny app filters
   topwords_chart_from_filters <- function(topics, fcountries, period_type, period, with_retweets, location_type) {
+    fcountries= if(length(fcountries) == 0) c(1) else as.integer(fcountries)
     regions <- get_country_items()
-    countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(fcountries), function(i) unlist(regions[[i]]$codes)))
+    countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(fcountries, function(i) unlist(regions[[i]]$codes)))
     create_topwords(
       topic= topics
       ,country_codes = countries
@@ -238,7 +241,7 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Rmarkdown dasboard export
-  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, no_historic) {
+  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, no_historic, bonferroni_correction) {
     rmarkdown::render(
       system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
       output_format = format, 
@@ -252,6 +255,7 @@ epitweetr_app <- function(data_dir = NA) {
         , "location_type" = location_type
         , "alert_alpha" = alpha
         , "alert_historic" = no_historic
+        , "bonferroni_correction" = bonferroni_correction
       ),
       quiet = TRUE
     ) 
@@ -264,7 +268,17 @@ epitweetr_app <- function(data_dir = NA) {
     ################################################
     output$line_chart <- plotly::renderPlotly({
        can_render(input, d)
-       chart <- line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type , input$alpha_filter, input$history_filter)$chart
+       chart <- line_chart_from_filters(
+         input$topics, 
+         input$countries, 
+         input$period_type, 
+         input$period, 
+         input$with_retweets, 
+         input$location_type , 
+         input$alpha_filter, 
+         input$history_filter, 
+         input$bonferroni_correction
+         )$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        plotly::ggplotly(chart, height = height, width = width)
@@ -293,7 +307,17 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          line_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, input$alpha_filter, input$history_filter)$data,
+          line_chart_from_filters(
+            input$topics, 
+            input$countries, 
+            input$period_type, 
+            input$period, 
+            input$with_retweets, 
+            input$location_type, 
+            input$alpha_filter, 
+            input$history_filter,
+            input$bonferroni_correction
+            )$data,
           file, 
           row.names = FALSE)
       }
@@ -316,6 +340,24 @@ epitweetr_app <- function(data_dir = NA) {
           row.names = FALSE)
       }
     ) 
+    output$download_topword_data <- shiny::downloadHandler(
+      filename = function() { 
+        paste("topword_dataset_", 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".csv", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        write.csv(
+          topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 200)$data,
+          file, 
+          row.names = FALSE)
+      }
+    ) 
     output$export_pdf <- shiny::downloadHandler(
       filename = function() { 
         paste("epitweetr_dashboard_", 
@@ -328,7 +370,19 @@ epitweetr_app <- function(data_dir = NA) {
         )
       },
       content = function(file) { 
-         export_dashboard("pdf_document", file, input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, input$alpha_filter, input$history_filter)
+         export_dashboard(
+           "pdf_document", 
+           file, 
+           input$topics, 
+           input$countries, 
+           input$period_type, 
+           input$period, 
+           input$with_retweets, 
+           input$location_type, 
+           input$alpha_filter, 
+           input$history_filter,
+           input$bonferroni_correction
+         )
       }
     ) 
     output$export_md <- shiny::downloadHandler(
@@ -343,7 +397,19 @@ epitweetr_app <- function(data_dir = NA) {
         )
       },
       content = function(file) { 
-         export_dashboard("md_document", file, input$topics, input$countries, input$period_type, input$period, input$alpha_filter, input$history_filter)
+         export_dashboard(
+           "md_document",
+           file, 
+           input$topics, 
+           input$countries, 
+           input$period_type, 
+           input$period, 
+           input$with_retweets, 
+           input$location_type, 
+           input$alpha_filter, 
+           input$history_filter,
+           input$bonferroni_correction
+         )
       }
     )
     ################################################

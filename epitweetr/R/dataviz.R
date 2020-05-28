@@ -19,10 +19,11 @@ trend_line <- function(
   , location_type = "tweet"
   , alpha = 0.025
   , no_historic = 7 
+  , bonferroni_correction = FALSE
   ){
   #Importing pipe operator
   df <- get_aggregates("country_counts")
-  df <- trend_line_prepare(df,topic,countries, type_date, date_min, date_max, with_retweets, location_type, alpha, no_historic)
+  df <- trend_line_prepare(df,topic,countries, type_date, date_min, date_max, with_retweets, location_type, alpha, no_historic, bonferroni_correction)
   plot_trendline(df,countries,topic,date_min,date_max)
 }
 
@@ -48,7 +49,9 @@ trend_line_prepare <- function(
     , with_retweets = FALSE
     , location_type = "tweet" 
     , alpha = 0.025
-    , no_historic = 7 )
+    , no_historic = 7 
+    , bonferroni_correction = FALSE
+    )
 {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%` 
@@ -56,41 +59,32 @@ trend_line_prepare <- function(
   # Getting regios details
   regions <- get_country_items()
   
-  df$known_users = df$known_original
+  df$known_users <- df$known_original
   # Adding retwets if requested
   if(with_retweets){
-    df$tweets <- df$retweets + df$tweets
+    df$tweets <- ifelse(is.na(df$retweets), 0, df$retweets) + ifelse(is.na(df$tweets), 0, df$tweets)
     df$known_users <- df$known_retweets + df$known_original
   }
-
-
+  #Setting world as region if no region is selected
   if(length(countries)==0) countries = c(1)
-  # Setting country codes as requested location types as requested
-  df <- 
-    Reduce(
-      x = c(
-         if(location_type %in% c("tweet", "both"))
-	   list(df %>% dplyr::rename(geo_country_code = tweet_geo_country_code) %>% dplyr::select(-user_geo_country_code))
-	 else list()
-         , if(location_type %in% c("user", "both"))
-	   list(df %>% dplyr::rename(geo_country_code = user_geo_country_code) %>% dplyr::select(-tweet_geo_country_code))
-	 else list()
-        )
-      , f = function(df1, df2) {dplyr::bind_rows(df1, df2)}
-    )
 
   series <- lapply(1:length(countries), function(i) {
+    bonferroni_m <- 
+      if(bonferroni_correction) {
+        length(regions[unlist(lapply(regions, function(r) r$level == regions[[ countries[[i]] ]]$level))])
+      } else 1
     alerts <- 
       get_alerts(
-	df = df,
+	      df = df,
         topic = topic, 
         country_codes = regions[[countries[[i]]]]$codes,
-	country_code_col = "geo_country_code",
+	      country_code_cols = if(location_type == "tweet") "tweet_geo_country_code" else if(location_type == "user") "user_geo_country_code" else c("tweet_geo_country_code", "user_geo_country_code"),
         known_user_col = "known_users",
         start = as.Date(date_min), 
         end = as.Date(date_max), 
         no_historic=no_historic, 
-        alpha=alpha
+        alpha=alpha,
+        bonferroni_m = bonferroni_m
       )
     alerts$topic <- firstup(stringr::str_replace_all(topic, "%20", " "))
     alerts <- dplyr::rename(alerts, date = reporting_date) 
@@ -183,7 +177,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
 #' @param date_max 
 #'
 #' @export
-create_map <- function(topic=c(),countries=c(),type_date="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet"){
+create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet"){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   df <- get_aggregates("country_counts")
@@ -192,22 +186,21 @@ create_map <- function(topic=c(),countries=c(),type_date="created_date",date_min
 
   # Adding retwets if requested
   if(with_retweets)
-    df$tweets <- df$retweets + df$tweets
-
+    df$tweets <- ifelse(is.na(df$retweets), 0, df$retweets) + ifelse(is.na(df$tweets), 0, df$tweets)
+	
+  #Setting country cols as requested
+  country_code_cols = if(location_type == "tweet") "tweet_geo_country_code" else if(location_type == "user") "user_geo_country_code" else c("tweet_geo_country_code", "user_geo_country_code")
   # Setting country codes as requested location types as requested
-  df <-
-    Reduce(
-      x = c(
-         if(location_type %in% c("tweet", "both"))
-           list(df %>% dplyr::rename(country_code = tweet_geo_country_code) %>% dplyr::select(-user_geo_country_code))
-         else list()
-         , if(location_type %in% c("user", "both"))
-           list(df %>% dplyr::rename(country_code = user_geo_country_code) %>% dplyr::select(-tweet_geo_country_code))
-         else list()
-        )
-      , f = function(df1, df2) {dplyr::bind_rows(df1, df2)}
+  df <- (
+         if(location_type =="tweet")
+           df %>% dplyr::rename(country_code = tweet_geo_country_code) %>% dplyr::select(-user_geo_country_code)
+         else if(location_type == "user")
+           df %>% dplyr::rename(country_code = user_geo_country_code) %>% dplyr::select(-tweet_geo_country_code)
+         else dplyr::bind_rows(
+           df %>% dplyr::rename(country_code = tweet_geo_country_code) %>% dplyr::filter(!is.na(country_code)) %>% dplyr::select(-user_geo_country_code),
+           df %>% dplyr::rename(country_code = user_geo_country_code) %>% dplyr::filter(!is.na(country_code) & country_code != tweet_geo_country_code ) %>% dplyr::select(-tweet_geo_country_code)
+         )  
     )
-
   f_topic <- topic
   # aggregating by country
   df <- (df %>% 
@@ -216,7 +209,10 @@ create_map <- function(topic=c(),countries=c(),type_date="created_date",date_min
         & !is.na(country_code)
         & created_date >= date_min 
         & created_date <= date_max
-        & (if(length(countries)==0) TRUE else country_code %in% country_codes )
+        & (
+          if(length(country_codes) == 0) TRUE 
+          else country_code %in% country_codes
+        ) 
     ) %>% 
     dplyr::group_by(country_code) %>% 
     dplyr::summarize(count = sum(tweets)) %>% 
@@ -256,7 +252,7 @@ create_map <- function(topic=c(),countries=c(),type_date="created_date",date_min
 
 #' Create topwords chart
 #' @export
-create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-01-01"),date_max=as.Date("2100-01-01"), with_retweets = FALSE, location_type = "tweet") {
+create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-01-01"),date_max=as.Date("2100-01-01"), with_retweets = FALSE, location_type = "tweet", top = 25) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   f_topic <- topic
@@ -276,7 +272,7 @@ create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-0
       %>% dplyr::summarize(frequency = sum(frequency))
       %>% dplyr::ungroup() 
       %>% dplyr::arrange(-frequency) 
-      %>% head(25)
+      %>% head(top)
       %>% dplyr::mutate(tokens = reorder(tokens, frequency))
   )
   fig <- (
@@ -287,7 +283,6 @@ create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-0
            ggplot2::labs(
               x = "Unique words",
               y = "Count",
-              #title = "Top words words in period"
               title = paste0("Top words of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max)
            )+
            ggplot2::theme_classic(base_family = get_font_family()) +

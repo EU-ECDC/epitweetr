@@ -60,7 +60,7 @@ get_geo_counts <- function(
     , country_codes = list()
     , start = NA
     , end = NA
-    , country_code_col = "tweet_geo_country_code"
+    , country_code_cols = "tweet_geo_country_code"
     , known_user_col = "known_original"
     ) {
   `%>%` <- magrittr::`%>%`
@@ -94,7 +94,9 @@ get_geo_counts <- function(
   # filtering by country codes
   df <- (
     if(length(country_codes) == 0) df 
-    else dplyr::filter(df, (!!as.symbol(country_code_col)) %in% country_codes)
+    else if(length(country_code_cols) == 1) dplyr::filter(df, (!!as.symbol(country_code_cols[[1]])) %in% country_codes) 
+    else if(length(country_code_cols) == 2) dplyr::filter(df, (!!as.symbol(country_code_cols[[1]])) %in% country_codes | (!!as.symbol(country_code_cols[[2]])) %in% country_codes)
+    else stop("get geo count does not support more than two country code columns") 
   )
   
   # group by reporting date
@@ -108,16 +110,17 @@ get_geo_counts <- function(
 get_alerts <- function(
     df= get_aggregates("country_counts")
     , topic, country_codes = list()
-    , country_code_col = "tweet_geo_country_code"
+    , country_code_cols = "tweet_geo_country_code"
     , known_user_col = "known_original"
     , start = NA
     , end = NA
     , alpha = 0.025
     , no_historic = 7
+    , bonferroni_m = 1
   ) {
   `%>%` <- magrittr::`%>%`
   # Getting counts from no_historic + 1 days bufore start if available 
-  counts <- get_geo_counts(df, topic, country_codes, start - (no_historic - 1) , end, country_code_col)
+  counts <- get_geo_counts(df, topic, country_codes, start - (no_historic + 1) , end, country_code_cols)
   if(nrow(counts) > 0) {
     #filling missing values with zeros if any
     date_range <- min(counts$reporting_date):max(counts$reporting_date)
@@ -127,8 +130,8 @@ get_alerts <- function(
       counts <- dplyr::bind_rows(counts, missing_dates) %>% dplyr::arrange(reporting_date) 
     }
  
-    #Calculating alerts 
-    alerts <- ears_t(counts$count, alpha=alpha, no_historic= no_historic)
+    #Calculating alerts
+    alerts <- ears_t(counts$count, alpha=alpha/bonferroni_m, no_historic= no_historic)
     counts$alert <- alerts$alarm0
     counts$limit <- alerts$U0
     if(is.na(start))
