@@ -87,6 +87,7 @@ get_empty_config <- function() {
   ret$alert_alpha <- 0.025
   ret$alert_history <- 7
   ret$use_mkl <- FALSE
+  ret$geonames_simplify <- FALSE
   return(ret)
 }
 
@@ -131,6 +132,7 @@ setup_config <- function(
     conf$alert_alpha <- temp$alert_alpha
     conf$alert_history <- temp$alert_history
     conf$use_mkl <- temp$use_mkl
+    conf$geonames_simplify <- temp$geonames_simplify
   }
   if(!ignore_topics && exists("props", where = paths)){
     if(file.exists(paths$topics)) {
@@ -256,6 +258,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$alert_alpha <- conf$alert_alpha
     temp$alert_history <- conf$alert_history
     temp$use_mkl <- conf$use_mkl
+    temp$geonames_simplify <- conf$geonames_simplify
     jsonlite::write_json(temp, paste(data_dir, "properties.json", sep="/"), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {
@@ -331,7 +334,7 @@ get_known_users_path <- function(data_dir = conf$data_dir) {
 
 #' Get current known users
 get_known_users <- function() {
-  readxl::read_excel(get_known_users_path())[[1]] 
+  gsub("@", "", readxl::read_excel(get_known_users_path())[[1]])
 }
 
 #' Save know users to json filr

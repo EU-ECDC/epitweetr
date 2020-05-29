@@ -18,10 +18,10 @@ object Tweets {
   def main(args: Array[String]): Unit = {
     val cmd = Map(
       "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "filterBy", "sortBy", "sourceExpressions", "langCodes", "langNames", "langPaths",  "parallelism")
-      , "getSampleTweets" -> Set("tweetPath", "pathFilter", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "limit", "parallelism")
-      , "extractLocations" -> Set("sourcePath", "destPath", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "minScore", "parallelism")
-      , "updateGeonames" -> Set("geonamesSource", "geonamesDestination", "assemble", "index", "parallelism")
-      , "updateLanguages" -> Set("langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "langIndexPath", "parallelism")
+      , "getSampleTweets" -> Set("tweetPath", "pathFilter", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "geonamesSimplify", "langIndexPath", "limit", "parallelism")
+      , "extractLocations" -> Set("sourcePath", "destPath", "langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "geonamesSimplify", "langIndexPath", "minScore", "parallelism")
+      , "updateGeonames" -> Set("geonamesSource", "geonamesDestination", "geonamesSimplify", "assemble", "index", "parallelism")
+      , "updateLanguages" -> Set("langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "geonamesSimplify", "langIndexPath", "parallelism")
     )
     if(args == null || args.size < 3 || !cmd.contains(args(0)) || args.size % 2 == 0 ) 
       l.msg(s"first argument must be within ${cmd.keys} and followed by a set of 'key' 'values' parameters, but the command ${args(0)} is followed by ${args.size -1} values")
@@ -47,7 +47,7 @@ object Tweets {
                        }
                    }
                    .get
-             , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get)
+             , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get,  params.get("geonamesSimplify").get.toBoolean)
              , langIndexPath = params.get("langIndexPath").get
              , limit = params.get("limit").get.toInt
              , full = params.get("full").map(_.toBoolean).getOrElse(false)
@@ -122,7 +122,7 @@ object Tweets {
                      }
                  }
                  .get
-           , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get)
+           , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get,  params.get("geonamesSimplify").get.toBoolean)
            , langIndexPath = params.get("langIndexPath").get
            , minScore = params.get("minScore").map(_.toInt).get
            , parallelism = params.get("parallelism").map(_.toInt)
@@ -131,9 +131,9 @@ object Tweets {
          implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
          implicit val storage = JavaBridge.getSparkStorage(spark)
          import spark.implicits._
-         val geonames = Geonames(params.get("geonamesSource").get, params.get("geonamesDestination").get)
+         val geonames = Geonames(params.get("geonamesSource").get, params.get("geonamesDestination").get,  params.get("geonamesSimplify").get.toBoolean)
          if(params.get("assemble").map(s => s.toBoolean).getOrElse(false))
-           geonames.getDataset(reuseExisting = false, simplify = true)
+           geonames.getDataset(reuseExisting = false)
          if(params.get("index").map(s => s.toBoolean).getOrElse(false)) {
            geonames.geolocateText(text=Seq("Viva Chile"), reuseGeoIndex = false).show
          }
@@ -151,7 +151,7 @@ object Tweets {
                      }
                  }
                  .get
-           , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get)
+           , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get,  params.get("geonamesSimplify").get.toBoolean)
            , indexPath = params.get("langIndexPath").get
            , parallelism = params.get("parallelism").map(_.toInt)
          )
@@ -231,6 +231,7 @@ object Tweets {
           , col("tweet.user.id").as("user_id") 
           , col("tweet.user.location").as("user_location") 
           , coalesce(col("tweet.retweeted_status.user.name"), col("tweet.quoted_status.user.name")).as("linked_user_name")
+          , coalesce(col("tweet.retweeted_status.user.name"), col("tweet.quoted_status.user.name")).as("linked_screen_name")
           , coalesce(col("tweet.retweeted_status.user.location"), col("tweet.quoted_status.user.location")).as("linked_user_location")
           , col("tweet.created_at")
           , col("tweet.lang")

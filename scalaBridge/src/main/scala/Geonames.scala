@@ -9,7 +9,7 @@ import org.apache.spark.sql.types._
 import Language.LangTools
 
 
-case class Geonames(source:String, destination:String) {
+case class Geonames(source:String, destination:String, simplify:Boolean = false) {
   val allCitiesPath = s"$destination/all-cities.parquet"
   val allGeosPath = s"$destination/all-geos.parquet"
   val allGeosIndex = s"$destination/all-geos.parquet.index"
@@ -83,7 +83,7 @@ case class Geonames(source:String, destination:String) {
         
           val termWeightsPadded = geoTexts.zipWithIndex.map{case (col, i) => if(termWeightsCols.size > i) termWeightsCols(i) else None}
           df.luceneLookups(
-            right = this.getDataset(simplify=true)
+            right = this.getDataset()
             , queries = geoTexts.zip(termWeightsPadded).map{
                 case(geoText, None) => geoText
                 case(geoText, Some(termWeight)) => when(col(termWeight).isNotNull, geoText).as(geoText.toString.split("`").last)
@@ -116,7 +116,7 @@ case class Geonames(source:String, destination:String) {
       )
       .get
   }
-  def getDataset(reuseExisting:Boolean = true, simplify:Boolean = false)(implicit spark:SparkSession, storage:Storage) = {
+  def getDataset(reuseExisting:Boolean = true)(implicit spark:SparkSession, storage:Storage) = {
     import spark.implicits._
     //Reading Source
     /*http://www.geonames.org/export/codes.html*/

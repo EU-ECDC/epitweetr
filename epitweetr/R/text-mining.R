@@ -45,6 +45,7 @@ pipe_top_words <- function(df, text_col, lang_col, max_words = 1000, con_out, pa
       ) 
 
     temp %>% 
+      dplyr::filter(nchar(tokens)>1)  %>%
       dplyr::group_by(tokens, topic, created_date, tweet_geo_country_code)  %>%
       dplyr::summarize(count = dplyr::n(), original = sum(!is_retweet), retweets = sum(is_retweet))  %>%
       dplyr::ungroup()  %>%

@@ -119,6 +119,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Spark Memory"), shiny::column(9, shiny::textInput("conf_spark_memory", label = NULL, value = conf$spark_memory))), 
           shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
           shiny::fluidRow(shiny::column(3, "Geonames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
+          shiny::fluidRow(shiny::column(3, "Simplified Geonames"), shiny::column(9, shiny::checkboxInput("conf_geonames_simplify", label = NULL, value = conf$geonames_simplify))),
           shiny::fluidRow(shiny::column(3, "Twitter Authentication"), shiny::column(9
             , shiny::radioButtons(
               "twitter_auth"
@@ -593,6 +594,7 @@ epitweetr_app <- function(data_dir = NA) {
       conf$spark_memory <- input$conf_spark_memory
       conf$geolocation_threshold <- input$geolocation_threshold 
       conf$geonames_url <- input$geonames_url 
+      conf$geonames_simplify <- input$geonames_simplify 
       conf$alert_alpha <- input$conf_alpha 
       conf$alert_history <- input$conf_history 
       if(input$twitter_auth == "app") {

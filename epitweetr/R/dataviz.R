@@ -131,7 +131,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
       "\nThreshold: ", round(df$limit), 
       "\nDate:",df$date, 
       "\nKnown users tweets: ", df$known_users, 
-      "\nKnown users ratio: ", df$known_ratio,
+      "\nKnown users ratio: ", round(df$known_ratio*100, 2), "%",
       sep = "")
 
   fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = Details)) +
@@ -288,6 +288,7 @@ create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-0
         & created_date >= date_min 
         & created_date <= date_max
         & (if(length(country_codes)==0) TRUE else tweet_geo_country_code %in% country_codes )
+        & tokens != "via" & nchar(tokens) > 1
       ))
   if(!with_retweets) df$frequency <- df$original
 

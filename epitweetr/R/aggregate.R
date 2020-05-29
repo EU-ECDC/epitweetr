@@ -233,9 +233,9 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
   } else if(serie_name == "country_counts") {
     # Getting the expression for known users
     known_user <- 
-      paste("user_name in ('"
+      paste("screen_name in ('"
         , paste(get_known_users(), collapse="','")
-	, "') or linked_user_name in ('"
+	, "') or linked_screen_name in ('"
         , paste(get_known_users(), collapse="','")
 	, "') ",
 	sep = ""
@@ -251,7 +251,7 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
     get_geotagged_tweets(regexp = agg_regex
        , sources_exp = list(
            tweet = c(
-             list("created_at", "is_retweet", "user_name", "linked_user_name")
+             list("created_at", "is_retweet", "screen_name", "linked_screen_name")
              , get_user_location_columns("tweet")
            )
            ,geo = c(
