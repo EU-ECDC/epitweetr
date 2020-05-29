@@ -121,11 +121,20 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
     date = df$date[which(df$alert == 1)], 
     country = df$country[which(df$alert == 1)], 
     y = vapply(which(df$alert == 1), function(i) 0, double(1)), 
-    tooltip =  vapply(which(df$alert == 1), function(i) "", character(1))
+    Details =  vapply(which(df$alert == 1), function(i) "", character(1))
   )
-  df$tooltip <- paste("\nKnown users tweets: ", df$known_users, "\nKnown users ratio: ", df$known_ratio,"\nAlert: ", df$alert, "\nThreshold: ", df$limit, sep = "")
+  df$Details <- 
+    paste(
+      "\nRegion:",df$country,
+      "\nAlert: ", ifelse(df$alert==1, "yes", "no"), 
+      "\nNumber of tweets: ", df$number_of_tweets, 
+      "\nThreshold: ", round(df$limit), 
+      "\nDate:",df$date, 
+      "\nKnown users tweets: ", df$known_users, 
+      "\nKnown users ratio: ", df$known_ratio,
+      sep = "")
 
-  fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = tooltip)) +
+  fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = Details)) +
     ggplot2::geom_line(ggplot2::aes(colour=country)) + {
       if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2) 
     } +
@@ -142,7 +151,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
                           expand = c(0, 0),
                           breaks = function(x) {
 			    days <- as.numeric(max(x) - min(x))
-			    if(days < 7) seq.Date(from = min(x), to = max(x), by = "1 days")
+			    if(days < 15) seq.Date(from = min(x), to = max(x), by = "1 days")
 			    else if(days %% 7 == 0) seq.Date(from = min(x), to = max(x), by = "7 days")
 			    else c(seq.Date(from = min(x), to = max(x), by = "7 days"), max(x))
 			  }
@@ -243,10 +252,26 @@ create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_mi
     , ylim=c(if(minLat>-60) minLat else -60, if(maxLat< 90) maxLat else 90)
     , xlim = c(minLong, maxLong)
     , border = "gray"
-  ) #, ylim=c(-60, 90), mar=c(0,0,0,0)
+  ) 
   
-  fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255), cex = 4 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 21) #circle line
-  fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5), cex = 4 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 19) #filled circlee
+  fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 21) #circle line
+  fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 19) #filled circlee
+  fig <- title(
+   main = paste("Tweets by country mentioning", topic, "\nfrom", date_min, "to", date_max)
+  )
+  #Generating legend
+  cuts <- sapply(c(maxCount/50, maxCount/20, maxCount/5, maxCount), function(v) round(v, digits = - floor(log10(v))))
+  fcuts <- sapply(cuts, function(c) if(c < 1000) paste(c) else if (c< 1000000) sprintf("%.0fk",c/1000) else sprintf("%.0fM",c/1000000)) 
+  par(xpd=TRUE)
+  fig <- legend("bottom", ncol = 4,# position
+    legend = fcuts, 
+    pt.cex = 3 * sqrt(cuts)/sqrt(maxCount),
+    col = rgb(red = 1, green = 102/255, blue = 102/255),
+    pt.bg = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5),
+    pch = 21,
+    bty = "n", 
+    inset=c(0,-0.2)
+  ) # border
   list("chart" = fig, "data" = df) 
 }
 
@@ -279,19 +304,22 @@ create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-0
       df %>% ggplot2::ggplot(ggplot2::aes(x = tokens, y = frequency)) +
            ggplot2::geom_col(fill = "#7EB750") +
            ggplot2::xlab(NULL) +
-           ggplot2::coord_flip() +
+           ggplot2::coord_flip(expand = FALSE) +
            ggplot2::labs(
               x = "Unique words",
               y = "Count",
-              title = paste0("Top words of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max)
+              title = paste("Top words of tweets mentioning", topic),
+              subtitle = paste("from", date_min, "to", date_max)
            )+
            ggplot2::theme_classic(base_family = get_font_family()) +
-           ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
-                       axis.text = ggplot2::element_text(colour = "black", size = 8),
-                       axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
-                                                           margin = ggplot2::margin(-15, 0, 0, 0)),
-                       axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
-                       axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10))
+           ggplot2::theme(
+	     plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
+	     plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 12),
+             axis.text = ggplot2::element_text(colour = "black", size = 8),
+             axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
+                                                 margin = ggplot2::margin(-15, 0, 0, 0)),
+             axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
+             axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10))
     )
   list("chart" = fig, "data" = df) 
 }
@@ -300,9 +328,10 @@ create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-0
 
 #Function to get the font family
 get_font_family <- function(){
-  if(.Platform$OS.type == "windows") 
-    "sans"
-  else "Helvetica"
+
+  if(.Platform$OS.type == "windows" && is.null(windowsFonts("Helvetica")[[1]]))
+    windowsFonts(Helvetica = windowsFont("Helvetica"))
+  "Helvetica"
 }
 
 #Capitalize first letter of a string

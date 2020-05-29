@@ -263,6 +263,29 @@ get_country_items <- function(order = "level") {
         }
       }
     }
+    # Adding EU and EAA regions
+    eu <- c("AT", "BE","BG","CY","CZ","DE","DK","EE","GR","ES","FI","FR","HR","HU","IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK")
+    eea <- c("IS", "LI", "NO")
+    eueea <- c(eu, eea)
+    specials <- list(eu, eea, eueea)
+    special_names <- c("EU", "EEA", "EU + EEA") 
+
+    for(s in 1:length(specials)) {
+      row <- row + 1
+      items[[row]] = list(name = special_names[[s]], codes = list(), level = 0.5, minLat = 90, maxLat = -90, minLong = 180, maxLong = -180) 
+      for(c in 1:nrow(countries)) {
+        if(countries$alpha.2[[c]] %in% specials[[s]]) {
+          # adding country codes for region
+          items[[row]]$codes[[length(items[[row]]$codes)+1]] <- countries$alpha.2[[c]]
+          # calculating region bounding box 
+          if(countries$minLat[[c]] < items[[row]]$minLat) items[[row]]$minLat <- countries$minLat[[c]]
+          if(countries$maxLat[[c]] > items[[row]]$maxLat) items[[row]]$maxLat <- countries$maxLat[[c]]
+          if(countries$minLong[[c]] < items[[row]]$minLong) items[[row]]$minLong <- countries$minLong[[c]]
+          if(countries$maxLong[[c]] > items[[row]]$maxLong) items[[row]]$maxLong <- countries$maxLong[[c]]
+        }
+      }
+
+    }
     if(order == "level")
       items <- items[order(sapply(items,function(i) {paste(i$level, i$name)}))]
 

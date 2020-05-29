@@ -27,7 +27,7 @@ epitweetr_app <- function(data_dir = NA) {
 	            shiny::checkboxInput("with_retweets", label = NULL, value = FALSE),
               shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
               shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
-              shiny::h4("Bonferrony correction"),
+              shiny::h4("Bonferroni correction"),
 	            shiny::checkboxInput("bonferroni_correction", label = NULL, value = FALSE),
               shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
               shiny::fluidRow(
@@ -44,21 +44,28 @@ epitweetr_app <- function(data_dir = NA) {
               ######### DASBOARD PLOTS #######################
               ################################################
               shiny::fluidRow(
-                shiny::column(6, 
-                              shiny::downloadButton("download_line_data", "data"),
-                              plotly::plotlyOutput("line_chart")
-                )
-                , shiny::column(6, 
-                              shiny::downloadButton("download_map_data", "data"),
-                              shiny::plotOutput("map_chart")
+                shiny::column(12, 
+                  shiny::fluidRow(
+                    shiny::column(1, shiny::downloadButton("download_line_data", "data")),
+                    shiny::column(1, shiny::downloadButton("export_line", "image"))
+		  ),
+                  plotly::plotlyOutput("line_chart")
                 )
               )
               ,shiny::fluidRow(
                 shiny::column(6, 
-                              shiny::downloadButton("download_topword_data", "data"),
-                              plotly::plotlyOutput("topword_chart")
+                  shiny::fluidRow(
+                    shiny::column(3, shiny::downloadButton("download_topword_data", "data")),
+                    shiny::column(3, shiny::downloadButton("export_topword", "image"))
+		  ),
+                  plotly::plotlyOutput("topword_chart")
                 )
                 , shiny::column(6, 
+                  shiny::fluidRow(
+                    shiny::column(3, shiny::downloadButton("download_map_data", "data")),
+                    shiny::column(3, shiny::downloadButton("export_map", "image"))
+		  ),
+                  shiny::plotOutput("map_chart")
                 )
               ))
           )) 
@@ -226,7 +233,7 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Defining top words chart from shiny app filters
-  topwords_chart_from_filters <- function(topics, fcountries, period_type, period, with_retweets, location_type) {
+  topwords_chart_from_filters <- function(topics, fcountries, period_type, period, with_retweets, location_type, top) {
     fcountries= if(length(fcountries) == 0) c(1) else as.integer(fcountries)
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(fcountries, function(i) unlist(regions[[i]]$codes)))
@@ -237,6 +244,7 @@ epitweetr_app <- function(data_dir = NA) {
       ,date_max = period[[2]]
       ,with_retweets= with_retweets
       ,location_type = location_type
+      ,top
     )
     
   }
@@ -263,6 +271,7 @@ epitweetr_app <- function(data_dir = NA) {
   
   # Defining server loginc
   server <- function(input, output, session, ...) {
+    `%>%` <- magrittr::`%>%`
     ################################################
     ######### DASHBOARD LOGIC ######################
     ################################################
@@ -281,7 +290,7 @@ epitweetr_app <- function(data_dir = NA) {
          )$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
-       plotly::ggplotly(chart, height = height, width = width)
+       plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = F) 
     })  
     output$map_chart <- shiny::renderPlot({
        can_render(input, d)
@@ -289,11 +298,41 @@ epitweetr_app <- function(data_dir = NA) {
     })
     output$topword_chart <- plotly::renderPlotly({
        can_render(input, d)
-       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 30)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
-       plotly::ggplotly(chart, height = height, width = width)
+       plotly::ggplotly(chart, height = height, width = width) %>% 
+	  plotly::layout(title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), margin = list(l = 30, r=30, b = 30, t = 80)) %>%
+	  plotly::config(displayModeBar = F)
     })  
+    output$export_line <- shiny::downloadHandler(
+      filename = function() { 
+        paste("line_dataset_", 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".png", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        chart <-
+          line_chart_from_filters(
+            input$topics, 
+            input$countries, 
+            input$period_type, 
+            input$period, 
+            input$with_retweets, 
+            input$location_type, 
+            input$alpha_filter, 
+            input$history_filter,
+            input$bonferroni_correction
+            )$chart
+        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
+        ggplot2::ggsave(file, plot = chart, device = device) 
+      }
+    ) 
     output$download_line_data <- shiny::downloadHandler(
       filename = function() { 
         paste("line_dataset_", 
@@ -340,6 +379,24 @@ epitweetr_app <- function(data_dir = NA) {
           row.names = FALSE)
       }
     ) 
+    output$export_map <- shiny::downloadHandler(
+      filename = function() { 
+        paste("map_dataset_", 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".png", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+	grDevices::png(file,  width = 800, height = 600) 
+	map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+	dev.off()
+        
+      }
+    ) 
     output$download_topword_data <- shiny::downloadHandler(
       filename = function() { 
         paste("topword_dataset_", 
@@ -356,6 +413,24 @@ epitweetr_app <- function(data_dir = NA) {
           topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 200)$data,
           file, 
           row.names = FALSE)
+      }
+    ) 
+    output$export_topword <- shiny::downloadHandler(
+      filename = function() { 
+        paste("topword_", 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".png", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        chart <-
+          topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 50)$chart
+        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
+        ggplot2::ggsave(file, plot = chart, device = device) 
       }
     ) 
     output$export_pdf <- shiny::downloadHandler(

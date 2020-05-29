@@ -57,7 +57,8 @@ topwords_chart_from_filters(
   params$period_type, 
   params$period, 
   params$with_retweets, 
-  params$location_type
+  params$location_type,
+  30
   )$chart
 ```
 
