@@ -239,12 +239,13 @@ plan_tasks <-function(statuses = list()) {
   for(i in sorted_tasks) {
     # Scheduling pending tasks
     if(tasks[[i]]$task %in% c("geonames", "languages")) {
-      if(!is.na(tasks[[i]]$status) && tasks[[i]]$status %in% c("pending", "failed", "running")) {
+      if(!is.na(tasks[[i]]$status) && tasks[[i]]$status %in% c("pending")) {
         tasks[[i]]$status <- "scheduled"
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
+        break
       }
     } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) { 
-      if(is.na(tasks[[i]]$status) || tasks[[i]]$status %in% c("pending", "failed", "running", "success")) {
+      if(is.na(tasks[[i]]$status) || tasks[[i]]$status %in% c("pending", "success")) {
         tasks[[i]]$status <- "scheduled"
         if(is.na(tasks[[i]]$end_on)) { 
           tasks[[i]]$scheduled_for <- now + (i - 1)/1000
@@ -260,7 +261,8 @@ plan_tasks <-function(statuses = list()) {
           next_slot <- day_slots[day_slots > tasks[[i]]$scheduled_for][[1]]
           #if next slot is in future set it. If it is in past, set now
           tasks[[i]]$scheduled_for <- if(next_slot > now) next_slot else now + (i - 1)/1000
-        } 
+        }
+        break 
       }
     }  
   }
@@ -293,10 +295,13 @@ detect_loop <- function(data_dir = NA) {
   while(TRUE) {
     # getting tasks to execute 
     tasks <- plan_tasks()
-    if(length(tasks[sapply(tasks, function(t) !is.na(t$status) && t$status %in% c("scheduled", "failed"))])>0) {
-      i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed")) as.numeric(t$scheduled_for) else as.numeric(Sys.time())+3600+t$order))[[1]] 
+    if(length(tasks[sapply(tasks, function(t) !is.na(t$status) && t$status %in% c("scheduled", "failed", "running"))])>0) {
+      i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed", "running")) t$order else 999))[[1]] 
 
-      if(tasks[[i_next]]$status %in% c("failed", "running") && (is.na(tasks[[i_next]]$status) || tasks[[i_next]]$failures > 3)) {
+      if(tasks[[i_next]]$status %in% c("failed", "running")) { 
+        tasks[[i_next]]$failures = (if(!exists("failures", where = tasks[[i_next]])) 1 else tasks[[i_next]]$failures + 1)
+      }
+      if(tasks[[i_next]]$status %in% c("failed", "running") && tasks[[i_next]]$failures > 3) {
         tasks[[i_next]]$status = "aborted"
         tasks[[i_next]]$message = "Cannot continue mas number of retries reached"
         save_tasks(tasks)
@@ -320,6 +325,7 @@ detect_loop <- function(data_dir = NA) {
         tasks <- generate_alerts(tasks)
       }
 
+      if(tasks[[i_next]]$status == "success") tasks[[i_next]]$failures = 0
       save_tasks(tasks)
     }
     setup_config(data_dir = conf$data_dir)
@@ -355,12 +361,6 @@ update_geonames_task <- function(tasks, status, message, start = FALSE, end = FA
   if(end) tasks$geonames$end_on = Sys.time() 
   tasks$geonames$status =  status
   tasks$geonames$message = message
-  if(status == "failed") {
-    if(exists("failures", where = tasks$geonames))
-      tasks$geonames$failures = tasks$geonames$failures + 1
-    else
-      tasks$geonames$failures = 1
-  }
   save_tasks(tasks)
   return(tasks)
 }
@@ -375,14 +375,6 @@ update_languages_task <- function(tasks, status, message, start = FALSE, end = F
   }     
   tasks$languages$status =  status
   tasks$languages$message = message
-  if(status == "failed") {
-    if(exists("failures", where = tasks$languages))
-      tasks$languages$failures = tasks$languages$failures + 1
-    else
-      tasks$languages$failures = 1
-  } else if(status == "success")
-      tasks$languages$failures = 0
-    
   save_tasks(tasks)
   return(tasks)
 }
@@ -394,12 +386,6 @@ update_geotag_task <- function(tasks, status, message, start = FALSE, end = FALS
   if(end) tasks$geotag$end_on = Sys.time() 
   tasks$geotag$status =  status
   tasks$geotag$message = message
-  if(status == "failed") {
-    if(exists("failures", where = tasks$geotag))
-      tasks$geotag$failures = tasks$geotag$failures + 1
-    else
-      tasks$geotag$failures = 1
-  }
   save_tasks(tasks)
   return(tasks)
 
@@ -411,12 +397,6 @@ update_aggregate_task <- function(tasks, status, message, start = FALSE, end = F
   if(end) tasks$aggregate$end_on = Sys.time() 
   tasks$aggregate$status =  status
   tasks$aggregate$message = message
-  if(status == "failed") {
-    if(exists("failures", where = tasks$aggregate))
-      tasks$aggregate$failures = tasks$aggregate$failures + 1
-    else
-      tasks$aggregate$failures = 1
-  }
   save_tasks(tasks)
   return(tasks)
 
@@ -428,12 +408,6 @@ update_alerts_task <- function(tasks, status, message, start = FALSE, end = FALS
   if(end) tasks$alerts$end_on = Sys.time() 
   tasks$alerts$status =  status
   tasks$alerts$message = message
-  if(status == "failed") {
-    if(exists("failures", where = tasks$alerts))
-      tasks$alerts$failures = tasks$alerts$failures + 1
-    else
-      tasks$alerts$failures = 1
-  }
   save_tasks(tasks)
   return(tasks)
 }

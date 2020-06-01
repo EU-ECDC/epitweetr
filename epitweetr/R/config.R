@@ -60,13 +60,13 @@ get_secret <- function(secret) {
 }
 
 #' get empty config for initialization
-get_empty_config <- function() {
+get_empty_config <- function(data_dir) {
   ret <- list()
   ret$keyring <- 
    if(.Platform$OS.type == "windows") "wincred"
    else if(.Platform$OS.type == "mac") "macos"
    else "file"
-  ret$data_dir <- paste(getwd(),"data", sep = "/")
+  ret$data_dir <- data_dir
   ret$schedule_span <- 90
   ret$schedule_start_hour <- 8
   ret$languages <- list(
@@ -101,7 +101,7 @@ setup_config <- function(
   , save_first = list()
 ) 
 {
-
+  conf$data_dir <- data_dir
   paths <- list(props = paste(data_dir, "properties.json", sep = "/"), topics = paste(data_dir, "topics.json", sep = "/"))
   topics_path <- get_topics_path(data_dir)
 
@@ -109,14 +109,13 @@ setup_config <- function(
     save_config(data_dir = data_dir, properties = "props" %in% save_first, "topics" %in% save_first)
   }
   #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
-  temp <- get_empty_config()
+  temp <- get_empty_config(data_dir)
   
   if(!ignore_properties && exists("props", where = paths)) {
     if(file.exists(paths$props)) {
       temp = merge_configs(list(temp, jsonlite::read_json(paths$props, simplifyVector = FALSE, auto_unbox = TRUE)))
     }
     #Setting config  variables filled only from json file  
-    conf$data_dir <- temp$data_dir
     conf$keyring <- temp$keyring
     conf$schedule_span <- temp$schedule_span
     conf$schedule_start_hour <- temp$schedule_start_hour

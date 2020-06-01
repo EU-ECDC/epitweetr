@@ -41,7 +41,7 @@ conf_geonames_as_arg <- function() {
     paste(
       "geonamesSource", paste("\"", file.path(conf$data_dir, "geo", "allCountries.txt"), "\"", sep = "")
       , "geonamesDestination", paste("\"", paste(conf$data_dir, "geo", sep="/"), "\"", sep = "")
-      , "geonamesSimplify", paste("\"", conf$simplify_geonames, "\"", sep = "")
+      , "geonamesSimplify", paste("\"", conf$geonames_simplify, "\"", sep = "")
     )
   )
 }
