@@ -85,10 +85,10 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
 #' @export
 get_aggregates <- function(dataset = "geolocated", cache = TRUE, filter = list()) {
   `%>%` <- magrittr::`%>%`
-  
+  last_filter_name <- paste("last_filter", dataset, sep = "_")
   filter$last_aggregate <- get_tasks()$aggregate$end_on  
-  same_filter <- exists("last_filter", where = cached) && all(names(cached$last_filter) == names(filter)) && all(unlist(cached$last_filter) == unlist(filter))
-  cached$last_filter <- filter
+  same_filter <- exists(last_filter_name, where = cached) && all(names(cached[[last_filter_name]]) == names(filter)) && all(unlist(cached[[last_filter_name]]) == unlist(filter))
+  cached[[last_filter_name]] <- filter
   #If dataset is already on cache return it
   if(cache && exists(dataset, where = cached) && same_filter) {
     return (cached[[dataset]])
@@ -96,7 +96,7 @@ get_aggregates <- function(dataset = "geolocated", cache = TRUE, filter = list()
   else {
     files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".Rds", sep=""))
     if(length(files) == 0) {
-      warning(paste("Dataset ", dataset, " not found in any wek folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
+      warning(paste("Dataset ", dataset, " not found in any week folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
       return (data.frame(created_date=as.Date(character()),topic=character()))
     }
     else {
