@@ -87,10 +87,27 @@ get_aggregates <- function(dataset = "geolocated", cache = TRUE, filter = list()
   `%>%` <- magrittr::`%>%`
   last_filter_name <- paste("last_filter", dataset, sep = "_")
   filter$last_aggregate <- get_tasks()$aggregate$end_on  
-  same_filter <- exists(last_filter_name, where = cached) && all(names(cached[[last_filter_name]]) == names(filter)) && all(unlist(cached[[last_filter_name]]) == unlist(filter))
-  cached[[last_filter_name]] <- filter
+  reuse_filter <- 
+    exists(last_filter_name, where = cached) && 
+    (!exists("topic", cached[[last_filter_name]]) && !exists("topic", filter) ||
+      (
+        exists("topic", cached[[last_filter_name]]) && 
+        exists("topic", filter) &&  
+        cached[[last_filter_name]]$topic == filter$topic
+      )
+    ) &&
+    (!exists("period", cached[[last_filter_name]]) && !exists("period", filter) ||
+      (
+        exists("period", cached[[last_filter_name]]) && 
+        exists("period", filter) &&
+        cached[[last_filter_name]]$period[[1]] <= filter$period[[1]] &&
+        cached[[last_filter_name]]$period[[2]] >= filter$period[[2]]
+      )
+    )
+
+  if(!reuse_filter) cached[[last_filter_name]] <- filter
   #If dataset is already on cache return it
-  if(cache && exists(dataset, where = cached) && same_filter) {
+  if(cache && exists(dataset, where = cached) && reuse_filter) {
     return (cached[[dataset]])
   }
   else {
@@ -102,13 +119,13 @@ get_aggregates <- function(dataset = "geolocated", cache = TRUE, filter = list()
     else {
       dfs <- lapply(files, function (file) {
         if(exists("topic", where = filter) && exists("period", where = filter)) 
-	  readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter( topic == filter$topic & created_date >= filter$period[[1]] & created_date <= filter$period[[2]])
+	        readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter( topic == filter$topic & created_date >= filter$period[[1]] & created_date <= filter$period[[2]])
         else if(exists("period", where = filter)) 
-	  readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter(created_date >= filter$period[[1]] & created_date <= filter$period[[2]])
+	        readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter(created_date >= filter$period[[1]] & created_date <= filter$period[[2]])
         else if(exists("topic", where = filter)) 
-	  readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter( topic == filter$topic)
+	        readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter( topic == filter$topic)
         else 
-	  readRDS(file.path(conf$data_dir, "series", file))
+	        readRDS(file.path(conf$data_dir, "series", file))
       })
       ret <- jsonlite::rbind_pages(dfs) 
       if(cache) cached[[dataset]] <- ret

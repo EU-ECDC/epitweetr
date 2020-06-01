@@ -100,8 +100,9 @@ trend_line_prepare <- function(
     df <- df %>% 
       dplyr::group_by(week = strftime(date, "%G%V"), topic, country) %>% 
       dplyr::summarise(c = sum(number_of_tweets), a = max(alert), d = min(date), ku = sum(known_users), kr = sum(known_users)/sum(number_of_tweets), l = 0) %>% 
+      dplyr::ungroup() %>% 
       dplyr::select(d , c, ku, a, l, topic, country, kr) %>% 
-      dplyr::rename(date = d, number_of_tweets = c, alert = a, known_users = ku, know_ratio = kr, limit = l)
+      dplyr::rename(date = d, number_of_tweets = c, alert = a, known_users = ku, known_ratio = kr, limit = l)
   }
   return(df)
   
@@ -146,6 +147,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
     ggplot2::xlab('Day and month') +
     ggplot2::ylab('Number of tweets') +
     ggplot2::scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
+    ggplot2::expand_limits(y = 0) +
     ggplot2::scale_x_date(date_labels = "%Y-%m-%d",
                           expand = c(0, 0),
                           breaks = function(x) {
