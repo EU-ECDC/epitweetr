@@ -182,6 +182,9 @@ get_tasks <- function(statuses = list()) {
   }
     
   # Updating languages tasks
+  if(in_pending_status(tasks$languages)) 
+    tasks$languages$status <- "pending"
+
   langs <- get_available_languages()
   lcodes <- langs$Code
   lurls <- setNames(langs$Url, langs$Code)
@@ -235,17 +238,22 @@ plan_tasks <-function(statuses = list()) {
   tasks <- get_tasks(statuses)
   # Updating next execution time for each task
   now <- Sys.time()
-  sorted_tasks <- order(sapply(tasks, function(l) l$order))
+  sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
   for(i in sorted_tasks) {
     # Scheduling pending tasks
     if(tasks[[i]]$task %in% c("geonames", "languages")) {
-      if(!is.na(tasks[[i]]$status) && tasks[[i]]$status %in% c("pending")) {
+      if(tasks[[i]]$status == "pending") {
         tasks[[i]]$status <- "scheduled"
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
         break
       }
     } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) { 
-      if(is.na(tasks[[i]]$status) || tasks[[i]]$status %in% c("pending", "success")) {
+      if(is.na(tasks[[i]]$status) || (
+	tasks[[i]]$status %in% c("pending", "success", "scheduled") 
+        && tasks[[i]]$end_on == Reduce(
+	    x = lapply(list(tasks$geotag, tasks$aggregate, tasks$alerts),  function(t) t$end_on), 
+	    f = function(a, b) if(a<b) a else b)
+      )) {
         tasks[[i]]$status <- "scheduled"
         if(is.na(tasks[[i]]$end_on)) { 
           tasks[[i]]$scheduled_for <- now + (i - 1)/1000
@@ -295,7 +303,13 @@ detect_loop <- function(data_dir = NA) {
   while(TRUE) {
     # getting tasks to execute 
     tasks <- plan_tasks()
-    if(length(tasks[sapply(tasks, function(t) !is.na(t$status) && t$status %in% c("scheduled", "failed", "running"))])>0) {
+    if(length(tasks[sapply(tasks, function(t) 
+        !is.na(t$status) 
+	&& (
+	   t$status %in% c("failed", "running")
+	   || (t$status %in% c("scheduled") && t$scheduled_for <= Sys.time())
+	   ))]
+        )>0) {
       i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed", "running")) t$order else 999))[[1]] 
 
       if(tasks[[i_next]]$status %in% c("failed", "running")) { 

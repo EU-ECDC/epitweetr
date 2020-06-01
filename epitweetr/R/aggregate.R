@@ -83,10 +83,14 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
 
 #' Getting already aggregated datasets
 #' @export
-get_aggregates <- function(dataset = "geolocated", cache = TRUE) {
+get_aggregates <- function(dataset = "geolocated", cache = TRUE, filter = list()) {
+  `%>%` <- magrittr::`%>%`
   
+  filter$last_aggregate <- get_tasks()$aggregate$end_on  
+  same_filter <- exists("last_filter", where = cached) && all(names(cached$last_filter) == names(filter)) && all(unlist(cached$last_filter) == unlist(filter))
+  cached$last_filter <- filter
   #If dataset is already on cache return it
-  if(cache && exists(dataset, where = cached) && nrow(cached[[dataset]]) > 0) {
+  if(cache && exists(dataset, where = cached) && same_filter) {
     return (cached[[dataset]])
   }
   else {
@@ -96,8 +100,17 @@ get_aggregates <- function(dataset = "geolocated", cache = TRUE) {
       return (data.frame(created_date=as.Date(character()),topic=character()))
     }
     else {
-      dfs <- lapply(files, function (file) readRDS(file.path(conf$data_dir, "series", file)))
-      ret <- jsonlite::rbind_pages(dfs)
+      dfs <- lapply(files, function (file) {
+        if(exists("topic", where = filter) && exists("period", where = filter)) 
+	  readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter( topic == filter$topic & created_date >= filter$period[[1]] & created_date <= filter$period[[2]])
+        else if(exists("period", where = filter)) 
+	  readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter(created_date >= filter$period[[1]] & created_date <= filter$period[[2]])
+        else if(exists("topic", where = filter)) 
+	  readRDS(file.path(conf$data_dir, "series", file)) %>% dplyr::filter( topic == filter$topic)
+        else 
+	  readRDS(file.path(conf$data_dir, "series", file))
+      })
+      ret <- jsonlite::rbind_pages(dfs) 
       if(cache) cached[[dataset]] <- ret
       return(ret)
     }

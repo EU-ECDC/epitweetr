@@ -22,7 +22,7 @@ trend_line <- function(
   , bonferroni_correction = FALSE
   ){
   #Importing pipe operator
-  df <- get_aggregates("country_counts")
+  df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
   df <- trend_line_prepare(df,topic,countries, type_date, date_min, date_max, with_retweets, location_type, alpha, no_historic, bonferroni_correction)
   plot_trendline(df,countries,topic,date_min,date_max)
 }
@@ -43,7 +43,7 @@ trend_line_prepare <- function(
     df
     , topic
     , countries = c(1)
-    , date_type = c("creted_date")
+    , date_type = c("created_date")
     , date_min = as.Date("1900-01-01")
     , date_max = as.Date("2100-01-01")
     , with_retweets = FALSE
@@ -96,13 +96,12 @@ trend_line_prepare <- function(
   })
 
   df <- Reduce(x = series, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
-    
   if(date_type =="created_weeknum"){
     df <- df %>% 
       dplyr::group_by(week = strftime(date, "%G%V"), topic, country) %>% 
-      dplyr::summarise(c = sum(number_of_tweets), a = max(alert), d = min(date)) %>% 
-      dplyr::select(d , c, a, topic, country) %>% 
-      dplyr::rename(date = d, number_of_tweets = c, alert = a)
+      dplyr::summarise(c = sum(number_of_tweets), a = max(alert), d = min(date), ku = sum(known_users), kr = sum(known_users)/sum(number_of_tweets), l = 0) %>% 
+      dplyr::select(d , c, ku, a, l, topic, country, kr) %>% 
+      dplyr::rename(date = d, number_of_tweets = c, alert = a, known_users = ku, know_ratio = kr, limit = l)
   }
   return(df)
   
@@ -189,7 +188,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
 create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet"){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-  df <- get_aggregates("country_counts")
+  df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
   regions <- get_country_items()
   country_codes <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(countries), function(i) unlist(regions[[i]]$codes)))
 
@@ -277,11 +276,11 @@ create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_mi
 
 #' Create topwords chart
 #' @export
-create_topwords <- function(topic=c(),country_codes=c(),date_min=as.Date("1900-01-01"),date_max=as.Date("2100-01-01"), with_retweets = FALSE, location_type = "tweet", top = 25) {
+create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01"),date_max=as.Date("2100-01-01"), with_retweets = FALSE, location_type = "tweet", top = 25) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   f_topic <- topic
-  df <- (get_aggregates("topwords"))
+  df <- get_aggregates(dataset = "topwords", filter = list(topic = f_topic, period = list(date_min, date_max)))
   df <- (df
       %>% dplyr::filter(
         topic == f_topic 

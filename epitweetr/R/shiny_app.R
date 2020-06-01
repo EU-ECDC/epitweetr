@@ -789,7 +789,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
     e$tasks_df <- data.frame(
       Task = sapply(e$tasks, function(t) t$task), 
-      Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "Pending" else t$status), 
+      Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "pending" else t$status), 
       Scheduled = sapply(e$tasks, function(t) strftime(t$scheduled_for, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')), 
       `Last Start` = sapply(e$tasks, function(t) strftime(t$started_on, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')), 
       `Last End` = sapply(e$tasks, function(t) strftime(t$end_on, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')),
