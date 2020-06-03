@@ -87,7 +87,7 @@ get_empty_config <- function(data_dir) {
   ret$alert_alpha <- 0.025
   ret$alert_history <- 7
   ret$use_mkl <- FALSE
-  ret$geonames_simplify <- FALSE
+  ret$geonames_simplify <- TRUE
   return(ret)
 }
 

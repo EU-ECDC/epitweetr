@@ -223,7 +223,7 @@ get_aggregated_serie <- function(serie_name, read_from, read_to, created_from, c
       , sources_exp = list(
           tweet = list(
             "date_format(created_at, 'yyyy-MM-dd') as created_date"
-	    , "is_retweet"
+	          , "is_retweet"
             , "date_format(created_at, 'yyyy-MM-dd HH:mm:ss') as created_at" 
             , "lang"
             , "text"

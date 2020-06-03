@@ -10,6 +10,5 @@ export ecdc_wtitter_tool_kr_password=$pass
 expect -c '
 spawn R
 expect ">"
-send "epitweetr::setup_config(\"/home/fod/datapub/epitweetr\")\r" 
-send "epitweetr::geotag_tweets()\r"
+send "epitweetr::detect_loop(\"/home/fod/datapub/epitweetr\")\r"
 interact'

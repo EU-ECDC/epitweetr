@@ -593,8 +593,8 @@ epitweetr_app <- function(data_dir = NA) {
       conf$spark_cores <- input$conf_spark_cores 
       conf$spark_memory <- input$conf_spark_memory
       conf$geolocation_threshold <- input$geolocation_threshold 
-      conf$geonames_url <- input$geonames_url 
-      conf$geonames_simplify <- input$geonames_simplify 
+      conf$geonames_url <- input$conf_geonames_url 
+      conf$geonames_simplify <- input$conf_geonames_simplify 
       conf$alert_alpha <- input$conf_alpha 
       conf$alert_history <- input$conf_history 
       if(input$twitter_auth == "app") {
