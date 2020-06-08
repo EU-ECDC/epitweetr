@@ -10,5 +10,6 @@ export ecdc_wtitter_tool_kr_password=$pass
 expect -c '
 spawn R
 expect ">"
-send "epitweetr::detect_loop(\"/home/fod/datapub/epitweetr\")\r"
+send "epitweetr::setup_config(\"/media/fod/Bluellet/datapub/epitweetr\")\r" 
+send "epitweetr::detect_loop()\r"
 interact'

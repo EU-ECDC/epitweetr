@@ -102,7 +102,7 @@ setup_config <- function(
 ) 
 {
   conf$data_dir <- data_dir
-  paths <- list(props = paste(data_dir, "properties.json", sep = "/"), topics = paste(data_dir, "topics.json", sep = "/"))
+  paths <- list(props = get_properties_path(), topics = get_plans_path())
   topics_path <- get_topics_path(data_dir)
 
   if(length(save_first) > 0) {
@@ -232,6 +232,9 @@ setup_config <- function(
   }
 }
 
+get_properties_path <- function() file.path(conf$data_dir, "properties.json")
+get_plans_path <- function() file.path(conf$data_dir, "topics.json")
+
 #' Save the configuration options to disk
 #' @export
 save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRUE) {
@@ -258,13 +261,13 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$alert_history <- conf$alert_history
     temp$use_mkl <- conf$use_mkl
     temp$geonames_simplify <- conf$geonames_simplify
-    jsonlite::write_json(temp, paste(data_dir, "properties.json", sep="/"), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+    jsonlite::write_json(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {
     temp <- list()
     temp$topics <- conf$topics
     temp$topics_md5 <- conf$topics_md5
-    jsonlite::write_json(temp, paste(data_dir, "topics.json", sep = "/"), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+    jsonlite::write_json(temp, get_plans_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
 }
 

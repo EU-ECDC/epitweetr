@@ -109,11 +109,13 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
+get_tasks_path <- function() file.path(conf$data_dir, "tasks.json")
+
 #' Getting the scheduler task lists with current status updated.
 #' @export
 get_tasks <- function(statuses = list()) {
   stop_if_no_config()
-  tasks_path <- paste(conf$data_dir, "tasks.json", sep = "/")
+  tasks_path <- get_tasks_path()
   tasks <- if(file.exists(tasks_path)) {
     #if tasks files exists getting tasks from disk
     t <- jsonlite::fromJSON(tasks_path, simplifyVector = FALSE, auto_unbox = TRUE)
@@ -286,7 +288,7 @@ plan_tasks <-function(statuses = list()) {
 #' @export
 save_tasks <- function(tasks) {
   stop_if_no_config()
-  tasks_path <- paste(conf$data_dir, "tasks.json", sep = "/")
+  tasks_path <- get_tasks_path()
   jsonlite::write_json(tasks, tasks_path, pretty = TRUE, force = TRUE, auto_unbox = TRUE, POSIXt="epoch")
 }
 

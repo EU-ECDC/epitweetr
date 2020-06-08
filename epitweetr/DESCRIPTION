@@ -1,14 +1,14 @@
 Package: epitweetr
 Title: Capture and analyze tweets
-Version: 0.0.0.9000
+Version: 0.0.1
 Authors@R: 
     person(given = "Francisco",
            family = "Orchard",
            role = c("aut", "cre"),
            email = "f.orchard@epiconcept.fr",
-           comment = structure("YOUR-ORCID-ID", .Names = "ORCID"))
-Description: What the package does (one paragraph).
-License: What license it uses
+           comment = structure("0000-0001-5793-3301", .Names = "ORCID"))
+Description: The epitweetr package allows you to automatically monitor trends of tweets by time, place and topic, in order to detect signals of a number of tweets that exceed what is expected. The epitweetr package was designed to do this for communicable diseases and other health topics, but could be used for other fields as well.
+License: European Union Public License 1.2 http://www.eupl.eu
 Encoding: UTF-8
 LazyData: true
 Imports:

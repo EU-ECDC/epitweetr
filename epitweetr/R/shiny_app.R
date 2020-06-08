@@ -9,7 +9,7 @@ epitweetr_app <- function(data_dir = NA) {
     setup_config(data_dir)
   # Loading data for dashboard and configuration
   d <- refresh_dashboard_data() 
-  c <- refresh_config_data()
+  cd <- refresh_config_data()
 
   # Defining dashboard page UI
   dashboard_page <- 
@@ -125,7 +125,7 @@ epitweetr_app <- function(data_dir = NA) {
               "twitter_auth"
               , label = NULL
               , choices = list("Twitter Account" = "delegated", "App" = "app")
-              , selected = if(c$app_auth) "Twitter Developer App" else "delegated" 
+              , selected = if(cd$app_auth) "Twitter Developer App" else "delegated" 
               ))
           ),
           shiny::conditionalPanel(
@@ -496,21 +496,21 @@ epitweetr_app <- function(data_dir = NA) {
     # Timer for updating task statuses  
     shiny::observe({
       shiny::invalidateLater(10000)
-      refresh_config_data(c, list("tasks"))
+      refresh_config_data(cd, list("tasks", "topics"))
     }) 
     output$search_running = shiny::renderText({
       # Adding a dependency to task refresh
-      c$tasks_refresh_flag()
+      cd$tasks_refresh_flag()
       paste(
         "<span",
-        " style='color:", if(c$search_running) "#348017'" else "#F75D59'",
+        " style='color:", if(cd$search_running) "#348017'" else "#F75D59'",
         ">",
-        if(is.na(c$search_diff)) "Stopped"
-	else paste(
-          if(c$search_running) "Running" else "Stopped"
+        if(is.na(cd$search_diff)) "Stopped"
+	      else paste(
+          if(cd$search_running) "Running" else "Stopped"
           , "("
-          , round(c$search_diff, 2)
-          , units(c$search_diff)
+          , round(cd$search_diff, 2)
+          , units(cd$search_diff)
           , "ago)" 
           ),
         "</span>"
@@ -518,47 +518,47 @@ epitweetr_app <- function(data_dir = NA) {
     )})
     output$detect_running <- shiny::renderText({
       # Adding a dependency to task refresh
-      c$tasks_refresh_flag()
+      cd$tasks_refresh_flag()
       paste(
         "<span",
-        " style='color:", if(c$detect_running) "#348017'" else "#F75D59'",
+        " style='color:", if(cd$detect_running) "#348017'" else "#F75D59'",
         ">",
-        if(c$detect_running) "Running" else "Stopped",
+        if(cd$detect_running) "Running" else "Stopped",
         "</span>"
         ,sep=""
       )})
 
     output$geonames_status <- shiny::renderText({
       # Adding a dependency to task refresh
-      c$tasks_refresh_flag()
+      cd$tasks_refresh_flag()
       paste(
         "<span",
         " style='color:", 
-          if(c$geonames_status %in% c("n/a", "error"))
+          if(cd$geonames_status %in% c("n/a", "error"))
             "#F75D59'"
-          else if(c$geonames_status %in% c("success")) 
+          else if(cd$geonames_status %in% c("success")) 
             "#348017'" 
           else 
             "#2554C7'", 
         ">",
-        c$geonames_status,
+        cd$geonames_status,
         "</span>"
         ,sep=""
       )})
     output$languages_status <- shiny::renderText({
       # Adding a dependency to task refresh
-      c$tasks_refresh_flag()
+      cd$tasks_refresh_flag()
       paste(
         "<span",
         " style='color:", 
-          if(c$languages_status %in% c("n/a", "error"))
+          if(cd$languages_status %in% c("n/a", "error"))
             "#F75D59'"
-          else if(c$languages_status %in% c("success")) 
+          else if(cd$languages_status %in% c("success")) 
             "#348017'" 
           else 
             "#2554C7'", 
         ">",
-        c$languages_status,
+        cd$languages_status,
         "</span>"
         ,sep=""
       )})
@@ -566,24 +566,24 @@ epitweetr_app <- function(data_dir = NA) {
 
     shiny::observeEvent(input$activate_search, {
       register_search_runner_task()
-      refresh_config_data(c, list("tasks"))
+      refresh_config_data(cd, list("tasks"))
     })
 
     shiny::observeEvent(input$activate_detect, {
       register_detect_runner_task()
-      refresh_config_data(c, list("tasks"))
+      refresh_config_data(cd, list("tasks"))
     })
 
     shiny::observeEvent(input$update_geonames, {
       conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
-      refresh_config_data(c, list("tasks"))
+      refresh_config_data(cd, list("tasks"))
     })
 
     shiny::observeEvent(input$update_languages, {
       conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
-      refresh_config_data(c, list("tasks"))
+      refresh_config_data(cd, list("tasks"))
     })
     ######### PROPERTIES LOGIC ##################
     shiny::observeEvent(input$save_properties, {
@@ -631,8 +631,8 @@ epitweetr_app <- function(data_dir = NA) {
     ######### LANGUAGE LOGIC ##################
     output$config_langs <- DT::renderDataTable({
       # Adding dependency with lang refresh
-      c$langs_refresh_flag()
-      DT::datatable(c$langs)
+      cd$langs_refresh_flag()
+      DT::datatable(cd$langs)
     }) 
     
     output$conf_lang_download <- shiny::downloadHandler(
@@ -653,27 +653,27 @@ epitweetr_app <- function(data_dir = NA) {
 
     output$lang_items_0 <- shiny::renderUI({
       # Adding a dependency to lang refresh
-      c$langs_refresh_flag()
-      shiny::selectInput("lang_items", label = NULL, multiple = FALSE, choices = c$lang_items)
+      cd$langs_refresh_flag()
+      shiny::selectInput("lang_items", label = NULL, multiple = FALSE, choices = cd$lang_items)
     })
 
     shiny::observeEvent(input$conf_lang_add, {
-      add_config_language(input$lang_items, c$lang_names[input$lang_items])
+      add_config_language(input$lang_items, cd$lang_names[input$lang_items])
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
-      refresh_config_data(e = c, limit = list("langs"))
+      refresh_config_data(e = cd, limit = list("langs"))
     })
     
     shiny::observeEvent(input$conf_lang_remove, {
       remove_config_language(input$lang_items)
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
-      refresh_config_data(e = c, limit = list("langs"))
+      refresh_config_data(e = cd, limit = list("langs"))
     })
     
     ######### TASKS LOGIC ##################
     output$tasks_df <- DT::renderDataTable({
       # Adding dependency with tasks refresh
-      c$tasks_refresh_flag()
-      DT::datatable(c$tasks_df)
+      cd$tasks_refresh_flag()
+      DT::datatable(cd$tasks_df)
     })
     
      
@@ -681,8 +681,8 @@ epitweetr_app <- function(data_dir = NA) {
     output$config_topics <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
       # Adding a dependency to topics refresh
-      c$topics_refresh_flag()
-      c$topics %>%
+      cd$topics_refresh_flag()
+      cd$topics %>%
         DT::datatable(
           colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress (last)" = "LastProgress", "Requests (last)" = "LastRequests"),
           filter = "top",
@@ -760,42 +760,54 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   # Updating topics related fields
   if("topics" %in% limit) {
     # Updating the reactive value tasks_refresh to force dependencies invalidation
-    if(!exists("topics_refresh_flag", where = e)) {
+    update <- FALSE
+    if(!exists("topics_refresh_flag", envir = e)) {
       e$topics_refresh_flag <- shiny::reactiveVal()
-    } else 
-      e$topics_refresh_flag(Sys.time())
-    e$topics <- data.frame(
-      Topics = sapply(conf$topics, function(t) t$topic), 
-      Query = sapply(conf$topics, function(t) t$query), 
-      QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
-      ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
-      LastProgress = sapply(conf$topics, function(t) {if(length(t$plan)>0) t$plan[[1]]$progress else 0}), 
-      LastRequests = sapply(conf$topics, function(t) {if(length(t$plan)>0) t$plan[[1]]$requests else 0})
-    )
+      update <- TRUE
+    } else if(file.exists(get_plans_path()) && file.info(get_plans_path())$mtime != e$topics_refresh_flag()) {
+      update <- TRUE
+    }
+    if(update) {
+      if(file.exists(get_plans_path())) e$topics_refresh_flag(file.info(get_plans_path())$mtime)
+      e$topics <- data.frame(
+        Topics = sapply(conf$topics, function(t) t$topic), 
+        Query = sapply(conf$topics, function(t) t$query), 
+        QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
+        ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
+        LastProgress = sapply(conf$topics, function(t) {if(length(t$plan)>0) t$plan[[1]]$progress else 0}), 
+        LastRequests = sapply(conf$topics, function(t) {if(length(t$plan)>0) t$plan[[1]]$requests else 0})
+      )
+    }
   }
   # Updating tasks related fields
   if("tasks" %in% limit) {
     # Updating the reactive value tasks_refresh to force dependencies invalidation
+    update <- FALSE
     if(!exists("tasks_refresh_flag", where = e)) {
       e$tasks_refresh_flag <- shiny::reactiveVal()
-    } else 
-      e$tasks_refresh_flag(Sys.time())
-    e$tasks <- get_tasks() 
-    e$search_running <- is_search_running() 
-    e$search_diff <- Sys.time() - last_search_time()
-    e$detect_running <- is_detect_running() 
-    e$geonames_status <- if(in_pending_status(e$tasks$geonames)) "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$geonames$status 
-    e$languages_status <- if(in_pending_status(e$tasks$languages))  "pending" else if(is.na(e$tasks$languages$status)) "n/a" else e$tasks$languages$status 
-    e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
-    e$tasks_df <- data.frame(
-      Task = sapply(e$tasks, function(t) t$task), 
-      Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "pending" else t$status), 
-      Scheduled = sapply(e$tasks, function(t) strftime(t$scheduled_for, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')), 
-      `Last Start` = sapply(e$tasks, function(t) strftime(t$started_on, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')), 
-      `Last End` = sapply(e$tasks, function(t) strftime(t$end_on, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')),
-      Message = sapply(e$tasks, function(t) if(exists("message", where = t) && !is.null(t$message)) t$message else "")
-    )
-    row.names(e$tasks_df) <- sapply(e$tasks, function(t) t$order) 
+      update <- TRUE
+    } else if(file.exists(get_tasks_path()) && file.info(get_tasks_path())$mtime != e$tasks_refresh_flag()){
+      update <- TRUE
+    }
+    if(update) {
+      if(file.exists(get_tasks_path())) e$tasks_refresh_flag(file.info(get_tasks_path())$mtime)
+      e$tasks <- get_tasks() 
+      e$search_running <- is_search_running() 
+      e$search_diff <- Sys.time() - last_search_time()
+      e$detect_running <- is_detect_running() 
+      e$geonames_status <- if(in_pending_status(e$tasks$geonames)) "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$geonames$status 
+      e$languages_status <- if(in_pending_status(e$tasks$languages))  "pending" else if(is.na(e$tasks$languages$status)) "n/a" else e$tasks$languages$status 
+      e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
+      e$tasks_df <- data.frame(
+        Task = sapply(e$tasks, function(t) t$task), 
+        Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "pending" else t$status), 
+        Scheduled = sapply(e$tasks, function(t) strftime(t$scheduled_for, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')), 
+        `Last Start` = sapply(e$tasks, function(t) strftime(t$started_on, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')), 
+        `Last End` = sapply(e$tasks, function(t) strftime(t$end_on, format = "%Y-%m-%d %H:%M:%OS", origin = '1970-01-01')),
+        Message = sapply(e$tasks, function(t) if(exists("message", where = t) && !is.null(t$message)) t$message else "")
+      )
+      row.names(e$tasks_df) <- sapply(e$tasks, function(t) t$order) 
+    }
   }
   return(e)
 }

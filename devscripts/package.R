@@ -12,11 +12,11 @@ if(!file.exists("install")){
 }
 
 installer_name <- (
-  c("epitweetr_0.0.0.9000.tar.gz",
+  c(paste("epitweetr_",packageVersion("epitweetr"),".tar.gz", sep = ""),
     if(.Platform$OS.type == "windows")
-      "epitweetr_0.0.0.9000.zip" 
+      paste("epitweetr_",packageVersion("epitweetr"),".zip", sep = "") 
     else
-      "epitweetr_0.0.0.9000_R_x86_64-pc-linux-gnu.tar.gz" 
+      paste("epitweetr_",packageVersion("epitweetr"),"_R_x86_64-pc-linux-gnu.tar.gz", sep = "") 
   )
 )
 file.rename(file.path("..", installer_name), file.path("..", "install", installer_name))
