@@ -689,11 +689,11 @@ epitweetr_app <- function(data_dir = NA) {
       # Adding a dependency to topics refresh
       cd$topics %>%
         DT::datatable(
-          colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress (last)" = "LastProgress", "Requests (last)" = "LastRequests"),
+          colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests"),
           filter = "top",
           escape = TRUE,
         ) %>%
-        DT::formatPercentage(columns = c("Progress (last)"))
+        DT::formatPercentage(columns = c("Progress"))
     })
     shiny::observe({
       # Adding dependency with lang refresh
@@ -790,8 +790,8 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
         Query = sapply(conf$topics, function(t) t$query), 
         QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
         ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
-        LastProgress = sapply(conf$topics, function(t) {if(length(t$plan)>0) t$plan[[1]]$progress else 0}), 
-        LastRequests = sapply(conf$topics, function(t) {if(length(t$plan)>0) t$plan[[1]]$requests else 0})
+        Progress = sapply(conf$topics, function(t) {if(length(t$plan)>0) mean(unlist(lapply(t$plan, function(p) p$progress))) else 0}), 
+        Requests = sapply(conf$topics, function(t) {if(length(t$plan)>0) sum(unlist(lapply(t$plan, function(p) p$requests))) else 0})
       )
     }
   }

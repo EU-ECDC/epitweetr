@@ -133,7 +133,7 @@ setup_config <- function(
     conf$use_mkl <- temp$use_mkl
     conf$geonames_simplify <- temp$geonames_simplify
   }
-  if(!ignore_topics && exists("props", where = paths)){
+  if(!ignore_topics && exists("topics", where = paths)){
     if(file.exists(paths$topics)) {
       temp = merge_configs(list(temp, jsonlite::read_json(paths$topics, simplifyVector = FALSE, auto_unbox = TRUE)))
     }
@@ -150,7 +150,7 @@ setup_config <- function(
       t
     }
     
-    #Meging topics from config json and topic excel topics if this last one has changed
+    #Merging topics from config json and topic excel topics if this last one has changed
     #Each time a topic is found on file, all its occurrencies will be processed at the same time, to ensure consistent multi query topics updates based on position
     if(exists("df", where = topics)) {
       distinct_topics <- as.list(unique(topics$df$Topic))
@@ -215,7 +215,12 @@ setup_config <- function(
           }
         }
       }
+    } else {
+      #refereshing topics from files if no change is detected to reflect plan progress if any 
+      conf$topics_md5 <- temp$topics_md5 
+      conf$topics <- temp$topics
     }
+
   }
   
   #Getting variables stored on keyring

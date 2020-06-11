@@ -18,8 +18,9 @@ case class StringIterator(it:Iterator[String]) {
 
 object JavaBridge {
   def getSparkSession(cores:Int = 0) = {
-    Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
-    Logger.getLogger("akka").setLevel(Level.OFF)
+    Logger.getLogger("org.apache.spark").setLevel(Level.ERROR)
+    Logger.getLogger("org.apache.hadoop").setLevel(Level.ERROR)
+    Logger.getLogger("akka").setLevel(Level.ERROR)
     val spark = 
       SparkSession.builder()
         .master(s"local[${if(cores == 0) "*" else cores.toString}]")
