@@ -7,6 +7,9 @@ import demy.storage.Storage
 import scala.collection.JavaConverters._
 import java.io.{BufferedWriter, OutputStreamWriter}
 import demy.util.{log => l, util}
+import org.apache.log4j.Logger
+import org.apache.log4j.Level
+
 
 case class StringIterator(it:Iterator[String]) {
   def hasNext = it.hasNext
@@ -15,6 +18,8 @@ case class StringIterator(it:Iterator[String]) {
 
 object JavaBridge {
   def getSparkSession(cores:Int = 0) = {
+    Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
+    Logger.getLogger("akka").setLevel(Level.OFF)
     val spark = 
       SparkSession.builder()
         .master(s"local[${if(cores == 0) "*" else cores.toString}]")
@@ -26,7 +31,7 @@ object JavaBridge {
   }
   def getSparkStorage(spark:SparkSession) = Storage.getSparkStorage
 
-  def df2StdOut(df:Dataset[_], minPartitions:Int = 200):Unit  = { 
+  def df2StdOut(df:Dataset[_]):Unit  = { 
     val out = new OutputStreamWriter(System.out, "UTF-8")
     val ls = System.getProperty("line.separator")
     Some(df)
@@ -36,15 +41,6 @@ object JavaBridge {
           case StructField(name, _, _, _) => col(name) 
         }:_*)
       )
-      .map{df =>
-        val numPart = df.rdd.getNumPartitions 
-        if(numPart < minPartitions) {
-          l.msg(s"increasing partitions from $numPart to $minPartitions before export")
-          df.repartition(minPartitions)
-        } else {
-          df  
-        }
-      }
       .map(df => df.toJSON.toLocalIterator.asScala)
       .get
       .foreach{line => 

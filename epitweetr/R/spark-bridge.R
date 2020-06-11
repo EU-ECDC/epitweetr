@@ -68,7 +68,7 @@ spark_job <- function(args) {
     ,sep = if(.Platform$OS.type == "windows") '\r\n' else '\n'
   )
 
-  message(cmd)
+  #message(cmd)
   system(cmd)
 }
 
@@ -98,7 +98,7 @@ spark_df <- function(args, handler = NULL) {
     )
     ,sep = '\n'
   )
-  message(cmd) 
+  #message(cmd) 
   con <- if(.Platform$OS.type == "windows") {
     t <- tempfile()
     tcmd <- paste(cmd, shQuote(t), sep=" >")

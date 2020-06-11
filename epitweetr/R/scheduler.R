@@ -302,16 +302,18 @@ detect_loop <- function(data_dir = NA) {
   else
     setup_config(data_dir = data_dir)
   register_detect_runner()  
+  last_sleeping_message <- Sys.time() - (conf$schedule_span * 60)
   while(TRUE) {
     # getting tasks to execute 
     tasks <- plan_tasks()
     if(length(tasks[sapply(tasks, function(t) 
         !is.na(t$status) 
-	&& (
-	   t$status %in% c("failed", "running")
-	   || (t$status %in% c("scheduled") && t$scheduled_for <= Sys.time())
-	   ))]
-        )>0) {
+	        && (
+	          t$status %in% c("failed", "running")
+	          || (t$status %in% c("scheduled") && t$scheduled_for <= Sys.time())
+	        ))]
+        )>0) 
+    {
       i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed", "running")) t$order else 999))[[1]] 
 
       if(tasks[[i_next]]$status %in% c("failed", "running")) { 
@@ -319,7 +321,7 @@ detect_loop <- function(data_dir = NA) {
       }
       if(tasks[[i_next]]$status %in% c("failed", "running") && tasks[[i_next]]$failures > 3) {
         tasks[[i_next]]$status = "aborted"
-        tasks[[i_next]]$message = "Cannot continue max number of retries reached"
+        tasks[[i_next]]$message = paste("Max number of retries reached", tasks[[i_next]]$message, sep = "\n")
         save_tasks(tasks)
         stop("Cannot continue mas number of retries reached")
       }
@@ -343,6 +345,9 @@ detect_loop <- function(data_dir = NA) {
 
       if(tasks[[i_next]]$status == "success") tasks[[i_next]]$failures = 0
       save_tasks(tasks)
+    } else if(last_sleeping_message + (conf$schedule_span * 60) < Sys.time()){
+      message("Nothing else todo. Going to sleep each 5 seconds")
+      last_sleeping_message <- Sys.time()
     }
     setup_config(data_dir = conf$data_dir)
     # To remove

@@ -497,10 +497,12 @@ epitweetr_app <- function(data_dir = NA) {
     shiny::observe({
       shiny::invalidateLater(10000)
       refresh_config_data(cd, list("tasks", "topics"))
+      cd$process_refresh_flag(Sys.time())
     }) 
     output$search_running = shiny::renderText({
       # Adding a dependency to task refresh
       cd$tasks_refresh_flag()
+      cd$process_refresh_flag()
       paste(
         "<span",
         " style='color:", if(cd$search_running) "#348017'" else "#F75D59'",
@@ -519,6 +521,7 @@ epitweetr_app <- function(data_dir = NA) {
     output$detect_running <- shiny::renderText({
       # Adding a dependency to task refresh
       cd$tasks_refresh_flag()
+      cd$process_refresh_flag()
       paste(
         "<span",
         " style='color:", if(cd$detect_running) "#348017'" else "#F75D59'",
@@ -633,6 +636,9 @@ epitweetr_app <- function(data_dir = NA) {
       # Adding dependency with lang refresh
       cd$langs_refresh_flag()
       DT::datatable(cd$langs)
+    })
+    shiny::observe({
+      
     }) 
     
     output$conf_lang_download <- shiny::downloadHandler(
@@ -681,15 +687,20 @@ epitweetr_app <- function(data_dir = NA) {
     output$config_topics <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
       # Adding a dependency to topics refresh
-      cd$topics_refresh_flag()
       cd$topics %>%
         DT::datatable(
           colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress (last)" = "LastProgress", "Requests (last)" = "LastRequests"),
           filter = "top",
-          escape = TRUE
+          escape = TRUE,
         ) %>%
         DT::formatPercentage(columns = c("Progress (last)"))
     })
+    shiny::observe({
+      # Adding dependency with lang refresh
+      cd$topics_refresh_flag()
+      DT::replaceData(DT::dataTableProxy('config_topics'), cd$topics)
+       
+    }) 
     output$conf_topics_download <- shiny::downloadHandler(
       filename = function() "topics.xlsx",
       content = function(file) { 
@@ -739,6 +750,11 @@ refresh_dashboard_data <- function(e = new.env()) {
 refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks")) {
   # Refreshing configuration
   setup_config(data_dir = conf$data_dir, ignore_properties = TRUE)
+  
+  #Creating the flag for status refredh
+  if(!exists("process_refresh_flag", where = e)) {
+    e$process_refresh_flag <- shiny::reactiveVal()
+  }
 
   # Updating language related fields
   if("langs" %in% limit) {
@@ -783,6 +799,10 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   if("tasks" %in% limit) {
     # Updating the reactive value tasks_refresh to force dependencies invalidation
     update <- FALSE
+    e$detect_running <- is_detect_running() 
+    e$search_running <- is_search_running() 
+    e$search_diff <- Sys.time() - last_search_time()
+
     if(!exists("tasks_refresh_flag", where = e)) {
       e$tasks_refresh_flag <- shiny::reactiveVal()
       update <- TRUE
@@ -792,9 +812,6 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     if(update) {
       if(file.exists(get_tasks_path())) e$tasks_refresh_flag(file.info(get_tasks_path())$mtime)
       e$tasks <- get_tasks() 
-      e$search_running <- is_search_running() 
-      e$search_diff <- Sys.time() - last_search_time()
-      e$detect_running <- is_detect_running() 
       e$geonames_status <- if(in_pending_status(e$tasks$geonames)) "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$geonames$status 
       e$languages_status <- if(in_pending_status(e$tasks$languages))  "pending" else if(is.na(e$tasks$languages$status)) "n/a" else e$tasks$languages$status 
       e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''

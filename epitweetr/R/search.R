@@ -78,8 +78,20 @@ search_topic <- function(plan, query, topic) {
     close(gz)
     got_rows <- is.data.frame(json$statuses) && nrow(json$statuses) > 0
     new_since_id = 
-      if(!is.data.frame(json$statuses)) {bit64::as.integer64(json$search_metadata$since_id_str)  
-      } else {Reduce(function(x, y) if(x < y) x else y, lapply(json$statuses$id_str, function(x) bit64::as.integer64(x) -1 ))}
+      if(!is.data.frame(json$statuses)) {
+        bit64::as.integer64(json$search_metadata$since_id_str)  
+      } else {
+        Reduce(function(x, y) if(x < y) x else y, lapply(json$statuses$id_str, function(x) bit64::as.integer64(x) -1 ))
+      }
+    if(got_rows) {
+      update_file_stats(
+        file = gsub(".gz", "", file_name), 
+        topic = topic,
+        year = year,
+        first_date = min(parse_date(json$statuses$created_at)), 
+        last_date = max(parse_date(json$statuses$created_at)) 
+      )
+    }
     request_finished(plan, got_rows = got_rows, max_id = json$search_metadata$max_id_str, since_id = new_since_id) 
   } else {
     warning(paste("Query too long for API for topic", topic), immediate. = TRUE) 
@@ -88,6 +100,53 @@ search_topic <- function(plan, query, topic) {
   }
 }
 
+#' Updating statistic files with creation date statistics
+update_file_stats <- function(filename, topic, year, first_date, last_date) {
+   stat_dir <- file.path(conf$data_dir, "stats")
+   if(!file.exists(stat_dir)) dir.create(stat_dir)
+   stat_dir <- file.path(stat_dir, year)
+   if(!file.exists(stat_dir)) dir.create(stat_dir)
+   dest <- file.path(stat_dir, filename)
+   now <- Sys.time()
+   #Setting UTC so it can be compares with twitter created dates
+   attr(now, "tzone") <- "UTC"
+   stats <- 
+     if(!file.exists(dest)) 
+       list()
+     else
+       jsonlite::read_json(dest, simplifyVector = FALSE, auto_unbox = TRUE) 
+    #matching record or creating new one
+    found <- FALSE
+    if(length(stats)> 0) { 
+      for(i in 1:length(stats)) {
+        if(stats[[i]]$topic == topic) {
+          found <- TRUE
+          stats[[i]]$collected_to <- now
+          if(stats[[i]]$created_from > first_date) stats[[i]]$created_from <- first_date
+          if(stats[[i]]$created_to < last_date) stats[[i]]$created_to <- last_date
+          break  
+        }
+      }
+    }
+    if(!found) {
+      stats[[length(stats)+1]] <- list(
+        topic = topic,
+        created_from =  first_date,
+        created_to = last_date,
+        collected_from = now,
+        collected_to = now
+      )
+    }
+    jsonlite::write_json(stats, dest, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+}
+
+#' Parse twiter date
+parse_date <- function(str_date) {
+  curLocale <- Sys.getlocale("LC_TIME")
+  on.exit(Sys.setlocale("LC_TIME", curLocale))
+  Sys.setlocale("LC_TIME", "C")
+  strptime(str_date, format = "%a %b %d %H:%M:%S +0000 %Y", tz="UTC")
+}
 
 #' Perform a single page search on twitter API
 twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "recent", count = 100) {

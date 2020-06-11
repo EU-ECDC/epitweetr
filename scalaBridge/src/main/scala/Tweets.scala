@@ -104,7 +104,7 @@ object Tweets {
                    .get
              , parallelism = params.get("parallelism").map(_.toInt)
            )
-         ).map(df => JavaBridge.df2StdOut(df, minPartitions = params.get("parallelism").map(_.toInt).get))
+         ).map(df => JavaBridge.df2StdOut(df))
 
       } else if(command == "extractLocations"){ 
          implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
@@ -270,7 +270,7 @@ object Tweets {
     )
     .map{
       case (df, None) => df
-      case (df, Some(toIgnorePath)) =>
+      case (df, Some(toIgnorePath)) if storage.getNode(toIgnorePath).exists =>
         Some((df.join(spark.read.schema(schemas.toIgnoreSchema).json(toIgnorePath).select(col("id").as("ignore_id")).distinct(), col("id")===col("ignore_id"), "left")
                 .where(col("ignore_id").isNull)
                 .drop("ignore_id")
@@ -283,6 +283,7 @@ object Tweets {
             case (df, None) =>
               df
           }.get
+      case (df, _) => df
     }
     .get
   }
@@ -301,35 +302,29 @@ object Tweets {
     ) 
     (implicit spark:SparkSession, storage:Storage):Unit = {
     storage.ensurePathExists(destPath)
-    val filesDone = (storage.getNode(destPath)
+    val lastGeolocatedDay = (storage.getNode(destPath)
       .list(recursive = true)
       .filter(n => n.path.endsWith(".json.gz") && n.isDirectory)
       .map(_.path.replace("\\", "/"))
       .map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
+      .filter(_.size > 9)
+      .map(_.take(10))
       .distinct
-      .sortWith(_ < _))
+      .sortWith(_ < _)
+      ).last
     
-    val doneButLast = filesDone match {
-      case s if s.isEmpty => Set[String]()
-      case s => s.dropRight(1).toSet
-    }
-    val lastDone = filesDone match {
-      case s if s.isEmpty => None
-      case s => Some(filesDone.last)
-    }
- 
-   
-    val files = storage.getNode(sourcePath)
+    val files = (storage.getNode(sourcePath)
       .list(recursive = true)
       .filter(n => n.path.endsWith(".json.gz"))
       .map(_.path.replace("\\", "/"))
       .map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
-      .filter(p => !doneButLast(p))
+      .filter(p => p.size > 9 && p.take(10) >= lastGeolocatedDay)
       .distinct
       .sortWith(_ < _)
       .toArray
+      )
 
     files.foreach{file => 
       l.msg(s"geolocating tweets for $file") 
@@ -339,10 +334,7 @@ object Tweets {
           , langs=langs
           , parallelism = parallelism
           , pathFilter = Some(s".*${file.replace(".", "\\.")}.*")
-          , ignoreIdsOn = 
-              lastDone
-                .filter(ld => file == ld)
-                .map(f => s"$destPath/${f.take(7)}/$file.json.gz")
+          , ignoreIdsOn = if(file.take(10) == lastGeolocatedDay) Some(s"$destPath/${file.take(7)}/$file.json.gz") else None
           )
           .geolocate(
             textLangCols = textLangCols

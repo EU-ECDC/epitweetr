@@ -34,7 +34,9 @@ pipe_top_words <- function(df, text_col, lang_col, max_words = 1000, con_out, pa
   if(!("tweet_geo_country_code" %in% colnames(df)))
     df$tweet_geo_country_code <- NA
   
-  wc <- {
+  wc <- if(nrow(df)==0) {
+   data.frame(topic = character(), created_date=character(), tweet_geo_country_code=character(), tokens=character(), count=numeric(), original=numeric(), retwets=numeric())
+  } else {
     temp <- Reduce( #Using Language based stop words
       x = lapply(conf$languages, function(l) {(
             df %>% 
