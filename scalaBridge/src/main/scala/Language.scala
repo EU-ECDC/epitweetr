@@ -33,32 +33,29 @@ case class Language(name:String, code:String, vectorsPath:String) {
      this.getVectors().map(_._1).take(200).toSet
    }
 
+   def geoVectors(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
+     val langDico = this.getVectorsDF()
+     langDico.geolocate(Map("word"-> None), geonames = geonames, maxLevDistance= 0, minScore = 10)
+       .where(col("geo_id").isNotNull)
+       .select(lit(1.0).as("label"), col("vector").as("feature"))
+   }
+   def nonGeoVectors(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
+     val langDico = this.getVectorsDF()
+     langDico.geolocate(Map("word"->None), geonames = geonames, maxLevDistance= 0, minScore = 3)
+       .where(col("geo_id").isNull)
+       .select(lit(0.0).as("label"), col("vector").as("feature"))
+   }
    def getGeoLikehoodModel(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
       if(storage.getNode(modelPath).exists 
           && storage.isUnchanged(path = Some(this.vectorsPath), checkPath = Some(s"${this.vectorsPath}.stamp"), updateStamp = false)
-      )
+      ) {
         LinearSVCModel.load(modelPath)
-      else { 
-        val langDico = this.getVectorsDF()
-       
-        val geoVectors = (
-          langDico.geolocate(Map("word"-> None), geonames = geonames, maxLevDistance= 0, minScore = 10)
-            .where(col("geo_id").isNotNull)
-            .select(lit(1.0).as("label"), col("vector").as("feature"))
-            .limit(1000)
-          )
-        val nonGeoVectors = (
-          langDico.geolocate(Map("word"->None), geonames = geonames, maxLevDistance= 0, minScore = 3)
-            .where(col("geo_id").isNull)
-            .select(lit(0.0).as("label"), col("vector").as("feature"))
-            .limit(10000)
-            )
-
+      } else { 
         val model = 
           new LinearSVC()
             .setFeaturesCol("feature")
             .setLabelCol("label")
-        val trainData = geoVectors.union(nonGeoVectors).cache
+        val trainData = geoVectors(geonames).limit(1000).union(nonGeoVectors(geonames).limit(10000)).cache
         val trained = model.fit(trainData)
         trainData.unpersist
         trained.write.overwrite().save(modelPath)
@@ -101,7 +98,7 @@ object Language {
     , vectorsColNames:Seq[String]
     , langCodeColNames:Seq[String]
     , likehoodColNames:Seq[String]
-    , nonVectorScore:Double=0.75
+    , nonVectorScore:Double=0.5
     )(implicit storage:Storage) = {
     implicit val spark = df.sparkSession
     val trainedModels = spark.sparkContext.broadcast(languages.map(l => (l.code -> l.getGeoLikehoodModel(geonames))).toMap)

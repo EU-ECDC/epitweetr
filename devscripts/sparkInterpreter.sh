@@ -23,9 +23,13 @@ send "val english = Language(name= \"English\", code = \"en\", vectorsPath = \"'
 send "val spanish = Language(name= \"Spanish\", code = \"es\", vectorsPath = \"'$EPI_HOME'/languages/es.txt.gz\")\r"
 send "val portuguese = Language(name= \"Portuguese\", code = \"pt\", vectorsPath = \"'$EPI_HOME'/languages/pt.txt.gz\")\r"
 send "val langs = Seq(portuguese, spanish, english, french)\r"
-send "val langIndex = '$EPI_HOME'/geo/lang_vectors.index\r"
-send "val pathFilter = Seq(\".*2020\\\\.03\\\\.18.*\", \".*2020\\\\.03\\\\.19.*\", \".*2020\\\\.03\\\\.20.*\", \".*2020\\\\.03\\\\.21.*\", \".*2020\\\\.03\\\\.22.*\", \".*2020\\\\.03\\\\.23.*\", \".*2020\\\\.03\\\\.24.*\", \".*2020\\\\.03\\\\.25.*\", \".*2020\\\\.03\\\\.26.*\", \".*2020\\\\.03\\\\.27.*\", \".*2020\\\\.03\\\\.28.*\", \".*2020\\\\.03\\\\.29.*\")\r"
-send "//val df = Tweets.getTweets(tweetPath = \"'$EPI_HOME'/tweets/search\", geoPath = \"'$EPI_HOME'/tweets/geolocated\", pathFilter = pathFilter, columns = Seq(\"id\", \"topic\"), langs=Seq(french, spanish, english), parallelism = Some(8) )\r"
+send "val langIndex = \"'$EPI_HOME'/geo/lang_vectors.index\"\r"
+send "import Geonames.Geolocate\r"
+send "val tweetPath=\"'$EPI_HOME'/tweets/search/SARS/2020/2020.06.10.00001.json.gz\"\r" 
+send "val texts = Tweets.getJsonTweets(path=tweetPath).select(\"text\", \"lang\").where(col(\"lang\").isin(langs.map(_.code):_*))\r"
+send "val geoloc = texts.geolocate(textLangCols = Map(\"text\"->Some(\"lang\")), minScore = 0, nGram = 3, tokenizerRegex = Tweets.twitterSplitter, langs = langs, geonames = geonames, langIndexPath = langIndex)\r"
+send "//geoloc.select(\"text\", \"lang\", \"text_geolike\").map(r => (r.getAs\[String\](\"text\").split(Tweets.twitterSplitter).filter(_.size>0).zip(r.getAs\[Seq\[Double\]\](\"text_geolike\").map(BigDecimal(_).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble)))).show(100, false)\r"
+send "//geoloc.select(\"text\", \"lang\", \"text_geolike\").map(r => (r.getAs\[String\](\"text\").split(Tweets.twitterSplitter).filter(_.size>0).zip(r.getAs\[Seq\[Double\]\](\"text_geolike\").map(BigDecimal(_).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble)))).as\[Seq\[(String, Double)\]\].map(s => (s.flatMap{case(word, score) if score > 0.75 => Some(word) case _ => None}, s.flatMap{case(word, score) if score < 0.75 => Some(word) case _ =>None})).toDF(\"Place\", \"Other\").show(50, false)\r"
 interact'
 
 cd ..

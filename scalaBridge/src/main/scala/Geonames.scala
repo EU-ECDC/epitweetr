@@ -25,6 +25,7 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , reuseGeoIndex:Boolean = true
     , langIndexPath:String = null
     , reuseLangIndex:Boolean = true
+    , strategy:String = "demy.mllib.index.NgramStrategy"
   )(implicit spark:SparkSession, storage:Storage) = {
     import spark.implicits._
     this.geolocateDS(
@@ -46,6 +47,7 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
       , reuseGeoIndex = reuseGeoIndex
       , langIndexPath = langIndexPath
       , reuseLangIndex = reuseLangIndex
+      , strategy = strategy
     )
   }
   
@@ -60,6 +62,7 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , reuseGeoIndex:Boolean = true
     , langIndexPath:String = null
     , reuseLangIndex:Boolean = true
+    , strategy:String = "demy.mllib.index.NgramStrategy"
     )(implicit storage:Storage):DataFrame  = {
       implicit val spark = ds.sparkSession
       import spark.implicits._
@@ -107,8 +110,8 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
             , termWeightsColumnNames = termWeightsPadded
 //            , strategy="demy.mllib.index.StandardStrategy"
             , stopWords = stopWords
-            , strategy="demy.mllib.index.NgramStrategy"
-            , strategyParams=Map(("nNgrams", nGram.toString))
+            , strategy = strategy
+            , strategyParams=if(strategy == "demy.mllib.index.NgramStrategy") Map(("nNgrams", nGram.toString)) else Map[String, String]()
         )
       }
       .map(df => 
@@ -306,6 +309,7 @@ object Geonames {
       , reuseGeoIndex:Boolean = true
       , langIndexPath:String = null
       , reuseLangIndex:Boolean = true
+      , strategy:String = "demy.mllib.index.NgramStrategy"
     ) (implicit storage:Storage) = {
         geonames.geolocateDS(
           ds = ds
@@ -318,6 +322,7 @@ object Geonames {
           , reuseGeoIndex = reuseGeoIndex
           , langIndexPath = langIndexPath
           , reuseLangIndex = reuseLangIndex
+          , strategy = strategy
         ) 
     }
   }
