@@ -1,13 +1,33 @@
 Package: epitweetr
 Title: Capture and analyze tweets
 Version: 0.0.1
-Authors@R: 
+Authors@R: c( 
     person(given = "Francisco",
            family = "Orchard",
-           role = c("aut", "cre"),
+           role = c("aut", "ctr"),
            email = "f.orchard@epiconcept.fr",
-           comment = structure("0000-0001-5793-3301", .Names = "ORCID"))
-Description: The epitweetr package allows you to automatically monitor trends of tweets by time, place and topic, in order to detect signals of a number of tweets that exceed what is expected. The epitweetr package was designed to do this for communicable diseases and other health topics, but could be used for other fields as well.
+           comment = c(structure("0000-0001-5793-3301", .Names = "ORCID")), "Author of the package and original code"),
+     person(given = "Laura",
+            family = "Espinosa",
+            role = c("aut", "cre", "fnd"),
+            email = "laura.espinosa@ecdc.europa.eu",
+            comment = "Project manager, author of the design and concept of the package, and package maintainer"),
+     person(given = "Ariana",
+            family = "Wijermans",
+            role = "ctb",
+            email = "ariana.wijermans@ecdc.europa.eu",
+            comment = "Contributor to the design and concept of the package"),
+     person(given = "Thomas",
+            family = "Mollet",
+            role = c("ctb", "fnd"),
+            email = "thomas.mollet@ecdc.europa.eu",
+            comment = "Business owner of the project, and contributor to the design and concept of the package"),
+     person(given = "Adrian",
+            family = "Prodan",
+            role = "ctb",
+            email = "adrian.prodan@ecdc.europa.eu")
+            )
+Description: The epitweetr package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats through the detection of signals or unusual increase of the number of tweets for that time, place and topic. The epitweetr package was designed to focus on infectious diseases and other related health topics, and it can be used for other fields as well modifying the topics.
 License: European Union Public License 1.2 http://www.eupl.eu
 Encoding: UTF-8
 LazyData: true
