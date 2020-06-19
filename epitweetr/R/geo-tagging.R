@@ -304,6 +304,16 @@ get_country_code_map <- function() {
   return(setNames(sapply(countries, function(r) r$name), sapply(countries, function(r) r$code)))
 }
 
+#' Get country codes by name
+#' usage 
+#' map <- get_country_codes_by_name()
+#' map[["Asia"]] 
+get_country_codes_by_name <- function() {
+  regions <- get_country_items()  
+  return(setNames(sapply(regions, function(r) r$code), sapply(regions, function(r) r$name)))
+}
+
+
 #' Get country indexes
 #' usage 
 #' map <- get_country_index_map()

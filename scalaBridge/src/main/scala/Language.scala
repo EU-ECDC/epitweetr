@@ -3,16 +3,17 @@ package org.ecdc.twitter
 import demy.storage.{Storage, WriteMode, FSNode}
 import demy.mllib.text.Word2VecApplier
 import demy.mllib.index.implicits._
+import demy.mllib.linalg.implicits._
 import demy.util.{log => l, util}
 import org.apache.spark.sql.{SparkSession, Column, DataFrame, Row, Dataset}
 import org.apache.spark.sql.functions.{col, lit, udf, concat}
 import org.apache.spark.sql.types._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType 
 import org.apache.spark.ml.linalg.{Vectors, DenseVector, Vector=>MLVector}
-
+import scala.collection.mutable.HashMap
 import org.apache.spark.ml.classification.{LinearSVC, LinearSVCModel}
 import java.lang.reflect.Method
-import Geonames.Geolocate 
+import Geonames.Geolocate
 
 case class Language(name:String, code:String, vectorsPath:String) {
    val modelPath = s"$vectorsPath.model"
@@ -33,17 +34,26 @@ case class Language(name:String, code:String, vectorsPath:String) {
      this.getVectors().map(_._1).take(200).toSet
    }
 
-   def geoVectors(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
-     val langDico = this.getVectorsDF()
-     langDico.geolocate(Map("word"-> None), geonames = geonames, maxLevDistance= 0, minScore = 10)
-       .where(col("geo_id").isNotNull)
-       .select(lit(1.0).as("label"), col("vector").as("feature"))
+   def getGeoVectors(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
+     import spark.implicits._
+     val topVectors  = spark.sparkContext.broadcast(this.getVectorsDF().select("word", "vector").as[(String, MLVector)].take(100000).toMap)
+
+     val geoVec = (
+       geonames
+         .getLocationSample()
+         .map(loc => (loc, loc.split(" ").map(t => topVectors.value.get(t))))
+         .filter{t => t match{ case (loc, vectors) => vectors.forall(!_.isEmpty)}}
+         .map{case(loc, vectors) => (loc, vectors.flatMap(s => s).reduce((v1, v2) => v1.sum(v2)))}
+         .toDF("location", "vector")
+     ) 
+     geoVec 
+       .select(col("location"), lit(1.0).as("label"), col("vector").as("feature"))
    }
-   def nonGeoVectors(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
+   def getNonGeoVectors(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
      val langDico = this.getVectorsDF()
      langDico.geolocate(Map("word"->None), geonames = geonames, maxLevDistance= 0, minScore = 3)
        .where(col("geo_id").isNull)
-       .select(lit(0.0).as("label"), col("vector").as("feature"))
+       .select(col("word"), col("_score_"), lit(0.0).as("label"), col("vector").as("feature"))
    }
    def getGeoLikehoodModel(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
       if(storage.getNode(modelPath).exists 
@@ -55,7 +65,7 @@ case class Language(name:String, code:String, vectorsPath:String) {
           new LinearSVC()
             .setFeaturesCol("feature")
             .setLabelCol("label")
-        val trainData = geoVectors(geonames).limit(1000).union(nonGeoVectors(geonames).limit(10000)).cache
+        val trainData = getGeoVectors(geonames).select("feature", "label").union(getNonGeoVectors(geonames).select("feature", "label").limit(10000)).cache
         val trained = model.fit(trainData)
         trainData.unpersist
         trained.write.overwrite().save(modelPath)

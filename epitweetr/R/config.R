@@ -138,9 +138,7 @@ setup_config <- function(
       temp = merge_configs(list(temp, jsonlite::read_json(paths$topics, simplifyVector = FALSE, auto_unbox = TRUE)))
     }
     #Getting topics from excel topics files if it has changed since las load
-    
     #If user has not ovewritten 
-    
     topics <- {
       t <- list()
       t$md5 <- as.vector(tools::md5sum(topics_path))
@@ -186,43 +184,11 @@ setup_config <- function(
       temp$topics_md5 <- topics$md5
     }
  
-    #Loading topic related infomation on config file if topics have changed
-    if(!exists("topics_md5", where = conf) || conf$topics_md5 != temp$topics_md5) {
-      conf$topics_md5 <- temp$topics_md5 
-      conf$topics <- temp$topics
-  
-      #Copying plans
-      if(length(temp$topics)>0) {
-        for(i in 1:length(temp$topics)) {
-          if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
-            conf$topics[[i]]$plan <- list()
-          }
-          else {
-            conf$topics[[i]]$plan <-  
-            lapply(1:length(temp$topics[[i]]$plan), 
-              function(j) get_plan(
-                expected_end = temp$topics[[i]]$plan[[j]]$expected_end
-                , scheduled_for = temp$topics[[i]]$plan[[j]]$scheduled_for
-                , start_on = temp$topics[[i]]$plan[[j]]$start_on
-                , end_on = temp$topics[[i]]$plan[[j]]$end_on
-                , max_id = temp$topics[[i]]$plan[[j]]$max_id
-                , since_id = temp$topics[[i]]$plan[[j]]$since_id
-                , since_target = temp$topics[[i]]$plan[[j]]$since_target
-                , results_span = temp$topics[[i]]$plan[[j]]$results_span
-                , requests = temp$topics[[i]]$plan[[j]]$requests
-                , progress = temp$topics[[i]]$plan[[j]]$progress
-            ))
-          }
-        }
-      }
-    } else {
-      #refereshing topics from files if no change is detected to reflect plan progress if any 
-      conf$topics_md5 <- temp$topics_md5 
-      conf$topics <- temp$topics
-    }
-
-  }
-  
+    #Loading topic related infomation on config file 
+    conf$topics_md5 <- temp$topics_md5 
+    conf$topics <- temp$topics
+    copy_plans_from(temp)  
+  } 
   #Getting variables stored on keyring
   #Setting up keyring
   if(!ignore_keyring) {
@@ -237,6 +203,33 @@ setup_config <- function(
   }
 }
 
+#' Copying plans from temporary file (non typed) to conf, making sure plans have the right type
+copy_plans_from <- function(temp) {
+  #Copying plans
+  if(length(temp$topics)>0) {
+    for(i in 1:length(temp$topics)) {
+      if(!exists("plan", where = temp$topics[[i]]) || length(temp$topics[[i]]$plan) == 0) {
+        conf$topics[[i]]$plan <- list()
+      }
+      else {
+        conf$topics[[i]]$plan <- ( 
+        lapply(1:length(temp$topics[[i]]$plan), 
+          function(j) get_plan(
+            expected_end = temp$topics[[i]]$plan[[j]]$expected_end
+            , scheduled_for = temp$topics[[i]]$plan[[j]]$scheduled_for
+            , start_on = temp$topics[[i]]$plan[[j]]$start_on
+            , end_on = temp$topics[[i]]$plan[[j]]$end_on
+            , max_id = temp$topics[[i]]$plan[[j]]$max_id
+            , since_id = temp$topics[[i]]$plan[[j]]$since_id
+            , since_target = temp$topics[[i]]$plan[[j]]$since_target
+            , results_span = temp$topics[[i]]$plan[[j]]$results_span
+            , requests = temp$topics[[i]]$plan[[j]]$requests
+            , progress = temp$topics[[i]]$plan[[j]]$progress
+        )))
+      }
+    }
+  }
+}
 get_properties_path <- function() file.path(conf$data_dir, "properties.json")
 get_plans_path <- function() file.path(conf$data_dir, "topics.json")
 
@@ -272,6 +265,14 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp <- list()
     temp$topics <- conf$topics
     temp$topics_md5 <- conf$topics_md5
+    # Transforming Int64 to string to ensure not loosing precision on read
+    for(i in 1:length(conf$topics)) {         
+      for(j in 1:length(conf$topics[[i]]$plan)) {
+        temp$topics[[i]]$plan[[j]]$since_id = as.character(conf$topics[[i]]$plan[[j]]$since_id)
+        temp$topics[[i]]$plan[[j]]$max_id = as.character(conf$topics[[i]]$plan[[j]]$max_id)
+        temp$topics[[i]]$plan[[j]]$since_target = as.character(conf$topics[[i]]$plan[[j]]$since_target)
+      }
+    }
     jsonlite::write_json(temp, get_plans_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
 }

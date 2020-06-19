@@ -14,7 +14,7 @@ import Language.LangTools
 import Geonames.Geolocate
  
 object Tweets {
-  val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+|RT"
+  val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+|RT|via|vía"
   def main(args: Array[String]): Unit = {
     val cmd = Map(
       "getTweets" -> Set("tweetPath", "geoPath", "pathFilter", "columns", "groupBy", "filterBy", "sortBy", "sourceExpressions", "langCodes", "langNames", "langPaths",  "parallelism")
@@ -52,6 +52,7 @@ object Tweets {
              , limit = params.get("limit").get.toInt
              , full = params.get("full").map(_.toBoolean).getOrElse(false)
              , parallelism = params.get("parallelism").map(_.toInt)
+             , strategy = "demy.mllib.index.PredictStrategy" 
            )
          ).map(df => JavaBridge.df2StdOut(df))
       } else if(command == "getTweets") {
@@ -463,6 +464,7 @@ object Tweets {
     , limit:Int
     , full:Boolean
     , parallelism:Option[Int]
+    , strategy:String = "demy.mllib.index.PredictStrategy"
   )(implicit spark:SparkSession, storage:Storage)  = {
     Some(
       Tweets.getJsonTweets(path = tweetPath, pathFilter = pathFilter, parallelism = parallelism)
@@ -481,6 +483,7 @@ object Tweets {
           , langs = langs
           , geonames = geonames
           , langIndexPath = langIndexPath
+          , strategy = strategy
         )
         .select(
           (

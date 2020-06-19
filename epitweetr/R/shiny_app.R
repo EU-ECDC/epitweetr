@@ -12,6 +12,9 @@ epitweetr_app <- function(data_dir = NA) {
   cd <- refresh_config_data()
 
   # Defining dashboard page UI
+  ################################################
+  ######### DASHBOARD PAGE #######################
+  ################################################
   dashboard_page <- 
     shiny::fluidPage(
           shiny::fluidRow(
@@ -48,7 +51,7 @@ epitweetr_app <- function(data_dir = NA) {
                   shiny::fluidRow(
                     shiny::column(1, shiny::downloadButton("download_line_data", "data")),
                     shiny::column(1, shiny::downloadButton("export_line", "image"))
-		  ),
+		              ),
                   plotly::plotlyOutput("line_chart")
                 )
               )
@@ -57,19 +60,45 @@ epitweetr_app <- function(data_dir = NA) {
                   shiny::fluidRow(
                     shiny::column(3, shiny::downloadButton("download_topword_data", "data")),
                     shiny::column(3, shiny::downloadButton("export_topword", "image"))
-		  ),
+		              ),
                   plotly::plotlyOutput("topword_chart")
                 )
                 , shiny::column(6, 
                   shiny::fluidRow(
                     shiny::column(3, shiny::downloadButton("download_map_data", "data")),
                     shiny::column(3, shiny::downloadButton("export_map", "image"))
-		  ),
+		              ),
                   shiny::plotOutput("map_chart")
                 )
               ))
           )) 
+  # Defining alerts page UI
+  ################################################
+  ######### ALERTS PAGE ##########################
+  ################################################
+  alerts_page <- 
+    shiny::fluidPage(
+          shiny::fluidRow(
+            shiny::column(3, 
+              ################################################
+              ######### ALERTS FILTERS #######################
+              ################################################
+              shiny::selectInput("alert_topics", label = shiny::h4("Topics"), multiple = FALSE, choices = d$topics),
+              shiny::selectInput("alert_countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
+              shiny::dateRangeInput("alert_period", label = shiny::h4("Detection date"), start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
+            ), 
+            shiny::column(9, 
+              ################################################
+              ######### ALERTS TABLE #########################
+              ################################################
+              shiny::h3("Generated Alerts"),
+              DT::dataTableOutput("alerts_df")
+          ))
+  ) 
   # Defining configuration
+  ################################################
+  ######### CONFIGURATION PAGE####################
+  ################################################
   config_page <- 
     shiny::fluidPage(
       shiny::fluidRow(
@@ -202,6 +231,7 @@ epitweetr_app <- function(data_dir = NA) {
   ui <- 
     shiny::navbarPage("epitweetr"
                       , shiny::tabPanel("Dashboard", dashboard_page)
+                      , shiny::tabPanel("Alerts", alerts_page)
                       , shiny::tabPanel("Configuration", config_page)
     )
   # Defining line chart from shiny app filters
@@ -724,9 +754,8 @@ epitweetr_app <- function(data_dir = NA) {
 
 #' Get default data for dashoard
 refresh_dashboard_data <- function(e = new.env()) {
-  dfs <- get_aggregates("country_counts")
   e$topics <- {
-    codes <- c("",unique(dfs$topic))
+    codes <- unique(c("", sapply(conf$topics, function(t) t$topic)))
     names <- stringr::str_replace_all(codes, "%20", " ")
     names <- firstup(names)
     sort(setNames(codes, names))
@@ -734,14 +763,16 @@ refresh_dashboard_data <- function(e = new.env()) {
   e$countries <- {
     regions <- get_country_items()
     setNames(1:length(regions), sapply(regions, function(r) r$name))   
-  } 
-  e$date_min <- strftime(as.Date(min(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
-  e$date_max <- strftime(as.Date(max(dfs$created_date), origin ='1970-01-01'), format = "%Y-%m-%d")
-  e$date_start <- 
-    if(max(dfs$created_date) - min(dfs$created_date) < 90) 
+  }
+  agg_dates <- get_aggregated_period("country_counts") 
+  e$date_min <- strftime(agg_dates$first, format = "%Y-%m-%d")
+  e$date_max <- strftime(agg_dates$last, format = "%Y-%m-%d")
+  e$date_start <- ( 
+    if(agg_dates$last - agg_dates$first < 30)
       e$date_min 
-  else 
-    strftime(as.Date(max(dfs$created_date), origin ='1970-01-01') - 90, format = "%Y-%m-%d")
+    else 
+      strftime(agg_dates$last - 30, format = "%Y-%m-%d")
+  )
   e$date_end <- e$date_max
   return(e)
 }

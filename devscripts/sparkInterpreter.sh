@@ -27,7 +27,7 @@ send "val langIndex = \"'$EPI_HOME'/geo/lang_vectors.index\"\r"
 send "import Geonames.Geolocate\r"
 send "val tweetPath=\"'$EPI_HOME'/tweets/search/SARS/2020/2020.06.10.00001.json.gz\"\r" 
 send "val texts = Tweets.getJsonTweets(path=tweetPath).select(\"text\", \"lang\").where(col(\"lang\").isin(langs.map(_.code):_*))\r"
-send "val geoloc = texts.geolocate(textLangCols = Map(\"text\"->Some(\"lang\")), minScore = 0, nGram = 3, tokenizerRegex = Tweets.twitterSplitter, langs = langs, geonames = geonames, langIndexPath = langIndex)\r"
+send "//val geoloc = texts.geolocate(textLangCols = Map(\"text\"->Some(\"lang\")), minScore = 0, nGram = 3, tokenizerRegex = Tweets.twitterSplitter, langs = langs, geonames = geonames, langIndexPath = langIndex)\r"
 send "//geoloc.select(\"text\", \"lang\", \"text_geolike\").map(r => (r.getAs\[String\](\"text\").split(Tweets.twitterSplitter).filter(_.size>0).zip(r.getAs\[Seq\[Double\]\](\"text_geolike\").map(BigDecimal(_).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble)))).show(100, false)\r"
 send "//geoloc.select(\"text\", \"lang\", \"text_geolike\").map(r => (r.getAs\[String\](\"text\").split(Tweets.twitterSplitter).filter(_.size>0).zip(r.getAs\[Seq\[Double\]\](\"text_geolike\").map(BigDecimal(_).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble)))).as\[Seq\[(String, Double)\]\].map(s => (s.flatMap{case(word, score) if score > 0.75 => Some(word) case _ => None}, s.flatMap{case(word, score) if score < 0.75 => Some(word) case _ =>None})).toDF(\"Place\", \"Other\").show(50, false)\r"
 interact'

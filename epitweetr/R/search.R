@@ -25,7 +25,6 @@ search_loop <-  function(data_dir = NA) {
 
     #calculating the minimum number of requets those plans will be executed 
     min_requests <- Reduce(min, lapply(1:length(conf$topics), function(i) if(!is.null(next_plans[[i]])) next_plans[[i]]$request else .Machine$integer.max))
-    
     #performing search for each topic with ranking = 1
     for(i in 1:length(conf$topics)) { 
       for(j in 1:length(conf$topics[[i]]$plan)) { 
@@ -51,7 +50,7 @@ search_topic <- function(plan, query, topic) {
  
   # Getting the last file matching the pattern
   files <- sort(list.files(path = dir, pattern = file_prefix))
-  file_name <- 
+  file_name <- (
     if(length(files) == 0) paste(file_prefix, formatC(1, width = 5, format = "d", flag = "0"),"json.gz",  sep = ".")
     else {
       #If last file matching pattern is smaller than 100MB we keep adding to the same file else a new incremented file is created
@@ -67,7 +66,7 @@ search_topic <- function(plan, query, topic) {
           paste(c(parts[1:length(parts)-1], formatC(as.integer(parts[[length(parts)]])+1, width = 5, format = "d", flag = "0"), "json.gz"), collapse = ".")
       }
     } 
- 
+  )
   dest <- paste(conf$data_dir, "tweets", "search", topic, year, file_name, sep = "/")
   if(nchar(query)< 400) {
     resp <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target)

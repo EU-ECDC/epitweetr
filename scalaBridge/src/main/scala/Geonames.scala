@@ -63,6 +63,7 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , langIndexPath:String = null
     , reuseLangIndex:Boolean = true
     , strategy:String = "demy.mllib.index.NgramStrategy"
+    , stopWords:Seq[String]=Seq[String]()
     )(implicit storage:Storage):DataFrame  = {
       implicit val spark = ds.sparkSession
       import spark.implicits._
@@ -82,7 +83,7 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
         .map{df:DataFrame =>
           val geoTexts = textLangCols.toSeq.map{case (textCol, oLang) => col(textCol)} 
           val termWeightsCols = textLangCols.toSeq.map{case (textCol, oLang) => oLang.map(lang => s"${textCol}_geolike")}
-          val stopWords = langs.flatMap(l => l.getStopWords).toSet
+          val sWords = langs.flatMap(l => l.getStopWords).toSet ++ stopWords.toSet
         
           val termWeightsPadded = geoTexts.zipWithIndex.map{case (col, i) => if(termWeightsCols.size > i) termWeightsCols(i) else None}
           df.luceneLookups(
@@ -109,7 +110,7 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
             , boostAcronyms = true
             , termWeightsColumnNames = termWeightsPadded
 //            , strategy="demy.mllib.index.StandardStrategy"
-            , stopWords = stopWords
+            , stopWords = sWords
             , strategy = strategy
             , strategyParams=if(strategy == "demy.mllib.index.NgramStrategy") Map(("nNgrams", nGram.toString)) else Map[String, String]()
         )
@@ -294,6 +295,13 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
 
     }
   } 
+  def getLocationSample()(implicit spark:SparkSession, storage:Storage)= {
+    import spark.implicits._
+    this.getDataset().where(col("geo_type")==="PCLI").select(explode(split(col("alias"), ",")).as("alias"))
+      .union(this.getDataset().where(col("geo_type")==="PPLC").select(explode(split(col("alias"), ",")).as("alias")))
+      .union(this.getDataset().where(col("geo_type")=!="PPLC" && col("geo_type")=!="PCLI").sample(1.0).limit(10000).select(explode(split(col("alias"), ",")).as("alias")))
+      .as[String]
+  }
 }
 
 object Geonames {
@@ -310,6 +318,7 @@ object Geonames {
       , langIndexPath:String = null
       , reuseLangIndex:Boolean = true
       , strategy:String = "demy.mllib.index.NgramStrategy"
+      , stopWords:Seq[String]=Seq[String]()
     ) (implicit storage:Storage) = {
         geonames.geolocateDS(
           ds = ds
@@ -323,6 +332,7 @@ object Geonames {
           , langIndexPath = langIndexPath
           , reuseLangIndex = reuseLangIndex
           , strategy = strategy
+          , stopWords = stopWords
         ) 
     }
   }

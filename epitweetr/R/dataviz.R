@@ -13,8 +13,8 @@ trend_line <- function(
   topic
   , countries=c(1)
   , type_date="created_date"
-  , date_min="1900-01-01"
-  , date_max="2100-01-01"
+  , date_min=as.Date("1900-01-01")
+  , date_max=as.Date("2100-01-01")
   , with_retweets = FALSE
   , location_type = "tweet"
   , alpha = 0.025
@@ -22,91 +22,26 @@ trend_line <- function(
   , bonferroni_correction = FALSE
   ){
   #Importing pipe operator
-  df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
-  df <- trend_line_prepare(df,topic,countries, type_date, date_min, date_max, with_retweets, location_type, alpha, no_historic, bonferroni_correction)
+  df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min-no_historic-2, date_max)))
+  df <- 
+    calculate_tweet_alerts(
+      df = df,
+      topic = topic,
+      countries = countries, 
+      date_type = type_date, 
+      date_min = date_min, 
+      date_max = date_max, 
+      with_retweets = with_retweets, 
+      location_type = location_type, 
+      alpha = alpha, 
+      no_historic = no_historic, 
+      bonferroni_correction = bonferroni_correction
+    )
+  if(nrow(df)>0) df$topic <- firstup(stringr::str_replace_all(topic, "%20", " "))
   plot_trendline(df,countries,topic,date_min,date_max)
 }
 
 
-#Treat data before output
-#' Title
-#'
-#' @param df 
-#' @param s_topic 
-#' @param date 
-#' @param geo_country_code 
-#' @param s_country 
-#' @param date_min 
-#' @param date_max 
-#' @export
-trend_line_prepare <- function(
-    df
-    , topic
-    , countries = c(1)
-    , date_type = c("created_date")
-    , date_min = as.Date("1900-01-01")
-    , date_max = as.Date("2100-01-01")
-    , with_retweets = FALSE
-    , location_type = "tweet" 
-    , alpha = 0.025
-    , no_historic = 7 
-    , bonferroni_correction = FALSE
-    )
-{
-  #Importing pipe operator
-  `%>%` <- magrittr::`%>%` 
-
-  # Getting regios details
-  regions <- get_country_items()
-  
-  df$known_users <- df$known_original
-  # Adding retwets if requested
-  if(with_retweets){
-    df$tweets <- ifelse(is.na(df$retweets), 0, df$retweets) + ifelse(is.na(df$tweets), 0, df$tweets)
-    df$known_users <- df$known_retweets + df$known_original
-  }
-  #Setting world as region if no region is selected
-  if(length(countries)==0) countries = c(1)
-
-  series <- lapply(1:length(countries), function(i) {
-    bonferroni_m <- 
-      if(bonferroni_correction) {
-        length(regions[unlist(lapply(regions, function(r) r$level == regions[[ countries[[i]] ]]$level))])
-      } else 1
-    alerts <- 
-      get_alerts(
-	      df = df,
-        topic = topic, 
-        country_codes = regions[[countries[[i]]]]$codes,
-	      country_code_cols = if(location_type == "tweet") "tweet_geo_country_code" else if(location_type == "user") "user_geo_country_code" else c("tweet_geo_country_code", "user_geo_country_code"),
-        known_user_col = "known_users",
-        start = as.Date(date_min), 
-        end = as.Date(date_max), 
-        no_historic=no_historic, 
-        alpha=alpha,
-        bonferroni_m = bonferroni_m
-      )
-    alerts$topic <- firstup(stringr::str_replace_all(topic, "%20", " "))
-    alerts <- dplyr::rename(alerts, date = reporting_date) 
-    alerts <- dplyr::rename(alerts, number_of_tweets = count) 
-    alerts$date <- as.Date(alerts$date, origin = '1970-01-01')
-    alerts$country <- regions[[countries[[i]]]]$name
-    alerts$known_ratio = alerts$known_users / alerts$number_of_tweets
-    alerts
-  })
-
-  df <- Reduce(x = series, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
-  if(date_type =="created_weeknum"){
-    df <- df %>% 
-      dplyr::group_by(week = strftime(date, "%G%V"), topic, country) %>% 
-      dplyr::summarise(c = sum(number_of_tweets), a = max(alert), d = min(date), ku = sum(known_users), kr = sum(known_users)/sum(number_of_tweets), l = 0) %>% 
-      dplyr::ungroup() %>% 
-      dplyr::select(d , c, ku, a, l, topic, country, kr) %>% 
-      dplyr::rename(date = d, number_of_tweets = c, alert = a, known_users = ku, known_ratio = kr, limit = l)
-  }
-  return(df)
-  
-}
 
 #' Plot trend_line
 #'
@@ -148,13 +83,39 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
     ggplot2::ylab('Number of tweets') +
     ggplot2::scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
     ggplot2::expand_limits(y = 0) +
-    ggplot2::scale_x_date(date_labels = "%Y-%m-%d",
-                          expand = c(0, 0),
-                          breaks = function(x) {
-			    days <- as.numeric(max(x) - min(x))
-			    if(days < 15) seq.Date(from = min(x), to = max(x), by = "1 days")
-			    else if(days %% 7 == 0) seq.Date(from = min(x), to = max(x), by = "7 days")
-			    else c(seq.Date(from = min(x), to = max(x), by = "7 days"), max(x))
+    ggplot2::scale_x_date(
+      date_labels = "%Y-%m-%d",
+      expand = c(0, 0),
+      breaks = function(x) {
+			    # custom logic for x axis
+          days <- as.numeric(max(x) - min(x))
+          weeks <- days / 7
+          years <- days / 365
+          # One label per day if period is less or equal then 15 days
+			    if(days < 15) {
+            seq.Date(from = min(x), to = max(x), by = "1 days")
+          # One label per day of week of first day in period and one for last day in period if period is between 16 days and 20 weeks
+			    #  - Case for period ending on same day of week than period start 
+          } else if(days %% 7 == 0 && weeks <= 10) {
+            seq.Date(from = min(x), to = max(x), by = "7 days")
+			    #  - Case for period ending on same different of week than period start (last day should be added
+			    } else if(weeks <= 20) {
+            c(seq.Date(from = min(x), to = max(x), by = "7 days"), max(x))
+          # One label per month for day of month in period start if period is less or equal to 2 years but more than 20 weeks
+			    #  - Case for period ending on different day of month than period start 
+          } else if(strftime(min(x), format= "%d") != strftime(max(x), format= "%d") && years <=2) {
+            c(seq.Date(from = min(x), to = max(x), by = "1 month"), max(x))
+          } else if(years <=2) {
+			    #  - Case for period ending on same day of month than period start (last day should be added
+            seq.Date(from = min(x), to = max(x), by = "1 month")
+          # One label per year for day of year in period start if period is more than 2 years
+			    #  - Case for period ending on different day of year than period start 
+          } else if(strftime(min(x), format= "%m-%d") != strftime(max(x), format= "%m-%d")) {
+            c(seq.Date(from = min(x), to = max(x), by = "1 year"), max(x))
+          } else { 
+			    #  - Case for period ending on same day of month than period start (last day should be added
+            seq.Date(from = min(x), to = max(x), by = "1 year")
+          }
 			  }
     ) +
     ggplot2::theme_classic(base_family = get_font_family()) +
