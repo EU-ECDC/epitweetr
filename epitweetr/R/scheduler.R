@@ -261,13 +261,7 @@ plan_tasks <-function(statuses = list()) {
           tasks[[i]]$scheduled_for <- now + (i - 1)/1000
         } else if(tasks[[i]]$end_on >= tasks[[i]]$scheduled_for) {
           # the last schedule was already executed a new schedule has to be set
-          span <- conf$schedule_span
-          start_hour <- conf$schedule_start_hour
-          per_day <- as.integer(24 * 60/span)
-          # calculating possible next slot for
-          hour_slots <- sort((c(0:(per_day-1)) * (span/60) + start_hour) %% 24)
-          hour_slots <- c(hour_slots, hour_slots[[1]] + 24) #This adding first slot of next day
-          day_slots <- hour_slots * 60 * 60 + (as.POSIXlt(as.Date(tasks[[i]]$scheduled_for)))
+          day_slots <- get_task_day_slots(tasks[[i]])
           next_slot <- day_slots[day_slots > tasks[[i]]$scheduled_for][[1]]
           #if next slot is in future set it. If it is in past, set now
           tasks[[i]]$scheduled_for <- if(next_slot > now) next_slot else now + (i - 1)/1000
@@ -283,6 +277,17 @@ plan_tasks <-function(statuses = list()) {
     tasks[sapply(tasks, function(t) t$status %in% statuses)]
 }
 
+#' get day slots
+get_task_day_slots <- function(task) {
+  span <- conf$schedule_span
+  start_hour <- conf$schedule_start_hour
+  per_day <- as.integer(24 * 60/span)
+  # calculating possible next slot for
+  hour_slots <- sort((c(0:(per_day-1)) * (span/60) + start_hour) %% 24)
+  hour_slots <- c(hour_slots, hour_slots[[1]] + 24) #This adding first slot of next day
+  day_slots <- hour_slots * 60 * 60 + (as.POSIXlt(as.Date(task$scheduled_for)))
+  day_slots
+}
 #' saves the provided task lists to the data directory.
 #'
 #' @export

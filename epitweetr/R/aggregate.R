@@ -178,7 +178,11 @@ get_aggregated_period <- function(dataset) {
    first_df <- readRDS(first_file)
    last_file <- agg_files[[length(agg_files)]]
    last_df <- readRDS(last_file)
-   last_hour <- max(strptime(paste(strftime(last_df$created_date, format = "%Y-%m-%d"), " ", last_df$created_hour, ":00:00", sep=""), format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+   last_hour <- 
+     if(dataset == "country_counts") 
+       max(strptime(paste(strftime(last_df$created_date, format = "%Y-%m-%d"), " ", last_df$created_hour, ":00:00", sep=""), format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+     else
+       max(strptime(paste(strftime(last_df$created_date, format = "%Y-%m-%d"), " ", "00:00:00", sep=""), format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
    list(
      first = min(first_df$created_date), 
      last = as.Date(last_hour),

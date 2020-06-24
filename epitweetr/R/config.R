@@ -88,6 +88,12 @@ get_empty_config <- function(data_dir) {
   ret$alert_history <- 7
   ret$use_mkl <- FALSE
   ret$geonames_simplify <- TRUE
+  ret$smtp_host <- ""
+  ret$smtp_port <- 25
+  ret$smtp_from <- ""
+  ret$smtp_login <- ""
+  ret$smtp_password <- ""
+  ret$smtp_insecure <- FALSE
   return(ret)
 }
 
@@ -132,6 +138,11 @@ setup_config <- function(
     conf$alert_history <- temp$alert_history
     conf$use_mkl <- temp$use_mkl
     conf$geonames_simplify <- temp$geonames_simplify
+    conf$smtp_host <- temp$smtp_host
+    conf$smtp_port <- temp$smtp_port
+    conf$smtp_from <- temp$smtp_from
+    conf$smtp_login <- temp$smtp_login
+    conf$smtp_insecure <- temp$smtp_insecure
   }
   if(!ignore_topics && exists("topics", where = paths)){
     if(file.exists(paths$topics)) {
@@ -200,6 +211,9 @@ setup_config <- function(
         conf$twitter_auth[[v]] <- get_secret(v)
       }
     }
+    if(is_secret_set("smtp_password")) {
+      conf$smtp_password <- get_secret("smtp_password")
+    }
   }
 }
 
@@ -259,6 +273,12 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$alert_history <- conf$alert_history
     temp$use_mkl <- conf$use_mkl
     temp$geonames_simplify <- conf$geonames_simplify
+    temp$smtp_host <- conf$smtp_host
+    temp$smtp_port <- conf$smtp_port
+    temp$smtp_from <- conf$smtp_from
+    temp$smtp_login <- conf$smtp_login
+    if(!is.null(conf$smtp_password) && conf$smtp_password != "") set_secret("smtp_password", conf$smtp_password)
+    temp$smtp_insecure <- conf$smtp_insecure
     jsonlite::write_json(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {

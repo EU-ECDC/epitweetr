@@ -4,7 +4,7 @@ generate_alerts <- function(tasks = get_tasks()) {
   tryCatch({
     tasks <- update_alerts_task(tasks, "running", "processing", start = TRUE)
     tasks <- do_next_alerts(tasks)
-
+    tasks <- send_alert_emails(tasks)
     # Setting status to succes
     tasks <- update_alerts_task(tasks, "success", "", end = TRUE)
 
@@ -363,22 +363,27 @@ do_next_alerts <- function(tasks = get_tasks()) {
 
 #' Getting calculated alerts for a defined period
 #' @export
-get_alerts <- function(topic=character(), countries=character(), from="1900-01-01", until="2100-01-01") {
+get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01") {
   `%>%` <- magrittr::`%>%`
   # preparing filers dealing with possible names collitions with dataframe
   regions <- get_country_items()
   t <- topic
-  c <- lapply(countries, function(i) regions[[i]]$name)
+  c <- ( 
+    if(class(countries)=="numeric")
+      lapply(countries, function(i) regions[[i]]$name)
+    else 
+      countries
+  )
  
   alert_files <- list.files(file.path(conf$data_dir, "alerts"), recursive=TRUE, full.names =TRUE)  
   file_dates <- lapply(alert_files, function(f) {list(path = f, date = as.Date(substr(tail(strsplit(f, "/")[[1]], n = 1), 1, 10), format="%Y.%m.%d"))})
   files_in_period <- lapply(file_dates[sapply(file_dates, function(fd) fd$date >= as.Date(from) && fd$date <= as.Date(until))], function(fd) fd$path)
   alerts <- lapply(files_in_period, function(alert_file) {
     f <- file(alert_file, "rb")
-    df <- jsonlite::stream_in(f)
+    df <- jsonlite::stream_in(f, verbose = FALSE)
     close(f)
     df %>% dplyr::filter(
-      (if(length(c)==0) TRUE else country %in% c) &&
+      (if(length(c)==0) TRUE else country %in% c) &
       (if(length(t)==0) TRUE else topic %in% t)
     ) %>%
      dplyr::arrange(topic, hour) %>%
@@ -388,3 +393,81 @@ get_alerts <- function(topic=character(), countries=character(), from="1900-01-0
   })
   Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
 }
+
+#' get the path for default or user defined subscribed user file
+get_subscribers_path <- function() {
+  path <- paste(conf$data_dir, "subscribers.xlsx", sep = "/")
+  if(!file.exists(path))
+    path <- system.file("extdata", "subscribers.xlsx", package = get_package_name())
+  path
+}
+
+#' get the default or user defined subscribed user list
+get_subscribers <-function() {
+  readxl::read_excel(get_subscribers_path())  
+}
+
+send_alert_emails <- function(tasks = get_tasks()) {
+  `%>%` <- magrittr::`%>%`
+  task <- tasks$alerts
+  # Creating sending email statistics if any
+  if(!exists("sent", task)) task$sent <- list()
+  # Getting subscriber users
+  subscribers <- get_subscribers()
+  if(nrow(subscribers)>0) {
+    for(i in 1:nrow(subscribers)) {
+      user <- subscribers$User[[i]]
+      topics <- strsplit(subscribers$Topics[[i]],";")[[1]]
+      dest <- strsplit(subscribers$Email[[i]],";")[[1]]
+      regions <- strsplit(subscribers$Regions[[i]],";")[[1]]
+         
+      # Adding users statistics if does not existd already
+      if(!exists(user, where=task$sent)) 
+        task$sent[[user]] <- list()
+      # Getting last day alerts date period
+      agg_period <- get_aggregated_period("country_counts")
+      alert_date <- agg_period$last
+      alert_hour <- agg_period$last_hour
+
+      # Getting last day alerts for subscribed user and regions
+      user_alerts <- get_alerts(
+        topic = if(any(is.na(topics))) NULL else topics,
+        countries = if(any(is.na(regions))) NULL else regions,
+        from = alert_date,
+        until = alert_date
+      )
+
+      if(!is.null(user_alerts)) {
+        # Excluding alerts produced before the last alert sent to user
+        user_alerts <- (
+          if(exists("date", where = task$sent[[user]]) && task$sent[[user]]$date == alert_date)
+            user_alerts %>% dplyr::filter(hour > task$sent[[user]]$hour)
+          else 
+            user_alerts
+        )
+        # Excluding alerts that are not the firt in the day for the specific topic and region
+        user_alerts <- user_alerts %>% dplyr::filter(rank == 1)
+
+        # Sending alert email & registering last sent dates and hour to user
+        if(nrow(user_alerts) > 0) {
+          massage(paste("Sending aler to ", dest))
+          msg <- ( 
+            emayili::envelope() %>% 
+            emayili::from(conf$smtp_from) %>% 
+            emayili::to(dest) %>% 
+            emayili::subject(paste("[Epitweetr] detected ", nrow(user_alerts), "signals")) %>% 
+            emayili::html(print(xtable::xtable(user_alerts), type="html", file=tempfile()))
+          )
+          smtp <- emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
+          smtp(msg)
+
+          task$sent[[user]]$date <- alert_date
+          task$sent[[user]]$hour <- alert_hour
+        }
+      }
+    } 
+  }
+  tasks
+}
+
+
