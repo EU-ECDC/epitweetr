@@ -4,13 +4,24 @@ generate_alerts <- function(tasks = get_tasks()) {
   tryCatch({
     tasks <- update_alerts_task(tasks, "running", "processing", start = TRUE)
     tasks <- do_next_alerts(tasks)
+
+    tasks <- update_alerts_task(tasks, "sending emails", "processing")
     tasks <- send_alert_emails(tasks)
     # Setting status to succes
     tasks <- update_alerts_task(tasks, "success", "", end = TRUE)
 
   }, error = function(error_condition) {
     # Setting status to failed
+    message("Failed...")
+    message(paste("failed while", tasks$aggregate$message," languages", error_condition))
     tasks <- update_alerts_task(tasks, "failed", paste("failed while", tasks$alerts$message," alerts ", error_condition))
+    tasks
+  }, warning = function(error_condition) {
+    # Setting status to failed
+    message("Failed...")
+    message(paste("failed while", tasks$aggregate$message," languages", error_condition))
+    tasks <- update_alerts_task(tasks, "failed", paste("failed while", tasks$alerts$message," alerts ", error_condition))
+    tasks
   })
   return(tasks)
 }
@@ -409,9 +420,9 @@ get_subscribers <-function() {
 
 send_alert_emails <- function(tasks = get_tasks()) {
   `%>%` <- magrittr::`%>%`
-  task <- tasks$alerts
+  task <- 
   # Creating sending email statistics if any
-  if(!exists("sent", task)) task$sent <- list()
+  if(!exists("sent", tasks$alerts)) tasks$alerts$sent <- list()
   # Getting subscriber users
   subscribers <- get_subscribers()
   if(nrow(subscribers)>0) {
@@ -420,10 +431,12 @@ send_alert_emails <- function(tasks = get_tasks()) {
       topics <- strsplit(subscribers$Topics[[i]],";")[[1]]
       dest <- strsplit(subscribers$Email[[i]],";")[[1]]
       regions <- strsplit(subscribers$Regions[[i]],";")[[1]]
-         
+      excluded <- strsplit(subscribers$`Excluded Topics`[[i]], ";")[[1]]         
+      realtime <- strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
+      slots <- as.integer(strsplit(subscribers$`Alert Slots`[[i]], ";")[[1]])
       # Adding users statistics if does not existd already
-      if(!exists(user, where=task$sent)) 
-        task$sent[[user]] <- list()
+      if(!exists(user, where=tasks$alerts$sent)) 
+        tasks$alerts$sent[[user]] <- list()
       # Getting last day alerts date period
       agg_period <- get_aggregated_period("country_counts")
       alert_date <- agg_period$last
@@ -431,26 +444,82 @@ send_alert_emails <- function(tasks = get_tasks()) {
 
       # Getting last day alerts for subscribed user and regions
       user_alerts <- get_alerts(
-        topic = if(any(is.na(topics))) NULL else topics,
-        countries = if(any(is.na(regions))) NULL else regions,
+        topic = if(all(is.na(topics))) NULL else topics,
+        countries = if(all(is.na(regions))) NULL else regions,
         from = alert_date,
         until = alert_date
       )
 
       if(!is.null(user_alerts)) {
-        # Excluding alerts produced before the last alert sent to user
+        # Excluding alerts for topics ignored for this user
         user_alerts <- (
-          if(exists("date", where = task$sent[[user]]) && task$sent[[user]]$date == alert_date)
-            user_alerts %>% dplyr::filter(hour > task$sent[[user]]$hour)
+          if(!all(is.na(excluded)))
+            user_alerts %>% dplyr::filter(!(topic %in% exluded))
           else 
             user_alerts
         )
-        # Excluding alerts that are not the firt in the day for the specific topic and region
+        # Excluding alerts that are not the first in the day for the specific topic and region
         user_alerts <- user_alerts %>% dplyr::filter(rank == 1)
 
+
+        # Defining if this slot corresponds to a user slot
+        current_hour <- as.integer(strftime(Sys.time(), format="%H"))
+        current_slot <- (
+          if(all(is.na(slots))) 
+            current_hour
+          else if(length(slots[slots <= current_hour])==0) 
+            tail(slots, 1) 
+          else 
+            max(slots[slots <= current_hour])
+        )
+        
+        send_slot_alerts <- (
+          all(is.na(slots)) ||  
+          (length(slots[slots <= current_hour])>0 && # After first slot in day AND
+            (length(slots) == 1 || #Either there is only one slot for the user 
+              ! exists("last_slot", where = tasks$alerts$sent[[user]]) || #or there is no register of previous slot executed
+              tasks$alerts$sent[[user]]$last_slot != current_slot # Or there are multiple slots and the current slot is different than the previus one
+            )
+          )
+        ) 
+            
+        # Filtering out alerts that are not instant if  not respect the defined slots
+        # Instant alerts are those
+        instant_alerts <- user_alerts %>% dplyr::filter(!is.na(realtime) & topics %in% realtime)
+        
+        # Excluding instant alerts produced before the last alert sent to user
+        instant_alerts <- (
+          if(exists("date", where = tasks$alerts$sent[[user]]) && 
+            exists("hour_instant", where = tasks$alerts$sent[[user]]) &&
+            as.Date(tasks$alerts$sent[[user]]$date, format="%Y-%m-%d") == alert_date
+          )
+            instant_alerts %>% dplyr::filter(hour > tasks$alerts$sent[[user]]$hour_instant)
+          else 
+            instant_alerts
+        )
+        
+        slot_alerts <- user_alerts %>% dplyr::filter(
+          (is.na(realtime) | !(topics %in% realtime))
+          & send_slot_alerts 
+        )
+        
+        # Excluding instant alerts produced before the last alert sent to user
+        slot_alerts <- (
+          if(exists("date", where = tasks$alerts$sent[[user]]) && 
+            exists("hour_slot", where = tasks$alerts$sent[[user]]) &&
+            as.Date(tasks$alerts$sent[[user]]$date, format="%Y-%m-%d") == alert_date
+            )
+            slot_alerts %>% dplyr::filter(hour > tasks$alerts$sent[[user]]$hour_slot)
+          else 
+            slot_alerts
+        )
+        # Joining back instant and slot alert for email send
+
+        user_alerts <- dplyr::union_all(slot_alerts, instant_alerts) 
         # Sending alert email & registering last sent dates and hour to user
         if(nrow(user_alerts) > 0) {
-          massage(paste("Sending aler to ", dest))
+          tasks <- update_alerts_task(tasks, paste("sending alert to", dest), "processing")
+          message(paste("Sending alert to ", dest))
           msg <- ( 
             emayili::envelope() %>% 
             emayili::from(conf$smtp_from) %>% 
@@ -460,14 +529,20 @@ send_alert_emails <- function(tasks = get_tasks()) {
           )
           smtp <- emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
           smtp(msg)
+          
+          # Storing last day sendung alerts for current user
+          tasks$alerts$sent[[user]]$date <- alert_date
+          if(nrow(slot_alerts)>0) {
+            tasks$alerts$sent[[user]]$hour_slot <- alert_hour
+            tasks$alerts$sent[[user]]$last_slot <- current_slot
+          }
+          if(nrow(instant_alerts)>0)
+            tasks$alerts$sent[[user]]$hour_instant <- alert_hour
 
-          task$sent[[user]]$date <- alert_date
-          task$sent[[user]]$hour <- alert_hour
         }
       }
     } 
   }
   tasks
 }
-
 
