@@ -88,6 +88,7 @@ get_empty_config <- function(data_dir) {
   ret$alert_history <- 7
   ret$use_mkl <- FALSE
   ret$geonames_simplify <- TRUE
+  ret$regions_disclaimer <- ""
   ret$smtp_host <- ""
   ret$smtp_port <- 25
   ret$smtp_from <- ""
@@ -100,7 +101,13 @@ get_empty_config <- function(data_dir) {
 #' Build configuration values for application from a configuration json file
 #' @export
 setup_config <- function(
-  data_dir = if(exists("data_dir", where = conf)) conf$data_dir else paste(getwd(), "data", sep = "/")
+  data_dir = 
+    if(exists("data_dir", where = conf)) 
+      conf$data_dir 
+    else if(Sys.getenv("EPI_HOME")!="") 
+      Sys.getenv("EPI_HOME") 
+    else 
+      file.path(getwd(), "epitweetr")
   , ignore_keyring = FALSE
   , ignore_properties = FALSE
   , ignore_topics = FALSE
@@ -138,6 +145,7 @@ setup_config <- function(
     conf$alert_history <- temp$alert_history
     conf$use_mkl <- temp$use_mkl
     conf$geonames_simplify <- temp$geonames_simplify
+    conf$regions_disclaimer <- temp$regions_disclaimer
     conf$smtp_host <- temp$smtp_host
     conf$smtp_port <- temp$smtp_port
     conf$smtp_from <- temp$smtp_from
@@ -257,7 +265,6 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
 
   if(properties) {
     temp <- list()
-    temp$data_dir <- conf$data_dir
     temp$schedule_span <- conf$schedule_span
     temp$schedule_start_hour <- conf$schedule_start_hour
     temp$languages <- conf$languages
@@ -273,6 +280,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$alert_history <- conf$alert_history
     temp$use_mkl <- conf$use_mkl
     temp$geonames_simplify <- conf$geonames_simplify
+    temp$regions_disclaimer <- conf$regions_disclaimer
     temp$smtp_host <- conf$smtp_host
     temp$smtp_port <- conf$smtp_port
     temp$smtp_from <- conf$smtp_from

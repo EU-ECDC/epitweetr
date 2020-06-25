@@ -73,3 +73,6 @@ map_chart_from_filters(
   params$location_type
   )$chart
 ```
+
+
+`r conf$regions_disclaimer`

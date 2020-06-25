@@ -176,6 +176,26 @@ get_todays_sample_tweets <- function(limit = 1000, full = FALSE) {
  )
 }
 
+#' Get countries file path either from user or package location
+get_countries_path <- function(data_dir = conf$data_dir) {
+    countries_path <- paste(data_dir, "countries.xlsx", sep = "/")
+    if(!file.exists(countries_path))
+      countries_path <- system.file("extdata", "countries.xlsx", package = get_package_name())
+    return(countries_path)
+}
+
+#' Get raw countries from file
+get_raw_countries <- function() {
+  df <- readxl::read_excel(get_countries_path()) 
+  names(df)<-make.names(names(df),unique = TRUE)
+  df$minLat <- as.numeric(df$minLat)
+  df$maxLat <- as.numeric(df$maxLat)
+  df$minLong <- as.numeric(df$minLong)
+  df$maxLong <- as.numeric(df$maxLong)
+  df
+}
+
+
 #' Getting a list of regions, sub regions and countries for using as a select
 get_country_items <- function(order = "level") {
   `%>%` <- magrittr::`%>%`
@@ -187,10 +207,10 @@ get_country_items <- function(order = "level") {
   else {
     # Getting country data from package embeded csv, ignoring antartica
     # obtained from https://gist.github.com/AdrianBinDC/621321d6083b176b3a3215c0b75f8146#file-country-bounding-boxes-md
-    countries <- read.csv(system.file("extdata", "countries.csv", package = get_package_name()), header = TRUE, stringsAsFactors=FALSE, fileEncoding="UTF-8", , na.strings=c()) %>% dplyr::filter(region != "")
+    countries <- get_raw_countries() %>% dplyr::filter(region != "")
 
     # using intermediate region when available
-    countries$sub.region <- mapply(function(int, sub) {if(int == "") sub else int}, countries$intermediate.region, countries$sub.region)
+    countries$sub.region <- mapply(function(int, sub) {if(is.na(int)) sub else int}, countries$intermediate.region, countries$sub.region)
     #getting regions and subregions
     regions <- (
       countries 
@@ -313,6 +333,19 @@ get_country_codes_by_name <- function() {
   return(setNames(sapply(regions, function(r) r$code), sapply(regions, function(r) r$name)))
 }
 
+#' Get regions data as dataframe
+get_regions_df <- function() {
+  regions <- get_country_items()
+  data.frame(
+    Name = sapply(regions, function(r) r$name) , 
+    Codes = sapply(regions, function(r) paste(r$codes, collapse = ", ")), 
+    Level = sapply(regions, function(r) r$level), 
+    MinLatitude = as.numeric(sapply(regions, function(r) r$minLat)), 
+    MaxLatitude = as.numeric(sapply(regions, function(r) r$maxLat)), 
+    MinLongitude = as.numeric(sapply(regions, function(r) r$minLong)), 
+    MaxLingityde = as.numeric(sapply(regions, function(r) r$maxLong))
+  ) 
+}
 
 #' Get country indexes
 #' usage 

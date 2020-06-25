@@ -432,7 +432,8 @@ send_alert_emails <- function(tasks = get_tasks()) {
       dest <- strsplit(subscribers$Email[[i]],";")[[1]]
       regions <- strsplit(subscribers$Regions[[i]],";")[[1]]
       excluded <- strsplit(subscribers$`Excluded Topics`[[i]], ";")[[1]]         
-      realtime <- strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
+      realtime_topics <- strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
+      realtime_regions <- strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
       slots <- as.integer(strsplit(subscribers$`Alert Slots`[[i]], ";")[[1]])
       # Adding users statistics if does not existd already
       if(!exists(user, where=tasks$alerts$sent)) 
@@ -485,7 +486,11 @@ send_alert_emails <- function(tasks = get_tasks()) {
             
         # Filtering out alerts that are not instant if  not respect the defined slots
         # Instant alerts are those
-        instant_alerts <- user_alerts %>% dplyr::filter(!is.na(realtime) & topics %in% realtime)
+        instant_alerts <- user_alerts %>% dplyr::filter(
+          (!is.na(realtime_topics) | !is.na(realtime_regions)) & 
+          (is.na(realtime_topics) | topics %in% realtime_topics) &
+          (is.na(realtime_regions) | country %in% realtime_topics)
+        )
         
         # Excluding instant alerts produced before the last alert sent to user
         instant_alerts <- (
@@ -518,7 +523,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
         user_alerts <- dplyr::union_all(slot_alerts, instant_alerts) 
         # Sending alert email & registering last sent dates and hour to user
         if(nrow(user_alerts) > 0) {
-          tasks <- update_alerts_task(tasks, paste("sending alert to", dest), "processing")
+          tasks <- update_alerts_task(tasks, "running", paste("sending alert to", dest))
           message(paste("Sending alert to ", dest))
           msg <- ( 
             emayili::envelope() %>% 
