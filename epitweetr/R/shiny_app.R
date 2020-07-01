@@ -33,6 +33,8 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::h4("Bonferroni correction"),
 	            shiny::checkboxInput("bonferroni_correction", label = NULL, value = FALSE),
               shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
+              shiny::h4("Same weekday baseline"),
+	            shiny::checkboxInput("same_weekday_baseline", label = NULL, value = conf$same_weekday_baseline),
               shiny::fluidRow(
                 shiny::column(6, 
                   shiny::downloadButton("export_pdf", "PDF")
@@ -69,7 +71,6 @@ epitweetr_app <- function(data_dir = NA) {
                     shiny::column(3, shiny::downloadButton("export_map", "image"))
 		              ),
                   shiny::plotOutput("map_chart"),
-                  shiny::htmlOutput("map_regions_disclaimer")
                 )
               ))
           )) 
@@ -149,6 +150,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h3("Signal Detection"),
           shiny::fluidRow(shiny::column(3, "Default confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005))),
           shiny::fluidRow(shiny::column(3, "Default days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
+          shiny::fluidRow(shiny::column(3, "Default same weekday baseline"), shiny::column(9, shiny::checkboxInput("conf_same_weekday_baseline", label = NULL , value = conf$same_weekday_baseline))),
           
           shiny::h3("General"),
           shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::span(conf$data_dir))),
@@ -166,7 +168,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
           shiny::fluidRow(shiny::column(3, "Geonames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
           shiny::fluidRow(shiny::column(3, "Simplified Geonames"), shiny::column(9, shiny::checkboxInput("conf_geonames_simplify", label = NULL, value = conf$geonames_simplify))),
-          shiny::fluidRow(shiny::column(3, "Regions Disclaimer"), shiny::column(9, shiny::textAreaInput("conf_regions_disclaimer", label = NULL, value = conf$regions_disclaimer_))),
+          shiny::fluidRow(shiny::column(3, "Regions Disclaimer"), shiny::column(9, shiny::textAreaInput("conf_regions_disclaimer", label = NULL, value = conf$regions_disclaimer))),
           shiny::h2("Twitter Authentication"),
           shiny::fluidRow(shiny::column(3, "Mode"), shiny::column(9
             , shiny::radioButtons(
@@ -277,7 +279,7 @@ epitweetr_app <- function(data_dir = NA) {
                       , shiny::tabPanel("Configuration", config_page)
     )
   # Defining line chart from shiny app filters
-  line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type,alpha, no_history, bonferroni_correction) {
+  line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type,alpha, no_history, bonferroni_correction, same_weekday_baseline) {
     trend_line(
       topic = topics
       ,countries= if(length(countries) == 0) c(1) else as.integer(countries)
@@ -289,6 +291,7 @@ epitweetr_app <- function(data_dir = NA) {
       ,alpha = alpha
       ,no_historic = no_history
       ,bonferroni_correction = bonferroni_correction
+      , same_weekday_baseline = same_weekday_baseline
     )
     
   }
@@ -302,6 +305,7 @@ epitweetr_app <- function(data_dir = NA) {
       ,date_max = period[[2]]
       ,with_retweets= with_retweets
       ,location_type = location_type
+      ,caption = conf$regions_disclaimer 
     )
     
   }
@@ -322,7 +326,7 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Rmarkdown dasboard export
-  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, no_historic, bonferroni_correction) {
+  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, no_historic, bonferroni_correction, same_weekday_baseline) {
     rmarkdown::render(
       system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
       output_format = format, 
@@ -337,6 +341,7 @@ epitweetr_app <- function(data_dir = NA) {
         , "alert_alpha" = alpha
         , "alert_historic" = no_historic
         , "bonferroni_correction" = bonferroni_correction
+        , "same_weekday_baseline" = same_weekday_baseline
       ),
       quiet = TRUE
     ) 
@@ -359,7 +364,8 @@ epitweetr_app <- function(data_dir = NA) {
          input$location_type , 
          input$alpha_filter, 
          input$history_filter, 
-         input$bonferroni_correction
+         input$bonferroni_correction,
+         input$same_weekday_baseline
          )$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
@@ -371,12 +377,24 @@ epitweetr_app <- function(data_dir = NA) {
     })
     output$topword_chart <- plotly::renderPlotly({
        can_render(input, d)
-       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 30)$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
-       plotly::ggplotly(chart, height = height, width = width) %>% 
-	  plotly::layout(title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), margin = list(l = 30, r=30, b = 30, t = 80)) %>%
-	  plotly::config(displayModeBar = F)
+       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 30)$chart
+       chart %>%
+         plotly::ggplotly(height = height, width = width) %>% 
+	       plotly::layout(
+           title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
+           margin = list(l = 30, r=30, b = 70, t = 80),
+           annotations = list(
+             text = chart$labels$caption,
+             font = list(size = 10),
+             showarrow = FALSE,
+             xref = 'paper', 
+             x = 0,
+             yref = 'paper', 
+             y = -0.3)
+         ) %>%
+	       plotly::config(displayModeBar = F)
     })  
     output$export_line <- shiny::downloadHandler(
       filename = function() { 
@@ -400,7 +418,8 @@ epitweetr_app <- function(data_dir = NA) {
             input$location_type, 
             input$alpha_filter, 
             input$history_filter,
-            input$bonferroni_correction
+            input$bonferroni_correction,
+            input$same_weekday_baseline
             )$chart
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
@@ -428,7 +447,8 @@ epitweetr_app <- function(data_dir = NA) {
             input$location_type, 
             input$alpha_filter, 
             input$history_filter,
-            input$bonferroni_correction
+            input$bonferroni_correction,
+            input$same_weekday_baseline
             )$data,
           file, 
           row.names = FALSE)
@@ -529,7 +549,8 @@ epitweetr_app <- function(data_dir = NA) {
            input$location_type, 
            input$alpha_filter, 
            input$history_filter,
-           input$bonferroni_correction
+           input$bonferroni_correction,
+           input$same_weekday_baseline
          )
       }
     ) 
@@ -556,7 +577,8 @@ epitweetr_app <- function(data_dir = NA) {
            input$location_type, 
            input$alpha_filter, 
            input$history_filter,
-           input$bonferroni_correction
+           input$bonferroni_correction,
+           input$same_weekday_baseline
          )
       }
     )
@@ -677,6 +699,7 @@ epitweetr_app <- function(data_dir = NA) {
       conf$regions_disclaimer <- input$conf_regions_disclaimer 
       conf$alert_alpha <- input$conf_alpha 
       conf$alert_history <- input$conf_history 
+      conf$same_weekday_baseline <- input$conf_same_weekday_baseline 
       if(input$twitter_auth == "app") {
         set_twitter_app_auth(
           app = input$twitter_app, 
@@ -700,12 +723,6 @@ epitweetr_app <- function(data_dir = NA) {
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
 
       cd$properties_refresh_flag(Sys.time())
-    })
-    ######### UPDATING MAP DISCLAIMER ########
-    output$map_regions_disclaimer <- shiny::renderText({
-      # Adding a dependency to config refresh
-      cd$properties_refresh_flag()
-      conf$regions_disclaimer
     })
 
 
@@ -875,7 +892,10 @@ epitweetr_app <- function(data_dir = NA) {
         shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
       )
       alerts %>%
-        dplyr::select("date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", "no_historic", "bonferroni_correction", "rank", "with_retweets", "location_type") %>%
+        dplyr::select(
+          "date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", 
+          "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type"
+        ) %>%
         DT::datatable(
           colnames = c(
             "Date" = "date", 
@@ -888,6 +908,7 @@ epitweetr_app <- function(data_dir = NA) {
             "Threshold" = "limit",
             "Baseline" = "no_historic", 
             "Bonf. corr." = "bonferroni_correction",
+            "Same weekday baseline" = "same_weekday_baseline",
             "Day_rank" = "rank",
             "With retweets" = "with_retweets",
             "Location" = "location_type"

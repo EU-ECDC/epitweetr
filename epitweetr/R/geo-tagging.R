@@ -28,11 +28,11 @@ geotag_tweets <- function(tasks = get_tasks()) {
     tasks
   }, warning = function(error_condition) {
     # Setting status to failed
-    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," languages", error_condition))
+    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," ", error_condition))
     tasks
   }, error = function(error_condition) {
     # Setting status to failed
-    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," languages", error_condition))
+    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," ", error_condition))
     tasks
   })
   return(tasks)
@@ -283,18 +283,24 @@ get_country_items <- function(order = "level") {
         }
       }
     }
-    # Adding EU and EAA regions
-    eu <- c("AT", "BE","BG","CY","CZ","DE","DK","EE","GR","ES","FI","FR","HR","HU","IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK")
-    eea <- c("IS", "LI", "NO")
-    eueea <- c(eu, eea)
-    specials <- list(eu, eea, eueea)
-    special_names <- c("EU", "EEA", "EU + EEA") 
+    
+    # Getting EU classification
+    eu_zones <- countries$EU.EEA[!is.na(countries$EU.EEA)] %>% unique
+    eu_codes <- lapply(eu_zones, function(r) {list(name = r, codes = countries$alpha.2[!is.na(countries$EU.EEA) & countries$EU.EEA == r], level = 0.5)}) 
+    eu_codes <- (
+      if(length(eu_codes)==0) eu_codes
+      else c(eu_codes, list(list(name = paste(eu_zones, collapse = "+"), codes = countries$alpha.2[!is.na(countries$EU.EEA)], level = 0.5)))
+    )
 
+    # Getting WHO classification
+    who_zones <- countries$WHO.Region[!is.na(countries$WHO.Region)] %>% unique
+    who_codes <- lapply(who_zones, function(r) {list(name = r, codes = countries$alpha.2[!is.na(countries$WHO.Region) & countries$WHO.Region == r], level = 0.6)}) 
+    specials <- c(eu_codes, who_codes)
     for(s in 1:length(specials)) {
       row <- row + 1
-      items[[row]] = list(name = special_names[[s]], codes = list(), level = 0.5, minLat = 90, maxLat = -90, minLong = 180, maxLong = -180) 
+      items[[row]] = list(name = specials[[s]]$name, codes = list(), level = specials[[s]]$level, minLat = 90, maxLat = -90, minLong = 180, maxLong = -180) 
       for(c in 1:nrow(countries)) {
-        if(countries$alpha.2[[c]] %in% specials[[s]]) {
+        if(countries$alpha.2[[c]] %in% specials[[s]]$codes) {
           # adding country codes for region
           items[[row]]$codes[[length(items[[row]]$codes)+1]] <- countries$alpha.2[[c]]
           # calculating region bounding box 

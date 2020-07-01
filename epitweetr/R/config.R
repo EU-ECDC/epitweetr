@@ -86,6 +86,7 @@ get_empty_config <- function(data_dir) {
   ret$topics_md5 <- ""
   ret$alert_alpha <- 0.025
   ret$alert_history <- 7
+  ret$alert_same_weekday_baseline <- FALSE
   ret$use_mkl <- FALSE
   ret$geonames_simplify <- TRUE
   ret$regions_disclaimer <- ""
@@ -143,6 +144,7 @@ setup_config <- function(
     conf$geolocation_threshold <- temp$geolocation_threshold
     conf$alert_alpha <- temp$alert_alpha
     conf$alert_history <- temp$alert_history
+    conf$alert_same_weekday_baseline <- temp$alert_same_weekday_baseline
     conf$use_mkl <- temp$use_mkl
     conf$geonames_simplify <- temp$geonames_simplify
     conf$regions_disclaimer <- temp$regions_disclaimer
@@ -278,6 +280,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$geolocation_threshold <- conf$geolocation_threshold
     temp$alert_alpha <- conf$alert_alpha
     temp$alert_history <- conf$alert_history
+    temp$alert_same_weekday_baseline <- conf$alert_same_weekday_baseline
     temp$use_mkl <- conf$use_mkl
     temp$geonames_simplify <- conf$geonames_simplify
     temp$regions_disclaimer <- conf$regions_disclaimer

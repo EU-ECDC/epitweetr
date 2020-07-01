@@ -20,14 +20,12 @@ trend_line <- function(
   , alpha = 0.025
   , no_historic = 7 
   , bonferroni_correction = FALSE
+  , same_weekday_baseline = FALSE
   ){
-  #Importing pipe operator
-  df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min-no_historic-2, date_max)))
   df <- 
-    calculate_tweet_alerts(
-      df = df,
+    calculate_regions_alerts(
       topic = topic,
-      countries = countries, 
+      regions = countries, 
       date_type = type_date, 
       date_min = date_min, 
       date_max = date_max, 
@@ -35,7 +33,8 @@ trend_line <- function(
       location_type = location_type, 
       alpha = alpha, 
       no_historic = no_historic, 
-      bonferroni_correction = bonferroni_correction
+      bonferroni_correction = bonferroni_correction,
+      same_weekday_baseline = same_weekday_baseline
     )
   if(nrow(df)>0) df$topic <- firstup(stringr::str_replace_all(topic, "%20", " "))
   plot_trendline(df,countries,topic,date_min,date_max)
@@ -52,12 +51,32 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
   `%>%` <- magrittr::`%>%`
   regions <- get_country_items()
 
+  # Calculate alert ranking to avoid alert symbol overlapping 
+  df <- df %>% 
+    dplyr::arrange(alert, date, country) %>% 
+    dplyr::group_by(alert, date) %>% 
+    dplyr::mutate(rank = rank(country, ties.method = "first")) %>% 
+    dplyr::ungroup()
+  # Getting alert dataset 
   time_alarm <- data.frame(
     date = df$date[which(df$alert == 1)], 
     country = df$country[which(df$alert == 1)], 
-    y = vapply(which(df$alert == 1), function(i) 0, double(1)), 
-    Details =  vapply(which(df$alert == 1), function(i) "", character(1))
+    y = vapply(which(df$alert == 1), function(i) - df$rank[[i]] * (max(df$number_of_tweets))/30, double(1)), 
+    # adding hover text for alerts
+    Details = vapply(which(df$alert == 1), function(i) {
+      paste(
+        "\nRegion:",df$country[[i]],
+        "\nNumber of tweets: ", df$number_of_tweets[[i]], 
+        "\nThreshold: ", round(df$limit[[i]]), 
+        "\nDate:",df$date[[i]], 
+        "\nKnown users tweets: ", df$known_users[[i]], 
+        "\nKnown users ratio: ", round(df$known_ratio[[i]]*100, 2), "%",
+        sep = ""
+      )}, 
+    character(1))
   )
+  
+  # adding hover text for alerts
   df$Details <- 
     paste(
       "\nRegion:",df$country,
@@ -71,7 +90,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
 
   fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = Details)) +
     ggplot2::geom_line(ggplot2::aes(colour=country)) + {
-      if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2) 
+      if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2, size = 2) 
     } +
     ggplot2::labs(
       title=ifelse(length(countries)==1,
@@ -148,7 +167,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
 #' @param date_max 
 #'
 #' @export
-create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet"){
+create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = ""){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
@@ -219,7 +238,8 @@ create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_mi
   fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 21) #circle line
   fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 19) #filled circlee
   fig <- title(
-   main = paste("Tweets by country mentioning", topic, "\nfrom", date_min, "to", date_max)
+   main = paste("Tweets by country mentioning", topic, "\nfrom", date_min, "to", date_max),
+   sub = caption
   )
   #Generating legend
   cuts <- sapply(c(maxCount/50, maxCount/20, maxCount/5, maxCount), function(v) round(v, digits = - floor(log10(v))))
@@ -272,8 +292,9 @@ create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01
               x = "Unique words",
               y = "Count",
               title = paste("Top words of tweets mentioning", topic),
-              subtitle = paste("from", date_min, "to", date_max)
-           )+
+              subtitle = paste("from", date_min, "to", date_max),
+              caption = "Top words is the only figure in the dashboard only considering tweet location (ignores the location type parameter)"
+           ) +
            ggplot2::theme_classic(base_family = get_font_family()) +
            ggplot2::theme(
 	     plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),

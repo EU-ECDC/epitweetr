@@ -12,6 +12,7 @@ params:
   alert_alpha: 0.025
   alert_historic: 7
   bonferroni_correction: FALSE
+  same_weekday_baseline: FALSE
 ---
 
 ```{r include=FALSE}
@@ -33,6 +34,7 @@ Parameters
 * Signal detection confidence (alpha): `r params$alert_alpha`
 * Days in baseline: `r params$alert_historic`
 * Boferroni correction: `r params$bonferroni_correction`
+* Same weekday baseline: `r params$same_weekday_baseline`
 
 ## Line chart
 ```{r, echo = FALSE}
@@ -46,6 +48,7 @@ line_chart_from_filters(
   params$alert_alpha, 
   params$alert_historic,
   params$bonferroni_correction
+  params$same_weekday_baseline
   )$chart
 ```
 
@@ -75,4 +78,4 @@ map_chart_from_filters(
 ```
 
 
-`r conf$regions_disclaimer`
+`r ""`

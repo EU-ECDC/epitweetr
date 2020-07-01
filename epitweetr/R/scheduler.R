@@ -251,11 +251,17 @@ plan_tasks <-function(statuses = list()) {
       }
     } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) { 
       if(is.na(tasks[[i]]$status) || (
-	tasks[[i]]$status %in% c("pending", "success", "scheduled") 
-        && tasks[[i]]$end_on == Reduce(
-	    x = lapply(list(tasks$geotag, tasks$aggregate, tasks$alerts),  function(t) t$end_on), 
-	    f = function(a, b) if(a<b) a else b)
-      )) {
+        tasks[[i]]$status %in% c("pending", "success", "scheduled") 
+        && {
+          last_ended <- 
+            Reduce(
+	            x = list(tasks$geotag, tasks$aggregate, tasks$alerts), 
+	            f = function(a, b) if(a$end_on>b$end_on) a else b
+            )
+          next_order <- if(last_ended$order < length(sorted_tasks)) last_ended$order + 1 else 3
+          tasks[[i]]$order == next_order
+
+      })) {
         tasks[[i]]$status <- "scheduled"
         if(is.na(tasks[[i]]$end_on)) { 
           tasks[[i]]$scheduled_for <- now + (i - 1)/1000

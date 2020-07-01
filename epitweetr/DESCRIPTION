@@ -1,6 +1,6 @@
 Package: epitweetr
 Title: Capture and analyze tweets
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: c( 
     person(given = "Francisco",
            family = "Orchard",

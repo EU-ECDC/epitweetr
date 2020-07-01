@@ -2,7 +2,7 @@
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' Saving aggregated data as weekly RDS files
 #' @export
-aggregate_tweets <- function(series = list("geolocated", "topwords", "country_counts"), tasks = get_tasks()) {
+aggregate_tweets <- function(series = list("country_counts", "geolocated", "topwords"), tasks = get_tasks()) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
 
@@ -46,7 +46,7 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
             
             # saving the dataset to disk (with overwrite)
             message(paste("saving ", series[[i]]," data for week", week, ", day", created_date))
-            saveRDS(agg_df, file = file.path(conf$data_dir, "series",week, paste(series[[i]], "_", strftime(created_date, format = "%Y.%m.%d."), "Rds", sep = ""))) 
+            saveRDS(agg_df, file = file.path(conf$data_dir, "series",week, paste(series[[i]], "_", strftime(created_date, format = "%Y.%m.%d."), "Rds", sep = "")), compress = FALSE) 
           } else {
             message(paste("No rows found for", series[[i]]," on week", week, ", day", created_date ))  
           }
@@ -66,13 +66,13 @@ aggregate_tweets <- function(series = list("geolocated", "topwords", "country_co
   }, error = function(error_condition) {
     # Setting status to failed
     message("Failed...")
-    message(paste("failed while", tasks$aggregate$message," languages", error_condition))
+    message(paste("failed while", tasks$aggregate$message," ", error_condition))
     tasks <- update_aggregate_task(tasks, "failed", paste("failed while", tasks$aggregate$message," languages", error_condition))
     tasks
   }, warning = function(error_condition) {
     # Setting status to failed
     message("Failed...")
-    message(paste("failed while", tasks$aggregate$message," languages", error_condition))
+    message(paste("failed while", tasks$aggregate$message," ", error_condition))
     tasks <- update_aggregate_task(tasks, "failed", paste("failed while", tasks$aggregate$message," languages", error_condition))
     tasks
   })
@@ -139,7 +139,8 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
 
       # Exracting data from aggregated files
       dfs <- lapply(files, function (file) {
-	      readRDS(file.path(conf$data_dir, "series", file)) %>% 
+	      message(paste("reading", file))
+        readRDS(file.path(conf$data_dir, "series", file)) %>% 
           dplyr::filter(
             (if(exists("topic", where = filter)) topic %in% filter$topic else TRUE) & 
             (if(exists("period", where = filter)) created_date >= filter$period[[1]] & created_date <= filter$period[[2]] else TRUE)
@@ -161,7 +162,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
 #' getting last geolocated date
 get_geolocated_period <- function(dataset) {
   last_geolocate <- list.dirs(file.path(conf$data_dir, "tweets", "geolocated"), recursive=TRUE)
-  last_geolocate <- last_geolocate[grepl(".*\\.json.gz", last_geolocate)]
+  last_geolocate <- last_geolocate[grepl(".*\\.json.gz$", last_geolocate)]
   if(length(last_geolocate)==0) stop("To aggregate, or calculate alerts geolocation must have been succesfully executed, but no geolocation files where found")
   first_geolocate <- as.Date(min(sapply(last_geolocate, function(f) {as.Date(gsub("\\.", "-", substr(tail(strsplit(f, "/")[[1]], n=1), 1, 10)))})), origin = '1970-01-01')
   last_geolocate <- as.Date(max(sapply(last_geolocate, function(f) {as.Date(gsub("\\.", "-", substr(tail(strsplit(f, "/")[[1]], n=1), 1, 10)))})), origin = '1970-01-01')
