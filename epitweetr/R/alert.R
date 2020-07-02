@@ -321,7 +321,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
       tasks <- update_alerts_task(tasks, "running", m , start = TRUE)
       calculate_regions_alerts(
         topic = topic,
-        countries = 1:length(regions), 
+        regions = 1:length(regions), 
         date_type = "created_date", 
         date_min = alert_to, 
         date_max = alert_to, 
