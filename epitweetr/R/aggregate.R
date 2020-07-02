@@ -288,6 +288,34 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
        )
      )
   } else if(serie_name == "topwords") {
+    # Getting the expression for known words
+    #known_words <-  paste(
+    #  sapply(1:length(conf$topics), 
+    #  function(i) {
+    #    terms <- strsplit(conf$topics[[i]]$query, " |OR|\"|AND|,|\\.| |'")[[1]]
+    #    terms <- terms[terms != ""]
+    #    paste(
+    #      "(topic = '", conf$topics[[i]]$topic, 
+    #      "' and word not in (", 
+    #      paste(
+    #        "'", 
+    #        terms, 
+    #        "'", 
+    #        collapse = ", ", 
+    #        sep=""
+    #      ), 
+    #      "))", 
+    #      sep = ""
+    #  )}), 
+    #  collapse = " OR "
+    #)
+    #replacementfile <- tempfile(pattern = "repl", fileext = ".txt")
+    #f <-file(replacementfile)
+    #writeLines(c(
+    #  paste("@nokeywords:", known_words)
+    #  ), f
+    #)
+    #close(f) 
     # Getting top word aggregation for each
     top_chunk <- get_geotagged_tweets(regexp = agg_regex
       , sources_exp = list(

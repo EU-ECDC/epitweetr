@@ -283,9 +283,9 @@ do_next_alerts <- function(tasks = get_tasks()) {
   # Determining whether we should produce alerts for current hour (if aggregation has produced new records since last alert generation
   do_alerts <- FALSE
   alert_file <-get_alert_file(alert_to)
-  if(!file.exists(alert_file)) 
+  if(!file.exists(alert_file)) { 
     do_alerts <- TRUE
-  else {
+  } else {
     f <- file(alert_file, "rb")
     existing_alerts <- jsonlite::stream_in(f)
     close(f)
@@ -448,12 +448,20 @@ get_subscribers_path <- function() {
 
 #' get the default or user defined subscribed user list
 get_subscribers <-function() {
-  readxl::read_excel(get_subscribers_path())  
+  df <- readxl::read_excel(get_subscribers_path())  
+  df$Topics <- as.character(df$Topics)
+  df$User <- as.character(df$User)
+  df$Email <- as.character(df$Email)
+  df$Regions <- as.character(df$Regions)
+  df$`Excluded Topics` <- as.character(df$`Excluded Topics`)
+  df$`Real time Topics` <- as.character(df$`Real time Topics`)
+  df$`Alert Slots` <- as.character(df$`Alert Slots`)
+  df
 }
 
 send_alert_emails <- function(tasks = get_tasks()) {
   `%>%` <- magrittr::`%>%`
-  task <- 
+  task <- tasks$alerts 
   # Creating sending email statistics if any
   if(!exists("sent", tasks$alerts)) tasks$alerts$sent <- list()
   # Getting subscriber users
@@ -561,11 +569,12 @@ send_alert_emails <- function(tasks = get_tasks()) {
           # Calculating top alerts for title
           top_alerts <- head(
             user_alerts %>% 
-              dplyr::arrange(topic, -number_of_tweets) %>% 
+              dplyr::arrange(topic, dplyr::desc(number_of_tweets)) %>% 
               dplyr::group_by(topic) %>% 
               dplyr::mutate(rank = rank(topic, ties.method = "first")) %>% 
               dplyr::filter(rank < 3) %>% 
-              dplyr::summarize(top = paste(country, collapse = ", ")), 
+              dplyr::summarize(top = paste(country, collapse = ", "), max_tweets=max(number_of_tweets)) %>%
+              dplyr::arrange(dplyr::desc(max_tweets)), 
             3)
 
 

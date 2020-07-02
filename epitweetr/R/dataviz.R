@@ -92,6 +92,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
     ggplot2::geom_line(ggplot2::aes(colour=country)) + {
       if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2, size = 2) 
     } +
+    #ggplot2::geom_ribbon(ggplot2::aes(ymin=y, ymax=limit), linetype=2, alpha=0.1)
     ggplot2::labs(
       title=ifelse(length(countries)==1,
         paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name),
