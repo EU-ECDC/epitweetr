@@ -3,7 +3,7 @@
 #'
 #' @param s_topic 
 #' @param s_country 
-#' @param type_date 
+#' @param date_type 
 #' @param geo_country_code 
 #' @param date_min 
 #' @param date_max 
@@ -12,7 +12,7 @@
 trend_line <- function(
   topic
   , countries=c(1)
-  , type_date="created_date"
+  , date_type="created_date"
   , date_min=as.Date("1900-01-01")
   , date_max=as.Date("2100-01-01")
   , with_retweets = FALSE
@@ -26,7 +26,7 @@ trend_line <- function(
     calculate_regions_alerts(
       topic = topic,
       regions = countries, 
-      date_type = type_date, 
+      date_type = date_type, 
       date_min = date_min, 
       date_max = date_max, 
       with_retweets = with_retweets, 
@@ -37,7 +37,7 @@ trend_line <- function(
       same_weekday_baseline = same_weekday_baseline
     )
   if(nrow(df)>0) df$topic <- firstup(stringr::str_replace_all(topic, "%20", " "))
-  plot_trendline(df,countries,topic,date_min,date_max)
+  plot_trendline(df,countries,topic,date_min,date_max, date_type)
 }
 
 
@@ -46,7 +46,7 @@ trend_line <- function(
 #'
 #' @param df 
 #' @export
-plot_trendline <- function(df,countries,topic,date_min,date_max){
+plot_trendline <- function(df,countries,topic,date_min,date_max, date_type){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   regions <- get_country_items()
@@ -61,12 +61,13 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
   time_alarm <- data.frame(
     date = df$date[which(df$alert == 1)], 
     country = df$country[which(df$alert == 1)], 
-    y = vapply(which(df$alert == 1), function(i) - df$rank[[i]] * (max(df$number_of_tweets))/30, double(1)), 
+    y = vapply(which(df$alert == 1), function(i) df$rank[[i]] * (max(df$limit))/30, double(1)), 
     # adding hover text for alerts
     Details = vapply(which(df$alert == 1), function(i) {
       paste(
         "\nRegion:",df$country[[i]],
         "\nNumber of tweets: ", df$number_of_tweets[[i]], 
+        "\nBaseline: ", round(df$baseline[[i]]), 
         "\nThreshold: ", round(df$limit[[i]]), 
         "\nDate:",df$date[[i]], 
         "\nKnown users tweets: ", df$known_users[[i]], 
@@ -82,29 +83,59 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
       "\nRegion:",df$country,
       "\nAlert: ", ifelse(df$alert==1, "yes", "no"), 
       "\nNumber of tweets: ", df$number_of_tweets, 
+      "\nBaseline: ", round(df$baseline), 
       "\nThreshold: ", round(df$limit), 
       "\nDate:",df$date, 
       "\nKnown users tweets: ", df$known_users, 
       "\nKnown users ratio: ", round(df$known_ratio*100, 2), "%",
       sep = "")
+  # Calculating minimum limit boundary 
+  df$lim_start <- 2* df$baseline - df$limit
+  df$lim_start <- ifelse(df$lim_start < 0, 0, df$lim_start)
+
+  # Calculating breaks
+  y_breaks <- unique(floor(pretty(seq(0, (max(df$limit) + 1) * 1.1))))
 
   fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = Details)) +
+    # Line
     ggplot2::geom_line(ggplot2::aes(colour=country)) + {
+    # Alert Points
       if(nrow(time_alarm) > 0) ggplot2::geom_point(data = time_alarm, mapping = ggplot2::aes(x = date, y = y, colour = country), shape = 2, size = 2) 
     } +
-    #ggplot2::geom_ribbon(ggplot2::aes(ymin=y, ymax=limit), linetype=2, alpha=0.1)
+    # Line shadow
+    ggplot2::geom_ribbon(ggplot2::aes(ymin=lim_start, ymax=limit, colour=country, fill = country), linetype=2, alpha=0.1) +
+    # Title
     ggplot2::labs(
       title=ifelse(length(countries)==1,
         paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name),
         paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions")
       )
     ) +
-    ggplot2::xlab('Day and month') +
+    ggplot2::xlab(paste(if(date_type =="created_weeknum") "Posted week" else "Posted date", "(days are 24 hour blocks ening on last aggregated tweet in period)")) +
     ggplot2::ylab('Number of tweets') +
-    ggplot2::scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
-    ggplot2::expand_limits(y = 0) +
+    ggplot2::scale_y_continuous(breaks = y_breaks, limits = c(0, max(y_breaks)), expand=c(0 ,0))+
     ggplot2::scale_x_date(
-      date_labels = "%Y-%m-%d",
+      date_labels = {
+          x = df$date
+			    # custom logic for x axis
+          days <- as.numeric(max(x) - min(x))
+          weeks <- days / 7
+          years <- days / 365
+          # Date format if less or equal then 15 days
+			    if(days < 15 && date_type !="created_weeknum") {
+            "%Y-%m-%d"
+          # Week format if period is between 16 days and 20 weeks
+			    #  - Case for period ending on same day of week than period start 
+			    } else if(weeks <= 20) {
+            "%G-w%V"
+          # Month format day of month in period start if period is less or equal to 2 years but more than 20 weeks
+          } else if(years <=2) {
+            "%Y-%b"
+          # Year formar if more than 2 years
+          } else { 
+            "%Y"
+          }
+			  },
       expand = c(0, 0),
       breaks = function(x) {
 			    # custom logic for x axis
@@ -139,6 +170,12 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
 			  }
     ) +
     ggplot2::theme_classic(base_family = get_font_family()) +
+    {if(length(unique(df$country))==1) 
+      ggplot2::scale_color_manual(values=c("#65B32E"))
+    } + 
+    {if(length(unique(df$country))==1) 
+      ggplot2::scale_fill_manual(values=c("#65B32E"))
+    } +
     ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold",lineheight = 0.9),
                    axis.text = ggplot2::element_text(colour = "black", size = 8),
                    axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
@@ -163,12 +200,12 @@ plot_trendline <- function(df,countries,topic,date_min,date_max){
 #'
 #' @param s_topic 
 #' @param geo_code 
-#' @param type_date 
+#' @param date_type 
 #' @param date_min 
 #' @param date_max 
 #'
 #' @export
-create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = ""){
+create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = ""){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
@@ -193,6 +230,7 @@ create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_mi
          )  
     )
   f_topic <- topic
+
   # aggregating by country
   df <- (df %>% 
     dplyr::filter(
@@ -203,7 +241,8 @@ create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_mi
         & (
           if(length(country_codes) == 0) TRUE 
           else country_code %in% country_codes
-        ) 
+        )
+        & tweets > 0 
     ) %>% 
     dplyr::group_by(country_code) %>% 
     dplyr::summarize(count = sum(tweets)) %>% 
@@ -221,26 +260,39 @@ create_map <- function(topic=c(),countries=c(1),type_date="created_date",date_mi
   df$MinLong <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$minLong else NA)
   df$MaxLong <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$maxLong else NA)
 
+  # Getting topics bounding boxes
   minLong <- min(df$MinLong, na.rm = TRUE)
   maxLong <- max(df$MaxLong, na.rm = TRUE)
   minLat <- min(df$MinLat, na.rm = TRUE)
   maxLat <- max(df$MaxLat, na.rm = TRUE)
   maxCount <- max(df$count)
+
+  # Getting matches regions names
+  selected_polygones <- maps::map("world", regions = maps::iso.expand(country_codes), plot = FALSE)$names
+  all_polygones <- maps::map(
+    "world", 
+    , ylim=c(if(minLat>-60) minLat else -60, if(maxLat< 90) maxLat else 90)
+    , xlim = c(minLong, maxLong)
+    , plot = FALSE
+  )$names
+  # Getting colors of selected regions
+  selected_colors <- sapply(all_polygones, function(r) if(r %in% selected_polygones) "#C7C7C7" else "#E5E5E5")
+
   mymap <- maps::map(
     "world"
     , fill=TRUE
-    , col=rgb(red =210/255, green = 230/255, blue = 230/255)
+    , col=selected_colors
     , bg="white"
     , ylim=c(if(minLat>-60) minLat else -60, if(maxLat< 90) maxLat else 90)
     , xlim = c(minLong, maxLong)
-    , border = "gray"
+    , border = "#E0E0E0"
   ) 
   
   fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 21) #circle line
   fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 19) #filled circlee
   fig <- title(
-   main = paste("Tweets by country mentioning", topic, "\nfrom", date_min, "to", date_max),
-   sub = caption
+    main = paste("Tweets by country mentioning", topic, "\nfrom", date_min, "to", date_max),
+    sub = caption
   )
   #Generating legend
   cuts <- sapply(c(maxCount/50, maxCount/20, maxCount/5, maxCount), function(v) round(v, digits = - floor(log10(v))))
@@ -284,27 +336,31 @@ create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01
       %>% head(top)
       %>% dplyr::mutate(tokens = reorder(tokens, frequency))
   )
+  # Calculating breaks
+  y_breaks <- unique(floor(pretty(seq(0, (max(df$frequency) + 1) * 1.1))))
+  
   fig <- (
       df %>% ggplot2::ggplot(ggplot2::aes(x = tokens, y = frequency)) +
-           ggplot2::geom_col(fill = "#7EB750") +
+           ggplot2::geom_col(fill = "#65B32E") +
            ggplot2::xlab(NULL) +
            ggplot2::coord_flip(expand = FALSE) +
            ggplot2::labs(
-              x = "Unique words",
               y = "Count",
               title = paste("Top words of tweets mentioning", topic),
               subtitle = paste("from", date_min, "to", date_max),
               caption = "Top words is the only figure in the dashboard only considering tweet location (ignores the location type parameter)"
            ) +
+           ggplot2::scale_y_continuous(labels = function(x) format(x, scientific = FALSE), breaks = y_breaks, limits = c(0, max(y_breaks)), expand=c(0 ,0))+
            ggplot2::theme_classic(base_family = get_font_family()) +
            ggplot2::theme(
-	     plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
-	     plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 12),
+	           plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
+	           plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 12),
              axis.text = ggplot2::element_text(colour = "black", size = 8),
-             axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
-                                                 margin = ggplot2::margin(-15, 0, 0, 0)),
+             axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, margin = ggplot2::margin(-15, 0, 0, 0)),
              axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
-             axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10))
+             axis.line.y = ggplot2::element_blank(),
+             axis.ticks.y = ggplot2::element_blank()
+           )
     )
   list("chart" = fig, "data" = df) 
 }

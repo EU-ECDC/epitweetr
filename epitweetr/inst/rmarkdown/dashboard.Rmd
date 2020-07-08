@@ -5,7 +5,7 @@ output: pdf_document
 params:
   topics: ["COVID-19"]
   countries: ["1", "2"]
-  period_type: "day"
+  period_type: "created_date"
   period: ["2020-01-01", "2020-03-31"]
   with_retweets: FALSE
   location_type: "tweet"
@@ -61,7 +61,7 @@ topwords_chart_from_filters(
   params$period, 
   params$with_retweets, 
   params$location_type,
-  30
+  20
   )$chart
 ```
 

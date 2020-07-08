@@ -26,7 +26,7 @@ get_stop_words <- function(language_code) {
 }
 
 #' calculate top words for a text dataframe
-pipe_top_words <- function(df, text_col, lang_col, max_words = 1000, con_out, page_size) {
+pipe_top_words <- function(df, text_col, lang_col, topic_word_to_exclude, max_words = 1000, con_out, page_size) {
   `%>%` <- magrittr::`%>%`
   # Tokenisation and counting top maw_words popular words
   # the count will be done separately for each present group
@@ -44,10 +44,10 @@ pipe_top_words <- function(df, text_col, lang_col, max_words = 1000, con_out, pa
               tidytext::unnest_tokens(tokens, (!!as.symbol(text_col)), drop = TRUE, stopwords=get_stop_words(l$code))
          )})
       , f = function(a, b) dplyr::bind_rows(a, b)
-      ) 
+      )
 
     temp %>% 
-      dplyr::filter(nchar(tokens)>1)  %>%
+      dplyr::filter(nchar(tokens)>1 & !(paste(topic, tokens, sep="_") %in% topic_word_to_exclude))  %>%
       dplyr::group_by(tokens, topic, created_date, tweet_geo_country_code)  %>%
       dplyr::summarize(count = dplyr::n(), original = sum(!is_retweet), retweets = sum(is_retweet))  %>%
       dplyr::ungroup()  %>%

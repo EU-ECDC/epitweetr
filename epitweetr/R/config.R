@@ -1,7 +1,5 @@
 #Environment for storing configuration
 conf <- new.env()
-#Environment for storing cached data
-cached <- new.env()
 
 #' Get package name
 get_package_name <- function() environmentName(environment(setup_config))
@@ -87,6 +85,8 @@ get_empty_config <- function(data_dir) {
   ret$alert_alpha <- 0.025
   ret$alert_history <- 7
   ret$alert_same_weekday_baseline <- FALSE
+  ret$alert_with_retweets <- FALSE
+  ret$alert_with_bonferroni_correction <- TRUE
   ret$use_mkl <- FALSE
   ret$geonames_simplify <- TRUE
   ret$regions_disclaimer <- ""
@@ -145,6 +145,8 @@ setup_config <- function(
     conf$alert_alpha <- temp$alert_alpha
     conf$alert_history <- temp$alert_history
     conf$alert_same_weekday_baseline <- temp$alert_same_weekday_baseline
+    conf$alert_with_retweets <- temp$alert_with_retweets
+    conf$alert_with_bonferroni_correction <- temp$alert_with_bonferroni_correction
     conf$use_mkl <- temp$use_mkl
     conf$geonames_simplify <- temp$geonames_simplify
     conf$regions_disclaimer <- temp$regions_disclaimer
@@ -254,8 +256,6 @@ copy_plans_from <- function(temp) {
     }
   }
 }
-get_properties_path <- function() file.path(conf$data_dir, "properties.json")
-get_plans_path <- function() file.path(conf$data_dir, "topics.json")
 
 #' Save the configuration options to disk
 #' @export
@@ -281,6 +281,8 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$alert_alpha <- conf$alert_alpha
     temp$alert_history <- conf$alert_history
     temp$alert_same_weekday_baseline <- conf$alert_same_weekday_baseline
+    temp$alert_with_retweets <- conf$alert_with_retweets
+    temp$alert_with_bonferroni_correction <- conf$alert_with_bonferroni_correction
     temp$use_mkl <- conf$use_mkl
     temp$geonames_simplify <- conf$geonames_simplify
     temp$regions_disclaimer <- conf$regions_disclaimer
@@ -336,19 +338,6 @@ merge_configs <- function(configs) {
       
 }
 
-#' Get available languages file path
-get_available_languages_path <- function() {
-  path <- paste(conf$data_dir, "languages.xlsx", sep = "/")
-  if(!file.exists(path))
-    path <- system.file("extdata", "languages.xlsx", package = get_package_name())
-  path
-}
-
-#' Get current available languages
-get_available_languages <- function() {
-  readxl::read_excel(get_available_languages_path()) 
-}
-
 #' Check config setup before continue
 stop_if_no_config <- function(error_message = "Cannot continue wihout setting up a configuration") {
   if(!exists("data_dir", where = conf)) {
@@ -362,31 +351,9 @@ setup_config_if_not_already <- function() {
     setup_config() 
   }
 }
-
-#' Get topics file path either from user or package location
-get_known_users_path <- function(data_dir = conf$data_dir) {
-    users_path <- paste(data_dir, "users.xlsx", sep = "/")
-    if(!file.exists(users_path))
-      users_path <- system.file("extdata", "users.xlsx", package = get_package_name())
-    return(users_path)
-}
-
-#' Get current known users
-get_known_users <- function() {
-  gsub("@", "", readxl::read_excel(get_known_users_path())[[1]])
-}
-
-#' Save know users to json filr
-export_known_users <- function() {
-  jsonlite::write_json(get_known_users(), path = file.path(conf$data_dir, "known_users.json"))
-}
-
-#' Get topics file path either from user or package location
-get_topics_path <- function(data_dir = conf$data_dir) {
-    topics_path <- paste(data_dir, "topics.xlsx", sep = "/")
-    if(!file.exists(topics_path))
-      topics_path <- system.file("extdata", "topics.xlsx", package = get_package_name())
-    return(topics_path)
+#' Get current available languages
+get_available_languages <- function() {
+  readxl::read_excel(get_available_languages_path()) 
 }
 
 #' Remove language 
@@ -421,4 +388,7 @@ add_config_language <- function(code, name) {
     )
   } 
 }
-
+#' Get current known users
+get_known_users <- function() {
+  gsub("@", "", readxl::read_excel(get_known_users_path())[[1]])
+}

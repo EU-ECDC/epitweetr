@@ -52,7 +52,7 @@ ears_t <- function(ts, alpha = 0.025, no_historic = 7L, same_weekday_baseline = 
   
   t(sapply(1:length(ts), function(t) {
     if(t <  no_historic * step + 1)
-      c(time_monitored=t, y0=ts[[t]], U0=NA, alarm0=NA)
+      c(time_monitored=t, y0=ts[[t]], U0=NA, alarm0=NA, y0bar=NA)
     else {
       ## Extract current value and historic values 
       ## Taking in consideration the step size which will be seven for same day of week comparison
@@ -68,7 +68,7 @@ ears_t <- function(ts, alpha = 0.025, no_historic = 7L, same_weekday_baseline = 
       alarm0 <- y0 > U0
 
       ## Return a vector with the components of the computation
-      c(time_monitored=t, y0=y0, U0=U0, alarm0=alarm0)
+      c(time_monitored=t, y0=y0, U0=U0, alarm0=alarm0, y0bar = y0bar)
   }})) %>% as.data.frame()
 
 }
@@ -177,6 +177,7 @@ calculate_region_alerts <- function(
     alerts <- ears_t(counts$count, alpha=alpha/bonferroni_m, no_historic = no_historic, same_weekday_baseline)
     counts$alert <- alerts$alarm0
     counts$limit <- alerts$U0
+    counts$baseline <- alerts$y0bar
     if(is.na(start))
       counts
     else
@@ -184,6 +185,7 @@ calculate_region_alerts <- function(
   } else {
     counts$alert <- logical()
     counts$limit <- numeric()
+    counts$baseline <- numeric()
     counts
   }
 }
@@ -245,10 +247,10 @@ calculate_regions_alerts <- function(
   if(date_type =="created_weeknum"){
     df <- df %>% 
       dplyr::group_by(week = strftime(date, "%G%V"), topic, country) %>% 
-      dplyr::summarise(c = sum(number_of_tweets), a = max(alert), d = min(date), ku = sum(known_users), kr = sum(known_users)/sum(number_of_tweets), l = 0) %>% 
+      dplyr::summarise(c = sum(number_of_tweets), a = max(alert), d = min(date), ku = sum(known_users), kr = sum(known_users)/sum(number_of_tweets), l = 0, b = 0) %>% 
       dplyr::ungroup() %>% 
       dplyr::select(d , c, ku, a, l, topic, country, kr) %>% 
-      dplyr::rename(date = d, number_of_tweets = c, alert = a, known_users = ku, known_ratio = kr, limit = l)
+      dplyr::rename(date = d, number_of_tweets = c, alert = a, known_users = ku, known_ratio = kr, limit = l, baseline = b)
   }
   return(df)
 }
@@ -325,11 +327,11 @@ do_next_alerts <- function(tasks = get_tasks()) {
         date_type = "created_date", 
         date_min = alert_to, 
         date_max = alert_to, 
-        with_retweets = FALSE, 
+        with_retweets = conf$alert_with_retweets, 
         location_type = "tweet" , 
         alpha = as.numeric(conf$alert_alpha), 
         no_historic = as.numeric(conf$alert_history), 
-        bonferroni_correction = TRUE,
+        bonferroni_correction = conf$alert_with_bonferroni_correction,
         same_weekday_baseline =  conf$alert_same_weekday_baseline
       ) %>%
       dplyr::mutate(topic = topic) %>% 
@@ -384,10 +386,10 @@ do_next_alerts <- function(tasks = get_tasks()) {
         dplyr::mutate(
         hour = alert_to_hour, 
         location_type = "tweet", 
-        with_retweets = FALSE, 
+        with_retweets = conf$alert_with_retweets, 
         alpha = as.numeric(conf$alert_alpha), 
         no_historic = as.numeric(conf$alert_history),
-        bonferroni_correction = TRUE,
+        bonferroni_correction = conf$alert_with_bonferroni_correction,
         same_weekday_baseline = conf$same_weekday_baseline
       )
       f <- file(alert_file, open = "ab")
@@ -438,13 +440,6 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
   Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
 }
 
-#' get the path for default or user defined subscribed user file
-get_subscribers_path <- function() {
-  path <- paste(conf$data_dir, "subscribers.xlsx", sep = "/")
-  if(!file.exists(path))
-    path <- system.file("extdata", "subscribers.xlsx", package = get_package_name())
-  path
-}
 
 #' get the default or user defined subscribed user list
 get_subscribers <-function() {
@@ -599,7 +594,12 @@ send_alert_emails <- function(tasks = get_tasks()) {
             )) %>% 
             emayili::html(print(xtable::xtable(user_alerts), type="html", file=tempfile()))
           )
-          smtp <- emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
+          smtp <- ( 
+            if(is.na(conf$smtp_password) || is.null(conf$smtp_password) ||  conf$smtp_password == "") 
+              emayili::server(host = conf$smtp_host, port=conf$smtp_port, insecure=conf$smtp_insecure, reuse = FALSE)
+            else 
+              emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
+          )
           smtp(msg)
           
           # Storing last day sendung alerts for current user

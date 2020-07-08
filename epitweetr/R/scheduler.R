@@ -26,7 +26,6 @@ register_detect_runner_task <- function() {
 #' Register task and start it
 register_runner_task <- function(task_name) {
   stop_if_no_config(paste("Cannot register scheduled task without configuration setup")) 
-  #rscript <- file.path(R.home("bin"), "Rscript")
   
   script_name <- paste(task_name, "R", sep = ".")
 
@@ -109,7 +108,6 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
-get_tasks_path <- function() file.path(conf$data_dir, "tasks.json")
 
 #' Getting the scheduler task lists with current status updated.
 #' @export

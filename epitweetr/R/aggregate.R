@@ -1,3 +1,5 @@
+#Environment for storing cached data
+cached <- new.env()
 
 #' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 #' Saving aggregated data as weekly RDS files
@@ -288,34 +290,14 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
        )
      )
   } else if(serie_name == "topwords") {
-    # Getting the expression for known words
-    #known_words <-  paste(
-    #  sapply(1:length(conf$topics), 
-    #  function(i) {
-    #    terms <- strsplit(conf$topics[[i]]$query, " |OR|\"|AND|,|\\.| |'")[[1]]
-    #    terms <- terms[terms != ""]
-    #    paste(
-    #      "(topic = '", conf$topics[[i]]$topic, 
-    #      "' and word not in (", 
-    #      paste(
-    #        "'", 
-    #        terms, 
-    #        "'", 
-    #        collapse = ", ", 
-    #        sep=""
-    #      ), 
-    #      "))", 
-    #      sep = ""
-    #  )}), 
-    #  collapse = " OR "
-    #)
-    #replacementfile <- tempfile(pattern = "repl", fileext = ".txt")
-    #f <-file(replacementfile)
-    #writeLines(c(
-    #  paste("@nokeywords:", known_words)
-    #  ), f
-    #)
-    #close(f) 
+    # Getting topic words to exclude 
+    topic_word_to_exclude <- unlist(sapply(1:length(conf$topics), 
+      function(i) {
+        terms <- strsplit(conf$topics[[i]]$query, " |OR|\"|AND|,|\\.| |'")[[1]]
+        terms <- terms[terms != ""]
+        paste(conf$topics[[i]]$topic, "_", terms, sep = "")
+      })) 
+    
     # Getting top word aggregation for each
     top_chunk <- get_geotagged_tweets(regexp = agg_regex
       , sources_exp = list(
@@ -346,7 +328,7 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
 	      , "is_retweet"
       )
       , handler = function(df, con_tmp) {
-          pipe_top_words(df = df, text_col = "text", lang_col = "lang", max_words = 500, con_out = con_tmp, page_size = 500)
+          pipe_top_words(df = df, text_col = "text", lang_col = "lang", max_words = 500, topic_word_to_exclude = topic_word_to_exclude, con_out = con_tmp, page_size = 500)
       }
     )
    if(nrow(top_chunk)==0) {

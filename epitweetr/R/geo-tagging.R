@@ -176,13 +176,6 @@ get_todays_sample_tweets <- function(limit = 1000, full = FALSE) {
  )
 }
 
-#' Get countries file path either from user or package location
-get_countries_path <- function(data_dir = conf$data_dir) {
-    countries_path <- paste(data_dir, "countries.xlsx", sep = "/")
-    if(!file.exists(countries_path))
-      countries_path <- system.file("extdata", "countries.xlsx", package = get_package_name())
-    return(countries_path)
-}
 
 #' Get raw countries from file
 get_raw_countries <- function() {

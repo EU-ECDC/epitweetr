@@ -17,63 +17,91 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   dashboard_page <- 
     shiny::fluidPage(
+      shiny::fluidRow(
+        shiny::column(3, 
+          ################################################
+          ######### DASBOARD FILTERS #####################
+          ################################################
+          shiny::selectInput("topics", label = shiny::h4("Topics"), multiple = FALSE, choices = d$topics),
+          shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
+          shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
+          shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
+          shiny::h4("Include Retweets/Quotes"),
+	        shiny::checkboxInput("with_retweets", label = NULL, value = conf$alert_with_retweets),
+          shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
+          shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
+          shiny::h4("Bonferroni correction"),
+	        shiny::checkboxInput("bonferroni_correction", label = NULL, value = conf$alert_with_bonferroni_correction),
+          shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
+          shiny::h4("Same weekday baseline"),
+	        shiny::checkboxInput("same_weekday_baseline", label = NULL, value = conf$alert_same_weekday_baseline),
           shiny::fluidRow(
-            shiny::column(3, 
-              ################################################
-              ######### DASBOARD FILTERS #####################
-              ################################################
-              shiny::selectInput("topics", label = shiny::h4("Topics"), multiple = FALSE, choices = d$topics),
-              shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
-              shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
-              shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
-              shiny::h4("Include Retweets/Quotes"),
-	            shiny::checkboxInput("with_retweets", label = NULL, value = FALSE),
-              shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
-              shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
-              shiny::h4("Bonferroni correction"),
-	            shiny::checkboxInput("bonferroni_correction", label = NULL, value = FALSE),
-              shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
-              shiny::h4("Same weekday baseline"),
-	            shiny::checkboxInput("same_weekday_baseline", label = NULL, value = conf$same_weekday_baseline),
+            shiny::column(6, 
+              shiny::downloadButton("export_pdf", "PDF")
+            ),
+            shiny::column(6, 
+              shiny::downloadButton("export_md", "Md")
+            )
+          )
+        ), 
+        shiny::column(9, 
+          ################################################
+          ######### DASBOARD PLOTS #######################
+          ################################################
+          shiny::fluidRow(
+            shiny::column(12, 
               shiny::fluidRow(
-                shiny::column(6, 
-                  shiny::downloadButton("export_pdf", "PDF")
-                ),
-                shiny::column(6, 
-                  shiny::downloadButton("export_md", "Md")
-                )
-              )
-            ), 
-            shiny::column(9, 
-              ################################################
-              ######### DASBOARD PLOTS #######################
-              ################################################
+                shiny::column(1, shiny::downloadButton("download_line_data", "data")),
+                shiny::column(1, shiny::downloadButton("export_line", "image"))
+		          ),
+              plotly::plotlyOutput("line_chart")
+            )
+          )
+          ,shiny::fluidRow(
+            shiny::column(6, 
               shiny::fluidRow(
-                shiny::column(12, 
-                  shiny::fluidRow(
-                    shiny::column(1, shiny::downloadButton("download_line_data", "data")),
-                    shiny::column(1, shiny::downloadButton("export_line", "image"))
-		              ),
-                  plotly::plotlyOutput("line_chart")
-                )
-              )
-              ,shiny::fluidRow(
-                shiny::column(6, 
-                  shiny::fluidRow(
-                    shiny::column(3, shiny::downloadButton("download_topword_data", "data")),
-                    shiny::column(3, shiny::downloadButton("export_topword", "image"))
-		              ),
-                  plotly::plotlyOutput("topword_chart")
-                )
-                , shiny::column(6, 
-                  shiny::fluidRow(
-                    shiny::column(3, shiny::downloadButton("download_map_data", "data")),
-                    shiny::column(3, shiny::downloadButton("export_map", "image"))
-		              ),
-                  shiny::plotOutput("map_chart"),
-                )
-              ))
-          )) 
+                shiny::column(3, shiny::downloadButton("download_topword_data", "data")),
+                shiny::column(3, shiny::downloadButton("export_topword", "image"))
+		          ),
+              plotly::plotlyOutput("topword_chart")
+            )
+            , shiny::column(6, 
+              shiny::fluidRow(
+                shiny::column(3, shiny::downloadButton("download_map_data", "data")),
+                shiny::column(3, shiny::downloadButton("export_map", "image"))
+		          ),
+              shiny::plotOutput(
+                "map_chart", 
+                 hover = shiny::hoverOpts(id = "map_hover", delay = 300)
+              ),
+            )
+          )
+        )
+      ),
+                  # Control for map tooltip
+                  shiny::uiOutput("map_tooltip"),
+                  # CSS style for map tooltip 
+                  shiny::tags$head(shiny::tags$style('
+                    #map_tooltip {
+                      position: absolute;
+                      z-index: 100;
+                    }
+                  ')),
+                  # Javascript for making tooltip appear
+                  shiny::tags$script('
+                    $(document).ready(function(){
+                      // id of the plot
+                      $("#map_chart").mousemove(function(e){ 
+                        // ID of uiOutput
+                        $("#map_tooltip").show();         
+                        $("#map_tooltip").css({             
+                          top: (e.pageY + 5) + "px",             
+                          left: (e.pageX + 5) + "px"         
+                        });     
+                      });     
+                    });
+                  ')
+    ) 
   # Defining alerts page UI
   ################################################
   ######### ALERTS PAGE ##########################
@@ -150,8 +178,12 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h3("Signal Detection"),
           shiny::fluidRow(shiny::column(3, "Default confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005))),
           shiny::fluidRow(shiny::column(3, "Default days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
-          shiny::fluidRow(shiny::column(3, "Default same weekday baseline"), shiny::column(9, shiny::checkboxInput("conf_same_weekday_baseline", label = NULL , value = conf$same_weekday_baseline))),
-          
+          shiny::fluidRow(shiny::column(3, "Default same weekday baseline"), shiny::column(9, shiny::checkboxInput("conf_same_weekday_baseline", label = NULL , value = conf$alert_same_weekday_baseline))),
+          shiny::fluidRow(shiny::column(3, "Default with retweets/Quotes"), shiny::column(9, shiny::checkboxInput("conf_with_retweets", label = NULL , value = conf$alert_with_retweets))),
+          shiny::fluidRow(
+            shiny::column(3, "Default with bonferroni correction"), 
+            shiny::column(9, shiny::checkboxInput("conf_with_bonferroni_correction", label = NULL , value = conf$alert_with_bonferroni_correction))
+          ),
           shiny::h3("General"),
           shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::span(conf$data_dir))),
           shiny::fluidRow(shiny::column(3, "Schedule Span (m)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
@@ -215,10 +247,10 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Topics"),
           shiny::fluidRow(
-            shiny::column(2, shiny::h5("Available Topics")),
-            shiny::column(1, shiny::downloadButton("conf_topics_download", "Download")),
-            shiny::column(3, shiny::fileInput("conf_topics_upload", label = NULL, buttonLabel = "Upload")),
-            shiny::column(4, shiny::span()),
+            shiny::column(4, shiny::h5("Available Topics")),
+            shiny::column(2, shiny::downloadButton("conf_topics_download", "Download")),
+            shiny::column(2, shiny::downloadButton("conf_orig_topics_download", "Download Defaults")),
+            shiny::column(4, shiny::fileInput("conf_topics_upload", label = NULL, buttonLabel = "Upload")),
           ),
           DT::dataTableOutput("config_topics"),
           ################################################
@@ -228,7 +260,8 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(4, shiny::h5("Available Languages")),
             shiny::column(2, shiny::downloadButton("conf_lang_download", "Download")),
-            shiny::column(6, shiny::fileInput("conf_lang_upload", label = NULL , buttonLabel = "Upload")),
+            shiny::column(2, shiny::downloadButton("conf_orig_lang_download", "Download Defaults")),
+            shiny::column(4, shiny::fileInput("conf_lang_upload", label = NULL , buttonLabel = "Upload")),
           ),
           shiny::fluidRow(
             shiny::column(4, shiny::h5("Active Languages")),
@@ -244,17 +277,18 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(4, shiny::h5("User file")),
             shiny::column(2, shiny::downloadButton("conf_users_download", "Download")),
-            shiny::column(6, shiny::fileInput("conf_users_upload", label = NULL , buttonLabel = "Upload")),
+            shiny::column(2, shiny::downloadButton("conf_orig_users_download", "Download Defaults")),
+            shiny::column(4, shiny::fileInput("conf_users_upload", label = NULL , buttonLabel = "Upload")),
           ),
           ################################################
           ######### SUSCRIBERS PANEL #####################
           ################################################
           shiny::h3("Subscribers"),
           shiny::fluidRow(
-            shiny::column(2, shiny::h5("Subscribers")),
-            shiny::column(1, shiny::downloadButton("conf_subscribers_download", "Download")),
-            shiny::column(3, shiny::fileInput("conf_subscribers_upload", label = NULL, buttonLabel = "Upload")),
-            shiny::column(4, shiny::span()),
+            shiny::column(4, shiny::h5("Subscribers")),
+            shiny::column(2, shiny::downloadButton("conf_subscribers_download", "Download")),
+            shiny::column(2, shiny::downloadButton("conf_orig_subscribers_download", "Download Defaults")),
+            shiny::column(4, shiny::fileInput("conf_subscribers_upload", label = NULL, buttonLabel = "Upload")),
           ),
           DT::dataTableOutput("config_subscribers"),
           ################################################
@@ -262,10 +296,10 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Countries / Regions"),
           shiny::fluidRow(
-            shiny::column(2, shiny::h5("Countries / Territories")),
-            shiny::column(1, shiny::downloadButton("conf_countries_download", "Download")),
-            shiny::column(3, shiny::fileInput("conf_countries_upload", label = NULL, buttonLabel = "Upload")),
-            shiny::column(4, shiny::span()),
+            shiny::column(4, shiny::h5("Countries / Territories")),
+            shiny::column(2, shiny::downloadButton("conf_countries_download", "Download")),
+            shiny::column(2, shiny::downloadButton("conf_orig_countries_download", "Download Defaults")),
+            shiny::column(4, shiny::fileInput("conf_countries_upload", label = NULL, buttonLabel = "Upload")),
           ),
           DT::dataTableOutput("config_regions")
         ))
@@ -283,7 +317,7 @@ epitweetr_app <- function(data_dir = NA) {
     trend_line(
       topic = topics
       ,countries= if(length(countries) == 0) c(1) else as.integer(countries)
-      ,type_date= period_type
+      ,date_type= period_type
       ,date_min = period[[1]]
       ,date_max = period[[2]]
       ,with_retweets= with_retweets
@@ -300,7 +334,7 @@ epitweetr_app <- function(data_dir = NA) {
     create_map(
       topic= topics
       ,countries= if(length(countries) == 0) c(1) else as.integer(countries)
-      ,type_date= period_type
+      ,date_type= period_type
       ,date_min = period[[1]]
       ,date_max = period[[2]]
       ,with_retweets= with_retweets
@@ -373,13 +407,52 @@ epitweetr_app <- function(data_dir = NA) {
     })  
     output$map_chart <- shiny::renderPlot({
        can_render(input, d)
-       map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+       res <- map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)
+       cd$map_data <- res$data
+       res$chart
     })
+
+    # Map tooltip
+    output$map_tooltip <- shiny::renderUI({
+      if(!is.null(input$map_hover)) {
+        p_long <- input$map_hover$x
+        p_lat <- input$map_hover$y
+        maxCount <- max(cd$map_data$count)
+        scale <- min(
+          abs(input$map_hover$range$left - input$map_hover$range$right)/abs(input$map_hover$domain$left - input$map_hover$domain$right)
+          , abs(input$map_hover$range$top - input$map_hover$range$bottom)/abs(input$map_hover$domain$top - input$map_hover$domain$botton)
+        )
+        hovered <- (
+          cd$map_data %>% 
+            # Filtering countries where the mouse is over the drawn circle (using same formula than in create_map function
+            dplyr::filter(sqrt((Long-p_long)^2 + (Lat-p_lat)^2)*scale < (8) * sqrt(count)/sqrt(maxCount)) %>% 
+            dplyr::select(Country, count) 
+        )
+        if(nrow(hovered) == 0)
+          cd$map_tooltip_text <- NULL
+        else 
+          cd$map_tooltip_text <- paste(hovered$Country, hovered$count, sep = ": ",  collapse = "<BR>")
+        shiny::htmlOutput("vals")
+      }
+      
+    })
+    output$vals <- shiny::renderText({
+      if(is.null(input$map_hover) || is.null(cd$map_tooltip_text))
+        "<div style=\"display:none\"/>"
+      else {
+        paste(
+          "<div style=\"display:block;border:1px solid;background-color:#FFCCCC;padding:3px\">",
+          cd$map_tooltip_text,
+          "</div>",
+          sep = ""
+        )
+      }
+    })  
     output$topword_chart <- plotly::renderPlotly({
        can_render(input, d)
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
-       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 30)$chart
+       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 20)$chart
        chart %>%
          plotly::ggplotly(height = height, width = width) %>% 
 	       plotly::layout(
@@ -699,7 +772,9 @@ epitweetr_app <- function(data_dir = NA) {
       conf$regions_disclaimer <- input$conf_regions_disclaimer 
       conf$alert_alpha <- input$conf_alpha 
       conf$alert_history <- input$conf_history 
-      conf$same_weekday_baseline <- input$conf_same_weekday_baseline 
+      conf$alert_same_weekday_baseline <- input$conf_same_weekday_baseline 
+      conf$alert_with_bonferroni_corection <- input$conf_with_bonferroni_correction
+      conf$alert_with_retweets <- input$conf_with_retweets
       if(input$twitter_auth == "app") {
         set_twitter_app_auth(
           app = input$twitter_app, 
@@ -734,6 +809,13 @@ epitweetr_app <- function(data_dir = NA) {
       }
     )
     
+    output$conf_orig_users_download <- shiny::downloadHandler(
+      filename = function() "users.xlsx",
+      content = function(file) { 
+        file.copy(get_default_known_users_path(), file) 
+      }
+    )
+    
     shiny::observe({
       df <- input$conf_users_upload
       if(!is.null(df) && nrow(df)>0) {
@@ -755,6 +837,13 @@ epitweetr_app <- function(data_dir = NA) {
       filename = function() "languages.xlsx",
       content = function(file) { 
         file.copy(get_available_languages_path(), file) 
+      }
+    )
+    
+    output$conf_orig_lang_download <- shiny::downloadHandler(
+      filename = function() "languages.xlsx",
+      content = function(file) { 
+        file.copy(get_default_available_languages_path(), file) 
       }
     )
      
@@ -816,6 +905,12 @@ epitweetr_app <- function(data_dir = NA) {
         file.copy(get_topics_path(), file) 
       }
     )
+    output$conf_orig_topics_download <- shiny::downloadHandler(
+      filename = function() "topics.xlsx",
+      content = function(file) { 
+        file.copy(get_default_topics_path(), file) 
+      }
+    )
     shiny::observe({
       df <- input$conf_topics_upload
       if(!is.null(df) && nrow(df)>0) {
@@ -840,6 +935,12 @@ epitweetr_app <- function(data_dir = NA) {
       DT::replaceData(DT::dataTableProxy('config_subscribers'), get_subscribers())
     })
      
+    output$conf_orig_subscribers_download <- shiny::downloadHandler(
+      filename = function() "subscribers.xlsx",
+      content = function(file) { 
+        file.copy(get_default_subscribers_path(), file) 
+      }
+    )
     output$conf_subscribers_download <- shiny::downloadHandler(
       filename = function() "subscribers.xlsx",
       content = function(file) { 
@@ -874,6 +975,13 @@ epitweetr_app <- function(data_dir = NA) {
       filename = function() "countries.xlsx",
       content = function(file) { 
         file.copy(get_countries_path(), file) 
+      }
+    )
+    
+    output$conf_orig_countries_download <- shiny::downloadHandler(
+      filename = function() "countries.xlsx",
+      content = function(file) { 
+        file.copy(get_default_countries_path(), file) 
       }
     )
     shiny::observe({
