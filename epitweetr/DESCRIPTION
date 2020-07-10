@@ -1,6 +1,6 @@
 Package: epitweetr
 Title: Capture and analyze tweets
-Version: 0.1.2
+Version: 0.1.5
 Authors@R: c( 
     person(given = "Francisco",
            family = "Orchard",
@@ -38,14 +38,17 @@ Imports:
     httpuv,
     jsonlite,
     keyring,
-    maps,
     emayili,
     parallel,
     plotly,
     rtweet,
     readxl,
+    rgeos,
+    rgdal,
     rmarkdown,
+    rnaturalearthdata, 
     shiny,
+    sp,
     stringr,
     tidyverse,
     tidytext,

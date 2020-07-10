@@ -513,9 +513,10 @@ epitweetr_app <- function(data_dir = NA) {
         )
       },
       content = function(file) { 
-	     grDevices::png(file,  width = 800, height = 600) 
-	     map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
-	     dev.off()
+	chart <- 
+	  map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
+        ggplot2::ggsave(file, plot = chart, device = device) 
         
       }
     ) 

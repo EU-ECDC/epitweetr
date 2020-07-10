@@ -37,7 +37,7 @@ Parameters
 * Same weekday baseline: `r params$same_weekday_baseline`
 
 ## Line chart
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
 line_chart_from_filters(
   params$topics, 
   params$countries, 
@@ -47,13 +47,13 @@ line_chart_from_filters(
   params$location_type, 
   params$alert_alpha, 
   params$alert_historic,
-  params$bonferroni_correction
+  params$bonferroni_correction,
   params$same_weekday_baseline
   )$chart
 ```
 
 ## Top words chart
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
 topwords_chart_from_filters(
   params$topics, 
   params$countries, 
@@ -66,7 +66,7 @@ topwords_chart_from_filters(
 ```
 
 ## Map Chart
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
 map_chart_from_filters(
   params$topics, 
   params$countries, 
