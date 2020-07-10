@@ -65,6 +65,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type){
     # adding hover text for alerts
     Details = vapply(which(df$alert == 1), function(i) {
       paste(
+        "\nAlert detected", 
         "\nRegion:",df$country[[i]],
         "\nNumber of tweets: ", df$number_of_tweets[[i]], 
         "\nBaseline: ", round(df$baseline[[i]]), 
@@ -328,17 +329,38 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   proj_df$plotlycuts <- paste(letters[dplyr::dense_rank(proj_df$countGroup)+3], ". " ,proj_df$countGroup, sep = "")
   cuts <- sort(unique(proj_df$countGroup))
   plotlycuts <- sort(unique(proj_df$plotlycuts))
-  # Drawing world map
+  # Extracting country polygones from naturalraearth data
   countries <- rnaturalearthdata::countries110 
-  #Excracting ISO codes for joinuing
-  codemap <- setNames(countries$iso_a2, as.character(1:nrow(countries) - 1))
+  # Projecting map on defined transformation
   countries_proj <- sp::spTransform(countries, sp::CRS(proj))
   countries_proj = rgeos::gBuffer(countries_proj, width=0, byid=TRUE)
+  
+  # Excracting ISO codes and names for joining with country codes
+  codemap <- setNames(countries$iso_a2, as.character(1:nrow(countries) - 1))
+  namemap <- setNames(countries$name, as.character(1:nrow(countries) - 1))
+  # Joining projectes map dataframe with codes and names
   countries_proj_df <- ggplot2::fortify(countries_proj) %>%
     # Adding country codes
-    dplyr::mutate(ISO_A2 = codemap[id]) %>%
+    dplyr::mutate(ISO_A2 = codemap[id], name = namemap[id]) %>%
     # Getting colors of selected regions
     dplyr::mutate(selected = ifelse(ISO_A2 %in% country_codes, "a. Selected",ifelse(!hole,  "b. Excluded",  "c. Lakes")))
+  
+  #Creating tooltip tory mentioning dengue from 2020-06-10 to 2020-06-15 
+  countries_proj_df$Details <- 
+    paste(
+      "\nRegion:",countries_proj_df$name,
+      sep = ""
+    )
+
+  proj_df$Details <- 
+    paste(
+      "\nRegion:", proj_df$Country,
+      "\nNumber of Tweets:", proj_df$count,
+      sep = ""
+    )
+
+  
+  # Defining the chart theme
   theme_opts <- list(ggplot2::theme(
 	  plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
 	  plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 12),
@@ -357,10 +379,10 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   ))
   fig <- ggplot2::ggplot() + #bbox_proj_df, ggplot2::aes(long,lat, group=group)) + 
     #ggplot2::geom_polygon(fill="white") + 
-    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(long,lat, group=group, fill=selected)) + 
-    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(long,lat, group=group, fill=selected), color ="#3f3f3f", size=0.3) + 
+    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(long,lat, group=group, fill=selected, label = Details)) + 
+    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(long,lat, group=group, fill=selected, label = Details), color ="#3f3f3f", size=0.3) + 
     (if(forplotly) 
-      ggplot2::geom_point(data=proj_df, ggplot2::aes(Long, Lat, size=count, fill=plotlycuts), color="#65B32E", alpha=I(8/10))
+      ggplot2::geom_point(data=proj_df, ggplot2::aes(Long, Lat, size=count, fill=plotlycuts, label = Details), color="#65B32E", alpha=I(8/10))
      else
       ggplot2::geom_point(data=proj_df, ggplot2::aes(Long, Lat, size=count), fill="#65B32E", color="#65B32E", alpha=I(8/10))
     ) + 
@@ -384,26 +406,6 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     ggplot2::theme_classic(base_family = get_font_family()) +
     theme_opts
 
-
-
-  ## fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 21) #circle line
-  ## fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 19) #filled circlee
-  ## fig <- title(
-  ##   main = ,
-  ##   sub = caption
-  ## )
-  ## #Generating legend
-  ## fcuts <- sapply(cuts, function(c) if(c < 1000) paste(c) else if (c< 1000000) sprintf("%.0fk",c/1000) else sprintf("%.0fM",c/1000000)) 
-  ## par(xpd=TRUE)
-  ## fig <- legend("bottom", ncol = 4,# position
-  ##   legend = fcuts, 
-  ##   pt.cex = 3 * sqrt(cuts)/sqrt(maxCount),
-  ##   col = rgb(red = 1, green = 102/255, blue = 102/255),
-  ##   pt.bg = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5),
-  ##   pch = 21,
-  ##   bty = "n", 
-  ##   inset=c(0,-0.2)
-  ## ) # border
   list("chart" = fig, "data" = df) 
 }
 

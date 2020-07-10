@@ -387,7 +387,21 @@ epitweetr_app <- function(data_dir = NA) {
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        chart <- map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
-       plotly::ggplotly(chart, height = height, width = width) %>% plotly::config(displayModeBar = F) 
+       chart %>%
+         plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% 
+	       plotly::layout(
+           title=list(text= paste("<b>", chart$labels$title, "</b>")), 
+           margin = list(l = 30, r=30, b = 70, t = 80),
+           annotations = list(
+             text = chart$labels$caption,
+             font = list(size = 10),
+             showarrow = FALSE,
+             xref = 'paper', 
+             x = 0,
+             yref = 'paper', 
+             y = -0.3)
+         ) %>%
+         plotly::config(displayModeBar = F) 
     })
 
     output$topword_chart <- plotly::renderPlotly({
