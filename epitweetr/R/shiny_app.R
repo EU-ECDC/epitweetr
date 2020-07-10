@@ -70,37 +70,13 @@ epitweetr_app <- function(data_dir = NA) {
                 shiny::column(3, shiny::downloadButton("download_map_data", "data")),
                 shiny::column(3, shiny::downloadButton("export_map", "image"))
 		          ),
-              shiny::plotOutput(
-                "map_chart", 
-                 hover = shiny::hoverOpts(id = "map_hover", delay = 300)
+              plotly::plotlyOutput(
+                "map_chart" 
               ),
             )
           )
         )
-      ),
-                  # Control for map tooltip
-                  shiny::uiOutput("map_tooltip"),
-                  # CSS style for map tooltip 
-                  shiny::tags$head(shiny::tags$style('
-                    #map_tooltip {
-                      position: absolute;
-                      z-index: 100;
-                    }
-                  ')),
-                  # Javascript for making tooltip appear
-                  shiny::tags$script('
-                    $(document).ready(function(){
-                      // id of the plot
-                      $("#map_chart").mousemove(function(e){ 
-                        // ID of uiOutput
-                        $("#map_tooltip").show();         
-                        $("#map_tooltip").css({             
-                          top: (e.pageY + 5) + "px",             
-                          left: (e.pageX + 5) + "px"         
-                        });     
-                      });     
-                    });
-                  ')
+      )
     ) 
   # Defining alerts page UI
   ################################################
@@ -339,7 +315,8 @@ epitweetr_app <- function(data_dir = NA) {
       ,date_max = period[[2]]
       ,with_retweets= with_retweets
       ,location_type = location_type
-      ,caption = conf$regions_disclaimer 
+      ,caption = conf$regions_disclaimer
+      ,forplotly = TRUE 
     )
     
   }
@@ -405,49 +382,14 @@ epitweetr_app <- function(data_dir = NA) {
        width <- session$clientData$output_p_width
        plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = F) 
     })  
-    output$map_chart <- shiny::renderPlot({
+    output$map_chart <- plotly::renderPlotly({
        can_render(input, d)
-       res <- map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)
-       cd$map_data <- res$data
-       res$chart
+       height <- session$clientData$output_p_height
+       width <- session$clientData$output_p_width
+       chart <- map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+       plotly::ggplotly(chart, height = height, width = width) %>% plotly::config(displayModeBar = F) 
     })
 
-    # Map tooltip
-    output$map_tooltip <- shiny::renderUI({
-      if(!is.null(input$map_hover)) {
-        p_long <- input$map_hover$x
-        p_lat <- input$map_hover$y
-        maxCount <- max(cd$map_data$count)
-        scale <- min(
-          abs(input$map_hover$range$left - input$map_hover$range$right)/abs(input$map_hover$domain$left - input$map_hover$domain$right)
-          , abs(input$map_hover$range$top - input$map_hover$range$bottom)/abs(input$map_hover$domain$top - input$map_hover$domain$botton)
-        )
-        hovered <- (
-          cd$map_data %>% 
-            # Filtering countries where the mouse is over the drawn circle (using same formula than in create_map function
-            dplyr::filter(sqrt((Long-p_long)^2 + (Lat-p_lat)^2)*scale < (8) * sqrt(count)/sqrt(maxCount)) %>% 
-            dplyr::select(Country, count) 
-        )
-        if(nrow(hovered) == 0)
-          cd$map_tooltip_text <- NULL
-        else 
-          cd$map_tooltip_text <- paste(hovered$Country, hovered$count, sep = ": ",  collapse = "<BR>")
-        shiny::htmlOutput("vals")
-      }
-      
-    })
-    output$vals <- shiny::renderText({
-      if(is.null(input$map_hover) || is.null(cd$map_tooltip_text))
-        "<div style=\"display:none\"/>"
-      else {
-        paste(
-          "<div style=\"display:block;border:1px solid;background-color:#FFCCCC;padding:3px\">",
-          cd$map_tooltip_text,
-          "</div>",
-          sep = ""
-        )
-      }
-    })  
     output$topword_chart <- plotly::renderPlotly({
        can_render(input, d)
        height <- session$clientData$output_p_height
@@ -557,9 +499,9 @@ epitweetr_app <- function(data_dir = NA) {
         )
       },
       content = function(file) { 
-	grDevices::png(file,  width = 800, height = 600) 
-	map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
-	dev.off()
+	     grDevices::png(file,  width = 800, height = 600) 
+	     map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+	     dev.off()
         
       }
     ) 

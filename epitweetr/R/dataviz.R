@@ -205,7 +205,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type){
 #' @param date_max 
 #'
 #' @export
-create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = ""){
+create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=F){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
@@ -259,54 +259,151 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   df$MaxLat <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$maxLat else NA)
   df$MinLong <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$minLong else NA)
   df$MaxLong <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$maxLong else NA)
-
-  # Getting topics bounding boxes
+  
+  #Calculating the center of the map
   minLong <- min(df$MinLong, na.rm = TRUE)
   maxLong <- max(df$MaxLong, na.rm = TRUE)
   minLat <- min(df$MinLat, na.rm = TRUE)
   maxLat <- max(df$MaxLat, na.rm = TRUE)
-  maxCount <- max(df$count)
+  lat_center <- mean(minLat, maxLat)
+  long_center <- mean(minLong, maxLong)
 
-  # Getting matches regions names
-  selected_polygones <- maps::map("world", regions = maps::iso.expand(country_codes), plot = FALSE)$names
-  all_polygones <- maps::map(
-    "world", 
-    , ylim=c(if(minLat>-60) minLat else -60, if(maxLat< 90) maxLat else 90)
-    , xlim = c(minLong, maxLong)
-    , plot = FALSE
-  )$names
-  # Getting colors of selected regions
-  selected_colors <- sapply(all_polygones, function(r) if(r %in% selected_polygones) "#C7C7C7" else "#E5E5E5")
-
-  mymap <- maps::map(
-    "world"
-    , fill=TRUE
-    , col=selected_colors
-    , bg="white"
-    , ylim=c(if(minLat>-60) minLat else -60, if(maxLat< 90) maxLat else 90)
-    , xlim = c(minLong, maxLong)
-    , border = "#E0E0E0"
-  ) 
-  
-  fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 21) #circle line
-  fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 19) #filled circlee
-  fig <- title(
-    main = paste("Tweets by country mentioning", topic, "\nfrom", date_min, "to", date_max),
-    sub = caption
+  # Projecting df
+  full_world <- (1 %in% countries)
+  proj <- (
+    if(!is.null(proj)) 
+      proj
+    else if(full_world) 
+      # Using Robinson projection for world map  
+      "+proj=robin" 
+    else
+      # Using projection Lambert Azimuthal Equal Area for partial maps
+      paste("+proj=laea", " +lon_0=", long_center, " +lat_0=", lat_center, sep = "") 
   )
-  #Generating legend
-  cuts <- sapply(c(maxCount/50, maxCount/20, maxCount/5, maxCount), function(v) round(v, digits = - floor(log10(v))))
-  fcuts <- sapply(cuts, function(c) if(c < 1000) paste(c) else if (c< 1000000) sprintf("%.0fk",c/1000) else sprintf("%.0fM",c/1000000)) 
-  par(xpd=TRUE)
-  fig <- legend("bottom", ncol = 4,# position
-    legend = fcuts, 
-    pt.cex = 3 * sqrt(cuts)/sqrt(maxCount),
-    col = rgb(red = 1, green = 102/255, blue = 102/255),
-    pt.bg = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5),
-    pch = 21,
-    bty = "n", 
-    inset=c(0,-0.2)
-  ) # border
+  # Projecting the country counts dataframe on the target coordinate system
+  proj_df <- as.data.frame(
+    sp::spTransform(
+      {
+        x <- df %>% dplyr::filter(!is.na(Long) & !is.na(Lat))
+        sp::coordinates(x)<-~Long+Lat
+        sp::proj4string(x) <- sp::CRS("+proj=longlat +datum=WGS84")
+        x
+      }, 
+      sp::CRS(proj)
+    )
+  )
+  
+  # Getting global projected bounding boxes setting fixed latitude limits to (-60, -90)
+  proj_min_df <- as.data.frame(
+    sp::spTransform(
+      {
+        x <- df %>% dplyr::filter(!is.na(MinLong) & !is.na(MinLat)) %>% dplyr::mutate(MinLat = ifelse(MinLat>-60, MinLat,  -60))
+        sp::coordinates(x)<-~MinLong+MinLat
+        sp::proj4string(x) <- sp::CRS(if(!is.null(p2)) p2 else "+proj=longlat +datum=WGS84")
+        x
+      }, 
+      sp::CRS(proj)
+    )
+  )
+  proj_max_df <- as.data.frame(
+    sp::spTransform(
+      {
+        x <- df %>% dplyr::filter(!is.na(MaxLong) & !is.na(MaxLat)) %>% dplyr::mutate(MaxLat = ifelse(MaxLat< 90, MaxLat,  90))
+        sp::coordinates(x)<-~MaxLong+MaxLat
+        sp::proj4string(x) <- sp::CRS(if(!is.null(p2)) p2 else "+proj=longlat +datum=WGS84")
+        x
+      }, 
+      sp::CRS(proj)
+    )
+  )
+  minX <- min(proj_min_df$MinLong, na.rm = TRUE)
+  maxX <- max(proj_max_df$MaxLong, na.rm = TRUE)
+  minY <- min(proj_min_df$MinLat, na.rm = TRUE)
+  maxY <- max(proj_max_df$MaxLat, na.rm = TRUE)
+  
+  # Calculating counts groups for Legend
+  maxCount <- max(df$count)
+  cutsCandidates <- unique(sapply(c(maxCount/50, maxCount/20, maxCount/5, maxCount), function(v) max(1, ceiling((v/(10 ^ floor(log10(v)))))* (10 ^ floor(log10(v))))))
+  proj_df$countGroup <- sapply(proj_df$count, function(c) min(cutsCandidates[c <= cutsCandidates]))
+  proj_df$plotlycuts <- paste(letters[dplyr::dense_rank(proj_df$countGroup)+3], ". " ,proj_df$countGroup, sep = "")
+  cuts <- sort(unique(proj_df$countGroup))
+  plotlycuts <- sort(unique(proj_df$plotlycuts))
+  # Drawing world map
+  countries <- rnaturalearthdata::countries110 
+  #Excracting ISO codes for joinuing
+  codemap <- setNames(countries$iso_a2, as.character(1:nrow(countries) - 1))
+  countries_proj <- sp::spTransform(countries, sp::CRS(proj))
+  countries_proj = rgeos::gBuffer(countries_proj, width=0, byid=TRUE)
+  countries_proj_df <- ggplot2::fortify(countries_proj) %>%
+    # Adding country codes
+    dplyr::mutate(ISO_A2 = codemap[id]) %>%
+    # Getting colors of selected regions
+    dplyr::mutate(selected = ifelse(ISO_A2 %in% country_codes, "a. Selected",ifelse(!hole,  "b. Excluded",  "c. Lakes")))
+  theme_opts <- list(ggplot2::theme(
+	  plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
+	  plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 12),
+    axis.text = ggplot2::element_text(colour = "black", size = 8),
+    panel.grid.minor = ggplot2::element_blank(),
+    panel.grid.major = ggplot2::element_blank(),
+    panel.background = ggplot2::element_blank(),
+    plot.background = ggplot2::element_rect(fill="white"),
+    panel.border = ggplot2::element_blank(),
+    axis.line = ggplot2::element_blank(),
+    axis.text.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_blank(),
+    axis.ticks = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank()
+  ))
+  fig <- ggplot2::ggplot() + #bbox_proj_df, ggplot2::aes(long,lat, group=group)) + 
+    #ggplot2::geom_polygon(fill="white") + 
+    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(long,lat, group=group, fill=selected)) + 
+    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(long,lat, group=group, fill=selected), color ="#3f3f3f", size=0.3) + 
+    (if(forplotly) 
+      ggplot2::geom_point(data=proj_df, ggplot2::aes(Long, Lat, size=count, fill=plotlycuts), color="#65B32E", alpha=I(8/10))
+     else
+      ggplot2::geom_point(data=proj_df, ggplot2::aes(Long, Lat, size=count), fill="#65B32E", color="#65B32E", alpha=I(8/10))
+    ) + 
+    ggplot2::scale_size_continuous(
+      name = "Number of tweets", 
+      breaks = {x = cuts; x[length(x)]=maxCount;x},
+      labels = cuts
+    ) +
+    ggplot2::scale_fill_manual(
+      values = c("#C7C7C7", "#E5E5E5" , "white", sapply(cuts, function(c) "#65B32E")), 
+      breaks = c("a. Selected", "b. Excluded", "c. Lakes", plotlycuts),
+      guide = FALSE
+    ) +
+    ggplot2::coord_equal() + 
+    (if(!full_world) ggplot2::scale_y_continuous(limit=c(minY, maxY)) ) + 
+    (if(!full_world) ggplot2::scale_x_continuous(limit=c(minX, maxX)) ) +
+    ggplot2::labs(
+       title = paste("Tweets by territory mentioning", topic, "\nfrom", date_min, "to", date_max),
+       caption = paste(caption, ". Projection: ", proj, sep = "")
+    ) +
+    ggplot2::theme_classic(base_family = get_font_family()) +
+    theme_opts
+
+
+
+  ## fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 21) #circle line
+  ## fig <- points(df$Long, df$Lat, col = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5), cex = 3 * sqrt(df$count)/sqrt(maxCount),lwd=.4, pch = 19) #filled circlee
+  ## fig <- title(
+  ##   main = ,
+  ##   sub = caption
+  ## )
+  ## #Generating legend
+  ## fcuts <- sapply(cuts, function(c) if(c < 1000) paste(c) else if (c< 1000000) sprintf("%.0fk",c/1000) else sprintf("%.0fM",c/1000000)) 
+  ## par(xpd=TRUE)
+  ## fig <- legend("bottom", ncol = 4,# position
+  ##   legend = fcuts, 
+  ##   pt.cex = 3 * sqrt(cuts)/sqrt(maxCount),
+  ##   col = rgb(red = 1, green = 102/255, blue = 102/255),
+  ##   pt.bg = rgb(red = 1, green = 102/255, blue = 102/255, alpha = 0.5),
+  ##   pch = 21,
+  ##   bty = "n", 
+  ##   inset=c(0,-0.2)
+  ## ) # border
   list("chart" = fig, "data" = df) 
 }
 
