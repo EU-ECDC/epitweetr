@@ -300,7 +300,7 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
       {
         x <- df %>% dplyr::filter(!is.na(MinLong) & !is.na(MinLat)) %>% dplyr::mutate(MinLat = ifelse(MinLat>-60, MinLat,  -60))
         sp::coordinates(x)<-~MinLong+MinLat
-        sp::proj4string(x) <- sp::CRS(if(!is.null(p2)) p2 else "+proj=longlat +datum=WGS84")
+        sp::proj4string(x) <- sp::CRS("+proj=longlat +datum=WGS84")
         x
       }, 
       sp::CRS(proj)
@@ -311,7 +311,7 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
       {
         x <- df %>% dplyr::filter(!is.na(MaxLong) & !is.na(MaxLat)) %>% dplyr::mutate(MaxLat = ifelse(MaxLat< 90, MaxLat,  90))
         sp::coordinates(x)<-~MaxLong+MaxLat
-        sp::proj4string(x) <- sp::CRS(if(!is.null(p2)) p2 else "+proj=longlat +datum=WGS84")
+        sp::proj4string(x) <- sp::CRS("+proj=longlat +datum=WGS84")
         x
       }, 
       sp::CRS(proj)
