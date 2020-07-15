@@ -262,14 +262,14 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   df$MaxLong <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$maxLong else NA)
   
   #Calculating the center of the map
-  minLong <- min(df$MinLong, na.rm = TRUE)
-  maxLong <- max(df$MaxLong, na.rm = TRUE)
-  minLat <- min(df$MinLat, na.rm = TRUE)
-  maxLat <- max(df$MaxLat, na.rm = TRUE)
-  lat_center <- mean(minLat, maxLat)
-  long_center <- mean(minLong, maxLong)
+  min_long <- min(df$MinLong, na.rm = TRUE)
+  max_long <- max(df$MaxLong, na.rm = TRUE)
+  min_lat <- min(df$MinLat, na.rm = TRUE)
+  max_lat <- max(df$MaxLat, na.rm = TRUE)
+  lat_center <- mean(c(min_lat, max_lat))
+  long_center <- mean(c(min_long, max_long))
 
-  # Projecting df
+  # Getting the projection to use which will be centered the global bounding box
   full_world <- (1 %in% countries)
   proj <- (
     if(!is.null(proj)) 
@@ -279,9 +279,10 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
       "+proj=robin" 
     else
       # Using projection Lambert Azimuthal Equal Area for partial maps
-      paste("+proj=laea", " +lon_0=", long_center, " +lat_0=", lat_center, sep = "") 
+      paste("+proj=laea", " +lon_0=", long_center, " +lat_0=", lat_center ,sep = "") 
+      #paste("+proj=laea", " +lon_0=", long_center, " +lat_0=", lat_center, " +x0=4321000", " +y0=3210000 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs", sep = "") 
   )
-  # Projecting the country counts dataframe on the target coordinate system
+  # Projecting the country counts dataframe on the target coordinate system this projected dataframe contains the bubble X,Y coordinates
   proj_df <- as.data.frame(
     sp::spTransform(
       {
@@ -293,35 +294,54 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
       sp::CRS(proj)
     )
   )
+  # Extracting country polygones from naturalraearth dat
+  countries_geo <- rnaturalearthdata::countries50 
   
-  # Getting global projected bounding boxes setting fixed latitude limits to (-60, -90)
-  proj_min_df <- as.data.frame(
+  # Projecting country polygones on target coordinate system
+  countries_proj <- as.data.frame(
     sp::spTransform(
       {
-        x <- df %>% dplyr::filter(!is.na(MinLong) & !is.na(MinLat)) %>% dplyr::mutate(MinLat = ifelse(MinLat>-60, MinLat,  -60))
-        sp::coordinates(x)<-~MinLong+MinLat
+        x <- ggplot2::fortify(countries_geo)
+        sp::coordinates(x)<-~long+lat
         sp::proj4string(x) <- sp::CRS("+proj=longlat +datum=WGS84")
         x
       }, 
       sp::CRS(proj)
     )
   )
-  proj_max_df <- as.data.frame(
-    sp::spTransform(
-      {
-        x <- df %>% dplyr::filter(!is.na(MaxLong) & !is.na(MaxLat)) %>% dplyr::mutate(MaxLat = ifelse(MaxLat< 90, MaxLat,  90))
-        sp::coordinates(x)<-~MaxLong+MaxLat
-        sp::proj4string(x) <- sp::CRS("+proj=longlat +datum=WGS84")
-        x
-      }, 
-      sp::CRS(proj)
-    )
-  )
-  minX <- min(proj_min_df$MinLong, na.rm = TRUE)
-  maxX <- max(proj_max_df$MaxLong, na.rm = TRUE)
-  minY <- min(proj_min_df$MinLat, na.rm = TRUE)
-  maxY <- max(proj_max_df$MaxLat, na.rm = TRUE)
+  message(proj)
+  #countries_proj = rgeos::gBuffer(countries_proj, width=0, byid=TRUE)
   
+  # Extracting ISO codes for joining with country codes
+  codemap <- setNames(countries_geo$iso_a2, as.character(1:nrow(countries_geo) - 1))
+  # Extracting Country names for joining with country codes
+  namemap <- setNames(countries_geo$name, as.character(1:nrow(countries_geo) - 1))
+  # Getting original coordinate system for filtering points
+  countries_non_proj <-  ggplot2::fortify(countries_geo)
+
+  # Joining projectes map dataframe with codes and names
+  countries_proj_df <- ggplot2::fortify(countries_proj) %>%
+    # Renaming projected long lat tp x y
+    dplyr::rename(x = long, y = lat) %>%
+    # Adding original coordinates
+    dplyr::mutate(long = countries_non_proj$long, lat = countries_non_proj$lat) %>%
+    # Adding country codes
+    dplyr::mutate(ISO_A2 = codemap[id], name = namemap[id]) %>%
+    # Getting colors of selected regions
+    dplyr::mutate(selected = ifelse(ISO_A2 %in% country_codes, "a. Selected",ifelse(!hole,  "b. Excluded",  "c. Lakes"))) %>%
+    # Filtering out elements out of drawing area
+    dplyr::filter(long >= min_long -20 & long <= max_long + 20 & lat >= min_lat -20 & lat <= max_lat + 20) 
+  
+  message(paste(min_long, max_long, min_lat, max_lat))
+  # Getting selected countries projected bounding boxes
+  map_limits <- countries_proj_df %>% dplyr::filter(long >= min_long  & long <= max_long & lat >= min_lat & lat <= max_lat) 
+  minX <- min(map_limits$x)
+  maxX <- max(map_limits$x)
+  minY <- min(map_limits$y)
+  maxY <- max(map_limits$y)
+  
+  message(paste(minX, maxX, minY, maxY))
+ 
   # Calculating counts groups for Legend
   maxCount <- max(df$count)
   cutsCandidates <- unique(sapply(c(maxCount/50, maxCount/20, maxCount/5, maxCount), function(v) max(1, ceiling((v/(10 ^ floor(log10(v)))))* (10 ^ floor(log10(v))))))
@@ -329,23 +349,7 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   proj_df$plotlycuts <- paste(letters[dplyr::dense_rank(proj_df$countGroup)+3], ". " ,proj_df$countGroup, sep = "")
   cuts <- sort(unique(proj_df$countGroup))
   plotlycuts <- sort(unique(proj_df$plotlycuts))
-  # Extracting country polygones from naturalraearth data
-  countries <- rnaturalearthdata::countries110 
-  # Projecting map on defined transformation
-  countries_proj <- sp::spTransform(countries, sp::CRS(proj))
-  countries_proj = rgeos::gBuffer(countries_proj, width=0, byid=TRUE)
-  
-  # Excracting ISO codes and names for joining with country codes
-  codemap <- setNames(countries$iso_a2, as.character(1:nrow(countries) - 1))
-  namemap <- setNames(countries$name, as.character(1:nrow(countries) - 1))
-  # Joining projectes map dataframe with codes and names
-  countries_proj_df <- ggplot2::fortify(countries_proj) %>%
-    # Adding country codes
-    dplyr::mutate(ISO_A2 = codemap[id], name = namemap[id]) %>%
-    # Getting colors of selected regions
-    dplyr::mutate(selected = ifelse(ISO_A2 %in% country_codes, "a. Selected",ifelse(!hole,  "b. Excluded",  "c. Lakes")))
-  
-  #Creating tooltip tory mentioning dengue from 2020-06-10 to 2020-06-15 
+  #Creating tooltip 
   countries_proj_df$Details <- 
     paste(
       "\nRegion:",countries_proj_df$name,
@@ -377,10 +381,9 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     axis.title.x = ggplot2::element_blank(),
     axis.title.y = ggplot2::element_blank()
   ))
-  fig <- ggplot2::ggplot() + #bbox_proj_df, ggplot2::aes(long,lat, group=group)) + 
-    #ggplot2::geom_polygon(fill="white") + 
-    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(long,lat, group=group, fill=selected, label = Details)) + 
-    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(long,lat, group=group, fill=selected, label = Details), color ="#3f3f3f", size=0.3) + 
+  fig <- ggplot2::ggplot() + 
+    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(x,y, group=group, fill=selected, label = Details)) + 
+    ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(x,y, group=group, fill=selected, label = Details), color ="#3f3f3f", size=0.3) + 
     (if(forplotly) 
       ggplot2::geom_point(data=proj_df, ggplot2::aes(Long, Lat, size=count, fill=plotlycuts, label = Details), color="#65B32E", alpha=I(8/10))
      else
@@ -396,9 +399,7 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
       breaks = c("a. Selected", "b. Excluded", "c. Lakes", plotlycuts),
       guide = FALSE
     ) +
-    ggplot2::coord_equal() + 
-    (if(!full_world) ggplot2::scale_y_continuous(limit=c(minY, maxY)) ) + 
-    (if(!full_world) ggplot2::scale_x_continuous(limit=c(minX, maxX)) ) +
+    (if(!full_world) ggplot2::coord_fixed(ratio = 1, ylim=c(minY, maxY), xlim=c(minX, maxX)) ) +
     ggplot2::labs(
        title = paste("Tweets by territory mentioning", topic, "\nfrom", date_min, "to", date_max),
        caption = paste(caption, ". Projection: ", proj, sep = "")
