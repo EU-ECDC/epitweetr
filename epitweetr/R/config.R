@@ -185,7 +185,7 @@ setup_config <- function(
         }
         i_tmp <- 1
         queries <- topics$df[topics$df$Topic == topic, ]
-        #For each distincit query on excel file on current topic
+        #For each distinct query on excel file on current topic
         for(i_query in 1:nrow(queries)) {
           #Looking for the next matching entry in json file
           while(i_tmp <= length(temp$topics) && temp$topics[[i_tmp]]$topic != topic) { i_tmp <- i_tmp + 1 }
@@ -193,11 +193,15 @@ setup_config <- function(
             #reusing an existing query
             adjusted_topics[[i_adjusted]] <- temp$topics[[i_tmp]]
             adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
+            adjusted_topics[[i_adjusted]]$label <- queries$Label[[i_query]]
+            adjusted_topics[[i_adjusted]]$alpha <-  if(!is.null(queries$Alpha[[i_query]]) && !is.na(queries$Alpha[[i_query]])) queries$Alpha[[i_query]] else conf$alert_alpha
           } else {
             #creating a new query  
             adjusted_topics[[i_adjusted]] <- list()
             adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
             adjusted_topics[[i_adjusted]]$topic <- queries$Topic[[i_query]]
+            adjusted_topics[[i_adjusted]]$label <- queries$Label[[i_query]]
+            adjusted_topics[[i_adjusted]]$alpha <- if(!is.null(queries$Alpha[[i_query]]) && !is.na(queries$Alpha[[i_query]])) queries$Alpha[[i_query]] else conf$alert_alpha
           }
           i_adjusted <- i_adjusted + 1
           i_tmp <- i_tmp + 1
@@ -335,7 +339,45 @@ merge_configs <- function(configs) {
     keys <- unique(c(names(first), names(rest)))
     as.list(setNames(mapply(function(x, y) if(is.null(y)) x else y, first[keys], rest[keys]), keys))
   }
-      
+}
+
+# Get topics df
+get_topics_df <- function() {
+  data.frame(
+    Topics = sapply(conf$topics, function(t) t$topic), 
+    Label = sapply(conf$topics, function(t) t$label), 
+    Query = sapply(conf$topics, function(t) t$query), 
+    QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
+    ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
+    Progress = sapply(conf$topics, function(t) {if(length(t$plan)>0) mean(unlist(lapply(t$plan, function(p) p$progress))) else 0}), 
+    Requests = sapply(conf$topics, function(t) {if(length(t$plan)>0) sum(unlist(lapply(t$plan, function(p) p$requests))) else 0}),
+    Alpha = sapply(conf$topics, function(t) t$alpha) ,
+    stringsAsFactors=FALSE
+    
+  )
+}
+
+#Get topic labels 
+get_topics_labels <- function() {
+  `%>%` <- magrittr::`%>%`
+  t <- ( 
+    get_topics_df() %>% 
+      dplyr::group_by(Topics) %>%
+      dplyr::summarise(label = Label[which(!is.na(Label))[1]]) %>%
+      dplyr::ungroup()
+  )
+  setNames(t$label, t$Topics)
+}
+#Get topic alphas 
+get_topics_alphas <- function() {
+  `%>%` <- magrittr::`%>%`
+  t <- ( 
+    get_topics_df() %>% 
+      dplyr::group_by(Topics) %>%
+      dplyr::summarise(alpha = Alpha[which(!is.na(Alpha))[1]]) %>%
+      dplyr::ungroup()
+  )
+  setNames(t$alpha, t$Topics)
 }
 
 #' Check config setup before continue

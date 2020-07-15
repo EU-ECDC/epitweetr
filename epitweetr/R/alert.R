@@ -329,7 +329,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
         date_max = alert_to, 
         with_retweets = conf$alert_with_retweets, 
         location_type = "tweet" , 
-        alpha = as.numeric(conf$alert_alpha), 
+        alpha = as.numeric(get_topics_alphas[[topic]]), 
         no_historic = as.numeric(conf$alert_history), 
         bonferroni_correction = conf$alert_with_bonferroni_correction,
         same_weekday_baseline =  conf$alert_same_weekday_baseline
@@ -387,7 +387,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
         hour = alert_to_hour, 
         location_type = "tweet", 
         with_retweets = conf$alert_with_retweets, 
-        alpha = as.numeric(conf$alert_alpha), 
+        alpha = as.numeric(get_topics_alphas[[topic]]), 
         no_historic = as.numeric(conf$alert_history),
         bonferroni_correction = conf$alert_with_bonferroni_correction,
         same_weekday_baseline = conf$same_weekday_baseline
@@ -563,7 +563,8 @@ send_alert_emails <- function(tasks = get_tasks()) {
         if(nrow(user_alerts) > 0) {
           # Calculating top alerts for title
           top_alerts <- head(
-            user_alerts %>% 
+            user_alerts %>%
+              dplyr::mutate(topics = get_topics_labels()[topic]) %>% 
               dplyr::arrange(topic, dplyr::desc(number_of_tweets)) %>% 
               dplyr::group_by(topic) %>% 
               dplyr::mutate(rank = rank(topic, ties.method = "first")) %>% 

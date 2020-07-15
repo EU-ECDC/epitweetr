@@ -36,8 +36,8 @@ trend_line <- function(
       bonferroni_correction = bonferroni_correction,
       same_weekday_baseline = same_weekday_baseline
     )
-  if(nrow(df)>0) df$topic <- firstup(stringr::str_replace_all(topic, "%20", " "))
-  plot_trendline(df,countries,topic,date_min,date_max, date_type)
+  if(nrow(df)>0) df$topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+  plot_trendline(df,countries,topic,date_min,date_max, date_type, alpha)
 }
 
 
@@ -46,7 +46,7 @@ trend_line <- function(
 #'
 #' @param df 
 #' @export
-plot_trendline <- function(df,countries,topic,date_min,date_max, date_type){
+plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alpha){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   regions <- get_country_items()
@@ -89,6 +89,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type){
       "\nDate:",df$date, 
       "\nKnown users tweets: ", df$known_users, 
       "\nKnown users ratio: ", round(df$known_ratio*100, 2), "%",
+      "\nAlpha: ", alpha,
       sep = "")
   # Calculating minimum limit boundary 
   df$lim_start <- 2* df$baseline - df$limit
@@ -108,8 +109,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type){
     # Title
     ggplot2::labs(
       title=ifelse(length(countries)==1,
-        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name),
-        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions")
+        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name, "Alpha=", alpha),
+        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions", "Alpha=", alpha)
       )
     ) +
     ggplot2::xlab(paste(if(date_type =="created_weeknum") "Posted week" else "Posted date", "(days are 24 hour blocks ening on last aggregated tweet in period)")) +
@@ -270,7 +271,7 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   long_center <- mean(c(min_long, max_long))
 
   # Getting the projection to use which will be centered the global bounding box
-  full_world <- (1 %in% countries)
+  full_world <- (1 %in% countries || 2 %in% countries)
   proj <- (
     if(!is.null(proj)) 
       proj
@@ -309,7 +310,6 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
       sp::CRS(proj)
     )
   )
-  message(proj)
   #countries_proj = rgeos::gBuffer(countries_proj, width=0, byid=TRUE)
   
   # Extracting ISO codes for joining with country codes
@@ -332,7 +332,6 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     # Filtering out elements out of drawing area
     dplyr::filter(long >= min_long -20 & long <= max_long + 20 & lat >= min_lat -20 & lat <= max_lat + 20) 
   
-  message(paste(min_long, max_long, min_lat, max_lat))
   # Getting selected countries projected bounding boxes
   map_limits <- countries_proj_df %>% dplyr::filter(long >= min_long  & long <= max_long & lat >= min_lat & lat <= max_lat) 
   minX <- min(map_limits$x)
@@ -340,8 +339,6 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   minY <- min(map_limits$y)
   maxY <- max(map_limits$y)
   
-  message(paste(minX, maxX, minY, maxY))
- 
   # Calculating counts groups for Legend
   maxCount <- max(df$count)
   cutsCandidates <- unique(sapply(c(maxCount/50, maxCount/20, maxCount/5, maxCount), function(v) max(1, ceiling((v/(10 ^ floor(log10(v)))))* (10 ^ floor(log10(v))))))
@@ -456,7 +453,7 @@ create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01
 	           plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold"),
 	           plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 12),
              axis.text = ggplot2::element_text(colour = "black", size = 8),
-             axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, margin = ggplot2::margin(-15, 0, 0, 0)),
+             axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, margin = ggplot2::margin(0, 0, 0, 0)),
              axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
              axis.line.y = ggplot2::element_blank(),
              axis.ticks.y = ggplot2::element_blank()
@@ -469,18 +466,8 @@ create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01
 
 #Function to get the font family
 get_font_family <- function(){
-
   if(.Platform$OS.type == "windows" && is.null(windowsFonts("Helvetica")[[1]]))
     windowsFonts(Helvetica = windowsFont("Helvetica"))
   "Helvetica"
 }
 
-#Capitalize first letter of a string
-#' Title
-#'
-#' @param x 
-firstup <- function(x) {
-  x <- tolower(x)
-  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
-  x
-}

@@ -222,7 +222,9 @@ get_country_items <- function(order = "level") {
     items <- list()
     # adding world items  
     row <- 1
-    items[[row]] <- list(name = "World", codes = list(), level = 0, minLat = -90, maxLat = 90, minLong = -180, maxLong = 180 )
+    items[[row]] <- list(name = "World (all)", codes = list(), level = 0, minLat = -90, maxLat = 90, minLong = -180, maxLong = 180 )
+    row <- 2
+    items[[row]] <- list(name = "World (geolocated)", codes = as.list(countries$alpha.2), level = 0, minLat = -90, maxLat = 90, minLong = -180, maxLong = 180 )
     for(r in 1:nrow(regions)) {
       row <- row + 1
       region <- regions$region[[r]]

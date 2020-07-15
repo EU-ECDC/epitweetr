@@ -288,6 +288,8 @@ epitweetr_app <- function(data_dir = NA) {
                       , shiny::tabPanel("Alerts", alerts_page)
                       , shiny::tabPanel("Configuration", config_page)
     )
+
+
   # Defining line chart from shiny app filters
   line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type,alpha, no_history, bonferroni_correction, same_weekday_baseline) {
     trend_line(
@@ -322,7 +324,7 @@ epitweetr_app <- function(data_dir = NA) {
   }
   # Defining top words chart from shiny app filters
   topwords_chart_from_filters <- function(topics, fcountries, period_type, period, with_retweets, location_type, top) {
-    fcountries= if(length(fcountries) == 0) c(1) else as.integer(fcountries)
+    fcountries= if(length(fcountries) == 0 || 1 %in%fcountries) c(1) else as.integer(fcountries)
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(fcountries, function(i) unlist(regions[[i]]$codes)))
     create_topwords(
@@ -361,6 +363,20 @@ epitweetr_app <- function(data_dir = NA) {
   # Defining server loginc
   server <- function(input, output, session, ...) {
     `%>%` <- magrittr::`%>%`
+    ################################################
+    ######### FILTERS LOGIC ########################
+    ################################################
+    shiny::observe({
+      val <- {
+      if(length(input$topics)==0 || input$topics == "") 
+        conf$alert_alpha
+      else
+        unname(get_topics_alphas()[stringr::str_replace_all( input$topics, "%20", " ")])
+      }
+      updateSliderInput(session, "alpha_filter", value = val, min = 0, max = 0.1, step = 0.005)
+    })
+    
+    
     ################################################
     ######### DASHBOARD LOGIC ######################
     ################################################
@@ -992,10 +1008,9 @@ epitweetr_app <- function(data_dir = NA) {
 #' Get default data for dashoard
 refresh_dashboard_data <- function(e = new.env()) {
   e$topics <- {
-    codes <- unique(c("", sapply(conf$topics, function(t) t$topic)))
-    names <- stringr::str_replace_all(codes, "%20", " ")
-    names <- firstup(names)
-    sort(setNames(codes, names))
+    codes <- unique(sapply(conf$topics, function(t) t$topic))
+    names <- get_topics_labels()[codes]
+    sort(setNames(c("", codes), c("", unname(names))))
   }
   e$countries <- {
     regions <- get_country_items()
@@ -1065,14 +1080,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     }
     if(update) {
       if(file.exists(get_plans_path())) e$topics_refresh_flag(file.info(get_plans_path())$mtime)
-      e$topics <- data.frame(
-        Topics = sapply(conf$topics, function(t) t$topic), 
-        Query = sapply(conf$topics, function(t) t$query), 
-        QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
-        ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
-        Progress = sapply(conf$topics, function(t) {if(length(t$plan)>0) mean(unlist(lapply(t$plan, function(p) p$progress))) else 0}), 
-        Requests = sapply(conf$topics, function(t) {if(length(t$plan)>0) sum(unlist(lapply(t$plan, function(p) p$requests))) else 0})
-      )
+      get_topics_df()
     }
   }
   # Updating tasks related fields
@@ -1107,13 +1115,6 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     }
   }
   return(e)
-}
-
-# Capitalize first letter of a string
-firstup <- function(x) {
-  x <- tolower(x)
-  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
-  x
 }
 
 # validate that dashboard can be rendered
