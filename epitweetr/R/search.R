@@ -349,8 +349,16 @@ create_dirs <- function(topic = NA, year = NA) {
 last_search_time <- function() {
   topics <- list.files(path=paste(conf$data_dir, "tweets", "search", sep="/"))
   current_year <- lapply(topics, function(t) list.files(path=paste(conf$data_dir, "tweets", "search", t, sep="/"), pattern = strftime(Sys.time(), format = "%y$"), full.names=TRUE))
+  current_year <- current_year[lapply(current_year,length)>0]
   if(length(current_year)>0) {
-    last_child <- sapply(current_year, function(y) sort(list.files(path = y, pattern = "*.gz", full.names=TRUE), decreasing=TRUE)[[1]])
+    last_child <- sapply(current_year, function(y) {
+        children <- list.files(path = y, pattern = "*.gz", full.names=TRUE)
+        if(length(children)>0)
+          sort(children, decreasing=TRUE)[[1]]
+        else 
+          NA
+      })
+    last_child <- last_child[!is.na(last_child)]
     if(length(last_child)>0)
       sort(file.mtime(last_child), decreasing=TRUE)[[1]]
     else

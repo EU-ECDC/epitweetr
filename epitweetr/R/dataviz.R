@@ -36,8 +36,12 @@ trend_line <- function(
       bonferroni_correction = bonferroni_correction,
       same_weekday_baseline = same_weekday_baseline
     )
-  if(nrow(df)>0) df$topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
-  plot_trendline(df,countries,topic,date_min,date_max, date_type, alpha)
+  if(nrow(df)>0) {
+    df$topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+    plot_trendline(df,countries,topic,date_min,date_max, date_type, alpha)
+  } else {
+    get_empty_chart("No data found for the selected topic, region and period")  
+  }
 }
 
 
@@ -97,6 +101,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 
   # Calculating breaks
   y_breaks <- unique(floor(pretty(seq(0, (max(df$limit) + 1) * 1.1))))
+  spen <- options("scipen")
+  options(scipen=999)
 
   fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = Details)) +
     # Line
@@ -109,9 +115,11 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
     # Title
     ggplot2::labs(
       title=ifelse(length(countries)==1,
-        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name, "Alpha=", alpha),
-        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions", "Alpha=", alpha)
-      )
+        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name, ". Alpha=", alpha),
+        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions", ". Alpha=", alpha)
+      ),
+      fill="Countries / Regions",
+      color="Countries / Regions"
     ) +
     ggplot2::xlab(paste(if(date_type =="created_weeknum") "Posted week" else "Posted date", "(days are 24 hour blocks ening on last aggregated tweet in period)")) +
     ggplot2::ylab('Number of tweets') +
@@ -179,18 +187,19 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
       ggplot2::scale_fill_manual(values=c("#65B32E"))
     } +
     ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12, face = "bold",lineheight = 0.9),
-                   axis.text = ggplot2::element_text(colour = "black", size = 8),
-                   axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
-                                                       margin = ggplot2::margin(-15, 0, 0, 0)),
-                   axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
-                   axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10),
-                   legend.position=ifelse(length(countries)<2,"none","top")
+      axis.text = ggplot2::element_text(colour = "black", size = 8),
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, vjust = 0.5, 
+                                          margin = ggplot2::margin(-15, 0, 0, 0)),
+      axis.title.x = ggplot2::element_text(margin = ggplot2::margin(30, 0, 0, 0), size = 10),
+      axis.title.y = ggplot2::element_text(margin = ggplot2::margin(-25, 0, 0, 0), size = 10),
+      legend.position=ifelse(length(countries)<2,"none","right")
     )
   
   df <- dplyr::rename(df,"Country" = country)
   
 
   df <- dplyr::rename(df,"Number of tweets" = number_of_tweets, "Tweet date" = date,"Topic"= topic)
+  options(scipen=spen)
   list("chart" = fig_line, "data" = df) 
 }
 
@@ -211,6 +220,9 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
+  if(nrow(df)==0) {
+    return(get_empty_chart("No data found for the selected topic, region and period"))
+  }
   regions <- get_country_items()
   country_codes <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(countries), function(i) unlist(regions[[i]]$codes)))
 
@@ -250,6 +262,9 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     dplyr::summarize(count = sum(tweets)) %>% 
     dplyr::ungroup() 
   )
+  if(nrow(df)==0) {
+    return(get_empty_chart("No data found for the selected topic, region and period"))
+  }
 
   # Adding country properties
   regions <- get_country_items()
@@ -378,7 +393,9 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     axis.title.x = ggplot2::element_blank(),
     axis.title.y = ggplot2::element_blank()
   ))
-  fig <- ggplot2::ggplot() + 
+  spen <- options("scipen")
+  options(scipen=999)
+  fig <- ggplot2::ggplot(df) + 
     ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(x,y, group=group, fill=selected, label = Details)) + 
     ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(x,y, group=group, fill=selected, label = Details), color ="#3f3f3f", size=0.3) + 
     (if(forplotly) 
@@ -403,6 +420,7 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     ) +
     ggplot2::theme_classic(base_family = get_font_family()) +
     theme_opts
+  options(scipen=spen)
 
   list("chart" = fig, "data" = df) 
 }
@@ -433,9 +451,13 @@ create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01
       %>% head(top)
       %>% dplyr::mutate(tokens = reorder(tokens, frequency))
   )
+  if(nrow(df)==0) {
+    return(get_empty_chart("No data found for the selected topic, region and period"))
+  }
   # Calculating breaks
   y_breaks <- unique(floor(pretty(seq(0, (max(df$frequency) + 1) * 1.1))))
-  
+  spen <- options("scipen")
+  options(scipen=999)
   fig <- (
       df %>% ggplot2::ggplot(ggplot2::aes(x = tokens, y = frequency)) +
            ggplot2::geom_col(fill = "#65B32E") +
@@ -459,15 +481,23 @@ create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01
              axis.ticks.y = ggplot2::element_blank()
            )
     )
+  options(scipen=spen)
   list("chart" = fig, "data" = df) 
 }
 
 
 
-#Function to get the font family
+#' Function to get the font family
 get_font_family <- function(){
   if(.Platform$OS.type == "windows" && is.null(windowsFonts("Helvetica")[[1]]))
     windowsFonts(Helvetica = windowsFont("Helvetica"))
   "Helvetica"
 }
 
+#' Returns an empty chart with provided message on title
+get_empty_chart <- function(title) {
+  chart <- ggplot2::ggplot() + ggplot2::theme_minimal(base_family = get_font_family() ) + ggplot2::labs(title = title)  
+  df <- chart$data
+  list("chart" = chart, "data" = df) 
+
+}

@@ -203,7 +203,7 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
             )
           ), 
-          shiny::h2("Smtp Authentication"),
+          shiny::h2("Email Authentication (smtp)"),
           shiny::fluidRow(shiny::column(3, "Server"), shiny::column(9, shiny::textInput("smtp_host", label = NULL, value = conf$smtp_host))), 
           shiny::fluidRow(shiny::column(3, "Port"), shiny::column(9, shiny::numericInput("smtp_port", label = NULL, value = conf$smtp_port))), 
           shiny::fluidRow(shiny::column(3, "From"), shiny::column(9, shiny::textInput("smtp_from", label = NULL, value = conf$smtp_from))), 
@@ -396,13 +396,24 @@ epitweetr_app <- function(data_dir = NA) {
          )$chart
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
-       plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = F) 
+	     chart_not_empty(chart)
+       gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = F) 
+       # Fixing bad entries on ggplotly chart
+       for(i in 1:length(gg$x$data)) {
+         if(grepl("\\(", gg$x$data[[i]]$name)) 
+           gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
+         else 
+           gg$x$data[[i]]$name = " "
+         gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+       }
+       gg
     })  
     output$map_chart <- plotly::renderPlotly({
        can_render(input, d)
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        chart <- map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+	     chart_not_empty(chart)
        chart %>%
          plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
 	       plotly::layout(
@@ -416,7 +427,7 @@ epitweetr_app <- function(data_dir = NA) {
              x = 0,
              yref = 'paper', 
              y = -0.3)
-         ) %>%
+           ) %>%
          plotly::config(displayModeBar = F) 
     })
 
@@ -425,6 +436,7 @@ epitweetr_app <- function(data_dir = NA) {
        height <- session$clientData$output_p_height
        width <- session$clientData$output_p_width
        chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 20)$chart
+	     chart_not_empty(chart)
        chart %>%
          plotly::ggplotly(height = height, width = width) %>% 
 	       plotly::layout(
@@ -1124,4 +1136,12 @@ can_render <- function(input, d) {
       , shiny::need(length(d$topics)>0, paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure this is the right folder, and that the aggregated task has successfully run"))
       , shiny::need(input$topics != '', 'Please select a topic')
   )
+}
+
+# validate that chart is not empty
+chart_not_empty <- function(chart) {
+  shiny::validate(
+     shiny::need(!("waiver" %in% class(chart$data)), chart$labels$title)
+  )
 } 
+ 

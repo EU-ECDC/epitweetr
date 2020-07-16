@@ -581,7 +581,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             emayili::from(conf$smtp_from) %>% 
             emayili::to(dest) %>% 
             emayili::subject(paste(
-              "[Epitweetr] found", 
+              "[epitweetr] found", 
               nrow(user_alerts), 
               "signals. Top alerts: ", 
               paste(
