@@ -298,7 +298,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
     # Getting region details
     regions <- get_country_items()
     # Caching counts for all topics for the selected period the period to consider on cache will depend on  alert_same_weekday_baseline
-    c <- get_aggregates(
+    cc <- get_aggregates(
       dataset = "country_counts", 
       filter = list(
         period = list(
@@ -307,8 +307,8 @@ do_next_alerts <- function(tasks = get_tasks()) {
         )
       )
     )
-    # rea
-    c <- NULL
+    # reassigning NULL to cc for allow garbage collecting
+    cc <- NULL
     #TODO: Using parallel package to calculate alerts on all available cores
     #  cl <- parallel::makePSOCKcluster(as.numeric(conf$spark_cores), outfile="")
     #  conf <- conf
@@ -387,7 +387,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
         hour = alert_to_hour, 
         location_type = "tweet", 
         with_retweets = conf$alert_with_retweets, 
-        alpha = as.numeric(get_topics_alphas()[[topic]]), 
+        alpha = as.numeric(get_topics_alphas()[topic]), 
         no_historic = as.numeric(conf$alert_history),
         bonferroni_correction = conf$alert_with_bonferroni_correction,
         same_weekday_baseline = conf$same_weekday_baseline
