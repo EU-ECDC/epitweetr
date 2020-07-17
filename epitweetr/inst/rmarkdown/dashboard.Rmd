@@ -31,7 +31,7 @@ Parameters
 * Period: `r params$period`
 * With retweets: `r params$with_retweets`
 * Location Type: `r params$location_type`
-* Signal detection confidence (alpha): `r params$alert_alpha`
+* Signal detection confidence (alpha): `r as.character(params$alert_alpha)`
 * Days in baseline: `r params$alert_historic`
 * Boferroni correction: `r params$bonferroni_correction`
 * Same weekday baseline: `r params$same_weekday_baseline`

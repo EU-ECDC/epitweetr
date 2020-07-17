@@ -870,7 +870,7 @@ epitweetr_app <- function(data_dir = NA) {
     ######### TOPICS LOGIC ##################
     output$config_topics <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
-      cd$topics %>%
+       get_topics_df()%>%
         DT::datatable(
           colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests"),
           filter = "top",
