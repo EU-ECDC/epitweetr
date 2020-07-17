@@ -50,7 +50,8 @@ object Tweets {
              , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get,  params.get("geonamesSimplify").get.toBoolean)
              , langIndexPath = params.get("langIndexPath").get
              , limit = params.get("limit").get.toInt
-             , full = params.get("full").map(_.toBoolean).getOrElse(false)
+             , textCol = params.get("textCol").getOrElse("text")
+             , langCol = params.get("langCol")
              , parallelism = params.get("parallelism").map(_.toInt)
              , strategy = "demy.mllib.index.PredictStrategy" 
            )
@@ -127,6 +128,7 @@ object Tweets {
            , langIndexPath = params.get("langIndexPath").get
            , minScore = params.get("minScore").map(_.toInt).get
            , parallelism = params.get("parallelism").map(_.toInt)
+           , strategy = "demy.mllib.index.PredictStrategy" 
          )
       } else if(command == "updateGeonames") {
          implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
@@ -300,6 +302,7 @@ object Tweets {
     , minScore:Int
     , parallelism:Option[Int]=None
     , textLangCols:Map[String, Option[String]] = defaultTextLangCols
+    , strategy:String = "demy.mllib.index.PredictStrategy"
     ) 
     (implicit spark:SparkSession, storage:Storage):Unit = {
     storage.ensurePathExists(destPath)
@@ -348,6 +351,7 @@ object Tweets {
             , reuseGeoIndex = true
             , langIndexPath=langIndexPath
             , reuseLangIndex = true
+            , strategy = strategy
           )
           .select((
             Seq(col("topic"), col("file"), col("lang"), col("id"))
@@ -462,20 +466,21 @@ object Tweets {
     , geonames:Geonames 
     , langIndexPath:String
     , limit:Int
-    , full:Boolean
+    , textCol:String = "text"
+    , langCol:Option[String] = Some("lang")
     , parallelism:Option[Int]
     , strategy:String = "demy.mllib.index.PredictStrategy"
   )(implicit spark:SparkSession, storage:Storage)  = {
     Some(
       Tweets.getJsonTweets(path = tweetPath, pathFilter = pathFilter, parallelism = parallelism)
-        .select((if(full) Seq(col("*")) else Seq(col("id"), col("text"), col("lang"))):_*)
-        .where(col("lang").isin(langs.map(l => l.code):_*))
+        .select(col("id"), col(textCol), langCol.orElse(Some("lang")).map(l => col(l)).get)
+        .where(col("lang").isin(langs.map(l => l.code):_*) && col(textCol).isNotNull)
         .limit(limit) 
       ).map(df => parallelism.map(p => df.repartition(p)).getOrElse(df))
       .map(df =>
       df
         .geolocate(
-          textLangCols = if(full) defaultTextLangCols else Map("text" ->Some("lang"))
+          textLangCols = Map(textCol -> langCol)
           , maxLevDistance = 0
           , minScore = 0
           , nGram = 3
@@ -486,19 +491,16 @@ object Tweets {
           , strategy = strategy
         )
         .select(
-          (
-            if(full) Seq(col("*"))
-            else Seq(
-               col("id")
-             , col("text")
-             , col("lang")
-             , col("geo_name")
-             , col("geo_type")
-             , col("geo_country_code")
-             , udf((c:String) => if(c==null) null else c.split(",").head).apply(col("geo_country")).as("country")
-             , col("_score_").as("score")
-             , col("_tags_").as("tagged"))
-           ):_*)
+          col("id")
+          , col(textCol)
+          , langCol.orElse(Some("lang")).map(l => col(l)).get
+          , col("geo_name")
+          , col("geo_type")
+          , col("geo_country_code")
+          , udf((c:String) => if(c==null) null else c.split(",").head).apply(col("geo_country")).as("country")
+          , col("_score_").as("score")
+          , col("_tags_").as("tagged")
+        )
       ).get
   }
 }

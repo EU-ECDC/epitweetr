@@ -29,7 +29,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h4("Include Retweets/Quotes"),
 	        shiny::checkboxInput("with_retweets", label = NULL, value = conf$alert_with_retweets),
           shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
-          shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005),
+          shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005),
           shiny::h4("Bonferroni correction"),
 	        shiny::checkboxInput("bonferroni_correction", label = NULL, value = conf$alert_with_bonferroni_correction),
           shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
@@ -152,7 +152,7 @@ epitweetr_app <- function(data_dir = NA) {
           ######### GENERAL PROPERTIES ###################
           ################################################
           shiny::h3("Signal Detection"),
-          shiny::fluidRow(shiny::column(3, "Default confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.1, value = conf$alert_alpha, step = 0.005))),
+          shiny::fluidRow(shiny::column(3, "Default confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005))),
           shiny::fluidRow(shiny::column(3, "Default days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
           shiny::fluidRow(shiny::column(3, "Default same weekday baseline"), shiny::column(9, shiny::checkboxInput("conf_same_weekday_baseline", label = NULL , value = conf$alert_same_weekday_baseline))),
           shiny::fluidRow(shiny::column(3, "Default with retweets/Quotes"), shiny::column(9, shiny::checkboxInput("conf_with_retweets", label = NULL , value = conf$alert_with_retweets))),
@@ -280,13 +280,46 @@ epitweetr_app <- function(data_dir = NA) {
           DT::dataTableOutput("config_regions")
         ))
   ) 
+  # Defining geo tuning page UI
+  ################################################
+  ######### GEOTAG PAGE ##########################
+  ################################################
+  geotest_page <- 
+    shiny::fluidPage(
+          shiny::h3("Geotagging sample"),
+          shiny::h5("random today's tweets"),
+          shiny::fluidRow(
+            ################################################
+            ######### GEO TAG FILTERS #######################
+            ################################################
+            shiny::column(1, 
+              shiny::h4("Geo Field") 
+            ),
+            shiny::column(3, shiny::selectInput("geotest_fields", label = NULL, multiple = FALSE, choices = cd$geo_cols)),
+            shiny::column(1, 
+              shiny::h4("Sample Size") 
+            ),
+            shiny::column(3, 
+              shiny::numericInput("geotest_size", label = NULL, value = 100), 
+            ),
+            shiny::column(4)
+          ), 
+          shiny::fluidRow(
+            shiny::column(12, 
+              ################################################
+              ######### ALERTS TABLE #########################
+              ################################################
+              DT::dataTableOutput("geotest_table")
+          ))
+  ) 
   
   # Defining navigation UI
   ui <- 
     shiny::navbarPage("epitweetr"
-                      , shiny::tabPanel("Dashboard", dashboard_page)
-                      , shiny::tabPanel("Alerts", alerts_page)
-                      , shiny::tabPanel("Configuration", config_page)
+      , shiny::tabPanel("Dashboard", dashboard_page)
+      , shiny::tabPanel("Alerts", alerts_page)
+      , shiny::tabPanel("Geotag evaluation", geotest_page)
+      , shiny::tabPanel("Configuration", config_page)
     )
 
 
@@ -373,7 +406,7 @@ epitweetr_app <- function(data_dir = NA) {
       else
         unname(get_topics_alphas()[stringr::str_replace_all( input$topics, "%20", " ")])
       }
-      updateSliderInput(session, "alpha_filter", value = val, min = 0, max = 0.1, step = 0.005)
+      updateSliderInput(session, "alpha_filter", value = val, min = 0, max = 0.3, step = 0.005)
     })
     
     
@@ -870,7 +903,7 @@ epitweetr_app <- function(data_dir = NA) {
     ######### TOPICS LOGIC ##################
     output$config_topics <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
-       get_topics_df()%>%
+       e$topics_df %>%
         DT::datatable(
           colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests"),
           filter = "top",
@@ -881,6 +914,7 @@ epitweetr_app <- function(data_dir = NA) {
     shiny::observe({
       # Adding a dependency to topics refresh
       cd$topics_refresh_flag()
+      cd$plans_refresh_flag()
       DT::replaceData(DT::dataTableProxy('config_topics'), cd$topics)
        
     }) 
@@ -1010,6 +1044,31 @@ epitweetr_app <- function(data_dir = NA) {
           escape = TRUE,
         )
     })
+    ######### GEOTEST LOGIC ##################
+    output$geotest_table <- DT::renderDataTable({
+      `%>%` <- magrittr::`%>%`
+       text_col <- strsplit(input$geotest_fields, ";")[[1]][[1]]
+       lang_col <-  if(length(strsplit(input$geotest_fields, ";")[[1]]) > 1) strsplit(input$geotest_fields, ";")[[1]][[2]] else NA
+       lang_col_name <- if(is.na(lang_col)) "lang" else lang_col
+       message(paste(text_col, lang_col))
+
+       get_todays_sample_tweets(limit = input$geotest_size, text_col = text_col, lang_col = lang_col) %>%
+         DT::datatable(
+           colnames = c(
+             "Tweet Id" = "id",  
+             "Text" =  text_col,
+             "Language" = lang_col_name,
+             "Location name" = "geo_name",
+             "Location type" = "geo_type",
+             "Country Code" =  "geo_country_code",
+             "Country" = "country", 
+             "Score" = "score", 
+             "Tagged text" = "tagged"
+           ),
+           filter = "top",
+           escape = TRUE,
+         )
+    })
   } 
   # Printing PID 
   message(Sys.getpid())
@@ -1042,7 +1101,7 @@ refresh_dashboard_data <- function(e = new.env()) {
 }
 
 #' Get or update default data for config page 
-refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks")) {
+refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks", "geo")) {
   # Refreshing configuration
   setup_config(data_dir = conf$data_dir, ignore_properties = TRUE)
   
@@ -1084,15 +1143,21 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   if("topics" %in% limit) {
     # Updating the reactive value tasks_refresh to force dependencies invalidation
     update <- FALSE
-    if(!exists("topics_refresh_flag", envir = e)) {
-      e$topics_refresh_flag <- shiny::reactiveVal()
+    if(!exists("topics_refresh_flag", envir = e) || !exists("plans_refresh_flag", envir = e)) {
+      e$topics_refresh_flag <- shiny::reactiveVal(0)
+      e$plans_refresh_flag <- shiny::reactiveVal(0)
       update <- TRUE
-    } else if(file.exists(get_plans_path()) && file.info(get_plans_path())$mtime != e$topics_refresh_flag()) {
+    } 
+    if(!update && file.exists(get_topics_path()) && file.info(get_topics_path())$mtime != e$topics_refresh_flag()) {
       update <- TRUE
+      e$topics_refresh_flag(file.info(get_topics_path())$mtime)
+    } 
+    if(!update && file.exists(get_plans_path()) && file.info(get_plans_path())$mtime != e$plans_refresh_flag()) {
+      update <- TRUE
+      e$plans_refresh_flag(file.info(get_plans_path())$mtime)
     }
     if(update) {
-      if(file.exists(get_plans_path())) e$topics_refresh_flag(file.info(get_plans_path())$mtime)
-      get_topics_df()
+      e$topics_df <- get_topics_df()
     }
   }
   # Updating tasks related fields
@@ -1125,6 +1190,13 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
       )
       row.names(e$tasks_df) <- sapply(e$tasks, function(t) t$order) 
     }
+  }
+  # Updating geolocation test related fields
+  if("geo" %in% limit) {
+    e$geo_cols <- setNames(
+      c("text;lang", "linked_text;linked_lang", "user_description;lang", "user_location;lang", "place_full_name", "linked_place_full_name"), 
+      c("Tweet Text", "Retweeted/Quoted text", "User description", "User declared location", "API tweet location", "API retweeted/Quoted tweet location")
+    )  
   }
   return(e)
 }

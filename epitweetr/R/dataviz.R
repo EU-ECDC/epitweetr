@@ -219,12 +219,18 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=F){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-  df <- get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
+  regions <- get_country_items()
+  country_codes <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(countries), function(i) unlist(regions[[i]]$codes)))
+  detailed <- length(country_codes) == 1
+  df <- (
+    if(!detailed) 
+      get_aggregates(dataset = "country_counts", filter = list(topic = topic, period = list(date_min, date_max)))
+    else 
+      get_aggregates(dataset = "geolocated", filter = list(topic = topic, period = list(date_min, date_max)))
+  )
   if(nrow(df)==0) {
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
-  regions <- get_country_items()
-  country_codes <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(countries), function(i) unlist(regions[[i]]$codes)))
 
   # Adding retwets if requested
   if(with_retweets)
@@ -234,14 +240,31 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   country_code_cols = if(location_type == "tweet") "tweet_geo_country_code" else if(location_type == "user") "user_geo_country_code" else c("tweet_geo_country_code", "user_geo_country_code")
   # Setting country codes as requested location types as requested
   df <- (
-         if(location_type =="tweet")
+         if(location_type =="tweet" && !detailed)
            df %>% dplyr::rename(country_code = tweet_geo_country_code) %>% dplyr::select(-user_geo_country_code)
-         else if(location_type == "user")
+         else if(location_type == "user" && !detailed)
            df %>% dplyr::rename(country_code = user_geo_country_code) %>% dplyr::select(-tweet_geo_country_code)
-         else dplyr::bind_rows(
+         else if(!detailed) dplyr::bind_rows(
            df %>% dplyr::rename(country_code = tweet_geo_country_code) %>% dplyr::filter(!is.na(country_code)) %>% dplyr::select(-user_geo_country_code),
            df %>% dplyr::rename(country_code = user_geo_country_code) %>% dplyr::filter(!is.na(country_code) & country_code != tweet_geo_country_code ) %>% dplyr::select(-tweet_geo_country_code)
-         )  
+         )
+         else if(location_type =="tweet")
+           df %>% 
+             dplyr::rename(country_code = tweet_geo_country_code, geo_code = tweet_geo_code, longitude = tweet_longitude, latitude = tweet_latitude) %>% 
+             dplyr::select(-user_geo_country_code, -user_geo_code, -user_longitude, -user_latitude)
+         else if(location_type == "user")
+           df %>% 
+             dplyr::rename(country_code = user_geo_country_code, geo_code = user_geo_code, longitude = user_longitude, latitude = user_latitude) %>% 
+             dplyr::select(-tweet_geo_country_code, -tweet_geo_code, -tweet_longitude, -tweet_latitude)
+         else dplyr::bind_rows(
+           df %>% 
+             dplyr::rename(country_code = tweet_geo_country_code, geo_code = tweet_geo_code, longitude = tweet_longitude, latitude = tweet_latitude) %>% 
+             dplyr::select(-user_geo_country_code, -user_geo_code, -user_longitude, -user_latitude),
+           df %>%
+             dplyr::rename(country_code = user_geo_country_code, geo_code = user_geo_code, longitude = user_longitude, latitude = user_latitude) %>% 
+             dplyr::filter(!is.na(country_code) & is.na(tweet_geo_country_code )) %>%
+             dplyr::select(-tweet_geo_country_code, -tweet_geo_code, -tweet_longitude, -tweet_latitude)
+         )     
     )
   f_topic <- topic
 
@@ -257,10 +280,19 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
           else country_code %in% country_codes
         )
         & tweets > 0 
-    ) %>% 
-    dplyr::group_by(country_code) %>% 
-    dplyr::summarize(count = sum(tweets)) %>% 
-    dplyr::ungroup() 
+    )
+  )
+  df <- (
+    if(detailed) 
+      df %>% 
+        dplyr::group_by(country_code, geo_code) %>%
+        dplyr::summarize(count = sum(tweets), Long = mean(longitude), Lat = mean(latitude)) %>%
+        dplyr::ungroup() 
+    else 
+      df %>% 
+        dplyr::group_by(country_code) %>%
+        dplyr::summarize(count = sum(tweets)) %>%
+        dplyr::ungroup() 
   )
   if(nrow(df)==0) {
     return(get_empty_chart("No data found for the selected topic, region and period"))
@@ -270,8 +302,10 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   regions <- get_country_items()
   map <- get_country_index_map()
   df$Country <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$name else NA)
-  df$Long <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) mean(c(regions[[i]]$minLong,regions[[i]]$maxLong)) else NA)
-  df$Lat <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) mean(c(regions[[i]]$minLat,regions[[i]]$maxLat)) else NA)
+  if(!detailed) {
+    df$Long <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) mean(c(regions[[i]]$minLong,regions[[i]]$maxLong)) else NA)
+    df$Lat <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) mean(c(regions[[i]]$minLat,regions[[i]]$maxLat)) else NA)
+  }
   df$MinLat <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$minLat else NA)
   df$MaxLat <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$maxLat else NA)
   df$MinLong <- sapply(unname(map[df$country_code]), function(i) if(!is.na(i)) regions[[i]]$minLong else NA)
@@ -372,6 +406,8 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     paste(
       "\nRegion:", proj_df$Country,
       "\nNumber of Tweets:", proj_df$count,
+      if(detailed) "\nGeonames id: " else "",
+      if(detailed) proj_df$geo_code else "",
       sep = ""
     )
 
@@ -413,7 +449,7 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
       breaks = c("a. Selected", "b. Excluded", "c. Lakes", plotlycuts),
       guide = FALSE
     ) +
-    (if(!full_world) ggplot2::coord_fixed(ratio = 1, ylim=c(minY, maxY), xlim=c(minX, maxX)) ) +
+    ggplot2::coord_fixed(ratio = 1, ylim=if(full_world) NULL else c(minY, maxY), xlim=if(full_world) NULL else c(minX, maxX)) +
     ggplot2::labs(
        title = paste("Tweets by territory mentioning", topic, "\nfrom", date_min, "to", date_max),
        caption = paste(caption, ". Projection: ", proj, sep = "")

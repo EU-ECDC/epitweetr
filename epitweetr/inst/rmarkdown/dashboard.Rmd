@@ -1,5 +1,5 @@
 ---
-title: "epitweetR Dashboard"
+title: "epitweetr Dashboard"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: pdf_document
 params:
@@ -22,7 +22,7 @@ region_names <- lapply(as.integer(params$countries), function(i) regions[[i]]$na
 
 ```
 
-# epitweetR dashboard
+# epitweetr dashboard
 Parameters
 
 * Topics: `r params$topics`

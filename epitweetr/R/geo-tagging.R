@@ -155,7 +155,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 
 #' Get a sample of todays tweet for evaluatin geolocation threshold
 #' @export
-get_todays_sample_tweets <- function(limit = 1000, full = FALSE) {
+get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col = NA) {
  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
 
  # Creating parameters from configuration file as java objects
@@ -171,7 +171,13 @@ get_todays_sample_tweets <- function(limit = 1000, full = FALSE) {
      , "langIndexPath", paste("\"", index_path, "\"", sep = "")
      , "limit" , limit
      , "parallelism" , conf$spark_cores
-     , "full", full
+     , paste(
+         "textCol "
+         , text_col
+         , if(is.na(lang_col)) "" else " langCol "
+         , if(is.na(lang_col)) "" else lang_col
+         , sep = ""
+       )
    )
  )
 }
