@@ -162,7 +162,8 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           shiny::h3("General"),
           shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::span(conf$data_dir))),
-          shiny::fluidRow(shiny::column(3, "Schedule Span (m)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
+          shiny::fluidRow(shiny::column(3, "Search span (m)"), shiny::column(9, shiny::numericInput("conf_collect_span", label = NULL, value = conf$collect_span))), 
+          shiny::fluidRow(shiny::column(3, "Detect span (m)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
           shiny::fluidRow(shiny::column(3, "Launch Slots"), shiny::column(9, shiny::htmlOutput("conf_schedule_slots"))), 
           shiny::fluidRow(shiny::column(3, "Password Store"), shiny::column(9, 
             shiny::selectInput(
@@ -433,7 +434,7 @@ epitweetr_app <- function(data_dir = NA) {
        gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = F) 
        # Fixing bad entries on ggplotly chart
        for(i in 1:length(gg$x$data)) {
-         if(grepl("\\(", gg$x$data[[i]]$name)) 
+         if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
            gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
          else 
            gg$x$data[[i]]$name = " "
@@ -447,7 +448,7 @@ epitweetr_app <- function(data_dir = NA) {
        width <- session$clientData$output_p_width
        chart <- map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
 	     chart_not_empty(chart)
-       chart %>%
+       gg <- chart %>%
          plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
 	       plotly::layout(
            title=list(text= paste("<b>", chart$labels$title, "</b>")), 
@@ -462,6 +463,14 @@ epitweetr_app <- function(data_dir = NA) {
              y = -0.3)
            ) %>%
          plotly::config(displayModeBar = F) 
+    
+         # Fixing bad entries on ggplotly chart
+         for(i in 1:length(gg$x$data)) {
+           if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
+             gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
+           #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+         }
+         gg
     })
 
     output$topword_chart <- plotly::renderPlotly({
@@ -780,6 +789,7 @@ epitweetr_app <- function(data_dir = NA) {
     })
     ######### PROPERTIES LOGIC ##################
     shiny::observeEvent(input$save_properties, {
+      conf$collect_span <- input$conf_collect_span
       conf$schedule_span <- input$conf_schedule_span
       conf$keyring <- input$conf_keyring
       conf$spark_cores <- input$conf_spark_cores 
@@ -903,7 +913,7 @@ epitweetr_app <- function(data_dir = NA) {
     ######### TOPICS LOGIC ##################
     output$config_topics <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
-       e$topics_df %>%
+       cd$topics_df %>%
         DT::datatable(
           colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests"),
           filter = "top",

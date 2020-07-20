@@ -65,6 +65,7 @@ get_empty_config <- function(data_dir) {
    else if(.Platform$OS.type == "mac") "macos"
    else "file"
   ret$data_dir <- data_dir
+  ret$collect_span <- 60
   ret$schedule_span <- 90
   ret$schedule_start_hour <- 8
   ret$languages <- list(
@@ -131,6 +132,7 @@ setup_config <- function(
     }
     #Setting config  variables filled only from json file  
     conf$keyring <- temp$keyring
+    conf$collect_span <- temp$collect_span
     conf$schedule_span <- temp$schedule_span
     conf$schedule_start_hour <- temp$schedule_start_hour
     conf$languages <- temp$languages
@@ -271,6 +273,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
 
   if(properties) {
     temp <- list()
+    temp$collect_span <- conf$collect_span
     temp$schedule_span <- conf$schedule_span
     temp$schedule_start_hour <- conf$schedule_start_hour
     temp$languages <- conf$languages
@@ -296,7 +299,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$smtp_login <- conf$smtp_login
     if(!is.null(conf$smtp_password) && conf$smtp_password != "") set_secret("smtp_password", conf$smtp_password)
     temp$smtp_insecure <- conf$smtp_insecure
-    jsonlite::write_json(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+    write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {
     temp <- list()
@@ -310,7 +313,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
         temp$topics[[i]]$plan[[j]]$since_target = as.character(conf$topics[[i]]$plan[[j]]$since_target)
       }
     }
-    jsonlite::write_json(temp, get_plans_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+    write_json_atomic(temp, get_plans_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
 }
 
@@ -433,4 +436,13 @@ add_config_language <- function(code, name) {
 #' Get current known users
 get_known_users <- function() {
   gsub("@", "", readxl::read_excel(get_known_users_path())[[1]])
+}
+
+#' Wrapper for jsonlite write_json ensuring atomic file write it replaces always the existing file. It ignores appends mofifiers
+write_json_atomic <- function(x, path, ...) {
+  file_name <- tail(strsplit(path, "/|\\\\")[[1]], 1)
+  dir_name <- substring(path, 1, nchar(path) - nchar(file_name) - 1)
+  swap_file <- tempfile(pattern=paste("~", file_name, sep = ""), tmpdir=dir_name)
+  jsonlite::write_json(x = x, path = swap_file, ...)
+  file.rename(swap_file, path)
 }

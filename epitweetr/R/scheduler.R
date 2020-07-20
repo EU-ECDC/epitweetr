@@ -298,7 +298,7 @@ get_task_day_slots <- function(task) {
 save_tasks <- function(tasks) {
   stop_if_no_config()
   tasks_path <- get_tasks_path()
-  jsonlite::write_json(tasks, tasks_path, pretty = TRUE, force = TRUE, auto_unbox = TRUE, POSIXt="epoch")
+  write_json_atomic(tasks, tasks_path, pretty = TRUE, force = TRUE, auto_unbox = TRUE, POSIXt="epoch")
 }
 
 #' Infinite looop executing tasks respecting the order and time scheduling window.
@@ -335,7 +335,7 @@ detect_loop <- function(data_dir = NA) {
         stop("Cannot continue mas number of retries reached")
       }
       
-      message(paste("Executing task", tasks[[i_next]]$task))
+      message(paste(Sys.time(), ": Executing task", tasks[[i_next]]$task))
       if(tasks[[i_next]]$task == "geonames") {
         tasks <- update_geonames(tasks)  
       }
@@ -354,8 +354,14 @@ detect_loop <- function(data_dir = NA) {
 
       if(tasks[[i_next]]$status == "success") tasks[[i_next]]$failures = 0
       save_tasks(tasks)
-    } else if(last_sleeping_message + (conf$schedule_span * 60) < Sys.time()){
-      message("Nothing else todo. Going to sleep each 5 seconds")
+    } else if(last_sleeping_message + (conf$schedule_span * 60) < Sys.time() && 
+      length(tasks[sapply(tasks, function(t) 
+        !is.na(t$status) 
+	        && (t$status %in% c("scheduled") && t$scheduled_for >= Sys.time())
+	        )]
+        )>0) { 
+      i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled")) t$order else 999))[[1]] 
+      message(paste(Sys.time(), ": Nothing else todo. Going to sleep each 5 seconds until ", format(tasks[[i_next]]$scheduled_for, tz=Sys.timezone(),usetz=TRUE)))
       last_sleeping_message <- Sys.time()
     }
     setup_config(data_dir = conf$data_dir)

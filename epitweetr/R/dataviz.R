@@ -219,6 +219,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=F){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
+  spen <- options("scipen")
+  options(scipen=999)
   regions <- get_country_items()
   country_codes <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(countries), function(i) unlist(regions[[i]]$codes)))
   detailed <- length(country_codes) == 1
@@ -235,7 +237,15 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   # Adding retwets if requested
   if(with_retweets)
     df$tweets <- ifelse(is.na(df$retweets), 0, df$retweets) + ifelse(is.na(df$tweets), 0, df$tweets)
-	
+  
+  # Ensuring geo_name column exists and setting default value (necessary for versions < 0.1.7)
+  if(detailed && !("user_geo_name" %in% colnames(df))) {
+     df$user_geo_name <- df$user_geo_code 
+     df$tweet_geo_name <- df$tweet_geo_code 
+  }	else if(detailed) {
+     df$tweet_geo_name <- ifelse(df$tweet_geo_name == "" | is.na(df$tweet_geo_name), df$tweet_geo_code, df$tweet_geo_name) 
+     df$user_geo_name <- ifelse(df$user_geo_name == "" | is.na(df$user_geo_name), df$user_geo_code, df$user_geo_name) 
+  }
   #Setting country cols as requested
   country_code_cols = if(location_type == "tweet") "tweet_geo_country_code" else if(location_type == "user") "user_geo_country_code" else c("tweet_geo_country_code", "user_geo_country_code")
   # Setting country codes as requested location types as requested
@@ -250,20 +260,20 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
          )
          else if(location_type =="tweet")
            df %>% 
-             dplyr::rename(country_code = tweet_geo_country_code, geo_code = tweet_geo_code, longitude = tweet_longitude, latitude = tweet_latitude) %>% 
-             dplyr::select(-user_geo_country_code, -user_geo_code, -user_longitude, -user_latitude)
+             dplyr::rename(country_code = tweet_geo_country_code, geo_code = tweet_geo_code, geo_name = tweet_geo_name, longitude = tweet_longitude, latitude = tweet_latitude) %>% 
+             dplyr::select(-user_geo_country_code, -user_geo_code, -user_geo_name, -user_longitude, -user_latitude)
          else if(location_type == "user")
            df %>% 
-             dplyr::rename(country_code = user_geo_country_code, geo_code = user_geo_code, longitude = user_longitude, latitude = user_latitude) %>% 
-             dplyr::select(-tweet_geo_country_code, -tweet_geo_code, -tweet_longitude, -tweet_latitude)
+             dplyr::rename(country_code = user_geo_country_code, geo_code = user_geo_code, geo_name = user_geo_name, longitude = user_longitude, latitude = user_latitude) %>% 
+             dplyr::select(-tweet_geo_country_code, -tweet_geo_code, -tweet_geo_name, -tweet_longitude, -tweet_latitude)
          else dplyr::bind_rows(
            df %>% 
-             dplyr::rename(country_code = tweet_geo_country_code, geo_code = tweet_geo_code, longitude = tweet_longitude, latitude = tweet_latitude) %>% 
-             dplyr::select(-user_geo_country_code, -user_geo_code, -user_longitude, -user_latitude),
+             dplyr::rename(country_code = tweet_geo_country_code, geo_code = tweet_geo_code, geo_name = tweet_geo_name, longitude = tweet_longitude, latitude = tweet_latitude) %>% 
+             dplyr::select(-user_geo_country_code, -user_geo_code, -user_geo_name, -user_longitude, -user_latitude),
            df %>%
-             dplyr::rename(country_code = user_geo_country_code, geo_code = user_geo_code, longitude = user_longitude, latitude = user_latitude) %>% 
+             dplyr::rename(country_code = user_geo_country_code, geo_code = user_geo_code, geo_name = user_geo_name, longitude = user_longitude, latitude = user_latitude) %>% 
              dplyr::filter(!is.na(country_code) & is.na(tweet_geo_country_code )) %>%
-             dplyr::select(-tweet_geo_country_code, -tweet_geo_code, -tweet_longitude, -tweet_latitude)
+             dplyr::select(-tweet_geo_country_code, -tweet_geo_code, -tweet_geo_name, -tweet_longitude, -tweet_latitude)
          )     
     )
   f_topic <- topic
@@ -280,13 +290,17 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
           else country_code %in% country_codes
         )
         & tweets > 0 
+        & (
+          if(detailed) !(geo_code %in% country_codes)
+          else TRUE
+        ) 
     )
   )
   df <- (
     if(detailed) 
       df %>% 
         dplyr::group_by(country_code, geo_code) %>%
-        dplyr::summarize(count = sum(tweets), Long = mean(longitude), Lat = mean(latitude)) %>%
+        dplyr::summarize(count = sum(tweets), Long = mean(longitude), Lat = mean(latitude), geo_name = max(geo_name, na.rm = TRUE)) %>%
         dplyr::ungroup() 
     else 
       df %>% 
@@ -406,8 +420,8 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     paste(
       "\nRegion:", proj_df$Country,
       "\nNumber of Tweets:", proj_df$count,
-      if(detailed) "\nGeonames id: " else "",
-      if(detailed) proj_df$geo_code else "",
+      if(detailed) "\nLocation: " else "",
+      if(detailed) proj_df$geo_name else "",
       sep = ""
     )
 
@@ -429,8 +443,6 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     axis.title.x = ggplot2::element_blank(),
     axis.title.y = ggplot2::element_blank()
   ))
-  spen <- options("scipen")
-  options(scipen=999)
   fig <- ggplot2::ggplot(df) + 
     ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(x,y, group=group, fill=selected, label = Details)) + 
     ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(x,y, group=group, fill=selected, label = Details), color ="#3f3f3f", size=0.3) + 

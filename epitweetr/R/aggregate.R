@@ -56,11 +56,9 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
       }  
     }
  
-    #saving geolocated files by week
-    sapply(unique(agg_df$created_weeknum),  function(week) {
-      #taking only variables for one week
-    })
-    message("aggregation done!")
+    #deleting cached datasets
+    rm(list = ls(cached), envir = cached)
+    message(paste(Sys.time(), "aggregation done!"))
     # Setting status to succès
     tasks <- update_aggregate_task(tasks, "success", "", end = TRUE)
     tasks
@@ -287,6 +285,8 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
          , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
          , paste(get_user_location_var("geo_code"), "as user_geo_code")
          , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code")
+         , paste(get_user_location_var("geo_name"), "as user_geo_name")
+         , paste(get_tweet_location_var("geo_name"), "as tweet_geo_name")
        )
      )
   } else if(serie_name == "topwords") {

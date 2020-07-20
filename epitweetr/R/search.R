@@ -9,15 +9,15 @@ search_loop <-  function(data_dir = NA) {
   
   register_search_runner()
   while(TRUE) {
-    #Calculating 'get plans' for incompleted imports that has not been able to finish after schedule span minutes
+    #Calculating 'get plans' for incompleted imports that has not been able to finish after collect span minutes
     for(i in 1:length(conf$topics)) {
-      conf$topics[[i]]$plan <- update_plans(plans = conf$topics[[i]]$plan, schedule_span = conf$schedule_span)
+      conf$topics[[i]]$plan <- update_plans(plans = conf$topics[[i]]$plan, schedule_span = conf$collect_span)
     }
      
     #waiting until next schedule if not pending imports to do
     wait_for <- min(unlist(lapply(1:length(conf$topics), function(i) can_wait_for(plans = conf$topics[[i]]$plan))) )
     if(wait_for > 0) {
-      message(paste("All done! going to sleep for", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
+      message(paste(Sys.time(), ": All done! going to sleep for until", Sys.time() + wait_for, "during", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
       Sys.sleep(wait_for)
     }
     #getting ony the next plan to execute for each topic (it could be a previous unfinished plan
@@ -136,7 +136,7 @@ update_file_stats <- function(filename, topic, year, first_date, last_date) {
         collected_to = now
       )
     }
-    jsonlite::write_json(stats, dest, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+    write_json_atomic(stats, dest, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
 }
 
 #' Parse twiter date
@@ -240,7 +240,7 @@ get_plan <- function(
 #'  #Getting deault plan
 #'  update_plans(plans = list(), schedule_span = 120) 
 #'  #Updating topics for first topic
-#'  update_plans(plans = conf$topics[[1]]$plan, schedule_span = conf$schedule_span) 
+#'  update_plans(plans = conf$topics[[1]]$plan, schedule_span = conf$collect_span) 
 #' }
 #' @rdname update_plans
 update_plans <- function(plans = list(), schedule_span) {
