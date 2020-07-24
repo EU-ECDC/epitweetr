@@ -24,7 +24,23 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::selectInput("topics", label = shiny::h4("Topics"), multiple = FALSE, choices = d$topics),
           shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
-          shiny::dateRangeInput("period", label = shiny::h4("Time Period"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
+          shiny::selectInput(
+            "fixed_period", 
+            label = shiny::h4("Period"), 
+            multiple = FALSE, 
+            choices = list(
+              "Last 7 days"="last 7 days", 
+              "Last 30 days"="last 30 days", 
+              "Last 60 days"="last 60 days", 
+              "Last 180 days"="last 180 days", 
+              "custom"
+            ), 
+            selected = d$fixed_period
+          ),
+          shiny::conditionalPanel(
+            condition = "input.fixed_period == 'custom'",
+            shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"),
+          ), 
           shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
           shiny::h4("Include Retweets/Quotes"),
 	        shiny::checkboxInput("with_retweets", label = NULL, value = conf$alert_with_retweets),
@@ -93,7 +109,7 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::h4("Detection date") 
             ),
             shiny::column(3, 
-              shiny::dateRangeInput("alerts_period", label = NULL, start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
+              shiny::dateRangeInput("alerts_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
             ),
             shiny::column(1, 
               shiny::h4("Topics")
@@ -407,9 +423,14 @@ epitweetr_app <- function(data_dir = NA) {
       else
         unname(get_topics_alphas()[stringr::str_replace_all( input$topics, "%20", " ")])
       }
-      updateSliderInput(session, "alpha_filter", value = val, min = 0, max = 0.3, step = 0.005)
+      shiny::updateSliderInput(session, "alpha_filter", value = val, min = 0, max = 0.3, step = 0.005)
     })
     
+
+    shiny::observe({
+      refresh_dashboard_data(d, input$fixed_period)
+      shiny::updateDateRangeInput(session, "period", start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max)
+    }) 
     
     ################################################
     ######### DASHBOARD LOGIC ######################
@@ -857,9 +878,6 @@ epitweetr_app <- function(data_dir = NA) {
       cd$langs_refresh_flag()
       DT::datatable(cd$langs)
     })
-    shiny::observe({
-      
-    }) 
     
     output$conf_lang_download <- shiny::downloadHandler(
       filename = function() "languages.xlsx",
@@ -1087,7 +1105,7 @@ epitweetr_app <- function(data_dir = NA) {
 }
 
 #' Get default data for dashoard
-refresh_dashboard_data <- function(e = new.env()) {
+refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   e$topics <- {
     codes <- unique(sapply(conf$topics, function(t) t$topic))
     names <- get_topics_labels()[codes]
@@ -1100,11 +1118,26 @@ refresh_dashboard_data <- function(e = new.env()) {
   agg_dates <- get_aggregated_period("country_counts") 
   e$date_min <- strftime(agg_dates$first, format = "%Y-%m-%d")
   e$date_max <- strftime(agg_dates$last, format = "%Y-%m-%d")
+  collected_days <- agg_dates$last - agg_dates$first
+  e$fixed_period <- (
+    if(!is.null(fixed_period)) fixed_period
+    else if(collected_days < 7) "custom"
+    else if(collected_days < 30) "last 7 days"
+    else "last 30 days"
+  )
   e$date_start <- ( 
-    if(agg_dates$last - agg_dates$first < 30)
-      e$date_min 
-    else 
+    if(e$fixed_period == "custom" && exists("date_start", e))
+      e$date_start 
+    else if(e$fixed_period == "last 7 days" && collected_days > 7)
+      strftime(agg_dates$last - 7, format = "%Y-%m-%d")
+    else if(e$fixed_period == "last 30 days" && collected_days > 30)
       strftime(agg_dates$last - 30, format = "%Y-%m-%d")
+    else if(e$fixed_period == "last 60 days" && collected_days > 60)
+      strftime(agg_dates$last - 60, format = "%Y-%m-%d")
+    else  if(e$fixed_period == "last 180 days" && collected_days > 180)
+      strftime(agg_dates$last - 180, format = "%Y-%m-%d")
+    else
+      e$date_min 
   )
   e$date_end <- e$date_max
   return(e)

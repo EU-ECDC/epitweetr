@@ -22,6 +22,7 @@ trend_line <- function(
   , bonferroni_correction = FALSE
   , same_weekday_baseline = FALSE
   ){
+  logenv <- new.env()
   df <- 
     calculate_regions_alerts(
       topic = topic,
@@ -34,11 +35,12 @@ trend_line <- function(
       alpha = alpha, 
       no_historic = no_historic, 
       bonferroni_correction = bonferroni_correction,
-      same_weekday_baseline = same_weekday_baseline
+      same_weekday_baseline = same_weekday_baseline,
+      logenv = logenv
     )
   if(nrow(df)>0) {
     df$topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
-    plot_trendline(df,countries,topic,date_min,date_max, date_type, alpha)
+    plot_trendline(df,countries,topic,date_min,date_max, date_type, alpha, location_type, logenv$total_count)
   } else {
     get_empty_chart("No data found for the selected topic, region and period")  
   }
@@ -50,10 +52,12 @@ trend_line <- function(
 #'
 #' @param df 
 #' @export
-plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alpha){
+plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alpha, location_type = "tweets", total_count= NA){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   regions <- get_country_items()
+  spen <- options("scipen")
+  options(scipen=999)
 
   # Calculate alert ranking to avoid alert symbol overlapping 
   df <- df %>% 
@@ -101,9 +105,14 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 
   # Calculating breaks
   y_breaks <- unique(floor(pretty(seq(0, (max(df$limit) + 1) * 1.1))))
-  spen <- options("scipen")
-  options(scipen=999)
 
+  # Calculating tweeter location scope count message
+  scope_count <- format(sum(df$number_of_tweets), big.mark = " ", scientific=FALSE)
+  total_count <- if(is.na(total_count)) NA else format(total_count, big.mark = " ", scientific=FALSE)
+  location_message <- ( 
+    if(location_type == "both") paste("with tweet and user location.", scope_count, "tweets")
+    else paste("with ", location_type ,"location. ", scope_count, "of", total_count, "tweets")
+  )
   fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = Details)) +
     # Line
     ggplot2::geom_line(ggplot2::aes(colour=country)) + {
@@ -115,13 +124,13 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
     # Title
     ggplot2::labs(
       title=ifelse(length(countries)==1,
-        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name, ". Alpha=", alpha),
-        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions", ". Alpha=", alpha)
+        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name," ", location_message, ". Alpha=", alpha),
+        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions ", location_message, ". Alpha=", alpha)
       ),
       fill="Countries / Regions",
       color="Countries / Regions"
     ) +
-    ggplot2::xlab(paste(if(date_type =="created_weeknum") "Posted week" else "Posted date", "(days are 24 hour blocks ening on last aggregated tweet in period)")) +
+    ggplot2::xlab(paste(if(date_type =="created_weeknum") "Posted week" else "Posted date")) + #, "(days are 24 hour blocks ening on last aggregated tweet in period)")) +
     ggplot2::ylab('Number of tweets') +
     ggplot2::scale_y_continuous(breaks = y_breaks, limits = c(0, max(y_breaks)), expand=c(0 ,0))+
     ggplot2::scale_x_date(
@@ -233,6 +242,30 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   if(nrow(df)==0) {
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
+  
+  #filtering data by topic and date and country_codes
+  f_topic <- topic
+  df <- (df %>% 
+    dplyr::filter(
+        topic==f_topic
+        & (!is.na(tweet_geo_country_code)
+           |  !is.na(user_geo_country_code)
+          )
+        & created_date >= date_min 
+        & created_date <= date_max
+        & (
+            (
+              if(length(country_codes) == 0) TRUE 
+              else tweet_geo_country_code %in% country_codes
+            )
+          |
+            (
+              if(length(country_codes) == 0) TRUE 
+              else user_geo_country_code %in% country_codes
+            )
+          )
+    )
+  )
 
   # Adding retwets if requested
   if(with_retweets)
@@ -246,8 +279,43 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
      df$tweet_geo_name <- ifelse(df$tweet_geo_name == "" | is.na(df$tweet_geo_name), df$tweet_geo_code, df$tweet_geo_name) 
      df$user_geo_name <- ifelse(df$user_geo_name == "" | is.na(df$user_geo_name), df$user_geo_code, df$user_geo_name) 
   }
-  #Setting country cols as requested
-  country_code_cols = if(location_type == "tweet") "tweet_geo_country_code" else if(location_type == "user") "user_geo_country_code" else c("tweet_geo_country_code", "user_geo_country_code")
+  # Getting global tweet count for title 
+  scope_count <- (
+     if(location_type =="tweet" && !detailed) 
+       sum(
+         (df %>% 
+            dplyr::filter(
+              !is.na(tweet_geo_country_code) 
+              &(
+                tweet_geo_country_code %in% country_codes 
+                | length(country_codes) == 0
+                )
+            )
+         )$tweets
+       )
+     else if(location_type == "user" && !detailed) 
+       sum(
+         (df %>% 
+            dplyr::filter(
+              !is.na(user_geo_country_code) 
+              &( 
+               user_geo_country_code %in% country_codes 
+               | length(country_codes) == 0
+              )
+            )
+          )$tweets
+        )
+     else if(!detailed) NA
+     else if(location_type =="tweet") sum((df %>% dplyr::filter((!(tweet_geo_code %in% country_codes )) & (tweet_geo_country_code %in% country_codes | length(country_codes) == 0)))$tweets)
+     else if(location_type == "user") sum((df %>% dplyr::filter((!(user_geo_code %in% country_codes )) & (user_geo_country_code %in% country_codes | length(country_codes) == 0)))$tweets)
+     else NA 
+  )
+
+  total_count <- (
+     if(!detailed) sum(df$tweets)
+     else sum((df %>% dplyr::filter((!(tweet_geo_code %in% country_codes )) & !(user_geo_code %in% country_codes )))$tweets)
+  )
+
   # Setting country codes as requested location types as requested
   df <- (
          if(location_type =="tweet" && !detailed)
@@ -276,15 +344,11 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
              dplyr::select(-tweet_geo_country_code, -tweet_geo_code, -tweet_geo_name, -tweet_longitude, -tweet_latitude)
          )     
     )
-  f_topic <- topic
 
-  # aggregating by country
+  #Applying country filter after country type
   df <- (df %>% 
     dplyr::filter(
-        topic==f_topic
-        & !is.na(country_code)
-        & created_date >= date_min 
-        & created_date <= date_max
+        !is.na(country_code)
         & (
           if(length(country_codes) == 0) TRUE 
           else country_code %in% country_codes
@@ -296,6 +360,7 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
         ) 
     )
   )
+  # aggregating by country
   df <- (
     if(detailed) 
       df %>% 
@@ -344,7 +409,6 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     else
       # Using projection Lambert Azimuthal Equal Area for partial maps
       paste("+proj=laea", " +lon_0=", long_center, " +lat_0=", lat_center ,sep = "") 
-      #paste("+proj=laea", " +lon_0=", long_center, " +lat_0=", lat_center, " +x0=4321000", " +y0=3210000 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs", sep = "") 
   )
   # Projecting the country counts dataframe on the target coordinate system this projected dataframe contains the bubble X,Y coordinates
   proj_df <- as.data.frame(
@@ -463,7 +527,28 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
     ) +
     ggplot2::coord_fixed(ratio = 1, ylim=if(full_world) NULL else c(minY, maxY), xlim=if(full_world) NULL else c(minX, maxX)) +
     ggplot2::labs(
-       title = paste("Tweets by territory mentioning", topic, "\nfrom", date_min, "to", date_max),
+       title = (
+         if(location_type == "both")
+           paste(
+             "Geographical distribution of tweets mentioning", 
+             topic, 
+             "\nwith user and tweet location. ",
+             format(total_count, big.mark = " ", scientific=FALSE),
+             " geolocated tweets"
+           )
+         else
+           paste(
+             "Geographical distribution of tweets mentioning", 
+             topic, 
+             "\nwith ", 
+             location_type,
+             " location," ,
+             format(scope_count, big.mark = " ", scientific=FALSE),
+             " of the ",
+             format(total_count, big.mark = " ", scientific=FALSE),
+             " geolocated tweets"
+           )
+       ),
        caption = paste(caption, ". Projection: ", proj, sep = "")
     ) +
     ggplot2::theme_classic(base_family = get_font_family()) +

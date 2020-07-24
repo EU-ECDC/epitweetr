@@ -79,7 +79,6 @@ get_reporting_date_counts <- function(
     , topic
     , start = NA
     , end = NA
-    , country_code_cols = "tweet_geo_country_code"
   ) {
   `%>%` <- magrittr::`%>%`
   if(nrow(df)>0) {
@@ -133,14 +132,16 @@ calculate_region_alerts <- function(
     , no_historic = 7
     , bonferroni_m = 1
     , same_weekday_baseline = FALSE
+    , logenv = NULL
   ) {
   `%>%` <- magrittr::`%>%`
   read_from_date <- get_alert_count_from(date = start, baseline_size = no_historic, same_weekday_baseline = same_weekday_baseline) 
+  f_topic <- topic
   # Getting data from country counts to perform alert calculation 
   df <- get_aggregates(dataset = "country_counts", filter = list(
     topic = topic, 
     period = list(read_from_date, end)
-  ))
+  )) %>% dplyr::filter(topic == f_topic)
 
   # Adding retwets on count if requested
   df <- if(with_retweets){
@@ -153,17 +154,28 @@ calculate_region_alerts <- function(
       known_users = known_original
     ) 
   }
+  if(!is.null(logenv)) {
+    # Setting global variable for storing total number of tweets concerned including all country_cols
+    total_df <- df %>% dplyr::filter(
+      (
+       length(country_codes) == 0 
+       |  (tweet_geo_country_code %in% country_codes) 
+       |  (user_geo_country_code %in% country_codes) 
+      )
+    )
+    total_count <- sum((get_reporting_date_counts(total_df, topic, read_from_date, end) %>% dplyr::filter(reporting_date >= start))$count)
+    logenv$total_count <- if(exists("total_count", logenv)) logenv$total_count + total_count else total_count
+  }
+  write.csv(df, "~/deleteme/1.csv")
   # filtering by country codes
-  f_topic <- topic
   df <- (
-    if(length(country_codes) == 0) dplyr::filter(df, topic == f_topic) 
+    if(length(country_codes) == 0) df 
     else if(length(country_code_cols) == 1) dplyr::filter(df, topic == f_topic & (!!as.symbol(country_code_cols[[1]])) %in% country_codes) 
     else if(length(country_code_cols) == 2) dplyr::filter(df, topic == f_topic & (!!as.symbol(country_code_cols[[1]])) %in% country_codes | (!!as.symbol(country_code_cols[[2]])) %in% country_codes)
     else stop("get geo count does not support more than two country code columns") 
   )
-
   # Getting univariate time series aggregatin by day
-  counts <- get_reporting_date_counts(df, topic, read_from_date, end, country_code_cols)
+  counts <- get_reporting_date_counts(df, topic, read_from_date, end)
   if(nrow(counts)>0) {
     # filling missing values with zeros if any
     date_range <- min(counts$reporting_date):max(counts$reporting_date)
@@ -172,16 +184,17 @@ calculate_region_alerts <- function(
       missing_dates <- data.frame(reporting_date = missing_dates, count = 0)
       counts <- dplyr::bind_rows(counts, missing_dates) %>% dplyr::arrange(reporting_date) 
     }
- 
     #Calculating alerts
     alerts <- ears_t(counts$count, alpha=alpha/bonferroni_m, no_historic = no_historic, same_weekday_baseline)
     counts$alert <- alerts$alarm0
     counts$limit <- alerts$U0
     counts$baseline <- alerts$y0bar
-    if(is.na(start))
+    counts <- if(is.na(start))
       counts
     else
       counts %>% dplyr::filter(reporting_date >= start)
+    write.csv(counts, "~/deleteme/2.csv")
+    counts
   } else {
     counts$alert <- logical()
     counts$limit <- numeric()
@@ -204,6 +217,7 @@ calculate_regions_alerts <- function(
     , no_historic = 7 
     , bonferroni_correction = FALSE
     , same_weekday_baseline = FALSE
+    , logenv = NULL
     )
 {
   #Importing pipe operator
@@ -232,7 +246,8 @@ calculate_regions_alerts <- function(
         no_historic=no_historic, 
         alpha=alpha,
         bonferroni_m = bonferroni_m,
-        same_weekday_baseline = same_weekday_baseline
+        same_weekday_baseline = same_weekday_baseline,
+        logenv = logenv
       )
     alerts <- dplyr::rename(alerts, date = reporting_date) 
     alerts <- dplyr::rename(alerts, number_of_tweets = count) 
