@@ -166,7 +166,6 @@ calculate_region_alerts <- function(
     total_count <- sum((get_reporting_date_counts(total_df, topic, read_from_date, end) %>% dplyr::filter(reporting_date >= start))$count)
     logenv$total_count <- if(exists("total_count", logenv)) logenv$total_count + total_count else total_count
   }
-  write.csv(df, "~/deleteme/1.csv")
   # filtering by country codes
   df <- (
     if(length(country_codes) == 0) df 
@@ -193,7 +192,6 @@ calculate_region_alerts <- function(
       counts
     else
       counts %>% dplyr::filter(reporting_date >= start)
-    write.csv(counts, "~/deleteme/2.csv")
     counts
   } else {
     counts$alert <- logical()
