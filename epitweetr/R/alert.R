@@ -605,22 +605,22 @@ send_alert_emails <- function(tasks = get_tasks()) {
           )
           # Creating email body
           # Getting an array of countries with alerts sorted on descending ordrt by the total number of tweets
-          regions_with_alerts <- (
+          topics_with_alerts <- (
             user_alerts %>% 
-            dplyr::group_by(country) %>% 
+            dplyr::group_by(topic) %>% 
             dplyr::summarize(tweets = sum(number_of_tweets)) %>% 
             dplyr::ungroup() %>%
             dplyr::arrange(dplyr::desc(tweets))
-            )$country
+            )$topic
           
           # Getting the html table for each region
-          alert_tables <- sapply(regions_with_alerts, function(r) {
+          alert_tables <- sapply(topics_with_alerts, function(t) {
             paste(
               "<h5>",
-              r,
+              t,
               "</h5>",
               user_alerts %>% 
-                dplyr::filter(country == r) %>%
+                dplyr::filter(topic == t) %>%
                 dplyr::select(
                  `Date` = `date`, 
                  `Hour` = `hour`, 
