@@ -52,11 +52,14 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h4("Same weekday baseline"),
 	        shiny::checkboxInput("same_weekday_baseline", label = NULL, value = conf$alert_same_weekday_baseline),
           shiny::fluidRow(
-            shiny::column(6, 
+            shiny::column(4, 
               shiny::downloadButton("export_pdf", "PDF")
             ),
-            shiny::column(6, 
+            shiny::column(4, 
               shiny::downloadButton("export_md", "Md")
+            ),
+            shiny::column(4, 
+              shiny::downloadButton("export_data", "Data")
             )
           )
         ), 
@@ -67,7 +70,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(12, 
               shiny::fluidRow(
-                shiny::column(1, shiny::downloadButton("download_line_data", "data")),
+                shiny::column(1, shiny::downloadButton("download_line_data", "Data")),
                 shiny::column(1, shiny::downloadButton("export_line", "image"))
 		          ),
               plotly::plotlyOutput("line_chart")
@@ -76,14 +79,14 @@ epitweetr_app <- function(data_dir = NA) {
           ,shiny::fluidRow(
             shiny::column(6, 
               shiny::fluidRow(
-                shiny::column(3, shiny::downloadButton("download_topword_data", "data")),
+                shiny::column(3, shiny::downloadButton("download_topword_data", "Data")),
                 shiny::column(3, shiny::downloadButton("export_topword", "image"))
 		          ),
               plotly::plotlyOutput("topword_chart")
             )
             , shiny::column(6, 
               shiny::fluidRow(
-                shiny::column(3, shiny::downloadButton("download_map_data", "data")),
+                shiny::column(3, shiny::downloadButton("download_map_data", "Data")),
                 shiny::column(3, shiny::downloadButton("export_map", "image"))
 		          ),
               plotly::plotlyOutput(
@@ -449,8 +452,8 @@ epitweetr_app <- function(data_dir = NA) {
          input$bonferroni_correction,
          input$same_weekday_baseline
          )$chart
-       height <- session$clientData$output_p_height
-       width <- session$clientData$output_p_width
+       height <- session$clientData$output_line_chart_height
+       width <- session$clientData$output_line_chart_width
 	     chart_not_empty(chart)
        gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = F) 
        # Fixing bad entries on ggplotly chart
@@ -465,8 +468,8 @@ epitweetr_app <- function(data_dir = NA) {
     })  
     output$map_chart <- plotly::renderPlotly({
        can_render(input, d)
-       height <- session$clientData$output_p_height
-       width <- session$clientData$output_p_width
+       height <- session$clientData$output_map_chart_height
+       width <- session$clientData$output_map_chart_width
        chart <- map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
 	     chart_not_empty(chart)
        gg <- chart %>%
@@ -496,8 +499,8 @@ epitweetr_app <- function(data_dir = NA) {
 
     output$topword_chart <- plotly::renderPlotly({
        can_render(input, d)
-       height <- session$clientData$output_p_height
-       width <- session$clientData$output_p_width
+       height <- session$clientData$output_topword_chart_height
+       width <- session$clientData$output_topword_chart_width
        chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 20)$chart
 	     chart_not_empty(chart)
        chart %>%
@@ -543,6 +546,35 @@ epitweetr_app <- function(data_dir = NA) {
             )$chart
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
+      }
+    ) 
+    output$export_data <- shiny::downloadHandler(
+      filename = function() { 
+        paste("dashboard_dataset_", 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".csv", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        write.csv(
+          line_chart_from_filters(
+            input$topics, 
+            input$countries, 
+            input$period_type, 
+            input$period, 
+            input$with_retweets, 
+            input$location_type, 
+            input$alpha_filter, 
+            input$history_filter,
+            input$bonferroni_correction,
+            input$same_weekday_baseline
+            )$data,
+          file, 
+          row.names = FALSE)
       }
     ) 
     output$download_line_data <- shiny::downloadHandler(

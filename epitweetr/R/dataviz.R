@@ -600,7 +600,7 @@ create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01
               y = "Count",
               title = paste("Top words of tweets mentioning", topic),
               subtitle = paste("from", date_min, "to", date_max),
-              caption = "Top words is the only figure in the dashboard only considering tweet location (ignores the location type parameter)"
+              caption = "Top words figure only considers tweet location, ignoring the location type parameter"
            ) +
            ggplot2::scale_y_continuous(labels = function(x) format(x, scientific = FALSE), breaks = y_breaks, limits = c(0, max(y_breaks)), expand=c(0 ,0))+
            ggplot2::theme_classic(base_family = get_font_family()) +

@@ -573,13 +573,12 @@ send_alert_emails <- function(tasks = get_tasks()) {
         )
         # Joining back instant and slot alert for email send
 
-        user_alerts <- dplyr::union_all(slot_alerts, instant_alerts) 
+        user_alerts <- dplyr::union_all(slot_alerts, instant_alerts) %>% dplyr::mutate(topic = get_topics_labels()[topic])
         # Sending alert email & registering last sent dates and hour to user
         if(nrow(user_alerts) > 0) {
           # Calculating top alerts for title
           top_alerts <- head(
             user_alerts %>%
-              dplyr::mutate(topics = get_topics_labels()[topic]) %>% 
               dplyr::arrange(topic, dplyr::desc(number_of_tweets)) %>% 
               dplyr::group_by(topic) %>% 
               dplyr::mutate(rank = rank(topic, ties.method = "first")) %>% 
@@ -591,24 +590,79 @@ send_alert_emails <- function(tasks = get_tasks()) {
 
           tasks <- update_alerts_task(tasks, "running", paste("sending alert to", dest))
           message(paste("Sending alert to ", dest))
+
+          # Getting the title
+          title <- paste(
+            "[epitweetr] found", 
+            nrow(user_alerts), 
+            "signals. Top alerts: ", 
+            paste(
+              top_alerts$topic, 
+              " (", 
+              top_alerts$top, 
+              ")", 
+              collapse = ", ", 
+              sep = ""
+            )
+          )
+          # Creating email body
+          # Getting an array of countries with alerts sorted on descending ordrt by the total number of tweets
+          regions_with_alerts <- (
+            user_alerts %>% 
+            dplyr::group_by(country) %>% 
+            dplyr::summarize(tweets = sum(number_of_tweets)) %>% 
+            dplyr::ungroup() %>%
+            dplyr::arrange(dplyr::desc(tweets))
+            )$country
+          
+          # Getting the html table for each region
+          alert_tables <- sapply(regions_with_alerts, function(r) {
+            paste(
+              "<h5>",
+              r,
+              "</h5>",
+              user_alerts %>% 
+                dplyr::filter(country == r) %>%
+                dplyr::select(
+                 `Date` = `date`, 
+                 `Hour` = `hour`, 
+                 `Topic` = `topic`,  
+                 `Region` = `country`,
+                 `Top words` = `topwords`, 
+                 `Tweets` = `number_of_tweets`, 
+                 `% important user` = `known_ratio`,
+                 `Threshold` = `limit`,
+                 `Baseline` = `no_historic`, 
+                 `Bonf. corr.` = `bonferroni_correction`,
+                 `Same weekday baseline` = `same_weekday_baseline`,
+                 `Day_rank` = `rank`,
+                 `With retweets` = `with_retweets`,
+                 `Location` = `location_type`
+                ) %>%
+                xtable::xtable() %>%
+                print(type="html", file=tempfile())
+            )
+          })
+          # Applying table inline format 
+          alert_tables <- gsub("<table ", "<table style=\"border: 1px solid black;width: 100%;border-collapse: collapse;\" ", alert_tables) 
+          alert_tables <- gsub("<th ", "<th style=\"border: 1px solid black;background-color: #3d6806;color: #ffffff;text-align: center;\" ", alert_tables) 
+          alert_tables <- gsub("<th> ", "<th style=\"border: 1px solid black;background-color: #3d6806;color: #ffffff;text-align: center;\">", alert_tables) 
+          alert_tables <- gsub("<td ", "<td style=\"border: 1px solid black;\" ", alert_tables) 
+          alert_tables <- gsub("<td> ", "<td style=\"border: 1px solid black;\">", alert_tables) 
+          
+          # Applying email template
+          t_con <- file(get_email_alert_template_path(), open = "rb", encoding = "UTF-8")
+          html <- paste(readLines(t_con, encoding = "UTF-8"), collapse = "\n")
+          html <- gsub("@title", title, html)
+          html <- gsub("@alerts", paste(alert_tables, collapse="\n"), html)
+          close(t_con)
+
           msg <- ( 
             emayili::envelope() %>% 
             emayili::from(conf$smtp_from) %>% 
             emayili::to(dest) %>% 
-            emayili::subject(paste(
-              "[epitweetr] found", 
-              nrow(user_alerts), 
-              "signals. Top alerts: ", 
-              paste(
-                top_alerts$topic, 
-                " (", 
-                top_alerts$top, 
-                ")", 
-                collapse = ", ", 
-                sep = ""
-              )
-            )) %>% 
-            emayili::html(print(xtable::xtable(user_alerts), type="html", file=tempfile()))
+            emayili::subject(title) %>% 
+            emayili::html(html)
           )
           smtp <- ( 
             if(is.na(conf$smtp_password) || is.null(conf$smtp_password) ||  conf$smtp_password == "") 

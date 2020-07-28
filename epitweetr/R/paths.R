@@ -61,3 +61,6 @@ get_subscribers_path <- function() {
     path <- get_default_subscribers_path()
   path
 }
+
+#' Get email template path
+get_email_alert_template_path <- function() system.file("extdata", "mail.html", package = get_package_name())
