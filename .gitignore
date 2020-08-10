@@ -7,10 +7,11 @@ Twitter-ebola-data_Rscript_EpiConcept.R
 *.log
 *.retry
 *.swp
-scalaBridge/project/project
-scalaBridge/project/build.properties
-scalaBridge/project/target
-scalaBridge/target
+epitweetr/scala/project/project
+epitweetr/scala/project/build.properties
+epitweetr/scala/project/target
+epitweetr/scala/target
+epitweetr/scala/lib_managed
 *.jar
 
 #Excel locj files

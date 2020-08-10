@@ -153,6 +153,16 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(4, shiny::actionButton("activate_search", "activate"))
           ),
           shiny::fluidRow(
+            shiny::column(4, "Detection pipeline"), 
+            shiny::column(4, shiny::htmlOutput("detect_running")),
+            shiny::column(4, shiny::actionButton("activate_detect", "activate"))
+          ),
+          shiny::fluidRow(
+            shiny::column(4, "Java/Scala dependencies"), 
+            shiny::column(4, shiny::htmlOutput("spark_status")),
+            shiny::column(4, shiny::actionButton("update_spark", "update"))
+          ),
+          shiny::fluidRow(
             shiny::column(4, "Geonames"), 
             shiny::column(4, shiny::htmlOutput("geonames_status")),
             shiny::column(4, shiny::actionButton("update_geonames", "update"))
@@ -161,11 +171,6 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(4, "Languages"), 
             shiny::column(4, shiny::htmlOutput("languages_status")),
             shiny::column(4, shiny::actionButton("update_languages", "update"))
-          ),
-          shiny::fluidRow(
-            shiny::column(4, "Detection pipeline"), 
-            shiny::column(4, shiny::htmlOutput("detect_running")),
-            shiny::column(4, shiny::actionButton("activate_detect", "activate"))
           ),
           ################################################
           ######### GENERAL PROPERTIES ###################
@@ -196,6 +201,11 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
           shiny::fluidRow(shiny::column(3, "Geonames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
           shiny::fluidRow(shiny::column(3, "Simplified Geonames"), shiny::column(9, shiny::checkboxInput("conf_geonames_simplify", label = NULL, value = conf$geonames_simplify))),
+          shiny::fluidRow(shiny::column(3, "Maven repository"), shiny::column(9,  shiny::textInput("conf_maven_repo", label = NULL, value = conf$maven_repo))),
+          shiny::conditionalPanel(
+            condition = ".Platform$OS.type == 'windows'",
+            shiny::fluidRow(shiny::column(3, "Winutils url"), shiny::column(9,  shiny::textInput("conf_winutils_url", label = NULL, value = conf$winutils_url)))
+          ),
           shiny::fluidRow(shiny::column(3, "Regions Disclaimer"), shiny::column(9, shiny::textAreaInput("conf_regions_disclaimer", label = NULL, value = conf$regions_disclaimer))),
           shiny::h2("Twitter Authentication"),
           shiny::fluidRow(shiny::column(3, "Mode"), shiny::column(9
@@ -778,6 +788,24 @@ epitweetr_app <- function(data_dir = NA) {
         ,sep=""
       )})
 
+    output$spark_status <- shiny::renderText({
+      # Adding a dependency to task refresh
+      cd$tasks_refresh_flag()
+      paste(
+        "<span",
+        " style='color:", 
+          if(cd$spark_status %in% c("n/a", "error"))
+            "#F75D59'"
+          else if(cd$spark_status %in% c("success")) 
+            "#348017'" 
+          else 
+            "#2554C7'", 
+        ">",
+        cd$spark_status,
+        "</span>"
+        ,sep=""
+      )})
+
     output$geonames_status <- shiny::renderText({
       # Adding a dependency to task refresh
       cd$tasks_refresh_flag()
@@ -829,6 +857,12 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(cd, list("tasks"))
     })
 
+    shiny::observeEvent(input$update_spark, {
+      conf$spark_dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      refresh_config_data(cd, list("tasks"))
+    })
+    
     shiny::observeEvent(input$update_geonames, {
       conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
@@ -849,6 +883,8 @@ epitweetr_app <- function(data_dir = NA) {
       conf$spark_memory <- input$conf_spark_memory
       conf$geolocation_threshold <- input$geolocation_threshold 
       conf$geonames_url <- input$conf_geonames_url 
+      conf$maven_repo <- input$conf_maven_repo 
+      conf$winutils_url <- input$conf_winutils_url 
       conf$geonames_simplify <- input$conf_geonames_simplify 
       conf$regions_disclaimer <- input$conf_regions_disclaimer 
       conf$alert_alpha <- input$conf_alpha 
@@ -1252,6 +1288,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     if(update) {
       if(file.exists(get_tasks_path())) e$tasks_refresh_flag(file.info(get_tasks_path())$mtime)
       e$tasks <- get_tasks() 
+      e$spark_status <- if(in_pending_status(e$tasks$spark)) "pending" else if(is.na(e$tasks$spark$status)) "n/a" else e$tasks$spark$status 
       e$geonames_status <- if(in_pending_status(e$tasks$geonames)) "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$geonames$status 
       e$languages_status <- if(in_pending_status(e$tasks$languages))  "pending" else if(is.na(e$tasks$languages$status)) "n/a" else e$tasks$languages$status 
       e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
@@ -1279,8 +1316,8 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
 # validate that dashboard can be rendered
 can_render <- function(input, d) {
   shiny::validate(
-      shiny::need(file.exists(conf$data_dir), 'Please go to configuration ans setup tweet collection (no data directory found)')
-      , shiny::need(length(d$topics)>0, paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure this is the right folder, and that the aggregated task has successfully run"))
+      shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
+      , shiny::need(length(d$topics)>0, paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure this is the right folder, and that the detect loop has successfully run"))
       , shiny::need(input$topics != '', 'Please select a topic')
   )
 }

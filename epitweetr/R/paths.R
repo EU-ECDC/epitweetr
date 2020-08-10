@@ -64,3 +64,15 @@ get_subscribers_path <- function() {
 
 #' Get email template path
 get_email_alert_template_path <- function() system.file("extdata", "mail.html", package = get_package_name())
+
+#' Get scala building tools (SBT) dependencies file
+get_sbt_file_dep_path <- function() system.file("extdata", "sbt-deps.txt", package = get_package_name())
+
+#' Get JAR directory
+get_jars_dest_path <- function() file.path(conf$data_dir, "jars")
+
+#' Get application JAR (embedded on package)
+get_app_jar_path <- function() system.file("java", "ecdc-twitter-bundle_2.11-1.0.jar", package = get_package_name())
+
+#' Get hadoop home path for winutils
+get_hadoop_home_path <- function() file.path(conf$data_dir, "hadoop")

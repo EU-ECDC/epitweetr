@@ -2,7 +2,7 @@
 export SPARK_VERSION=2.4.5
 export SBT_OPTS="-Xmx16G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
 if [ -z ${EPI_HOME+x} ]; then echo "please set EPI_HOME is unset"; exit 1; fi
-cd scalaBridge
+cd epitweetr/scala
 expect -c '
 spawn sbt console
 expect "scala>"

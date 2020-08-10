@@ -127,9 +127,22 @@ get_tasks <- function(statuses = list()) {
     t
   } else {
     # If no tasks file is setup a default is built based on configuration
-    ret <- list()
+    list()
+  }
+  if(!exists("spark", where = tasks)) {
+    #get spark depencies
+    tasks$spark <- list(
+      task = "spark",
+      order = 0,
+      started_on = NA,
+      end_on = NA,
+      status = NA,
+      scheduled_for = NA
+    )
+  }
+  if(!exists("geonames", where = tasks)) {
     #get geonames
-    ret$geonames <- list(
+    tasks$geonames <- list(
       task = "geonames",
       order = 1,
       started_on = NA,
@@ -137,8 +150,10 @@ get_tasks <- function(statuses = list()) {
       status = NA,
       scheduled_for = NA
     )
+  }
+  if(!exists("languages", where = tasks)) {
     #get geonames
-    ret$languages <- list(
+    tasks$languages <- list(
       task = "languages",
       order = 2,
       started_on = NA,
@@ -146,8 +161,10 @@ get_tasks <- function(statuses = list()) {
       status = NA,
       scheduled_for = NA
     )
+  }
+  if(!exists("geotag", where = tasks)) {
     #geo tag
-    ret$geotag <- list(
+    tasks$geotag <- list(
       task = "geotag",
       order = 3,
       started_on = NA,
@@ -155,8 +172,10 @@ get_tasks <- function(statuses = list()) {
       status = NA,
       scheduled_for = NA
     )
+  }
+  if(!exists("aggregate", where = tasks)) {
     #aggregate
-    ret$aggregate <- list(
+    tasks$aggregate <- list(
       task = "aggregate",
       order = 4,
       started_on = NA,
@@ -164,8 +183,10 @@ get_tasks <- function(statuses = list()) {
       status = NA,
       scheduled_for = NA
     )
+  }
+  if(!exists("alerts", where = tasks)) {
     #alerts
-    ret$alerts <- list(
+    tasks$alerts <- list(
       task = "alerts",
       order = 5,
       started_on = NA,
@@ -173,8 +194,14 @@ get_tasks <- function(statuses = list()) {
       status = NA,
       scheduled_for = NA
     )
-    ret
   }
+  # Activating one shot tasks with configuration changes
+  if(in_pending_status(tasks$spark)) {
+     tasks$spark$maven_repo = conf$maven_repo 
+     tasks$spark$winutils_url = conf$winutils_url 
+     tasks$spark$status <- "pending" 
+  }
+    
   # Activating one shot tasks with configuration changes
   if(in_pending_status(tasks$geonames)) {
      tasks$geonames$url = conf$geonames_url  
@@ -241,8 +268,8 @@ plan_tasks <-function(statuses = list()) {
   sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
   for(i in sorted_tasks) {
     # Scheduling pending tasks
-    if(tasks[[i]]$task %in% c("geonames", "languages")) {
-      if(tasks[[i]]$status == "pending") {
+    if(tasks[[i]]$task %in% c("spark", "geonames", "languages")) {
+      if(is.na(tasks[[i]]$status) || tasks[[i]]$status == "pending") {
         tasks[[i]]$status <- "scheduled"
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
         break
@@ -336,7 +363,10 @@ detect_loop <- function(data_dir = NA) {
       }
       
       message(paste(Sys.time(), ": Executing task", tasks[[i_next]]$task))
-      if(tasks[[i_next]]$task == "geonames") {
+      if(tasks[[i_next]]$task == "spark") {
+        tasks <- download_spark_dependencies(tasks)  
+      }
+      else if(tasks[[i_next]]$task == "geonames") {
         tasks <- update_geonames(tasks)  
       }
       else if(tasks[[i_next]]$task == "languages") {
@@ -374,10 +404,14 @@ detect_loop <- function(data_dir = NA) {
 #' Check if provided task is in pending status
 in_pending_status <- function(task) {
   (
-    (is.na(task$status) || task$status %in% c("pending", "success", "failure")) 
+    (is.na(task$status) || task$status %in% c("pending", "success", "failure", "aborted")) 
     &&
     (
-      (task$task == "geonames" 
+      (task$task == "spark" 
+        && !is.na(conf$spark_dep_updated_on)
+        && (is.na(task$end_on) || task$end_on < strptime(conf$spark_dep_updated_on, "%Y-%m-%d %H:%M:%S"))
+      ) || (
+       task$task == "geonames" 
         && !is.na(conf$geonames_updated_on)
         && (is.na(task$end_on) || task$end_on < strptime(conf$geonames_updated_on, "%Y-%m-%d %H:%M:%S"))
       ) || (
@@ -444,6 +478,17 @@ update_alerts_task <- function(tasks, status, message, start = FALSE, end = FALS
   if(end) tasks$alerts$end_on = Sys.time() 
   tasks$alerts$status =  status
   tasks$alerts$message = message
+  save_tasks(tasks)
+  return(tasks)
+}
+
+
+#' Updating spark task for reporting progress on downloading spark and lucene dependencies
+update_spark_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
+  if(start) tasks$spark$started_on = Sys.time() 
+  if(end) tasks$spark$end_on = Sys.time() 
+  tasks$spark$status =  status
+  tasks$spark$message = message
   save_tasks(tasks)
   return(tasks)
 }

@@ -1,20 +1,20 @@
-lazy val core = RootProject(file("../../demy/core"))
-lazy val mllib = RootProject(file("../../demy/mllib"))
-
 lazy val sparkVersion = if(System.getenv("SPARK_VERSION")==null) "2.3.2" else System.getenv("SPARK_VERSION")
 lazy val root = (project in file("."))
-  .dependsOn(core)
-  .dependsOn(mllib)  
   .settings(
     name := "ecdc-twitter-bundle",
     scalaVersion := "2.11.8",
+    retrieveManaged := true,
     version := "1.0",
     libraryDependencies += "org.apache.spark" %% "spark-core" % sparkVersion,
     libraryDependencies += "org.apache.spark" %% "spark-sql" % sparkVersion, 
     libraryDependencies += "org.apache.spark" %% "spark-mllib" % sparkVersion,
+    libraryDependencies += "org.apache.lucene" % "lucene-core" % "8.5.0", 
+    libraryDependencies += "org.apache.lucene" % "lucene-queryparser" % "8.5.0",
+    libraryDependencies += "org.apache.lucene" % "lucene-analyzers-common" % "8.5.0", 
     libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.5",
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     libraryDependencies += "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
+    libraryDependencies += "org.apache.httpcomponents" % "httpmime" % "4.5.6" ,
     scalacOptions ++= Seq("-deprecation", "-feature"),
     assemblyMergeStrategy in assembly := {
       case PathList("org","aopalliance", xs @ _*) => MergeStrategy.last
