@@ -99,7 +99,7 @@ get_empty_config <- function(data_dir) {
   ret$smtp_insecure <- FALSE
   ret$maven_repo <- "https://repo1.maven.org/maven2"
   ret$winutils_url <- "http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe"
-  ret$spark_dep_updated_on <- NA
+  ret$dep_updated_on <- NA
   return(ret)
 }
 
@@ -162,7 +162,7 @@ setup_config <- function(
     conf$smtp_insecure <- temp$smtp_insecure
     conf$maven_repo <- temp$maven_repo
     conf$winutils_url <- temp$winutils_url
-    conf$spark_dep_updated_on <- temp$spark_dep_updated_on
+    conf$dep_updated_on <- temp$dep_updated_on
   }
   if(!ignore_topics && exists("topics", where = paths)){
     if(file.exists(paths$topics)) {
@@ -307,7 +307,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$smtp_insecure <- conf$smtp_insecure
     temp$maven_repo <- conf$maven_repo
     temp$winutils_url <- conf$winutils_url
-    temp$spark_dep_updated_on <- conf$spark_dep_updated_on
+    temp$dep_updated_on <- conf$dep_updated_on
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {

@@ -1,7 +1,7 @@
 #' Realize alert detection on tweet counts by countries
 #' @export
 generate_alerts <- function(tasks = get_tasks()) {
-  tryCatch({
+  tasks <- tryCatch({
     tasks <- update_alerts_task(tasks, "running", "processing", start = TRUE)
     tasks <- do_next_alerts(tasks)
 
@@ -9,7 +9,7 @@ generate_alerts <- function(tasks = get_tasks()) {
     tasks <- send_alert_emails(tasks)
     # Setting status to succes
     tasks <- update_alerts_task(tasks, "success", "", end = TRUE)
-
+    tasks
   }, error = function(error_condition) {
     # Setting status to failed
     message("Failed...")
@@ -177,7 +177,7 @@ calculate_region_alerts <- function(
   counts <- get_reporting_date_counts(df, topic, read_from_date, end)
   if(nrow(counts)>0) {
     # filling missing values with zeros if any
-    date_range <- min(counts$reporting_date):max(counts$reporting_date)
+    date_range <- as.numeric(read_from_date):as.numeric(end)
     missing_dates <- date_range[sapply(date_range, function(d) !(d %in% counts$reporting_date))]
     if(length(missing_dates > 0)) {
       missing_dates <- data.frame(reporting_date = missing_dates, count = 0)
@@ -477,13 +477,13 @@ send_alert_emails <- function(tasks = get_tasks()) {
   if(nrow(subscribers)>0) {
     for(i in 1:nrow(subscribers)) {
       user <- subscribers$User[[i]]
-      topics <- strsplit(subscribers$Topics[[i]],";")[[1]]
-      dest <- strsplit(subscribers$Email[[i]],";")[[1]]
-      regions <- strsplit(subscribers$Regions[[i]],";")[[1]]
-      excluded <- strsplit(subscribers$`Excluded Topics`[[i]], ";")[[1]]         
-      realtime_topics <- strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
-      realtime_regions <- strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
-      slots <- as.integer(strsplit(subscribers$`Alert Slots`[[i]], ";")[[1]])
+      topics <- if(is.na(subscribers$Topics[[i]])) NA else strsplit(subscribers$Topics[[i]],";")[[1]]
+      dest <- if(is.na(subscribers$Email[[i]])) NA else strsplit(subscribers$Email[[i]],";")[[1]]
+      regions <- if(is.na(subscribers$Regions[[i]])) NA else strsplit(subscribers$Regions[[i]],";")[[1]]
+      excluded <- if(is.na(subscribers$`Excluded Topics`[[i]])) NA else strsplit(subscribers$`Excluded Topics`[[i]], ";")[[1]]         
+      realtime_topics <- if(is.na(subscribers$`Real time Topics`[[i]])) NA else strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
+      realtime_regions <- if(is.na(subscribers$`Real time Regions`[[i]])) NA else strsplit(subscribers$`Real time Regions`[[i]], ";")[[1]]         
+      slots <- as.integer(if(is.na(subscribers$`Alert Slots`[[i]])) NA else strsplit(subscribers$`Alert Slots`[[i]], ";")[[1]])
       # Adding users statistics if does not existd already
       if(!exists(user, where=tasks$alerts$sent)) 
         tasks$alerts$sent[[user]] <- list()
@@ -535,9 +535,9 @@ send_alert_emails <- function(tasks = get_tasks()) {
             
         # Filtering out alerts that are not instant if  not respect the defined slots
         instant_alerts <- user_alerts %>% dplyr::filter(
-          (!is.na(realtime_topics) | !is.na(realtime_regions)) & 
-          (is.na(realtime_topics) | topic %in% realtime_topics) &
-          (is.na(realtime_regions) | country %in% realtime_regions)
+          (!all(is.na(realtime_topics)) | !all(is.na(realtime_regions))) & 
+          (all(is.na(realtime_topics)) | topic %in% realtime_topics) &
+          (all(is.na(realtime_regions)) | country %in% realtime_regions)
         )
         
         # Excluding instant alerts produced before the last alert sent to user
@@ -552,9 +552,9 @@ send_alert_emails <- function(tasks = get_tasks()) {
         )
         
         slot_alerts <- user_alerts %>% dplyr::filter(
-         ( (is.na(realtime_topics) & is.na(realtime_regions)) |
-          (!is.na(realtime_topics) & !(topic %in% realtime_topics)) |
-          (!is.na(realtime_regions) & !(country %in% realtime_regions))
+         ( (all(is.na(realtime_topics)) & all(is.na(realtime_regions))) |
+          (!all(is.na(realtime_topics)) & !(topic %in% realtime_topics)) |
+          (!all(is.na(realtime_regions)) & !(country %in% realtime_regions))
          )
           & send_slot_alerts 
         )

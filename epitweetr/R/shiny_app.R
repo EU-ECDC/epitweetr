@@ -157,21 +157,6 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(4, shiny::htmlOutput("detect_running")),
             shiny::column(4, shiny::actionButton("activate_detect", "activate"))
           ),
-          shiny::fluidRow(
-            shiny::column(4, "Java/Scala dependencies"), 
-            shiny::column(4, shiny::htmlOutput("spark_status")),
-            shiny::column(4, shiny::actionButton("update_spark", "update"))
-          ),
-          shiny::fluidRow(
-            shiny::column(4, "Geonames"), 
-            shiny::column(4, shiny::htmlOutput("geonames_status")),
-            shiny::column(4, shiny::actionButton("update_geonames", "update"))
-          ),
-          shiny::fluidRow(
-            shiny::column(4, "Languages"), 
-            shiny::column(4, shiny::htmlOutput("languages_status")),
-            shiny::column(4, shiny::actionButton("update_languages", "update"))
-          ),
           ################################################
           ######### GENERAL PROPERTIES ###################
           ################################################
@@ -247,6 +232,13 @@ epitweetr_app <- function(data_dir = NA) {
           ######### DETECTION PANEL ######################
           ################################################
           shiny::h3("Detection Pipeline"),
+          shiny::h5("Manual tasks"),
+          shiny::fluidRow(
+            shiny::column(2, shiny::actionButton("update_spark", "Update dependencies")),
+            shiny::column(2, shiny::actionButton("update_geonames", "Update geonames")),
+            shiny::column(2, shiny::actionButton("update_languages", "Update languages")),
+            shiny::column(6)
+          ),
           DT::dataTableOutput("tasks_df"),
           ################################################
           ######### TOPICS PANEL ######################
@@ -788,59 +780,6 @@ epitweetr_app <- function(data_dir = NA) {
         ,sep=""
       )})
 
-    output$spark_status <- shiny::renderText({
-      # Adding a dependency to task refresh
-      cd$tasks_refresh_flag()
-      paste(
-        "<span",
-        " style='color:", 
-          if(cd$spark_status %in% c("n/a", "error"))
-            "#F75D59'"
-          else if(cd$spark_status %in% c("success")) 
-            "#348017'" 
-          else 
-            "#2554C7'", 
-        ">",
-        cd$spark_status,
-        "</span>"
-        ,sep=""
-      )})
-
-    output$geonames_status <- shiny::renderText({
-      # Adding a dependency to task refresh
-      cd$tasks_refresh_flag()
-      paste(
-        "<span",
-        " style='color:", 
-          if(cd$geonames_status %in% c("n/a", "error"))
-            "#F75D59'"
-          else if(cd$geonames_status %in% c("success")) 
-            "#348017'" 
-          else 
-            "#2554C7'", 
-        ">",
-        cd$geonames_status,
-        "</span>"
-        ,sep=""
-      )})
-    output$languages_status <- shiny::renderText({
-      # Adding a dependency to task refresh
-      cd$tasks_refresh_flag()
-      paste(
-        "<span",
-        " style='color:", 
-          if(cd$languages_status %in% c("n/a", "error"))
-            "#F75D59'"
-          else if(cd$languages_status %in% c("success")) 
-            "#348017'" 
-          else 
-            "#2554C7'", 
-        ">",
-        cd$languages_status,
-        "</span>"
-        ,sep=""
-      )})
-
     output$conf_schedule_slots <- shiny::renderText({
       # Adding a dependency to config refresh
       cd$properties_refresh_flag()
@@ -857,8 +796,8 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(cd, list("tasks"))
     })
 
-    shiny::observeEvent(input$update_spark, {
-      conf$spark_dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+    shiny::observeEvent(input$update_dependencies, {
+      conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       refresh_config_data(cd, list("tasks"))
     })
@@ -1287,10 +1226,9 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     }
     if(update) {
       if(file.exists(get_tasks_path())) e$tasks_refresh_flag(file.info(get_tasks_path())$mtime)
-      e$tasks <- get_tasks() 
-      e$spark_status <- if(in_pending_status(e$tasks$spark)) "pending" else if(is.na(e$tasks$spark$status)) "n/a" else e$tasks$spark$status 
-      e$geonames_status <- if(in_pending_status(e$tasks$geonames)) "pending" else if(is.na(e$tasks$geonames$status)) "n/a" else e$tasks$geonames$status 
-      e$languages_status <- if(in_pending_status(e$tasks$languages))  "pending" else if(is.na(e$tasks$languages$status)) "n/a" else e$tasks$languages$status 
+      tasks <- get_tasks()
+      sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
+      e$tasks <- tasks[sorted_tasks] 
       e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
       e$tasks_df <- data.frame(
         Task = sapply(e$tasks, function(t) t$task), 

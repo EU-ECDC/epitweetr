@@ -129,10 +129,10 @@ get_tasks <- function(statuses = list()) {
     # If no tasks file is setup a default is built based on configuration
     list()
   }
-  if(!exists("spark", where = tasks)) {
-    #get spark depencies
-    tasks$spark <- list(
-      task = "spark",
+  if(!exists("dependencies", where = tasks)) {
+    #get java & scala dependencies
+    tasks$dependencies <- list(
+      task = "dependencies",
       order = 0,
       started_on = NA,
       end_on = NA,
@@ -196,10 +196,10 @@ get_tasks <- function(statuses = list()) {
     )
   }
   # Activating one shot tasks with configuration changes
-  if(in_pending_status(tasks$spark)) {
-     tasks$spark$maven_repo = conf$maven_repo 
-     tasks$spark$winutils_url = conf$winutils_url 
-     tasks$spark$status <- "pending" 
+  if(in_pending_status(tasks$dependencies)) {
+     tasks$dependencies$maven_repo = conf$maven_repo 
+     tasks$dependencies$winutils_url = conf$winutils_url 
+     tasks$dependencies$status <- "pending" 
   }
     
   # Activating one shot tasks with configuration changes
@@ -268,7 +268,7 @@ plan_tasks <-function(statuses = list()) {
   sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
   for(i in sorted_tasks) {
     # Scheduling pending tasks
-    if(tasks[[i]]$task %in% c("spark", "geonames", "languages")) {
+    if(tasks[[i]]$task %in% c("dependencies", "geonames", "languages")) {
       if(is.na(tasks[[i]]$status) || tasks[[i]]$status == "pending") {
         tasks[[i]]$status <- "scheduled"
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000
@@ -283,7 +283,7 @@ plan_tasks <-function(statuses = list()) {
 	            x = list(tasks$geotag, tasks$aggregate, tasks$alerts), 
 	            f = function(a, b) if(a$end_on>b$end_on) a else b
             )
-          next_order <- if(last_ended$order < length(sorted_tasks)) last_ended$order + 1 else 3
+          next_order <- if(last_ended$order +1  <= max(sapply(tasks, `[[`, "order"))) last_ended$order + 1 else 3
           tasks[[i]]$order == next_order
 
       })) {
@@ -345,45 +345,46 @@ detect_loop <- function(data_dir = NA) {
     if(length(tasks[sapply(tasks, function(t) 
         !is.na(t$status) 
 	        && (
-	          t$status %in% c("failed", "running")
+	          t$status %in% c("failed", "running", "aborted")
 	          || (t$status %in% c("scheduled") && t$scheduled_for <= Sys.time())
 	        ))]
         )>0) 
     {
-      i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("scheduled", "failed", "running")) t$order else 999))[[1]] 
+      i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("aborted", "scheduled", "failed", "running")) t$order else 999))[[1]] 
+      if(tasks[[i_next]]$status != "aborted") {
+        if(tasks[[i_next]]$status %in% c("failed", "running")) { 
+          tasks[[i_next]]$failures = (if(!exists("failures", where = tasks[[i_next]])) 1 else tasks[[i_next]]$failures + 1)
+        }
+        if(tasks[[i_next]]$status %in% c("failed", "running") && tasks[[i_next]]$failures > 3) {
+          tasks[[i_next]]$status = "aborted"
+          tasks[[i_next]]$message = paste("Max number of retries reached", tasks[[i_next]]$message, sep = "\n")
+          save_tasks(tasks)
+        }
+        else { 
+          message(paste(Sys.time(), ": Executing task", tasks[[i_next]]$task))
+          if(tasks[[i_next]]$task == "dependencies") {
+            tasks <- download_dependencies(tasks)  
+          }
+          else if(tasks[[i_next]]$task == "geonames") {
+            tasks <- update_geonames(tasks)  
+          }
+          else if(tasks[[i_next]]$task == "languages") {
+            tasks <- update_languages(tasks)  
+          }
+          else if(tasks[[i_next]]$task == "geotag") {
+            tasks <- geotag_tweets(tasks) 
+          }
+          else if(tasks[[i_next]]$task == "aggregate") {
+            tasks <- aggregate_tweets(tasks = tasks) 
+          }
+          else if(tasks[[i_next]]$task == "alerts") {
+            tasks <- generate_alerts(tasks)
+          }
 
-      if(tasks[[i_next]]$status %in% c("failed", "running")) { 
-        tasks[[i_next]]$failures = (if(!exists("failures", where = tasks[[i_next]])) 1 else tasks[[i_next]]$failures + 1)
+          if(tasks[[i_next]]$status == "success") tasks[[i_next]]$failures = 0
+          save_tasks(tasks)
+        }
       }
-      if(tasks[[i_next]]$status %in% c("failed", "running") && tasks[[i_next]]$failures > 3) {
-        tasks[[i_next]]$status = "aborted"
-        tasks[[i_next]]$message = paste("Max number of retries reached", tasks[[i_next]]$message, sep = "\n")
-        save_tasks(tasks)
-        stop("Cannot continue mas number of retries reached")
-      }
-      
-      message(paste(Sys.time(), ": Executing task", tasks[[i_next]]$task))
-      if(tasks[[i_next]]$task == "spark") {
-        tasks <- download_spark_dependencies(tasks)  
-      }
-      else if(tasks[[i_next]]$task == "geonames") {
-        tasks <- update_geonames(tasks)  
-      }
-      else if(tasks[[i_next]]$task == "languages") {
-        tasks <- update_languages(tasks)  
-      }
-      else if(tasks[[i_next]]$task == "geotag") {
-        tasks <- geotag_tweets(tasks) 
-      }
-      else if(tasks[[i_next]]$task == "aggregate") {
-        tasks <- aggregate_tweets(tasks = tasks) 
-      }
-      else if(tasks[[i_next]]$task == "alerts") {
-        tasks <- generate_alerts(tasks)
-      }
-
-      if(tasks[[i_next]]$status == "success") tasks[[i_next]]$failures = 0
-      save_tasks(tasks)
     } else if(last_sleeping_message + (conf$schedule_span * 60) < Sys.time() && 
       length(tasks[sapply(tasks, function(t) 
         !is.na(t$status) 
@@ -407,17 +408,17 @@ in_pending_status <- function(task) {
     (is.na(task$status) || task$status %in% c("pending", "success", "failure", "aborted")) 
     &&
     (
-      (task$task == "spark" 
-        && !is.na(conf$spark_dep_updated_on)
-        && (is.na(task$end_on) || task$end_on < strptime(conf$spark_dep_updated_on, "%Y-%m-%d %H:%M:%S"))
+      (task$task == "dependencies" 
+        && !is.na(conf$dep_updated_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$dep_updated_on, "%Y-%m-%d %H:%M:%S"))
       ) || (
        task$task == "geonames" 
         && !is.na(conf$geonames_updated_on)
-        && (is.na(task$end_on) || task$end_on < strptime(conf$geonames_updated_on, "%Y-%m-%d %H:%M:%S"))
+        && (is.na(task$started_on) || task$started_on < strptime(conf$geonames_updated_on, "%Y-%m-%d %H:%M:%S"))
       ) || (
        task$task == "languages" 
         && !is.na(conf$lang_updated_on)
-        && (is.na(task$end_on) || task$end_on < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
+        && (is.na(task$started_on) || task$started_on < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
       )  
     )
   )  
@@ -483,12 +484,12 @@ update_alerts_task <- function(tasks, status, message, start = FALSE, end = FALS
 }
 
 
-#' Updating spark task for reporting progress on downloading spark and lucene dependencies
-update_spark_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
-  if(start) tasks$spark$started_on = Sys.time() 
-  if(end) tasks$spark$end_on = Sys.time() 
-  tasks$spark$status =  status
-  tasks$spark$message = message
+#' Updating dependencies task for reporting progress on downloading java & scala dependencies
+update_dep_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
+  if(start) tasks$dependencies$started_on = Sys.time() 
+  if(end) tasks$dependencies$end_on = Sys.time() 
+  tasks$dependencies$status =  status
+  tasks$dependencies$message = message
   save_tasks(tasks)
   return(tasks)
 }
