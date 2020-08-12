@@ -447,7 +447,7 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
     ) %>%
      dplyr::arrange(topic, hour) %>%
      dplyr::group_by(topic) %>%
-     dplyr::mutate(rank = rank(hour, ties.method = "first")) %>%
+     dplyr::mutate(rank = rank(hour, country, ties.method = "first")) %>%
      dplyr::ungroup()
   })
   Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
@@ -504,7 +504,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
         # Excluding alerts for topics ignored for this user
         user_alerts <- (
           if(!all(is.na(excluded)))
-            user_alerts %>% dplyr::filter(!(topic %in% exluded))
+            user_alerts %>% dplyr::filter(!(topic %in% excluded))
           else 
             user_alerts
         )
@@ -536,8 +536,10 @@ send_alert_emails <- function(tasks = get_tasks()) {
         # Filtering out alerts that are not instant if  not respect the defined slots
         instant_alerts <- user_alerts %>% dplyr::filter(
           (!all(is.na(realtime_topics)) | !all(is.na(realtime_regions))) & 
-          (all(is.na(realtime_topics)) | topic %in% realtime_topics) &
-          (all(is.na(realtime_regions)) | country %in% realtime_regions)
+          (
+            (all(is.na(realtime_topics)) | topic %in% realtime_topics) |
+            (all(is.na(realtime_regions)) | country %in% realtime_regions)
+          )
         )
         
         # Excluding instant alerts produced before the last alert sent to user
@@ -553,8 +555,10 @@ send_alert_emails <- function(tasks = get_tasks()) {
         
         slot_alerts <- user_alerts %>% dplyr::filter(
          ( (all(is.na(realtime_topics)) & all(is.na(realtime_regions))) |
-          (!all(is.na(realtime_topics)) & !(topic %in% realtime_topics)) |
-          (!all(is.na(realtime_regions)) & !(country %in% realtime_regions))
+          (
+            (!all(is.na(realtime_topics)) & !(topic %in% realtime_topics)) &
+            (!all(is.na(realtime_regions)) & !(country %in% realtime_regions))
+          )
          )
           & send_slot_alerts 
         )
