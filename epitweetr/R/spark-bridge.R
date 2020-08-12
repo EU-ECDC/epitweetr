@@ -55,7 +55,7 @@ spark_job <- function(args) {
       "export OPENBLAS_NUM_THREADS=1"
     }
     else {
-      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=hadoop_home_path())
+      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_hadoop_home_path())
       "" 
     }
     ,paste(
@@ -89,7 +89,7 @@ spark_df <- function(args, handler = NULL) {
     if(.Platform$OS.type != "windows") 
       "export OPENBLAS_NUM_THREADS=1"
     else {
-      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=hadoop_home_path())
+      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_hadoop_home_path())
       "" 
     }
    ,paste(
@@ -149,8 +149,8 @@ download_dependencies <- function(tasks = get_tasks()) {
   tasks <- tryCatch({
     tasks <- update_dep_task(tasks, "running", "getting sbt dependencies", start = TRUE)
     tasks <- download_sbt_dependencies(tasks)
-    tasks <- update_dep_task(tasks, "running", "sending emails")
     if(.Platform$OS.type == "windows") {
+      tasks <- update_dep_task(tasks, "running", "getting winutils")
       tasks <- download_winutils()
     }
     # Setting status to succes
@@ -195,15 +195,15 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
   for(i in 1:length(urls)) {
     tryCatch({
       tasks <- update_dep_task(tasks, "running", paste("downloading", urls[[i]]))
-      download.file(url = urls[[i]], destfile = dest_file[[i]])
+      download.file(url = urls[[i]], destfile = dest_file[[i]], mode = "wb")
     }
     ,warning = function(c) {
       tasks <- update_dep_task(tasks, "running", paste("downloading", urls2[[i]]))
-      download.file(url = urls2[[i]], destfile = dest_file[[i]])
+      download.file(url = urls2[[i]], destfile = dest_file[[i]], mode = "wb")
     }
     ,error = function(c) {
       tasks <- update_dep_task(tasks, "running", paste("downloading", urls2[[i]]))
-      download.file(url = urls2[[i]], destfile = dest_file[[i]])
+      download.file(url = urls2[[i]], destfile = dest_file[[i]], mode = "wb")
     })
   }
   return(tasks)
@@ -214,8 +214,8 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
 download_winutils <- function(tasks = get_tasks()) {
   if(!dir.exists(get_hadoop_home_path())) dir.create(get_hadoop_home_path())
   if(!dir.exists(file.path(get_hadoop_home_path(), "bin"))) dir.create(file.path(get_hadoop_home_path(), "bin"))
-  if(!exists("winutils", where = tasks$dependencies)) stop("Before running detect loop you have to manually activate 'Java/Scala dependencies' to set the winutils to use")
-  tasks <- update_dep_task(tasks, "running", paste("downloading", conf$winutils_url))
-  download.file(url = tasks$dependencies$winutils_url, destfile = file.path(get_hadoop_home_path(), "bin"))
+  if(!exists("winutils_url", where = tasks$dependencies)) stop("Before running detect loop you have to manually activate 'Java/Scala dependencies' to set the winutils to use")
+  tasks <- update_dep_task(tasks, "running", paste("downloading", tasks$dependencies$winutils_url))
+  download.file(url = tasks$dependencies$winutils_url, destfile = file.path(get_hadoop_home_path(), "bin", "winutils.exe"), mode = "wb")
   return(tasks)
 } 

@@ -1,4 +1,5 @@
 scala/lib_managed
 scala/target
-scala/target
+scala/null
 scala/project/target
+scala/project/project

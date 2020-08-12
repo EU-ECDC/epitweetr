@@ -234,7 +234,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h3("Detection Pipeline"),
           shiny::h5("Manual tasks"),
           shiny::fluidRow(
-            shiny::column(2, shiny::actionButton("update_spark", "Update dependencies")),
+            shiny::column(2, shiny::actionButton("update_dependencies", "Update dependencies")),
             shiny::column(2, shiny::actionButton("update_geonames", "Update geonames")),
             shiny::column(2, shiny::actionButton("update_languages", "Update languages")),
             shiny::column(6)
@@ -798,18 +798,21 @@ epitweetr_app <- function(data_dir = NA) {
 
     shiny::observeEvent(input$update_dependencies, {
       conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      cd$tasks_refresh_flag(Sys.time())
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       refresh_config_data(cd, list("tasks"))
     })
     
     shiny::observeEvent(input$update_geonames, {
       conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      cd$tasks_refresh_flag(Sys.time())
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       refresh_config_data(cd, list("tasks"))
     })
 
     shiny::observeEvent(input$update_languages, {
       conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      cd$tasks_refresh_flag(Sys.time())
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       refresh_config_data(cd, list("tasks"))
     })

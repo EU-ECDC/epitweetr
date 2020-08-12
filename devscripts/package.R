@@ -5,7 +5,23 @@ if(!("devtools" %in% installed.packages()[,"Package"]))
 
 devtools::document()
 devtools::build(binary=TRUE)
-devtools::build(binary=FALSE)
+
+#removing directories to avoid bug preventing .rbuildigrore being read
+if(.Platform$OS.type == "windows") {
+  file.rename("scala/lib_managed", "../lib_managed")
+  file.rename("scala/target", "../target")
+  file.rename("scala/null", "../null")
+  file.rename("scala/project/target", "../project_target")
+  file.rename("scala/project/project", "../project_project")
+  devtools::build(binary=FALSE)
+  file.rename("../lib_managed", "scala/lib_managed")
+  file.rename("../target", "scala/target")
+  file.rename("../null", "scala/null")
+  file.rename("../project_target", "scala/project/target")
+  file.rename("../project_project", "scala/project/project")
+
+} else 
+  devtools::build(binary=FALSE)
 
 if(!file.exists("install")){
   dir.create("install", showWarnings = FALSE)
