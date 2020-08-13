@@ -445,9 +445,9 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
       (if(length(c)==0) TRUE else country %in% c) &
       (if(length(t)==0) TRUE else topic %in% t)
     ) %>%
-     dplyr::arrange(topic, hour) %>%
-     dplyr::group_by(topic) %>%
-     dplyr::mutate(rank = rank(hour, country, ties.method = "first")) %>%
+     dplyr::arrange(topic, country, hour) %>%
+     dplyr::group_by(topic, country) %>%
+     dplyr::mutate(rank = rank(hour, ties.method = "first")) %>%
      dplyr::ungroup()
   })
   Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
@@ -625,6 +625,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
               "</h5>",
               user_alerts %>% 
                 dplyr::filter(topic == t) %>%
+                dplyr::arrange(dplyr::desc(number_of_tweets)) %>%
                 dplyr::select(
                  `Date` = `date`, 
                  `Hour` = `hour`, 
