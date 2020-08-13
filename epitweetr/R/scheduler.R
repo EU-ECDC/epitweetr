@@ -45,7 +45,7 @@ register_runner_task <- function(task_name) {
         , rscript = script
         , schedule = "HOUR"
         , rscript_args = conf$data_dir
-        , startdate = shell("echo %DATE%")
+        , startdate =  tail(strsplit(shell("echo %DATE%", intern= T), " ")[[1]], 1)
         , schtasks_extra="/F"
       )
     }
