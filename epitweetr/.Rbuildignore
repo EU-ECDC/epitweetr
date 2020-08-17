@@ -3,3 +3,5 @@ scala/target
 scala/null
 scala/project/target
 scala/project/project
+^doc$
+^Meta$

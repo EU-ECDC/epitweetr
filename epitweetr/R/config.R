@@ -79,8 +79,11 @@ get_empty_config <- function(data_dir) {
   ret$geonames_url <- "http://download.geonames.org/export/dump/allCountries.zip"
   ret$geolocation_threshold <- 5
   ret$known_users <- list()
-  ret$spark_cores <- parallel::detectCores(all.tests = FALSE, logical = TRUE)
-  ret$spark_memory <- "12g"
+  ret$spark_cores <- {
+    all_cores <- floor(parallel::detectCores(all.tests = FALSE, logical = TRUE)*0.5)
+    if(all_cores <1) 1 else all_cores
+  }
+  ret$spark_memory <- "4g"
   ret$topics <- list()
   ret$topics_md5 <- ""
   ret$alert_alpha <- 0.025

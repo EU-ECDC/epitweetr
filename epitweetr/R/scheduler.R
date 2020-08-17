@@ -282,7 +282,14 @@ plan_tasks <-function(statuses = list()) {
           last_ended <- 
             Reduce(
 	            x = list(tasks$geotag, tasks$aggregate, tasks$alerts), 
-	            f = function(a, b) if(a$end_on>b$end_on) a else b
+	            f = function(a, b) { 
+               if(is.na(a$end_on) && is.na(b$end_on)) {
+                 if(a$order > b$order) a else b
+               } else if(is.na(a$end_on)) b 
+                 else if(is.na(b$end_on)) a 
+                 else if(a$end_on > b$end_on) a 
+                 else b
+              }
             )
           next_order <- if(last_ended$order +1  <= max(sapply(tasks, `[[`, "order"))) last_ended$order + 1 else 3
           tasks[[i]]$order == next_order
