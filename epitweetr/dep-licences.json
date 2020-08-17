@@ -1,0 +1,510 @@
+[
+  {
+    "package": ["pkgbuild"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["pkgload"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["praise"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["ps"],
+    "license": ["BSD_3_clause + file LICENSE"]
+  },
+  {
+    "package": ["ini"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["sys"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["testthat"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["colorspace"],
+    "license": ["BSD_3_clause + file LICENSE"]
+  },
+  {
+    "package": ["plyr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["processx"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["gh"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["git2r"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["rematch2"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["rprojroot"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["fansi"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["pkgconfig"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["askpass"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["gtable"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["isoband"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["withr"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["farver"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["labeling"],
+    "license": ["MIT + file LICENSE | Unlimited"]
+  },
+  {
+    "package": ["munsell"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["prettyunits"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["rematch"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["highr"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["markdown"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["backports"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["reshape2"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["DBI"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["utf8"],
+    "license": ["Apache License (== 2.0) | file LICENSE"]
+  },
+  {
+    "package": ["clipr"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["callr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["fs"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["whisker"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["selectr"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["ISOcodes"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["usethis"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["desc"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["bit"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["ellipsis"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["generics"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["glue"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["lifecycle"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["magrittr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["R6"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["rlang"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["tibble"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["tidyselect"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["vctrs"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["htmltools"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["htmlwidgets"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["crosstalk"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["promises"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["Rcpp"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["later"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["BH"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["assertthat"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["getPass"],
+    "license": ["BSD 2-clause License + file LICENSE"]
+  },
+  {
+    "package": ["openssl"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["sodium"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["yaml"],
+    "license": ["BSD_3_clause + file LICENSE"]
+  },
+  {
+    "package": ["filelock"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["rappdirs"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["base64enc"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["curl"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["httr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["mime"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["stringi"],
+    "license": ["file LICENSE", "License_is_FOSS: yes"]
+  },
+  {
+    "package": ["ggplot2"],
+    "license": ["GPL-2 | file LICENSE"]
+  },
+  {
+    "package": ["scales"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["digest"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["viridisLite"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["tidyr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["hexbin"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["RColorBrewer"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["lazyeval"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["purrr"],
+    "license": ["GPL-3 | file LICENSE"]
+  },
+  {
+    "package": ["data.table"],
+    "license": ["MPL-2.0 | file LICENSE"]
+  },
+  {
+    "package": ["progress"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["cellranger"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["knitr"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["evaluate"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["tinytex"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["xfun"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["sourcetools"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["crayon"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["fastmap"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["broom"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["cli"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["dbplyr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["forcats"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["haven"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["hms"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["lubridate"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["modelr"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["pillar"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["readr"],
+    "license": ["GPL (>= 2) | file LICENSE"]
+  },
+  {
+    "package": ["reprex"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["rstudioapi"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["rvest"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["xml2"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["hunspell"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["janeaustenr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["stopwords"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["SnowballC"],
+    "license": ["BSD_3_clause + file LICENSE"]
+  },
+  {
+    "package": ["bit64"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["dplyr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["DT"],
+    "license": ["GPL-3 | file LICENSE"]
+  },
+  {
+    "package": ["httpuv"],
+    "license": ["GPL (>= 2) | file LICENSE"]
+  },
+  {
+    "package": ["jsonlite"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["keyring"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["emayili"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["plotly"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["rtweet"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["readxl"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["rgeos"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["rgdal"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["rmarkdown"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["rnaturalearthdata"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["shiny"],
+    "license": ["GPL-3 | file LICENSE"]
+  },
+  {
+    "package": ["sp"],
+    "license": ["Not available"]
+  },
+  {
+    "package": ["stringr"],
+    "license": ["GPL-2 | file LICENSE"]
+  },
+  {
+    "package": ["tidyverse"],
+    "license": ["GPL-3 | file LICENSE"]
+  },
+  {
+    "package": ["tidytext"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["tokenizers"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["xtable"],
+    "license": ["Not available"]
+  }
+]

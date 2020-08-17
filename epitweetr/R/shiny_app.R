@@ -1131,6 +1131,7 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   collected_days <- agg_dates$last - agg_dates$first
   e$fixed_period <- (
     if(!is.null(fixed_period)) fixed_period
+    else if(is.na(collected_days)) "custom"
     else if(collected_days < 7) "custom"
     else if(collected_days < 30) "last 7 days"
     else "last 30 days"
