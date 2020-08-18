@@ -7,25 +7,44 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r, echo = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+
+library(epitweetr)
+package_name <- "epitweetr"
+package_desc <- packageDescription(package_name)
+pkg_version <- package_desc$Version
+pkg_date <- package_desc$Date
+authors_str <- gsub("^ *|(?<= ) |\n| *$", "", package_desc$Authors, perl = TRUE)
+author_list <- eval(parse(text = authors_str))
+pkg_authors <- paste(
+  format(
+    author_list, 
+    include = c("given", "family", "email", "comment"), 
+    braces = list(email = c("<", ">,<br />"), 
+    comment = c("", ""))
+  ), 
+  collapse = "<br /><br />"
+)
+pkg_maintainer <- package_desc$Maintainer
+pkg_license <- package_desc$License
+pkg_url <- package_desc$URL
+
 ```
 
-```{r, include = FALSE}
-library(epitweetr)
-```
+Package | Description
+------- | -------------
+Version | `r pkg_version`
+Published | `r pkg_date`
+Authors | `r pkg_authors`
+Maintainer | `r pkg_maintainer`
+License | `r pkg_license`
+
 
 ## epitweetr: user documentation
-
-|**Version**   **Date finalised**   **Created/modified by**   **Comments**
-|------------- -------------------- ------------------------- ----------------------------
-|1.0           2020-05-20           Epiconcept                Initial draft sent to ECDC
-|1.1           2020-05-26           Epiconcept                Inclusion of ECDC comments
-
-Table of Contents
 
 Description
 ===========
@@ -38,11 +57,15 @@ The package includes an interactive Shiny application (Shiny app), in which the 
 
 **Shiny app dashboard:**
 
-![C:\\Users\\EKG\\AppData\\Local\\Temp\\moadofncgohloadl.png]
+```{r echo=FALSE, fig.cap="Shiny app dasboard figure", out.width = '100%'}
+knitr::include_graphics("img/dashboard.png")
+```
 
-**Shiny configuration page:**
+**Shiny app configuration page:**
 
-![]
+```{r echo=FALSE, fig.cap="Shiny app configuration page", out.width = '100%'}
+knitr::include_graphics("img/config.png")
+```
 
 Package details
 ===============
@@ -769,8 +792,6 @@ Using rtweetr from the R console
 
 [^3]: Allévius B and Höhle M (2019), “*Prospective Detection of Outbreaks*”, Book Chapter in the Handbook of Infectious Disease Epidemiology, Held, L., Hens, N., O’Neill, P.D. and Wallinga, J. (Eds.). CRC Press., CRC Press. \[[*preprint*]\]
 
-  [C:\\Users\\EKG\\AppData\\Local\\Temp\\moadofncgohloadl.png]: ./media/media/image17.png{width="6.268055555555556in" height="3.128287401574803in"}
-  []: ./media/media/image8.png{width="6.29864501312336in" height="3.3028444881889762in"}
   [*https://www.java.com/download/*]: https://www.java.com/download/
   [*https://www.microsoft.com/en-us/download/details.aspx?id=14632*]: https://www.microsoft.com/en-us/download/details.aspx?id=14632
   [*https://pandoc.org/installing.html*]: https://pandoc.org/installing.html
@@ -783,36 +804,36 @@ Using rtweetr from the R console
   [*https://www.scala-sbt.org/download.html*]: https://www.scala-sbt.org/download.html
   [*https://cran.r-project.org/bin/windows/Rtools/*]: https://cran.r-project.org/bin/windows/Rtools/
   [*http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe*]: http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe
-  [1]: ./media/media/image12.png{width="4.453125546806649in" height="1.5016349518810148in"}
+  [1]: img/image12.png
   [*https://developer.twitter.com/en/apply-for-access*]: https://developer.twitter.com/en/apply-for-access
-  [2]: ./media/media/image36.png{width="2.5555555555555554in" height="1.76875in"}
-  [3]: ./media/media/image32.png{width="6.268055555555556in" height="3.6131944444444444in"}
-  [4]: ./media/media/image5.png{width="5.590908792650919in" height="0.6527777777777778in"}
-  [5]: ./media/media/image19.png{width="4.242034120734908in" height="2.6002252843394578in"}
-  [6]: ./media/media/image18.png{width="5.658823272090989in" height="3.3169542869641293in"}
-  [7]: ./media/media/image28.png{width="5.130208880139983in" height="3.9627023184601926in"}
-  [8]: ./media/media/image20.png{width="3.2968755468066493in" height="2.341350612423447in"}
-  [9]: ./media/media/image26.png{width="6.270833333333333in" height="1.4583333333333333in"}
-  [10]: ./media/media/image31.png{width="6.268055555555556in" height="1.6069444444444445in"}
-  [11]: ./media/media/image21.png{width="6.268055555555556in" height="1.8263888888888888in"}
-  [12]: ./media/media/image23.png{width="2.008507217847769in" height="2.3252012248468943in"}
-  [13]: ./media/media/image24.png{width="4.442051618547682in" height="1.125097331583552in"}
-  [14]: ./media/media/image27.png{width="3.690670384951881in" height="1.4635422134733158in"}
-  [15]: ./media/media/image7.png{width="2.1653543307086616in" height="4.986912729658792in"}
-  [16]: ./media/media/image25.png{width="4.994792213473316in" height="2.6135542432195975in"}
-  [17]: ./media/media/image9.png{width="1.933500656167979in" height="1.3667847769028871in"}
-  [18]: ./media/media/image1.png{width="6.270833333333333in" height="2.736111111111111in"}
-  [19]: ./media/media/image2.png{width="5.401042213473316in" height="2.691548556430446in"}
-  [C:\\Users\\EKG\\AppData\\Local\\Temp\\config.PNG]: ./media/media/image10.png{width="6.268055555555556in" height="3.2134372265966755in"}
-  [20]: ./media/media/image22.png{width="3.3in" height="1.2005971128608923in"}
-  [21]: ./media/media/image6.png{width="3.2583333333333333in" height="1.0681955380577428in"}
+  [2]: img/image36.png
+  [3]: img/image32.png
+  [4]: img/image5.png
+  [5]: img/image19.png
+  [6]: img/image18.png
+  [7]: img/image28.png
+  [8]: img/image20.png
+  [9]: img/image26.png
+  [10]: img/image31.png
+  [11]: img/image21.png
+  [12]: img/image23.png
+  [13]: img/image24.png
+  [14]: img/image27.png
+  [15]: img/image7.png
+  [16]: img/image25.png
+  [17]: img/image9.png
+  [18]: img/image1.png
+  [19]: img/image2.png
+  [C:\\Users\\EKG\\AppData\\Local\\Temp\\config.PNG]: img/image10.png
+  [20]: img/image22.png
+  [21]: img/image6.png
   [*https://cran.r-project.org/web/packages/keyring/index.html*]: https://cran.r-project.org/web/packages/keyring/index.html
-  [22]: ./media/media/image14.png{width="3.4843755468066493in" height="2.765259186351706in"}
-  [23]: ./media/media/image34.png{width="5.254861111111111in" height="2.0229166666666667in"}
-  [24]: ./media/media/image35.png{width="3.671527777777778in" height="2.634027777777778in"}
-  [25]: ./media/media/image4.png{width="3.9843755468066493in" height="3.1504363517060368in"}
-  [26]: ./media/media/image13.png{width="6.270833333333333in" height="3.9722222222222223in"}
-  [27]: ./media/media/image16.png{width="4.393406605424322in" height="3.224313210848644in"}
-  [28]: ./media/media/image15.png{width="4.600399168853893in" height="1.033423009623797in"}
+  [22]: img/image14.png
+  [23]: img/image34.png
+  [24]: img/image35.png
+  [25]: img/image4.png
+  [26]: img/image13.png
+  [27]: img/image16.png
+  [28]: img/image15.png
   [*Monitoring Count Time Series in R: Aberration Detection in Public Health Surveillance*]: https://www.jstatsoft.org/article/view/v070i10
   [*preprint*]: https://arxiv.org/pdf/1711.08960.pdf

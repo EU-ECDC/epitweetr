@@ -6,7 +6,7 @@ Authors@R: c(
            family = "Orchard",
            role = c("aut", "ctr"),
            email = "f.orchard@epiconcept.fr",
-           comment = c(structure("0000-0001-5793-3301", .Names = "ORCID")), "Author of the package and original code"),
+           comment = c(structure("0000-0001-5793-3301", .Names = "ORCID"), "Author of the package and original code")),
      person(given = "Laura",
             family = "Espinosa",
             role = c("aut", "cre", "fnd"),
