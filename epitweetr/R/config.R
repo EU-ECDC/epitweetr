@@ -1,11 +1,10 @@
-#Environment for storing configuration
+# Environment for storing configuration
 conf <- new.env()
 
-#' Get package name
+# Get package name
 get_package_name <- function() environmentName(environment(setup_config))
 
-#' Get platform dependent keyring
-#'
+# Get the keyring for the provided backend or a platform dependent default if backend id null
 get_key_ring <- function(backend = NULL) {
   if(!is.null(backend)) {
     Sys.setenv(kr_backend = backend)
@@ -42,22 +41,23 @@ get_key_ring <- function(backend = NULL) {
   return (kb)
 }
 
-#' Set a secret from the chosen secret management backend
+# Set a secret from the chosen secret management backend
 set_secret <- function(secret, value) {
   get_key_ring()$set_with_value(service = Sys.getenv("kr_service"), username = secret, password = value)
 }
 
-#' Checks weather a secret is set on the secret management backend
+# Checks weather a secret is set on the secret management backend
 is_secret_set <- function(secret) {
  secrets <- get_key_ring()$list(service =  Sys.getenv("kr_service")) 
  return(nrow(secrets[secrets$username == secret, ])>0) 
 }
-#' Get a secret from the chosen secret management backend
+
+# Get a secret from the chosen secret management backend
 get_secret <- function(secret) {
   get_key_ring()$get(service =  Sys.getenv("kr_service"), username = secret)
 }
 
-#' get empty config for initialization
+# get empty config for initialization
 get_empty_config <- function(data_dir) {
   ret <- list()
   ret$keyring <- 
@@ -76,6 +76,10 @@ get_empty_config <- function(data_dir) {
   )
   ret$lang_updated_on <- NA
   ret$geonames_updated_on <- NA
+  ret$dep_updated_on <- NA
+  ret$geotag_requested_on <- NA
+  ret$aggregate_requested_on <- NA
+  ret$alerts_requested_on <- NA
   ret$geonames_url <- "http://download.geonames.org/export/dump/allCountries.zip"
   ret$geolocation_threshold <- 5
   ret$known_users <- list()
@@ -102,12 +106,54 @@ get_empty_config <- function(data_dir) {
   ret$smtp_insecure <- FALSE
   ret$maven_repo <- "https://repo1.maven.org/maven2"
   ret$winutils_url <- "http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe"
-  ret$dep_updated_on <- NA
   return(ret)
 }
 
-#' Build configuration values for application from a configuration json file
+#' @title Load epitweetr application settings
+#' @description Load epitweetr application settings from the provided data directory
+#' @param data_dir Path to de directory containing the application settings (it must exists). 
+#' If not provided it takes the value of the latest call to setup_config on the current session, or the valur of EPI_HOME environment variable or epitweetr subdirectory on the working directory, 
+#' Default: if (exists("data_dir", where = conf)) conf$data_dir else if (Sys.getenv("EPI_HOME") !=
+#'    "") Sys.getenv("EPI_HOME") else file.path(getwd(), "epitweetr")
+#' @param ignore_keyring whether to skip loading settings from the keyring (twitter and SMTP credentials), Default: FALSE
+#' @param ignore_properties whether to skip loading settings managed by the shiny app on properties.json file, Default: FALSE
+#' @param ignore_topics whether to skip loading settings defined on the topics.xlsx file and download plans from topics.json file, Default: FALSE
+#' @param save_first whether to save current settings before loading new ones from disk, Default: list()
+#' @return nothing
+#' @details epitweetr relies on settings and data stored on a system folder, so before loading the dashboard, collect tweets or detect alerts the user has to point to this folder.
+#' When a user wants to use epitweetr from the R console he/her will need to call this function for initialisation.
+#' The 'data_folder' can also be given as a parameter for program launch functions \code{\link{epiweetr_app}}, \code{\link{search_loop}} or \code{\link{detect_loop}} which will internally call this function.
+#'
+#' This call will fill (or refresh) a package scoped environment 'conf' that will store the settings. Settings stored in conf are:
+#' \itemize{
+#'   \item{ General properties of the shiny App (stored on properties.json)}
+#'   \item{Download plans from the twitter collection process (stored on topics.json merged with data from topics.xlsx file}
+#'   \item{Credentials for twitter API and SMTP stored on the defined keyring}
+#' }
+#'
+#' When calling this function if the keyring is locked, a password will be prompted to unlock the keyring.
+#' This behavior can be changed by setting the enviroment variable 'ecdc_wtitter_tool_kr_password' with the password
+#' 
+#' Change made on conf can be persisted (excepting by 'data_dir') using \code{\link{save_config}} or \code{\link{ecdc_wtitter_tool_kr_password}}
+#' @examples
+#' \dontrun{
+#' if(interactive()){
+#'    library(epitweetr)
+#'    #loading system settings
+#'    setup_config("/home/epitweetr/data")
+#'  }
+#' }
+#' @seealso
+#' \code{\link{save_config}}
+#' \code{\link{ecdc_wtitter_tool_kr_password}}
+#' \code{\link{epiweetr_app}}
+#' \code{\link{search_loop}}
+#' \code{\link{detect_loop}}
+#' @rdname setup_config
 #' @export
+#' @importFrom jsonlite read_json
+#' @importFrom tools md5sum
+#' @importFrom readxl read_excel
 setup_config <- function(
   data_dir = 
     if(exists("data_dir", where = conf)) 
@@ -145,6 +191,10 @@ setup_config <- function(
     for(i in 1:length(conf$languages)) {conf$languages[[i]]$vectors <- file.path(conf$data_dir, "languages", paste(conf$languages[[i]]$code, "txt", "gz", sep = "."))} 
     conf$lang_updated_on <- temp$lang_updated_on
     conf$geonames_updated_on <- temp$geonames_updated_on
+    conf$dep_updated_on <- temp$dep_updated_on
+    conf$geotag_requested_on <- temp$geotag_requested_on
+    conf$aggregate_requested_on <- temp$aggregate_requested_on
+    conf$alerts_requested_on <- temp$alerts_requested_on
     conf$geonames_url <- temp$geonames_url
     conf$known_users <- temp$known_users
     conf$spark_cores <- temp$spark_cores
@@ -165,7 +215,6 @@ setup_config <- function(
     conf$smtp_insecure <- temp$smtp_insecure
     conf$maven_repo <- temp$maven_repo
     conf$winutils_url <- temp$winutils_url
-    conf$dep_updated_on <- temp$dep_updated_on
   }
   if(!ignore_topics && exists("topics", where = paths)){
     if(file.exists(paths$topics)) {
@@ -244,7 +293,7 @@ setup_config <- function(
   }
 }
 
-#' Copying plans from temporary file (non typed) to conf, making sure plans have the right type
+# Copying plans from temporary file (non typed) to conf, making sure plans have the right type
 copy_plans_from <- function(temp) {
   #Copying plans
   if(length(temp$topics)>0) {
@@ -272,8 +321,31 @@ copy_plans_from <- function(temp) {
   }
 }
 
-#' Save the configuration options to disk
-#' @export
+#' @title Save the configuration changer 
+#' @description Persists configuration changes to the data folder (excluding twittetr credentials, but not SMTP credentials)
+#' @param data_dir Path to a directory to save configuration settings, Default: conf$data_dir
+#' @param properties whether to save the general properties to properties.json file, Default: TRUE
+#' @param topics wheter to save topic download plans to topics.json, Default: TRUE
+#' @return nothing
+#' @details Persists configuration changes to the data folder (excluding twitter credentials, but not SMTP credentials)
+#' to save twitter credentials please use \code{\link{set_twitter_app_auth}}
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    library(epitweetr)
+#'    #load configuration
+#'    setup_config("/home/epitweetr/data")
+#'    #make some changes
+#'    #conf$collect_span = 90
+#'    #saving changer    
+#'    save_config()
+#'  }
+#' }
+#' @rdname save_config
+#' @seealso
+#' \code{\link{setup_config}}
+#' \code{\link{set_twitter_app_auth}}
+#' @export 
 save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRUE) {
   # creating data directory if does nor exists
   if(!file.exists(conf$data_dir)){
@@ -286,8 +358,12 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$schedule_span <- conf$schedule_span
     temp$schedule_start_hour <- conf$schedule_start_hour
     temp$languages <- conf$languages
+    temp$dep_updated_on <- conf$dep_updated_on
     temp$lang_updated_on <- conf$lang_updated_on
     temp$geonames_updated_on <- conf$geonames_updated_on
+    temp$geotag_requested_on <- conf$geotag_requested_on
+    temp$aggregate_requested_on <- conf$aggregate_requested_on
+    temp$alerts_requested_on <- conf$alerts_requested_on
     temp$geonames_url <- conf$geonames_url
     temp$keyring <- conf$keyring
     temp$known_users <- conf$known_users
@@ -310,7 +386,6 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$smtp_insecure <- conf$smtp_insecure
     temp$maven_repo <- conf$maven_repo
     temp$winutils_url <- conf$winutils_url
-    temp$dep_updated_on <- conf$dep_updated_on
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {
@@ -329,8 +404,26 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
   }
 }
 
-#' Update twitter auth tokens on configuration object
-#' @export
+#' @title save twitter APP credentials
+#' @description Update twitter auth tokens on configuration object
+#' @param app Application name
+#' @param access_token access token as provided by Twitter
+#' @param access_token_secret access token secret as provided by Twitter
+#' @param api_key API key as provided by twitter 
+#' @param api_secret API secret as provided by twitter
+#' @return nothing
+#' @details Update twitter auth tokens on configuration object
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'  #Setting the configuration values
+#'  set_twitter_app_auth(app = "my super app", access_token = "123456", access_token_secret = "123456", api_key = "123456", api_secret = "123456")
+#'  }
+#' }
+#' @seealso
+#' \code{\link{save_config}}
+#' @rdname set_twitter_app_auth
+#' @export 
 set_twitter_app_auth <- function(app, access_token, access_token_secret, api_key, api_secret) {
   conf$twitter_auth$app <- app
   conf$twitter_auth$access_token <- access_token
@@ -342,7 +435,7 @@ set_twitter_app_auth <- function(app, access_token, access_token_secret, api_key
   }
 }
 
-#' Merging two or more configuration files as a list
+# Merging two or more configuration files as a list
 merge_configs <- function(configs) {
   if(length(configs)==0)
     stop("No configurations provided for merge")
@@ -356,7 +449,7 @@ merge_configs <- function(configs) {
   }
 }
 
-# Get topics df
+# Get topics dataframe as displayed on the shinty configuration tab
 get_topics_df <- function() {
   data.frame(
     Topics = sapply(conf$topics, function(t) t$topic), 
@@ -372,7 +465,7 @@ get_topics_df <- function() {
   )
 }
 
-#Get topic labels 
+#Get topic labels as named array that can be used for translation
 get_topics_labels <- function() {
   `%>%` <- magrittr::`%>%`
   t <- ( 
@@ -383,7 +476,8 @@ get_topics_labels <- function() {
   )
   setNames(t$label, t$Topics)
 }
-#Get topic alphas 
+
+#Get topic alphas as named array that can be used for translation
 get_topics_alphas <- function() {
   `%>%` <- magrittr::`%>%`
   t <- ( 
@@ -395,25 +489,26 @@ get_topics_alphas <- function() {
   setNames(t$alpha, t$Topics)
 }
 
-#' Check config setup before continue
+# Check config setup before continue
 stop_if_no_config <- function(error_message = "Cannot continue wihout setting up a configuration") {
   if(!exists("data_dir", where = conf)) {
     stop("Cannot register please setup configuration")  
   }
 }
 
-#' Call config if necessary
+# Call config if necessary
 setup_config_if_not_already <- function() {
   if(!exists("data_dir", where = conf)) {
     setup_config() 
   }
 }
-#' Get current available languages
+
+# Get current available languages from the available language excel file
 get_available_languages <- function() {
   readxl::read_excel(get_available_languages_path()) 
 }
 
-#' Remove language 
+# Remove language from the used languages on conf
 remove_config_language <- function(code) {
   # Timestaming action 
   conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
@@ -421,7 +516,7 @@ remove_config_language <- function(code) {
   conf$languages <- conf$languages[sapply(conf$languages, function(l) l$code != code)] 
 }
 
-#' Add language
+# Add language on to the used languages on conf
 add_config_language <- function(code, name) {
   # Timestaming action 
   conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
@@ -445,12 +540,13 @@ add_config_language <- function(code, name) {
     )
   } 
 }
-#' Get current known users
+
+# Get current known users list from the important user files
 get_known_users <- function() {
   gsub("@", "", readxl::read_excel(get_known_users_path())[[1]])
 }
 
-#' Wrapper for jsonlite write_json ensuring atomic file write it replaces always the existing file. It ignores appends mofifiers
+#Wrapper for jsonlite write_json ensuring atomic file write it replaces always the existing file. It ignores appends modifiers
 write_json_atomic <- function(x, path, ...) {
   file_name <- tail(strsplit(path, "/|\\\\")[[1]], 1)
   dir_name <- substring(path, 1, nchar(path) - nchar(file_name) - 1)

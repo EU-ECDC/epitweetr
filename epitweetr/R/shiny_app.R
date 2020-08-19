@@ -234,10 +234,12 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h3("Detection Pipeline"),
           shiny::h5("Manual tasks"),
           shiny::fluidRow(
-            shiny::column(2, shiny::actionButton("update_dependencies", "Update dependencies")),
-            shiny::column(2, shiny::actionButton("update_geonames", "Update geonames")),
-            shiny::column(2, shiny::actionButton("update_languages", "Update languages")),
-            shiny::column(6)
+            shiny::column(2, shiny::actionButton("update_dependencies", "Run dependencies")),
+            shiny::column(2, shiny::actionButton("update_geonames", "Run geonames")),
+            shiny::column(2, shiny::actionButton("update_languages", "Run languages")),
+            shiny::column(2, shiny::actionButton("request_geotag", "Run geotag")),
+            shiny::column(2, shiny::actionButton("request_aggregate", "Run aggregate")),
+            shiny::column(2, shiny::actionButton("request_alerts", "Run alerts"))
           ),
           DT::dataTableOutput("tasks_df"),
           ################################################
@@ -812,6 +814,27 @@ epitweetr_app <- function(data_dir = NA) {
 
     shiny::observeEvent(input$update_languages, {
       conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      cd$tasks_refresh_flag(Sys.time())
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      refresh_config_data(cd, list("tasks"))
+    })
+    
+    shiny::observeEvent(input$request_geotag, {
+      conf$geotag_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      cd$tasks_refresh_flag(Sys.time())
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      refresh_config_data(cd, list("tasks"))
+    })
+    
+    shiny::observeEvent(input$request_aggregate, {
+      conf$aggregate_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      cd$tasks_refresh_flag(Sys.time())
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      refresh_config_data(cd, list("tasks"))
+    })
+
+    shiny::observeEvent(input$request_alerts, {
+      conf$alerts_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       cd$tasks_refresh_flag(Sys.time())
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       refresh_config_data(cd, list("tasks"))

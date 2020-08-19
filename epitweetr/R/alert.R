@@ -1,4 +1,36 @@
-#' Realize alert detection on tweet counts by countries
+#' @title Execute the alert task  
+#' @description Evaluate alerts for last collected day for all topics and regions and send email alerts to subscribers
+#' @param tasks current tasks for reporting purposes, Default: get_tasks()
+#' @return The list of tasks updated with produced messages
+#' @details This function calculates for last aggregated day and then send emails to subscriptors
+#'
+#' The alert calculation is based on the country_counts time series which stores alerts by country, hour and topics.
+#'
+#' For each country and region the process starts by aggregating the last N days. A day a block of contiguous 24 hours ending before the hour of the collected last tweet. 
+#' N is defined by the alert base line parameter of the shiny application.
+#' 
+#' An alert will be produced when the number of tweets observates is under the threshold calculated by the modified version of the EARS algorithm (for more details see the package vignette) 
+#' The behaviour of the alert detection algoritm is mofied by the alert confidence level,  previous alert downgrade and weekly or daily baseline parameters 
+#' as defined on the shiny application and the topics file 
+#'
+#' A prerequisite to this funtion is that the search_loop must have already collected tweets on the search folder and that geotag and aggregate tasks have already run.
+#' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    library(epitweetr)
+#'    # setting up the data folder
+#'    setup_config("/home/epitweetr/data")
+#'
+#'    # calculating alerts for last day tweets and sending emails to subscriptors
+#'    generate_alerts()
+#'  }
+#' }
+#' @seealso 
+#'  \code{\link{detect_loop}}
+#'  \code{\link{geotag_tweets}}
+#'  \code{\link{aggregate_tweets}}
+#' @rdname generate_alerts
 #' @export
 generate_alerts <- function(tasks = get_tasks()) {
   tasks <- tryCatch({
@@ -27,19 +59,31 @@ generate_alerts <- function(tasks = get_tasks()) {
 }
 
 
-#' Simple algorithm for outbreak detection, extends the ears algorithm
-#'
+#' @title Simple algorithm for outbreak detection, extends the ears algorithm
+#' @description for algorithm details see package vignette.
 #' @param ts A numeric vector containing the counts of the univariate
-#'           time series to monitor. The last time point in ts is
-#'           investigated
+#' time series to monitor. The last time point in ts is
+#' investigated
 #' @param alpha The upper limit is computed as the limit of a one-sided
-#'              (1-alpha) times 100prc prediction interval
-#' @param no_historic Number of previous values i.e -1, -2, ..., no_historic
-#'                    to include when computing baseline parameters
-#' @param same_weekday_baseline whether to calculate baseline using same weekdays or any day
+#' (1-alpha) times 100prc prediction interval, Default: 0.025
+#' @param no_historic no_historic Number of previous values i.e -1, -2, ..., no_historic
+#' to include when computing baseline parameters, Default: 7
+#' @param same_weekday_baseline whether to calculate baseline using same weekdays or any day, Default: FALSE
 #' @return A dataframe containing the monitored time point,
 #'         the upper limit and whether an alarm is sounded or not.
-#' Several time points
+#' @details for algorithm details see package vignette.
+#' @examples
+#' \dontrun{
+#' if(interactive()){
+#'    library(epitweetr)
+#'    #Running the modifies version of the ears algorithm for a particular data series
+#'     ts <- c(150, 130, 122, 160, 155, 128, 144, 125, 300, 319, 289, 277, 500)
+#'     show(ears_t(ts))
+#'  }
+#' }
+#' @rdname ears_t
+#' @export
+#' @importFrom magrittr `%>%`
 ears_t <- function(ts, alpha = 0.025, no_historic = 7L, same_weekday_baseline = FALSE ) {
   `%>%` <- magrittr::`%>%`
   # Times 7 on no_historic if baseline considers only same day of week
@@ -73,7 +117,7 @@ ears_t <- function(ts, alpha = 0.025, no_historic = 7L, same_weekday_baseline = 
 
 }
 
-#' Getting alert daily counts taking in consideration a 24 hour sliding window since last full hour
+# Getting alert daily counts taking in consideration a 24 hour sliding window since last full hour
 get_reporting_date_counts <- function(
     df = get_aggregates("country_counts")
     , topic
@@ -201,8 +245,7 @@ calculate_region_alerts <- function(
   }
 }
 
-#' Calculating alerts for a set of regions and an specific period
-#' @export
+# Calculating alerts for a set of regions and an specific period
 calculate_regions_alerts <- function(
     topic
     , regions = c(1)
@@ -269,16 +312,7 @@ calculate_regions_alerts <- function(
 }
 
 
-#' Get JSON file name for alert on given date
-get_alert_file <- function(date) {
-  alert_folder <- file.path(conf$data_dir, "alerts")
-  if(!file.exists(alert_folder)) dir.create(alert_folder)
-  alert_folder <- file.path(alert_folder, strftime(date, format="%Y"))
-  if(!file.exists(alert_folder)) dir.create(alert_folder)
-  alert_file <- file.path(alert_folder, paste(strftime(date, format="%Y.%m.%d"), "-alerts.json", sep = ""))
-}
-
-#' get alert count start depending on the baseline type: any day ort same weekday
+# get alert count start depending on the baseline type: any day ort same weekday
 get_alert_count_from <- function(date, baseline_size, same_weekday_baseline) {
   if(!same_weekday_baseline)
     date - (baseline_size + 2)
@@ -286,8 +320,8 @@ get_alert_count_from <- function(date, baseline_size, same_weekday_baseline) {
     date - (7 * baseline_size + 2)
 }
 
-#' getting paramerters for current alert generation
-#' This will be based on last successfully aggregated date and it will only be generated if once each scheduling span
+# getting paramerters for current alert generation
+# This will be based on last successfully aggregated date and it will only be generated if once each scheduling span
 do_next_alerts <- function(tasks = get_tasks()) {
   `%>%` <- magrittr::`%>%`
   # Getting period for last alerts
@@ -415,16 +449,42 @@ do_next_alerts <- function(tasks = get_tasks()) {
   tasks
 }
 
-
-#' Getting calculated alerts for a defined period
+ 
+#' @title Getting alerts produced by the \code{\link{detect_loop}}
+#' @description Returns a dataframe of alerts produced by the detect loop, which are stored on the alert folder.
+#' @param topic Character vector. When it is not emptu it will limit the returned alerts to the provided topics , Default: character()
+#' @param countries Character vector containing the names of countries or regions or a numeric vector containing the indexes of countries 
+#' to filter the alerts to return. The indexes can be obtained by the calling \code{\link{get_country_items}}, Default: numeric()
+#' @param from date defining the beggining of the period of alerts to return, Default: '1900-01-01'
+#' @param until date defining the end of the period of alerts to return, Default: '2100-01-01'
+#' @return 
+#' @details DETAILS
+#' @examples
+#' \dontrun{
+#' if(interactive()){
+#'    library(epitweetr)
+#'    # setting up the data folder
+#'    setup_config("/home/epitweetr/data")
+#'
+#'    #Getting alert produced for last 30 days for a particular country
+#'    get_alerts(countries = c("Chile", "Australia", "France"), from = as.Date(Sys.time())-30, until = as.Date(Sys.time()))
+#'  
+#'  }
+#' }
+#' @seealso
+#' \code{\link{get_country_items}}
+#' @rdname get_alerts
 #' @export
+#' @importFrom magrittr `%>%`
+#' @importFrom jsonlite stream_in
+#' @importFrom dplyr filter arrange group_by mutate ungroup bind_rows
 get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01") {
   `%>%` <- magrittr::`%>%`
   # preparing filers dealing with possible names collitions with dataframe
   regions <- get_country_items()
   t <- topic
   c <- ( 
-    if(class(countries)=="numeric")
+    if(class(countries) %in% c("numeric", "integer"))
       lapply(countries, function(i) regions[[i]]$name)
     else 
       countries
@@ -454,7 +514,7 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
 }
 
 
-#' get the default or user defined subscribed user list
+# get the default or user defined subscribed user list
 get_subscribers <-function() {
   df <- readxl::read_excel(get_subscribers_path())  
   df$Topics <- as.character(df$Topics)
@@ -467,6 +527,7 @@ get_subscribers <-function() {
   df
 }
 
+# Send email alerts to subscribers based on newly geberated alerts and subscribers configuration
 send_alert_emails <- function(tasks = get_tasks()) {
   `%>%` <- magrittr::`%>%`
   task <- tasks$alerts 
@@ -494,8 +555,8 @@ send_alert_emails <- function(tasks = get_tasks()) {
 
       # Getting last day alerts for subscribed user and regions
       user_alerts <- get_alerts(
-        topic = if(all(is.na(topics))) NULL else topics,
-        countries = if(all(is.na(regions))) NULL else regions,
+        topic = if(all(is.na(topics))) NULL else if(!all(is.na(realtime_topics))) unique(c(topics, realtime_topics)) else topics,
+        countries = if(all(is.na(regions))) NULL else if(!all(is.na(realtime_regions))) unique(c(regions, realtime_regions)) else regions,
         from = alert_date,
         until = alert_date
       )
@@ -676,11 +737,22 @@ send_alert_emails <- function(tasks = get_tasks()) {
           smtp(msg)
           
           # Storing last day sendung alerts for current user
+          # If new dates resetting hours to 0
+          if(exists("date", where = tasks$alerts$sent[[user]]) || tasks$alerts$sent[[user]]$date != alert_date ) {
+            tasks$alerts$sent[[user]]$hour_slot <- 0
+            tasks$alerts$sent[[user]]$hour_instant <- 0
+          }
+
+          # Updating date tu current date
           tasks$alerts$sent[[user]]$date <- alert_date
+          
+          # Updating slot hour if slots alerts are sent
           if(nrow(slot_alerts)>0) {
             tasks$alerts$sent[[user]]$hour_slot <- alert_hour
             tasks$alerts$sent[[user]]$last_slot <- current_slot
           }
+          
+          # Updating instant hour if instant alerts are sent
           if(nrow(instant_alerts)>0)
             tasks$alerts$sent[[user]]$hour_instant <- alert_hour
 

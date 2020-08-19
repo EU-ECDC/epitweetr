@@ -276,7 +276,12 @@ plan_tasks <-function(statuses = list()) {
         break
       }
     } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) { 
-      if(is.na(tasks[[i]]$status) || (
+      if(in_requested_status(tasks[[i]])) {
+        tasks[[i]]$status <- "scheduled"
+        tasks[[i]]$scheduled_for <- now
+        tasks[[i]]$failures <- 0
+        break
+      } else if(is.na(tasks[[i]]$status) || (
         tasks[[i]]$status %in% c("pending", "success", "scheduled") 
         && {
           last_ended <- 
@@ -410,7 +415,7 @@ detect_loop <- function(data_dir = NA) {
 
 }
 
-#' Check if provided task is in pending status
+#Check if provided task is in pending status
 in_pending_status <- function(task) {
   (
     (is.na(task$status) || task$status %in% c("pending", "success", "failure", "aborted")) 
@@ -427,7 +432,51 @@ in_pending_status <- function(task) {
        task$task == "languages" 
         && !is.na(conf$lang_updated_on)
         && (is.na(task$started_on) || task$started_on < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
-      )  
+      ) || (
+       task$task == "aggregate" 
+        && !is.na(conf$aggregate_requested_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$aggregate_requested_on, "%Y-%m-%d %H:%M:%S"))
+      )  || (
+       task$task == "geotag" 
+        && !is.na(conf$geotag_requested_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$geotag_requested_on, "%Y-%m-%d %H:%M:%S"))
+      )  || (
+       task$task == "alerts" 
+        && !is.na(conf$alerts_requested_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$alerts_requested_on, "%Y-%m-%d %H:%M:%S"))
+      )   
+    )
+  )  
+}
+
+#Check if provided task is in pending status
+in_requested_status <- function(task) {
+  (
+    (
+      (task$task == "dependencies" 
+        && !is.na(conf$dep_updated_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$dep_updated_on, "%Y-%m-%d %H:%M:%S"))
+      ) || (
+       task$task == "geonames" 
+        && !is.na(conf$geonames_updated_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$geonames_updated_on, "%Y-%m-%d %H:%M:%S"))
+      ) || (
+       task$task == "languages" 
+        && !is.na(conf$lang_updated_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
+      ) || (
+       task$task == "aggregate" 
+        && !is.na(conf$aggregate_requested_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$aggregate_requested_on, "%Y-%m-%d %H:%M:%S"))
+      )  || (
+       task$task == "geotag" 
+        && !is.na(conf$geotag_requested_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$geotag_requested_on, "%Y-%m-%d %H:%M:%S"))
+      )  || (
+       task$task == "alerts" 
+        && !is.na(conf$alerts_requested_on)
+        && (is.na(task$started_on) || task$started_on < strptime(conf$alerts_requested_on, "%Y-%m-%d %H:%M:%S"))
+      )   
     )
   )  
 }

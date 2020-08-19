@@ -1,16 +1,16 @@
-#' Get path of properties files (written by shiny app)
+# Get path of properties files (written by shiny app)
 get_properties_path <- function() file.path(conf$data_dir, "properties.json")
 
-#' Get path of properties files (written by search loop)
+# Get path of properties files (written by search loop)
 get_plans_path <- function() file.path(conf$data_dir, "topics.json")
 
-#' Get task path (written by detect pipeline)
+# Get task path (written by detect pipeline)
 get_tasks_path <- function() file.path(conf$data_dir, "tasks.json")
 
-#' Get default languages file path
+# Get default languages file path
 get_default_available_languages_path <- function() system.file("extdata", "languages.xlsx", package = get_package_name())
 
-#' Get available languages file path (writter by shiny app)
+# Get available languages file path (writter by shiny app)
 get_available_languages_path <- function() {
   path <- paste(conf$data_dir, "languages.xlsx", sep = "/")
   if(!file.exists(path))
@@ -18,10 +18,10 @@ get_available_languages_path <- function() {
   path
 }
 
-#' Get default topics file path
+# Get default topics file path
 get_default_known_users_path <- function() system.file("extdata", "users.xlsx", package = get_package_name())
 
-#' Get topics file path either from user or package location (written by shiny app)
+# Get topics file path either from user or package location (written by shiny app)
 get_known_users_path <- function(data_dir = conf$data_dir) {
     users_path <- paste(data_dir, "users.xlsx", sep = "/")
     if(!file.exists(users_path))
@@ -29,10 +29,10 @@ get_known_users_path <- function(data_dir = conf$data_dir) {
     return(users_path)
 }
 
-#' Get default topics files path
+# Get default topics files path
 get_default_topics_path <- function() system.file("extdata", "topics.xlsx", package = get_package_name())
 
-#' Get topics file path either from user or package locatio (written by shiny app)
+# Get topics file path either from user or package locatio (written by shiny app)
 get_topics_path <- function(data_dir = conf$data_dir) {
     topics_path <- paste(data_dir, "topics.xlsx", sep = "/")
     if(!file.exists(topics_path))
@@ -40,10 +40,10 @@ get_topics_path <- function(data_dir = conf$data_dir) {
     return(topics_path)
 }
 
-#' Get default country files path
+# Get default country files path
 get_default_countries_path <- function() system.file("extdata", "countries.xlsx", package = get_package_name())
 
-#' Get countries file path either from user or package location (written by shiny app)
+# Get countries file path either from user or package location (written by shiny app)
 get_countries_path <- function(data_dir = conf$data_dir) {
     countries_path <- paste(data_dir, "countries.xlsx", sep = "/")
     if(!file.exists(countries_path))
@@ -51,10 +51,10 @@ get_countries_path <- function(data_dir = conf$data_dir) {
     return(countries_path)
 }
 
-#' Get default subscribers files path
+# Get default subscribers files path
 get_default_subscribers_path <- function() system.file("extdata", "subscribers.xlsx", package = get_package_name())
 
-#' Get the path for default or user defined subscribed user file (written by shiny app)
+# Get the path for default or user defined subscribed user file (written by shiny app)
 get_subscribers_path <- function() {
   path <- paste(conf$data_dir, "subscribers.xlsx", sep = "/")
   if(!file.exists(path))
@@ -62,17 +62,26 @@ get_subscribers_path <- function() {
   path
 }
 
-#' Get email template path
+# Get email template path
 get_email_alert_template_path <- function() system.file("extdata", "mail.html", package = get_package_name())
 
-#' Get scala building tools (SBT) dependencies file
+# Get scala building tools (SBT) dependencies file
 get_sbt_file_dep_path <- function() system.file("extdata", "sbt-deps.txt", package = get_package_name())
 
-#' Get JAR directory
+# Get JAR directory
 get_jars_dest_path <- function() file.path(conf$data_dir, "jars")
 
-#' Get application JAR (embedded on package)
+# Get application JAR (embedded on package)
 get_app_jar_path <- function() system.file("java", "ecdc-twitter-bundle_2.11-1.0.jar", package = get_package_name())
 
-#' Get hadoop home path for winutils
+# Get hadoop home path for winutils
 get_hadoop_home_path <- function() file.path(conf$data_dir, "hadoop")
+
+# Get JSON file name for alert on given date
+get_alert_file <- function(date) {
+  alert_folder <- file.path(conf$data_dir, "alerts")
+  if(!file.exists(alert_folder)) dir.create(alert_folder)
+  alert_folder <- file.path(alert_folder, strftime(date, format="%Y"))
+  if(!file.exists(alert_folder)) dir.create(alert_folder)
+  alert_file <- file.path(alert_folder, paste(strftime(date, format="%Y.%m.%d"), "-alerts.json", sep = ""))
+}

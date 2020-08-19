@@ -1,8 +1,38 @@
 #Environment for storing cached data
 cached <- new.env()
 
-#' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
-#' Saving aggregated data as weekly RDS files
+#' @title Execute the aggregate task
+#' @description Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (\code{\link{geotag_tweets}}) and store results on the series folder as dalily RDS files
+#' @param series list of series to aggregate, Default: list("country_counts", "geolocated", "topwords")
+#' @param tasks current tasks for reporting purposes, Default: get_tasks()
+#' @return the list of tasks updated with aggregate messages
+#' @details this function will lauch a spark job for aggregating data colected from the search API and geolocated from geotag tweets. By doing the following steps:
+#' - Identify the last aggregates date by looking into series folder 
+#' - Look for date range of tweets collected since that day by looking on stat json files produced by the search loop
+#' - For each day that has to be updated a list of all geolocated and search files to load will be produced by looking on stat files
+#' - For each series passed as a parameter and for each date to update 
+#'  - a spark job will be called that will deduplicate tweets on each topic, join them with gelocation information, and aggregate them to the required level and retunred to the stanfard output as json lines
+#'  - the result of this job is parsed using jsonlite and saved into RDS files on the series folder
+#' A prerequisite to this funtion is that the search_loop must have already collected tweets on the search folder and that geotag_tweets has already run.
+#' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    library(epitweetr)
+#'    # setting up the data folder
+#'    setup_config("/home/epitweetr/data")
+#'
+#'    # aggregating all geolocated tweets collected since last aggregation for producing all time series
+#'    aggregate_tweets()
+#'  }
+#' }
+#' @seealso 
+#'  \code{\link{detect_loop}}
+#'  \code{\link{geotag_tweets}}
+#'  \code{\link{generate_alerts}}
+#' @rdname aggregate_tweets
+#' @importFrom magrittr `%>%`
+#' @importFrom dplyr filter
 #' @export
 aggregate_tweets <- function(series = list("country_counts", "geolocated", "topwords"), tasks = get_tasks()) {
   #Importing pipe operator
@@ -79,8 +109,45 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
   return(tasks)
 }
 
-#' Getting already aggregated datasets
-#' @export
+#' @title Getting already aggregated time series produced by \code{\link{detect_loop}}
+#' @description returns the required aggregated dataset for the selected period and topics defined by filter.
+#' @param dataset a character(1) vector with the name of the serie to request, it must be one of 'country_counts', 'geolocated' or 'topwords', Default: 'country_counts'
+#' @param cache whether to use the cache for lookup and storing the returned daframe, Default: TRUE
+#' @param filter a named list defining the filter to apply on the requested serie, Default: list()
+#' @return A dataframe containing the requested serie for the requested period
+#' @details This function will look into the 'series' folder which contains Rds files per week day and serie it will parse name of file and folders to limit the files to read
+#' then it will apply the filters on each dataset for finally joining the matching results on a single dataframe.
+#' If no filter is provided all data serie is returned which can grows up to millions of rows depending on the time series. 
+#' To limit by period, the filter list must have an element 'period' containing a Date vector or list with two dates representing the start and end of the request.
+#'
+#' To limit by topic, the filter list must have an element 'topic' containing a non empty character vector or list with the names of the topics to return.
+#' 
+#' The availabe time series are: 
+#' country_counts' counting tweets and retweets by posted date, hour and country 
+#' geolocated' counting tweets and retweets by posted date and the smallest possible geolocated item (city, adminitrative level or country)
+#' topwords' counting tweets and retweets by posted date, country and the most popular words, (this excludes words used on the topic search)
+#' The returned dataset can be cached for futher calls if requuested. Only one dataset per serie is cached
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    # Getting all countryies tweets between 2020-jan-10 and 2020-jan-31 for all topics
+#'    df <- get_aggregates("country_counts", list(period = c("2020-01-10", "2020-01-31"))
+#'
+#'    # Getting all country tweets for topic dengue
+#'    df <- get_aggregates("country_counts", list(topic = "dengue"))
+#'
+#'    # Getting all countryies tweets between 2020-jan-10 and 2020-jan-31 for topic dengue
+#'    df <- get_aggregates("country_counts", list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
+#'  }
+#' }
+#' @seealso 
+#'  \code{\link{detect_loop}}
+#'  \code{\link{geotag_tweets}}
+#' @rdname get_aggregates
+#' @export 
+#' @importFrom magrittr `%>%`
+#' @importFrom dplyr filter
+#' @importFrom jsonlite rbind_pages
 get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
   `%>%` <- magrittr::`%>%`
   last_filter_name <- paste("last_filter", dataset, sep = "_")
@@ -159,7 +226,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
   }
 } 
 
-#' getting last geolocated date
+# getting last geolocated date
 get_geolocated_period <- function(dataset) {
   last_geolocate <- list.dirs(file.path(conf$data_dir, "tweets", "geolocated"), recursive=TRUE)
   last_geolocate <- last_geolocate[grepl(".*\\.json.gz$", last_geolocate)]
@@ -169,7 +236,7 @@ get_geolocated_period <- function(dataset) {
   list(first = first_geolocate, last = last_geolocate) 
 }
 
-#' getting last aggregation date or NA if first
+# getting last aggregation date or NA if first
 get_aggregated_period <- function(dataset) {
   agg_files <- list.files(file.path(conf$data_dir, "series"), recursive=TRUE, full.names =TRUE)
   agg_files <- agg_files[grepl(paste(".*", dataset, ".*\\.Rds", sep = ""), agg_files)] 
@@ -193,9 +260,8 @@ get_aggregated_period <- function(dataset) {
    list(first = NA, last = NA, last_hour = NA)
 }
 
-#' Get a list of dates that should be aggregated for the given serie
-#' This is calculated based on statistic files generated by tweet collection and existing series and successfull geolocation
-#' @export
+# Get a list of dates that should be aggregated for the given serie
+# This is calculated based on statistic files generated by tweet collection and existing series and successfull geolocation
 get_aggregate_dates <- function(dataset) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
@@ -248,6 +314,7 @@ get_aggregate_dates <- function(dataset) {
 }
 
 
+# perform the aggregation of a particular serie applying the 'created_date' filter on files matching thr 'files' pattern
 get_aggregated_serie <- function(serie_name, created_date, files) {
   `%>%` <- magrittr::`%>%`
   message(paste("Aggregating series", serie_name, "(", created_date, ") by looking on tweets collected between (", paste(files ,collapse=", "), ")"))
