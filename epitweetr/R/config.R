@@ -91,6 +91,8 @@ get_empty_config <- function(data_dir) {
   ret$topics <- list()
   ret$topics_md5 <- ""
   ret$alert_alpha <- 0.025
+  ret$alert_alpha_outlier <- 0.05
+  ret$alert_k_decay <- 4
   ret$alert_history <- 7
   ret$alert_same_weekday_baseline <- FALSE
   ret$alert_with_retweets <- FALSE
@@ -201,6 +203,8 @@ setup_config <- function(
     conf$spark_memory <- temp$spark_memory
     conf$geolocation_threshold <- temp$geolocation_threshold
     conf$alert_alpha <- temp$alert_alpha
+    conf$alert_alpha_outlier <- temp$alert_alpha_outlier
+    conf$alert_k_decay <- temp$alert_k_decay
     conf$alert_history <- temp$alert_history
     conf$alert_same_weekday_baseline <- temp$alert_same_weekday_baseline
     conf$alert_with_retweets <- temp$alert_with_retweets
@@ -255,6 +259,12 @@ setup_config <- function(
             adjusted_topics[[i_adjusted]]$query <- queries$Query[[i_query]]
             adjusted_topics[[i_adjusted]]$label <- queries$Label[[i_query]]
             adjusted_topics[[i_adjusted]]$alpha <-  if(!is.null(queries$Alpha[[i_query]]) && !is.na(queries$Alpha[[i_query]])) queries$Alpha[[i_query]] else conf$alert_alpha
+            adjusted_topics[[i_adjusted]]$alpha_outlier <-  (
+              if(!is.null(queries$`Outliers Alpha`[[i_query]]) && !is.na(queries$`Outliers Alpha`[[i_query]])) 
+                queries$`Outliers Alpha`[[i_query]] 
+              else 
+                conf$alert_alpha_outlier
+            )
           } else {
             #creating a new query  
             adjusted_topics[[i_adjusted]] <- list()
@@ -262,6 +272,12 @@ setup_config <- function(
             adjusted_topics[[i_adjusted]]$topic <- queries$Topic[[i_query]]
             adjusted_topics[[i_adjusted]]$label <- queries$Label[[i_query]]
             adjusted_topics[[i_adjusted]]$alpha <- if(!is.null(queries$Alpha[[i_query]]) && !is.na(queries$Alpha[[i_query]])) queries$Alpha[[i_query]] else conf$alert_alpha
+            adjusted_topics[[i_adjusted]]$alpha_outlier <- (
+              if(!is.null(queries$`Outliers Alpha`[[i_query]]) && !is.na(queries$`Outliers Alpha`[[i_query]])) 
+                queries$`Outliers Alpha`[[i_query]] 
+              else 
+                conf$alert_alpha_outlier
+            )
           }
           i_adjusted <- i_adjusted + 1
           i_tmp <- i_tmp + 1
@@ -371,6 +387,8 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$spark_memory <- conf$spark_memory
     temp$geolocation_threshold <- conf$geolocation_threshold
     temp$alert_alpha <- conf$alert_alpha
+    temp$alert_alpha_outlier <- conf$alert_alpha_outlier
+    temp$alert_k_decay <- conf$alert_k_decay
     temp$alert_history <- conf$alert_history
     temp$alert_same_weekday_baseline <- conf$alert_same_weekday_baseline
     temp$alert_with_retweets <- conf$alert_with_retweets
@@ -459,9 +477,9 @@ get_topics_df <- function() {
     ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
     Progress = sapply(conf$topics, function(t) {if(length(t$plan)>0) mean(unlist(lapply(t$plan, function(p) p$progress))) else 0}), 
     Requests = sapply(conf$topics, function(t) {if(length(t$plan)>0) sum(unlist(lapply(t$plan, function(p) p$requests))) else 0}),
-    Alpha = sapply(conf$topics, function(t) t$alpha) ,
+    Alpha = sapply(conf$topics, function(t) t$alpha),
+    OutliersAlpha = sapply(conf$topics, function(t) t$alpha_outlier),
     stringsAsFactors=FALSE
-    
   )
 }
 
@@ -487,6 +505,30 @@ get_topics_alphas <- function() {
       dplyr::ungroup()
   )
   setNames(t$alpha, t$Topics)
+}
+
+#Get topic outliers alphas as named array that can be used for translation
+get_topics_alpha_outliers <- function() {
+  `%>%` <- magrittr::`%>%`
+  t <- ( 
+    get_topics_df() %>% 
+      dplyr::group_by(Topics) %>%
+      dplyr::summarise(alpha_outlier = OutliersAlpha[which(!is.na(OutliersAlpha))[1]]) %>%
+      dplyr::ungroup()
+  )
+  setNames(t$alpha_outlier, t$Topics)
+}
+
+#Get topic k_decay as named array that can be used for translation
+get_topics_k_decays <- function() {
+  `%>%` <- magrittr::`%>%`
+  t <- ( 
+    get_topics_df() %>% 
+      dplyr::group_by(Topics) %>%
+      dplyr::summarise(k_decay = conf$alert_k_decay) %>%
+      dplyr::ungroup()
+  )
+  setNames(t$k_decay, t$Topics)
 }
 
 # Check config setup before continue
@@ -546,7 +588,7 @@ get_known_users <- function() {
   gsub("@", "", readxl::read_excel(get_known_users_path())[[1]])
 }
 
-#Wrapper for jsonlite write_json ensuring atomic file write it replaces always the existing file. It ignores appends modifiers
+# Wrapper for jsonlite write_json ensuring atomic file write it replaces always the existing file. It ignores appends modifiers
 write_json_atomic <- function(x, path, ...) {
   file_name <- tail(strsplit(path, "/|\\\\")[[1]], 1)
   dir_name <- substring(path, 1, nchar(path) - nchar(file_name) - 1)

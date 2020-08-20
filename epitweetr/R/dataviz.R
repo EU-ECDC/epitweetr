@@ -18,6 +18,8 @@ trend_line <- function(
   , with_retweets = FALSE
   , location_type = "tweet"
   , alpha = 0.025
+  , alpha_outlier = 0.05
+  , k_decay = 4
   , no_historic = 7 
   , bonferroni_correction = FALSE
   , same_weekday_baseline = FALSE
@@ -32,7 +34,9 @@ trend_line <- function(
       date_max = date_max, 
       with_retweets = with_retweets, 
       location_type = location_type, 
-      alpha = alpha, 
+      alpha = alpha,
+      alpha_outlier = alpha_outlier, 
+      k_decay = k_decay,
       no_historic = no_historic, 
       bonferroni_correction = bonferroni_correction,
       same_weekday_baseline = same_weekday_baseline,
@@ -40,7 +44,19 @@ trend_line <- function(
     )
   if(nrow(df)>0) {
     df$topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
-    plot_trendline(df,countries,topic,date_min,date_max, date_type, alpha, location_type, logenv$total_count)
+    plot_trendline(
+      df = df,
+      countries = countries,
+      topic = topic,
+      date_min = date_min,
+      date_max = date_max, 
+      date_type = date_type, 
+      alpha = alpha,
+      alpha_outlier = alpha_outlier,
+      k_decay = k_decay,
+      location_type = location_type, 
+      total_count = logenv$total_count
+    )
   } else {
     get_empty_chart("No data found for the selected topic, region and period")  
   }
@@ -48,11 +64,8 @@ trend_line <- function(
 
 
 
-#' Plot trend_line
-#'
-#' @param df 
-#' @export
-plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alpha, location_type = "tweets", total_count= NA){
+# Plot the trend_line chart for shiny app
+plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alpha, alpha_outlier, k_decay, location_type = "tweets", total_count= NA){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   regions <- get_country_items()
@@ -77,7 +90,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
         "\nRegion:",df$country[[i]],
         "\nNumber of tweets: ", df$number_of_tweets[[i]], 
         "\nBaseline: ", round(df$baseline[[i]]), 
-        "\nThreshold: ", round(df$limit[[i]]), 
+        "\nThreshold: ", round(df$limit[[i]]),
         "\nDate:",df$date[[i]], 
         "\nKnown users tweets: ", df$known_users[[i]], 
         "\nKnown users ratio: ", round(df$known_ratio[[i]]*100, 2), "%",
@@ -98,6 +111,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
       "\nKnown users tweets: ", df$known_users, 
       "\nKnown users ratio: ", round(df$known_ratio*100, 2), "%",
       "\nAlpha: ", alpha,
+      "\nAlpha outliers: ", alpha_outlier,
+      "\nK decay: ", k_decay,
       sep = "")
   # Calculating minimum limit boundary 
   df$lim_start <- 2* df$baseline - df$limit

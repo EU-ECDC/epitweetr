@@ -10,6 +10,8 @@ params:
   with_retweets: FALSE
   location_type: "tweet"
   alert_alpha: 0.025
+  alert_alpha_outlier: 0.05
+  alert_k_decay: 4
   alert_historic: 7
   bonferroni_correction: FALSE
   same_weekday_baseline: FALSE
@@ -32,6 +34,8 @@ Parameters
 * With retweets: `r params$with_retweets`
 * Location Type: `r params$location_type`
 * Signal detection confidence (alpha): `r as.character(params$alert_alpha)`
+* Outliers detection confidence (alpha-outlier): `r as.character(params$alert_alpha_outlier)`
+* Outliers downweighting strength (k-decay): `r as.character(params$alert_k_decay)`
 * Days in baseline: `r params$alert_historic`
 * Boferroni correction: `r params$bonferroni_correction`
 * Same weekday baseline: `r params$same_weekday_baseline`
@@ -46,6 +50,8 @@ line_chart_from_filters(
   params$with_retweets, 
   params$location_type, 
   params$alert_alpha, 
+  params$alert_alpha_outlier, 
+  params$alert_k_decay, 
   params$alert_historic,
   params$bonferroni_correction,
   params$same_weekday_baseline

@@ -59,13 +59,22 @@ generate_alerts <- function(tasks = get_tasks()) {
 }
 
 
-#' @title Simple algorithm for outbreak detection, extends the ears algorithm
-#' @description for algorithm details see package vignette.
+#' @title algorithm for outbreak detection, extends the ears algorithm
+#' @author Michael Höhle <https://www.math.su.se/~hoehle>
+#' @description The simple 7 day running mean version of the EARS 
+#' algorithm is extended as follows:
+#' \itemize{
+#'   \item{proper computation of the prediction interval}
+#'   \item{re-weighted version inspired by Farrington (1996)}
+#' }
 #' @param ts A numeric vector containing the counts of the univariate
 #' time series to monitor. The last time point in ts is
 #' investigated
 #' @param alpha The upper limit is computed as the limit of a one-sided
 #' (1-alpha) times 100prc prediction interval, Default: 0.025
+#' @param alpha_outlier Residuals beyond 1-alpha_outlier quantile of the 
+#'              the t(n-k-1) distribution are downweighted, Default: 0.05
+#' @param k_decay Power k in the expression (r_star/r_threshold)^k determining the weight, Default: 4
 #' @param no_historic no_historic Number of previous values i.e -1, -2, ..., no_historic
 #' to include when computing baseline parameters, Default: 7
 #' @param same_weekday_baseline whether to calculate baseline using same weekdays or any day, Default: FALSE
@@ -78,13 +87,13 @@ generate_alerts <- function(tasks = get_tasks()) {
 #'    library(epitweetr)
 #'    #Running the modifies version of the ears algorithm for a particular data series
 #'     ts <- c(150, 130, 122, 160, 155, 128, 144, 125, 300, 319, 289, 277, 500)
-#'     show(ears_t(ts))
+#'     show(ears_t_reweighted(ts))
 #'  }
 #' }
-#' @rdname ears_t
+#' @rdname ears_t_reweighted
 #' @export
 #' @importFrom magrittr `%>%`
-ears_t <- function(ts, alpha = 0.025, no_historic = 7L, same_weekday_baseline = FALSE ) {
+ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4, no_historic = 7L, same_weekday_baseline = FALSE) {
   `%>%` <- magrittr::`%>%`
   # Times 7 on no_historic if baseline considers only same day of week
   step <- (
@@ -96,26 +105,79 @@ ears_t <- function(ts, alpha = 0.025, no_historic = 7L, same_weekday_baseline = 
   
   t(sapply(1:length(ts), function(t) {
     if(t <  no_historic * step + 1)
-      c(time_monitored=t, y0=ts[[t]], U0=NA, alarm0=NA, y0bar=NA)
+      c(time_monitored=t, y0=ts[[t]], U0=NA, alarm0=NA, y0bar=NA, U0_dw=NA, alarm0_dw=NA)
     else {
       ## Extract current value and historic values 
       ## Taking in consideration the step size which will be seven for same day of week comparison
       y_historic <- sapply(no_historic:1, function(i) ts[[t - i*step]])
       ## Calculate empirical mean and standard deviation
       y0 <- ts[[t]]
-      y0bar <- mean(y_historic)
-      sd0 <- sd(y_historic)
       
-      ## Upper threshold
-      U0 <- y0bar + qt(1-alpha,  df=no_historic - 1) * sd0 * sqrt(1 + 1/no_historic)
-      ## Reason to sound an alarm
-      alarm0 <- y0 > U0
+      # Number of observations
+      n <- no_historic
+      ## Rank of design matrix - it's 1 for the intercept-only-model
+      k <- 1   # qr(matrix(rep(1, no_historic)))$rank
+      
+      #Helper function to compute threshold based on weights 
+      compute_threshold <- function(w) {
+        # Ensure weights sum to n
+        w <- w/sum(w) * n
+        # Compute reweighted estimates
+        y0bar <- mean( w * y_historic)
+        resid <- (y_historic - y0bar)
+        sd0 <- sqrt(sum( w * resid^2)/(n-k))
+        
+        ## Upper threshold
+        U0 <- y0bar + qt(1-alpha,  df=no_historic - 1) * sd0 * sqrt(1 + 1/no_historic)
+        ## Enough evidence to sound an alarm?
+        alarm0 <- y0 > U0
+        #Return results
+        return(list(y0bar=y0bar, sd0=sd0, U0=U0, alarm0=alarm0))
+      }      
+      
+      #Results without reweighting
+      res_noreweight <- compute_threshold( w=rep(1,n))
+    
+      #Extract fit from inversion  initial w=1 version
+      y0bar <- res_noreweight$y0bar
+      
+      ## Calculate the raw residuals
+      e <- (y_historic - y0bar)
+      #Diagonal of hat matrix - analytic
+      pii <- rep(1/no_historic, no_historic)
+      # Hat matrix from regression with i'th observation removed is always they same for intercept only model
+      Xi <- matrix(rep(1, n-1))
+      #P_noi <- Xi %*% solve( t(Xi) %*% Xi) %*% t(Xi)
+      #same for the intercept only model, but probably faster: 
+      # P_noi <- matrix(1/(n-1), ncol=n-1, nrow=n-1)
+      # # Compute \hat{sigma}_{(i)} as in Chatterjee and Hadi (1988), eqn 4.7 on p. 74
+      # sigmai <- sqrt(sapply(1:n, function(i) {
+      #   Y_noi <- matrix(y_historic[-i]) 
+      #   t(Y_noi) %*% (diag(n-1) - P_noi) %*% Y_noi / (n-k-1)
+      # }))
 
+      # Fast version for the intercept-only model
+      sigmai <- sapply(1:n, function(i) { sd(y_historic[-i])})
+      
+      # Externally Studentized residuals, see Chaterjee and Hadi (1988), p. 74
+      rstar <- e / (sigmai * sqrt(1 - pii))
+      
+      # Define treshold for outliers
+      reweight_threshold <- qt(1-alpha_outlier, df=n - k - 1)
+      
+      # Weights 1: Drop outliers
+      #w_drop <- ifelse( rstar > reweight_threshold, 0, 1)
+      #res_drop <- compute_threshold(w_drop)
+      
+      # Weights 2: Farrington procedure, downweight
+      w_dw <- ifelse( rstar > reweight_threshold, (reweight_threshold/rstar)^k_decay, 1)
+      res_dw <- compute_threshold(w_dw)
+      
       ## Return a vector with the components of the computation
-      c(time_monitored=t, y0=y0, U0=U0, alarm0=alarm0, y0bar = y0bar)
-  }})) %>% as.data.frame()
-
+      c(time_monitored=t, y0=y0, U0=res_noreweight$U0, alarm0=res_noreweight$alarm0, y0bar = res_noreweight$y0bar, U0_dw=res_dw$U0, alarm0_dw=res_dw$alarm0)
+    }})) %>% as.data.frame()
 }
+
 
 # Getting alert daily counts taking in consideration a 24 hour sliding window since last full hour
 get_reporting_date_counts <- function(
@@ -173,6 +235,8 @@ calculate_region_alerts <- function(
     , end = NA
     , with_retweets = FALSE
     , alpha = 0.025
+    , alpha_outlier = 0.05
+    , k_decay = 4
     , no_historic = 7
     , bonferroni_m = 1
     , same_weekday_baseline = FALSE
@@ -228,9 +292,9 @@ calculate_region_alerts <- function(
       counts <- dplyr::bind_rows(counts, missing_dates) %>% dplyr::arrange(reporting_date) 
     }
     #Calculating alerts
-    alerts <- ears_t(counts$count, alpha=alpha/bonferroni_m, no_historic = no_historic, same_weekday_baseline)
-    counts$alert <- alerts$alarm0
-    counts$limit <- alerts$U0
+    alerts <- ears_t_reweighted(counts$count, alpha=alpha/bonferroni_m, alpha_outlier = alpha_outlier, k_decay = k_decay, no_historic = no_historic, same_weekday_baseline)
+    counts$alert <- alerts$alarm0_dw
+    counts$limit <- alerts$U0_dw
     counts$baseline <- alerts$y0bar
     counts <- if(is.na(start))
       counts
@@ -255,6 +319,8 @@ calculate_regions_alerts <- function(
     , with_retweets = FALSE
     , location_type = "tweet" 
     , alpha = 0.025
+    , alpha_outlier = 0.05
+    , k_decay = 4
     , no_historic = 7 
     , bonferroni_correction = FALSE
     , same_weekday_baseline = FALSE
@@ -286,6 +352,8 @@ calculate_regions_alerts <- function(
         with_retweets = with_retweets, 
         no_historic=no_historic, 
         alpha=alpha,
+        alpha_outlier = alpha_outlier,
+        k_decay = k_decay,
         bonferroni_m = bonferroni_m,
         same_weekday_baseline = same_weekday_baseline,
         logenv = logenv
@@ -377,6 +445,8 @@ do_next_alerts <- function(tasks = get_tasks()) {
         with_retweets = conf$alert_with_retweets, 
         location_type = "tweet" , 
         alpha = as.numeric(get_topics_alphas()[[topic]]), 
+        alpha_outlier = as.numeric(get_topics_alpha_outliers()[[topic]]), 
+        k_decay = as.numeric(get_topics_k_decays()[[topic]]), 
         no_historic = as.numeric(conf$alert_history), 
         bonferroni_correction = conf$alert_with_bonferroni_correction,
         same_weekday_baseline =  conf$alert_same_weekday_baseline
@@ -434,7 +504,10 @@ do_next_alerts <- function(tasks = get_tasks()) {
         hour = alert_to_hour, 
         location_type = "tweet", 
         with_retweets = conf$alert_with_retweets, 
-        alpha = as.numeric(get_topics_alphas()[topic]), 
+        alpha = as.numeric(get_topics_alphas()[[topic]]), 
+        alpha_outlier = as.numeric(get_topics_alpha_outliers()[[topic]]), 
+        k_decay = as.numeric(get_topics_k_decays()[[topic]]), 
+        no_historic = as.numeric(conf$alert_history), 
         no_historic = as.numeric(conf$alert_history),
         bonferroni_correction = conf$alert_with_bonferroni_correction,
         same_weekday_baseline = conf$same_weekday_baseline
@@ -497,9 +570,16 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
     f <- file(alert_file, "rb")
     df <- jsonlite::stream_in(f, verbose = FALSE)
     close(f)
-    # Adding default valur for same_weekday_baseline
+    # Adding default valur for same_weekday_baseline if does not exists
     if(!("same_weekday_baseline" %in% colnames(df)))
       df$same_weekday_baseline <- sapply(df$topic, function(t) FALSE)
+    # Adding default valur for alpha_outlier if does not exists
+    if(!("alpha_outlier" %in% colnames(df)))
+      df$alpha_outlier <- as.numeric(sapply(df$topic, function(t) NA))
+    # Adding default valur for k_decay if does not exists
+    if(!("k_decay" %in% colnames(df)))
+      df$k_decay <- as.numeric(sapply(df$topic, function(t) NA))
+
 
     df %>% dplyr::filter(
       (if(length(c)==0) TRUE else country %in% c) &
@@ -697,6 +777,9 @@ send_alert_emails <- function(tasks = get_tasks()) {
                  `% important user` = `known_ratio`,
                  `Threshold` = `limit`,
                  `Baseline` = `no_historic`, 
+                 `Alert confidence` = `alpha`,
+                 `Outliers confidence` = `alpha_outlier`,
+                 `Downweight strength` = `k_decay`,
                  `Bonf. corr.` = `bonferroni_correction`,
                  `Same weekday baseline` = `same_weekday_baseline`,
                  `Day_rank` = `rank`,

@@ -46,6 +46,8 @@ epitweetr_app <- function(data_dir = NA) {
 	        shiny::checkboxInput("with_retweets", label = NULL, value = conf$alert_with_retweets),
           shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
           shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005),
+          shiny::sliderInput("alpha_outlier_filter", label = shiny::h4("Outliers detection confidence"), min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005),
+          shiny::sliderInput("k_decay_filter", label = shiny::h4("Outliers downweight strength"), min = 1, max = 10, value = conf$alert_k_decay, step = 0.5),
           shiny::h4("Bonferroni correction"),
 	        shiny::checkboxInput("bonferroni_correction", label = NULL, value = conf$alert_with_bonferroni_correction),
           shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
@@ -57,9 +59,6 @@ epitweetr_app <- function(data_dir = NA) {
             ),
             shiny::column(4, 
               shiny::downloadButton("export_md", "Md")
-            ),
-            shiny::column(4, 
-              shiny::downloadButton("export_data", "Data")
             )
           )
         ), 
@@ -162,6 +161,8 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Signal Detection"),
           shiny::fluidRow(shiny::column(3, "Default confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005))),
+          shiny::fluidRow(shiny::column(3, "Default outliers confidence"), shiny::column(9, shiny::sliderInput("conf_alpha_outlier", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005))),
+          shiny::fluidRow(shiny::column(3, "Downweight strength"), shiny::column(9, shiny::sliderInput("conf_k_decay", label = NULL, min = 1, max = 10, value = conf$alert_k_decay, step = 0.5))),
           shiny::fluidRow(shiny::column(3, "Default days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
           shiny::fluidRow(shiny::column(3, "Default same weekday baseline"), shiny::column(9, shiny::checkboxInput("conf_same_weekday_baseline", label = NULL , value = conf$alert_same_weekday_baseline))),
           shiny::fluidRow(shiny::column(3, "Default with retweets/Quotes"), shiny::column(9, shiny::checkboxInput("conf_with_retweets", label = NULL , value = conf$alert_with_retweets))),
@@ -348,7 +349,7 @@ epitweetr_app <- function(data_dir = NA) {
 
 
   # Defining line chart from shiny app filters
-  line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type,alpha, no_history, bonferroni_correction, same_weekday_baseline) {
+  line_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type, alpha, alpha_outlier, k_decay, no_history, bonferroni_correction, same_weekday_baseline) {
     trend_line(
       topic = topics
       ,countries= if(length(countries) == 0) c(1) else as.integer(countries)
@@ -358,6 +359,8 @@ epitweetr_app <- function(data_dir = NA) {
       ,with_retweets= with_retweets
       ,location_type = location_type
       ,alpha = alpha
+      ,alpha_outlier = alpha_outlier
+      ,k_decay = k_decay
       ,no_historic = no_history
       ,bonferroni_correction = bonferroni_correction
       , same_weekday_baseline = same_weekday_baseline
@@ -396,7 +399,7 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Rmarkdown dasboard export
-  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, no_historic, bonferroni_correction, same_weekday_baseline) {
+  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, alpha_outlier, k_decay, no_historic, bonferroni_correction, same_weekday_baseline) {
     rmarkdown::render(
       system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
       output_format = format, 
@@ -409,6 +412,8 @@ epitweetr_app <- function(data_dir = NA) {
         , "with_retweets"= with_retweets
         , "location_type" = location_type
         , "alert_alpha" = alpha
+        , "alert_alpha_outlier" = alpha_outlier
+        , "alert_k_decay" = k_decay
         , "alert_historic" = no_historic
         , "bonferroni_correction" = bonferroni_correction
         , "same_weekday_baseline" = same_weekday_baseline
@@ -423,6 +428,7 @@ epitweetr_app <- function(data_dir = NA) {
     ################################################
     ######### FILTERS LOGIC ########################
     ################################################
+    # upadating alpha filter based on selected topic value
     shiny::observe({
       val <- {
       if(length(input$topics)==0 || input$topics == "") 
@@ -433,7 +439,18 @@ epitweetr_app <- function(data_dir = NA) {
       shiny::updateSliderInput(session, "alpha_filter", value = val, min = 0, max = 0.3, step = 0.005)
     })
     
+    # upadating outliers alpha filter based on selected topic value
+    shiny::observe({
+      val <- {
+      if(length(input$topics)==0 || input$topics == "") 
+        conf$alert_alpha_outlier
+      else
+        unname(get_topics_alpha_outliers()[stringr::str_replace_all( input$topics, "%20", " ")])
+      }
+      shiny::updateSliderInput(session, "alpha_outlier_filter", value = val, min = 0, max = 0.3, step = 0.005)
+    })
 
+    # update the date ranges based on type of range selected
     shiny::observe({
       refresh_dashboard_data(d, input$fixed_period)
       shiny::updateDateRangeInput(session, "period", start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max)
@@ -452,6 +469,8 @@ epitweetr_app <- function(data_dir = NA) {
          input$with_retweets, 
          input$location_type , 
          input$alpha_filter, 
+         input$alpha_outlier_filter, 
+         input$k_decay_filter, 
          input$history_filter, 
          input$bonferroni_correction,
          input$same_weekday_baseline
@@ -544,41 +563,14 @@ epitweetr_app <- function(data_dir = NA) {
             input$with_retweets, 
             input$location_type, 
             input$alpha_filter, 
+            input$alpha_outlier_filter, 
+            input$k_decay_filter, 
             input$history_filter,
             input$bonferroni_correction,
             input$same_weekday_baseline
             )$chart
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
-      }
-    ) 
-    output$export_data <- shiny::downloadHandler(
-      filename = function() { 
-        paste("dashboard_dataset_", 
-          "_", paste(input$topics, collapse="-"), 
-          "_", paste(input$countries, collapse="-"), 
-          "_", input$period[[1]], 
-          "_", input$period[[2]],
-          ".csv", 
-          sep = ""
-        )
-      },
-      content = function(file) { 
-        write.csv(
-          line_chart_from_filters(
-            input$topics, 
-            input$countries, 
-            input$period_type, 
-            input$period, 
-            input$with_retweets, 
-            input$location_type, 
-            input$alpha_filter, 
-            input$history_filter,
-            input$bonferroni_correction,
-            input$same_weekday_baseline
-            )$data,
-          file, 
-          row.names = FALSE)
       }
     ) 
     output$download_line_data <- shiny::downloadHandler(
@@ -602,6 +594,8 @@ epitweetr_app <- function(data_dir = NA) {
             input$with_retweets, 
             input$location_type, 
             input$alpha_filter, 
+            input$alpha_outlier_filter, 
+            input$k_decay_filter, 
             input$history_filter,
             input$bonferroni_correction,
             input$same_weekday_baseline
@@ -705,6 +699,8 @@ epitweetr_app <- function(data_dir = NA) {
            input$with_retweets, 
            input$location_type, 
            input$alpha_filter, 
+           input$alpha_outlier_filter, 
+           input$k_decay_filter, 
            input$history_filter,
            input$bonferroni_correction,
            input$same_weekday_baseline
@@ -733,6 +729,8 @@ epitweetr_app <- function(data_dir = NA) {
            input$with_retweets, 
            input$location_type, 
            input$alpha_filter, 
+           input$alpha_outlier_filter, 
+           input$k_decay_filter, 
            input$history_filter,
            input$bonferroni_correction,
            input$same_weekday_baseline
@@ -853,6 +851,8 @@ epitweetr_app <- function(data_dir = NA) {
       conf$geonames_simplify <- input$conf_geonames_simplify 
       conf$regions_disclaimer <- input$conf_regions_disclaimer 
       conf$alert_alpha <- input$conf_alpha 
+      conf$alert_alpha_outlier <- input$conf_alpha_outlier 
+      conf$alert_k_decay <- input$conf_k_decay 
       conf$alert_history <- input$conf_history 
       conf$alert_same_weekday_baseline <- input$conf_same_weekday_baseline 
       conf$alert_with_bonferroni_corection <- input$conf_with_bonferroni_correction
@@ -966,7 +966,7 @@ epitweetr_app <- function(data_dir = NA) {
       `%>%` <- magrittr::`%>%`
        cd$topics_df %>%
         DT::datatable(
-          colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests"),
+          colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests", "Alpha" = "Alpha", "Outliers Alpha" = "OutliersAlpha"),
           filter = "top",
           escape = TRUE,
         ) %>%
@@ -976,7 +976,7 @@ epitweetr_app <- function(data_dir = NA) {
       # Adding a dependency to topics refresh
       cd$topics_refresh_flag()
       cd$plans_refresh_flag()
-      DT::replaceData(DT::dataTableProxy('config_topics'), cd$topics)
+      DT::replaceData(DT::dataTableProxy('config_topics'), cd$topics_df)
        
     }) 
     output$conf_topics_download <- shiny::downloadHandler(
@@ -1082,7 +1082,8 @@ epitweetr_app <- function(data_dir = NA) {
       alerts %>%
         dplyr::select(
           "date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", 
-          "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type"
+          "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type",
+          "alpha", "alpha_outlier", "k_decay"
         ) %>%
         DT::datatable(
           colnames = c(
@@ -1097,9 +1098,12 @@ epitweetr_app <- function(data_dir = NA) {
             "Baseline" = "no_historic", 
             "Bonf. corr." = "bonferroni_correction",
             "Same weekday baseline" = "same_weekday_baseline",
-            "Day_rank" = "rank",
+            "Day rank" = "rank",
             "With retweets" = "with_retweets",
-            "Location" = "location_type"
+            "Location" = "location_type",
+            "Alert confidence" = "alpha",
+            "Outliers Confidence" = "alpha_outlier",
+            "Downweight strenght" = "k_decay"
             ),
           filter = "top",
           escape = TRUE,
