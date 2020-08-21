@@ -368,11 +368,10 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Defining line chart from shiny app filters
-  map_chart_from_filters <- function(topics, countries, period_type, period, with_retweets, location_type) {
+  map_chart_from_filters <- function(topics, countries, period, with_retweets, location_type) {
     create_map(
       topic= topics
       ,countries= if(length(countries) == 0) c(1) else as.integer(countries)
-      ,date_type= period_type
       ,date_min = period[[1]]
       ,date_max = period[[2]]
       ,with_retweets= with_retweets
@@ -383,7 +382,7 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Defining top words chart from shiny app filters
-  topwords_chart_from_filters <- function(topics, fcountries, period_type, period, with_retweets, location_type, top) {
+  topwords_chart_from_filters <- function(topics, fcountries, period, with_retweets, location_type, top) {
     fcountries= if(length(fcountries) == 0 || 1 %in%fcountries) c(1) else as.integer(fcountries)
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(fcountries, function(i) unlist(regions[[i]]$codes)))
@@ -493,7 +492,7 @@ epitweetr_app <- function(data_dir = NA) {
        can_render(input, d)
        height <- session$clientData$output_map_chart_height
        width <- session$clientData$output_map_chart_width
-       chart <- map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+       chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
 	     chart_not_empty(chart)
        gg <- chart %>%
          plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
@@ -524,7 +523,7 @@ epitweetr_app <- function(data_dir = NA) {
        can_render(input, d)
        height <- session$clientData$output_topword_chart_height
        width <- session$clientData$output_topword_chart_width
-       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 20)$chart
+       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
 	     chart_not_empty(chart)
        chart %>%
          plotly::ggplotly(height = height, width = width) %>% 
@@ -617,7 +616,7 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$data,
+          map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$data,
           file, 
           row.names = FALSE)
       }
@@ -635,7 +634,7 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
 	chart <- 
-	  map_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type)$chart
+	  map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
         
@@ -654,7 +653,7 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 200)$data,
+          topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
           file, 
           row.names = FALSE)
       }
@@ -672,7 +671,7 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         chart <-
-          topwords_chart_from_filters(input$topics, input$countries, input$period_type, input$period, input$with_retweets, input$location_type, 50)$chart
+          topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 50)$chart
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
       }

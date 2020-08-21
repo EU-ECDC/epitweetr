@@ -1,29 +1,41 @@
 
-#' @title Plots the trendline report of epitweetr dashboard
-#' @description Generates a trendline chart by region, for one topic, including alerts using the reweightes version of the EARS algorithm
-#' @param topic character(1) containing the topic for the report  
-#' @param countries PARAM_DESCRIPTION, Default: c(1)
-#' @param date_type PARAM_DESCRIPTION, Default: 'created_date'
-#' @param date_min PARAM_DESCRIPTION, Default: as.Date("1900-01-01")
-#' @param date_max PARAM_DESCRIPTION, Default: as.Date("2100-01-01")
-#' @param with_retweets PARAM_DESCRIPTION, Default: FALSE
-#' @param location_type PARAM_DESCRIPTION, Default: 'tweet'
-#' @param alpha PARAM_DESCRIPTION, Default: 0.025
-#' @param alpha_outlier PARAM_DESCRIPTION, Default: 0.05
-#' @param k_decay PARAM_DESCRIPTION, Default: 4
-#' @param no_historic PARAM_DESCRIPTION, Default: 7
-#' @param bonferroni_correction PARAM_DESCRIPTION, Default: FALSE
-#' @param same_weekday_baseline PARAM_DESCRIPTION, Default: FALSE
-#' @return OUTPUT_DESCRIPTION
-#' @details DETAILS
+#' @title Plot the trendline report of epitweetr dashboard
+#' @description Generates a trendline chart of number of tweets by region, for one topic, including alerts using the reweightesd version of the EARS algorithm
+#' @param topic character(1) containing the topic to use for the report  
+#' @param countries character vector containing the name of the countries and regions to plot or their respective indexes on the shiny app select, Default: c(1)
+#' @param date_type character vector specifying the time granularity of the report either 'created_weeknum' or 'created_date', Default: 'created_date'
+#' @param date_min eate indicating start of the reporting period, Default: as.Date("1900-01-01")
+#' @param date_max date indicating end of the reporting period, Default: as.Date("2100-01-01")
+#' @param with_retweets logical value indicating wether to include retweets on the time series, Default: FALSE
+#' @param location_type character(1) vector indicating if the located subject. Possible values 'tweet', 'user' or 'both', , Default: 'tweet'
+#' @param alpha numeric(1) value indicating the alert detection confidence, Default: 0.025
+#' @param alpha_outlier numeric(1) value indicating the outliers detection confidence for downweighting, Default: 0.05
+#' @param k_decay strength of outliers downweighting , Default: 4
+#' @param no_historic number of observations to build the baseline for alert detection, Default: 7
+#' @param bonferroni_correction logical value indicating wether to apply the bonferroni correction for alert detection, Default: FALSE
+#' @param same_weekday_baseline logical valur indicating wether to use same day of weeks for building the baseline or adjacent days, Default: FALSE
+#' @return A named list containing two elements: 'chart' with the ggplot2 figure and 'data' containing the dataframe that was used to build the chart.
+#' @details Produces a multi region line chart for a particular topic of number of tweets collected based on the provided parameters. 
+#' Alerts will be calculated using a mofified version of the EARS algorithm that applies a farrington inspired downweighting of previous outliers.
+#' 
+#' Days on this function are considered as contiguous blocks of 24 hours starting for the previous hour of the last collected tweet.
+#'
+#' This functions needs that \code{\link{search_loop}} and \code{\link{detect_loop}} has already run successfully to show results.
 #' @examples 
 #' \dontrun{
 #' if(interactive()){
-#'  #EXAMPLE1
+#'    #Getting trendline for dengue for South America for last 30 days
+#'    trend_line(topic = "dengue", countries = "South America", date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
 #'  }
 #' }
 #' @seealso 
-#'  \code{\link[stringr]{str_replace}}
+#'  \code{\link{create_map}}
+#'  \code{\link{create_topwords}}
+#'  \code{\link{generate_alerts}}
+#'  \code{\link{aggregate_tweets}}
+#'  \code{\link{geotag_tweets}}
+#'  \code{\link{detect_loop}}
+#'  \code{\link{search_loop}}
 #' @rdname trend_line
 #' @export 
 #' @importFrom stringr str_replace_all
@@ -42,6 +54,12 @@ trend_line <- function(
   , bonferroni_correction = FALSE
   , same_weekday_baseline = FALSE
   ){
+
+  # If countries are names they have to be changes to region indexes
+  if(is.character(countries) && length(countries) > 0) {
+    reg <- get_country_items()
+    countries = (1:length(reg))[sapply(1:length(reg), function(i) reg[[i]]$name %in% countries)]
+  }
   logenv <- new.env()
   df <- 
     calculate_regions_alerts(
@@ -245,26 +263,66 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
   list("chart" = fig_line, "data" = df) 
 }
 
-
-
-    
-#######################################MAP#####################################
-#' Title
+#' @title Plot the map report of epitweetr dashboard
+#' @description Generates a bubble map plot of number of tweets by countries, for one topic
+#' @param topic character(1) containing the topic to use for the report  
+#' @param countries character vector containing the name of the countries and regions to plot or their respective indexes on the shiny app select, Default: c(1)
+#' @param date_min eate indicating start of the reporting period, Default: as.Date("1900-01-01")
+#' @param date_max date indicating end of the reporting period, Default: as.Date("2100-01-01")
+#' @param with_retweets logical value indicating wether to include retweets on the time series, Default: FALSE
+#' @param location_type character(1) vector indicating if the located subject. Possible values 'tweet', 'user' or 'both', , Default: 'tweet'
+#' @param caption Character(1) vector indicating a caption to print on the bottom of the chart, Default: ''
+#' @param proj parameter indicating the CRS (Corrdinate Reference System) to use on PROJ4 format \code{\link[sp]{CRS-class}}?
+#' If null and all countries are selected +proj=robin is used (Robinson projection) otherwise the Lambert azimuthal equal-area projection will be chosen, Default: NULL
+#' @param forplotly logical(1) parameter indicating wether some hacks are acticated to improve plotly rendering, Default: F
+#' @return A named list containing two elements: 'chart' with the ggplot2 figure and 'data' containing the dataframe that was used to build the map.
+#' @details Produces a map bubble chart for a particular topic of number of tweets collected based on the provided parameters.
+#' The map will display information at country level if more than one country is selectes, otherwise it will display bubbles at the smallest possible location identified for each tweet within the period
+#' which could be any administrative level or city level.
+#' 
+#' Tweets associated to a country but with no finer granularity are omitted when displaying a single country.
 #'
-#' @param s_topic 
-#' @param geo_code 
-#' @param date_type 
-#' @param date_min 
-#' @param date_max 
+#' When an aggregated zone is requested, all countries on that zone are included.
 #'
-#' @export
-create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=F){
+#' This functions needs that \code{\link{search_loop}} and \code{\link{detect_loop}} has already run successfully to show results.
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    #Getting bubblr chart for dengue for South America for last 30 days
+#'    create_map(topic = "dengue", countries = "South America", date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
+#'  }
+#' }
+#' @seealso 
+#'  \code{\link{trend_line}}
+#'  \code{\link{create_topwords}}
+#'  \code{\link{aggregate_tweets}}
+#'  \code{\link{geotag_tweets}}
+#'  \code{\link{detect_loop}}
+#'  \code{\link{search_loop}}
+#'  \code{\link[sp]{spTransform}},\code{\link[sp]{coordinates}},\code{\link[sp]{is.projected}},\code{\link[sp]{CRS-class}}
+#'  \code{\link[rnaturalearthdata]{countries}}
+#'  \code{\link[ggplot2]{fortify}},\code{\link[ggplot2]{geom_polygon}},\code{\link[ggplot2]{geom_point}}
+#' @rdname create_map
+#' @export 
+#' @importFrom magrittr `%>%`
+#' @importFrom dplyr filter rename select bind_rows group_by summarize ungroup mutate dense_rank
+#' @importFrom sp spTransform coordinates proj4string CRS
+#' @importFrom rnaturalearthdata countries50
+#' @importFrom ggplot2 fortify theme element_text element_blank element_rect ggplot geom_polygon aes geom_point scale_size_continuous scale_fill_manual coord_fixed labs theme_classic
+create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=F){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   spen <- options("scipen")
   options(scipen=999)
   regions <- get_country_items()
+  
+  # If countries are names they have to be changes to region indexes
+  if(is.character(countries) && length(countries) > 0) {
+    countries = (1:length(regions))[sapply(1:length(regions), function(i) regions[[i]]$name %in% countries)]
+  }
   country_codes <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(countries), function(i) unlist(regions[[i]]$codes)))
+  
+
   detailed <- length(country_codes) == 1
   df <- (
     if(!detailed) 
@@ -591,8 +649,40 @@ create_map <- function(topic=c(),countries=c(1),date_type="created_date",date_mi
   list("chart" = fig, "data" = df) 
 }
 
-#' Create topwords chart
-#' @export
+#' @title Plot the top words report of epitweetr dashboard
+#' @description Generates a bar plot of most popular words in tweets, for one topic
+#' @param topic character(1) containing the topic to use for the report
+#' @param country_codes character vector containing the ISO 3166-1 alpha-2 countries to plot, Default: c()
+#' @param date_min eate indicating start of the reporting period, Default: as.Date("1900-01-01")
+#' @param date_max date indicating end of the reporting period, Default: as.Date("2100-01-01")
+#' @param with_retweets logical value indicating wether to include retweets on the time series, Default: FALSE
+#' @param location_type character(1) this parameter is currently being IGNORED since this report shows only tweet location and cannot showd user or both locations for performance reasons, Default: 'tweet'
+#' @param top numeric(1) parameter indicating the number of words to show, Default: 25
+#' @return A named list containing two elements: 'chart' with the ggplot2 figure and 'data' containing the dataframe that was used to build the map.
+#' @details Produces a bar chat showing the occurrences of the most popular words on the collected tweets based on the provided parameters.
+#' For performance reasons on the \code{\link{aggregate_tweets}} function, this report only shows tweet location and ignored the location_type parameter
+#' 
+#' This report may be empty for combination of countries and topics with very few tweets since for performance reasond, the calculation of topwords is an approximation using chunks of 10.000 tweets.
+#'
+#' This functions needs that \code{\link{search_loop}} and \code{\link{detect_loop}} has already run successfully to show results.
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    #Getting bubblr chart for dengue for South America for last 30 days
+#'    create_map(topic = "dengue", countries = "South America", date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
+#'  }
+#' }
+#' @seealso 
+#'  \code{\link{trend_line}}
+#'  \code{\link{create_map}}
+#'  \code{\link{aggregate_tweets}}
+#'  \code{\link{geotag_tweets}}
+#'  \code{\link{detect_loop}}
+#'  \code{\link{search_loop}}
+#' @export 
+#' @importFrom magrittr `%>%`
+#' @importFrom dplyr filter group_by summarize ungroup arrange mutate
+#' @importFrom ggplot2 ggplot aes geom_col xlab coord_flip labs scale_y_continuous theme_classic theme element_text margin element_blank
 create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01"),date_max=as.Date("2100-01-01"), with_retweets = FALSE, location_type = "tweet", top = 25) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`

@@ -134,10 +134,10 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #' \itemize{
 #'   \item{"country_counts" counting tweets and retweets by posted date, hour and country}
 #'   
-#'   \item{"geolocated"'" counting tweets and retweets by posted date and the smallest possible geolocated unit (city, adminitrative level or country)}
+#'   \item{"geolocated" counting tweets and retweets by posted date and the smallest possible geolocated unit (city, adminitrative level or country)}
 #'   
-#' item{"topwords" counting tweets and retweets by posted date, country and the most popular words, (this excludes words used in the topic search)}
-#' 
+#'   \item{"topwords" counting tweets and retweets by posted date, country and the most popular words, (this excludes words used in the topic search)}
+#' }
 #' The returned dataset can be cached for further calls if requested. Only one dataset per series is cached.
 #' @examples 
 #' \dontrun{

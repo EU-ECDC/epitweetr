@@ -524,7 +524,7 @@ If previous signals are included without modification in the baseline to calcula
 
 #### Timing of signal detection
 
-Signal detection is carried out based on “days”<span style="color:red"> (Question: if we choose "weeks" as a time unit, will the baseline be calculated on weeks? I need to test)</span>, which are moving windows of 24 hours, moving according to the detect span <span style="color:red">Is it search or detect span??</span> (see also section *The interactive user application (Shiny app) > The configuration tab > General*). The baseline is calculated on these “days” from -1 to -8 (if the current "day" is zero).
+Signal detection is carried out based on “days”<span style="color:red"> (Question: if we choose "weeks" as a time unit, will the baseline be calculated on weeks? I need to test)</span>,<span style="color:blue">Answer: NO, when week is selected we perform all calculations as for daily and then we group. Showing alerts if a daily alert happened on the week </span> which are moving windows of 24 hours, moving according to the detect span <span style="color:red">Is it search or detect span??</span><span style="color:blue">No there is no direct relationship with the search or detect span. The 24 hours block starts the hour before the last aggregated tweet</span> (see also section *The interactive user application (Shiny app) > The configuration tab > General*). The baseline is calculated on these “days” from -1 to -8 (if the current "day" is zero).
 
 Signals are generated according to the detect span (see section *The interactive user application (Shiny app) > The configuration tab > General*), with 
 -   general email alerts either following this detect span (e.g. if the detect span was 4 hours, the email alerts will be sent every 4 hours)
@@ -572,7 +572,7 @@ The email alerts will include the following information on the signals for each 
 
 -   Information on the settings, such as: Was the Bonferroni correction used, was the same weekday baseline used, were retweets included, etc.
 
-This information is also available in the "Alerts" tab of the Shiny app. <span style="color:red">I cannot see this tab yet, so I cannot add anything about it here</span>
+This information is also available in the "Alerts" tab of the Shiny app. <span style="color:red">I cannot see this tab yet, so I cannot add anything about it here</span><span style="color:blue">Which information do ypu need?</span>
 
 ###  Folder structure
 
@@ -605,28 +605,28 @@ also the following sufolders
 -   "series" and "tweets" that are explained in more detail below.
 
 #### Data folder &gt; tweets
-<span style="color:red">Francisco, this doesn't work on my machine, so can you review?</span>
+<span style="color:red">Francisco, this doesn't work on my machine, so can you review?</span><span style="color:blue">I have made some changed, reviewed</span>
 In the data folder, the subfolder “tweets” has two subfolders: **search** and **geolocated**
 
 The *search folder* contains subfolders for each topic listed on the topics list:\
 ![][12]
 
-Within each of these topics you have a year (e.g. 2020) and then a compressed json file containing the tweets by day for each year. The dates pertain to the dates the tweet was created (tweeted). There may be more than one file for one day if the file exceeds 100 MB.\
+Within each of these topics you have a year (e.g. 2020) and then a compressed json file containing the tweets by day for each year. The dates pertain to the dates the tweet was collected (not tweeted). There may be more than one file for one day if the file exceeds 100 MB.\
 ![][13]
 
-The *geolocated folder* contains compressed json files with geolocated information.
+The *geolocated folder* contains compressed json files with geolocated information produced by the geolocated algorithm.
 
 #### Data folder &gt; series
 
 In the *series* folder, epitweetr stores the aggregated data of the geolocated tweets as well as the top words in the subfolder “series”.
 
-There is a folder for each ISO week of date of collection containing three Rds files (a native R format file):
+There is a folder for each ISO week of date of collection containing Rds files (a native R format file) for each day and serie:
 
--   geolocated
+-   geolocated_YYY.MM.DD.Rds contains daily tweet counts at finest possible location level
 
--   topwords
+-   topwords_YYY.MM.DD.Rds contains daily tweet top words counts at country level
 
--   country\_counts
+-   country\_counts_YYY.MM.DD.Rds contains hourly tweet counts at country level
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/series folder.png")
@@ -655,7 +655,7 @@ The epitweetr interactive user application has four tabs:
 
 -   The alert tab, where you can view the current alerts and associated information
 
--   The "geotag evaluation" tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choode the geolocation threshold <span style="color:red">What does this do?</span> <span style="color:blue">Filled</span>
+-   The "geotag evaluation" tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold <span style="color:red">What does this do?</span> <span style="color:blue">Filled</span>
 
 
 ### Dashboard: The interactive user interface for visualisation
@@ -805,7 +805,7 @@ The tab next to the dashboard is the configuration tab. In this tab, you can cha
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/config.png")
 ```
-<span style="color:red">Francisco can you add a screenshot with the extra 3 buttons? I don't want to do a screenshot of my config page, as I have error messages.</span>
+<span style="color:red">Francisco can you add a screenshot with the extra 3 buttons? I don't want to do a screenshot of my config page, as I have error messages.</span><span style="color:blue">Done</span>
 
 **Status**
 
@@ -815,8 +815,8 @@ The status section enables you to quickly assess the latest time point and/or st
 knitr::include_graphics("img/status.png")
 ```
 
-In the status section, you can tell when the last process was running for tweet search and detection pipeline and you can click on “activate” if you would like to run the process at that moment.
-<span style="color:red">Francisco - is the above statement true?</span>
+In the status section, you can tell if both the search pipeline and the detect pipeline processes are running. If you are running on windows, you can click on “activate” if you would like register those processes as an scheduled tasks and run them manually.
+<span style="color:red">Francisco - is the above statement true?</span><span style="color:blue">Not completely. I have rewritten</span>
 
 **Detection pipeline**
 
@@ -859,11 +859,11 @@ When changing anything in the “Signal detection” section, do not forget to c
 knitr::include_graphics("img/general.png")
 ```
 
--   In **Data directory** you can view the directory that epitweetr uses to store the tweet and associated data collected. This is also the directory that the dashboard uses to obtain the datasets for displaying the visualisations. You need to change this in the R console. <span style="color:red">Francisco - is this true?</span>
+-   In **Data directory** you can view the directory that epitweetr uses to store the tweet and associated data collected. This is also the directory that the dashboard uses to obtain the datasets for displaying the visualisations. You need to set this folder when you launch epitweetr or set the environment variable 'EPI\_HOME'. <span style="color:red">Francisco - is this true?</span></span><span style="color:blue">I have rephtrased</span>
 
--   The **Search span** relates to how long a search plan is carried out. The  default is 60 minutes. <span style="color:red">Francisco - anything to complete here? I've not really referred to this in the previous text, it was called "schedule span" previously?</span>
+-   The **Search span** relates to how long a search plan is carried out. The  default is 60 minutes. This value control the size of the search window of tweets. If you reduce this value you wil get twets sooner, but you may 'waste' requests on topics with very few tweets. If you increase its value you will take more time to get the tweets but you will get more requests for popular tweets increasing the chances of being exhaustive. You can see when you are not being able to collect on the shinty cpnfiguration page if you have more than one active plan for some topics<span style="color:red">Francisco - anything to complete here? I've not really referred to this in the previous text, it was called "schedule span" previously?</span></span><span style="color:blue">I have completed</span>
 
--   The **Detect span** relates to how frequently the processes of the detection pipeline (geotagging, aggregation and alert detection) are carried out. The default is 90 minutes.
+-   The **Detect span** relates to how frequently the processes of the detection pipeline (geotagging, aggregation and alert detection) are carried out. The default is 90 minutes. Email alerts are sent at the end of the detect loop. This value is treated as a lower bound, the detect loop could take more time to finish depending on the volume of tweeets and your system specifications. 
 
 -   The **Launch slots** for the detection pipeline processes will be spaced out according to the "Detect span", with the first one starting at midnight.
 
@@ -887,11 +887,11 @@ knitr::include_graphics("img/general.png")
 
 -   **Simplified geonames:** As geonames is a very large file, a simplified version of it is used by default, including only existing geographical locations where the population is known. You can uncheck this option if you wish to use the whole geonames database.
 
--   **Maven repository:** <span style="color:red">Francisco - what's this?</span>
+-   **Maven repository:** URL of the maven repository that will be used to download the JAR dependencies for the detect loop, mainly Spark and Lucene <span style="color:red">Francisco - what's this?</span></span><span style="color:blue">Filled</span>
 
--   **Winutils URL:** <span style="color:red">Francisco - can you add some text here?</span>
+-   **Winutils URL:** URL that will be used to download winutils.exe. This is a windows binary necessary for running spark locally on windows. If you do not want to use this version you can produce it yourself by downloadind Hadoop 2.8.4 or bigger and compiling it on a windows machine<span style="color:red">Francisco - can you add some text here?</span></span><span style="color:blue">done</span>
 
--   **Regions disclaimer:** Different definitions of countries and regions exist. If you would like to add a disclaimer to the map you are using. This disclaimer is added to the image export of the dashboard map, and also the PDF export of the dashboard. <span style="color:red">Francisco - the PDF does not work for me, so I am guessing this is correct</span>
+-   **Regions disclaimer:** Different definitions of countries and regions exist. If you would like to add a disclaimer to the map you are using. This disclaimer is added to the image export of the dashboard map, and also the PDF export of the dashboard. <span style="color:red">Francisco - the PDF does not work for me, so I am guessing this is correct</span></span><span style="color:blue">Yes it is!!</span>
 
 **Twitter authentication**
 
@@ -909,7 +909,7 @@ You have two options for authentication to collect tweets, using a Twitter accou
 
     -   The rtweet package will send a request to Twitter, so it can access your Twitter account on your behalf
 
-    -   A pop-up window will appear <span style="color:red"> Francisco is this still applicable? I don't remember a pop-up window. I would also like to take a screenshot, but I am not sure if there is a problem on the config page. Should some of the text change if you click on Twitter account vs. Twitter developer app? </span>, where you enter your Twitter user name and password and then the created token will validate the fact that the application can access Twitter on your behalf. You will send this token each time you access tweets.
+    -   A pop-up window will appear <span style="color:red"> Francisco is this still applicable? I don't remember a pop-up window. I would also like to take a screenshot, but I am not sure if there is a problem on the config page. Should some of the text change if you click on Twitter account vs. Twitter developer app? </span></span><span style="color:blue">This is correct, if you want to see the page you just have to click on update properties</span>, where you enter your Twitter user name and password and then the created token will validate the fact that the application can access Twitter on your behalf. You will send this token each time you access tweets.
 
 -   Using a Twitter developer app: via epitweetr (app authentication)
 
@@ -929,7 +929,7 @@ You have two options for authentication to collect tweets, using a Twitter accou
 knitr::include_graphics("img/Twitter authentication dev app.png")
 ```
 
-<span style="color:red">Francisco, is there anything to say about the checkbox **unsafe certificates**?
+<span style="color:red">Francisco, is there anything to say about the checkbox **unsafe certificates**?</span><span style="color:blue">Yes, if this value is set then epitweetr will use your smtp server even if the server sends an invalid certificate</span>
 
 When changing anything in the “general” section, do not forget to click on the “Update Properties” button.
 
@@ -958,13 +958,24 @@ knitr::include_graphics("img/languages.png")
 
 #### The "Alerts" tab
 
-<span style="color:red">Francisco, I can't really see the "Alerts" tab. Can you send a screenshot? I can then try and write something about it </span>
+<span style="color:red">Francisco, I can't really see the "Alerts" tab. Can you send a screenshot? I can then try and write something about it </span></span><span style="color:blue">Done!</span>
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("img/alert_tab.png")
+```
+
+#### The "Geotag evaluation" tab
+This tab allows the user to stablish the geolocation threshold to setup for geolocation. The user can choose the field of the tweets to test and the number of tweets to sample.
+
+<span style="color:blue">I have also added this image of geotag evaluation tab</span>
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("img/geotag_eval.png")
+```
 
 
 ### Downloading outputs from the interactive user interface (Shiny app)
 ===================================================================
 
-<span style="color:red">I haven't reviewed this yet, I will review it in the morning </span>
+<span style="color:red">I haven't reviewed this yet, I will review it in the morning </span><span style="color:blue">This is outdated, now the images are downloaded using the buttons 'Image'</span>
 
 Each visualisation on the Shiny app dashboard can be downloaded as an image, using the function integrated in the plots “download plot as a png”. A png is a portable network graphic file and is a versatile file format for images that do not need to be of a very high resolution (e.g. professional print graphics). You can hover over the image and select the first icon:
 

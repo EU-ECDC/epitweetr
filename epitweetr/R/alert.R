@@ -73,7 +73,7 @@ generate_alerts <- function(tasks = get_tasks()) {
 #' time series to monitor. The last time point in ts is
 #' investigated
 #' @param alpha The alpha is used to compute the upper limit of the prediction interval:
-#' #' (1-alpha) * 100%, default: 0.025
+#' (1-alpha) * 100\%, default: 0.025
 #' @param alpha_outlier Residuals beyond 1-alpha_outlier quantile of the 
 #'              the t(n-k-1) distribution are downweighted, default: 0.05
 #' @param k_decay Power k in the expression (r_star/r_threshold)^k determining the weight, default: 4
