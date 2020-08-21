@@ -205,7 +205,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'delegated'",
             shiny::fluidRow(shiny::column(12, "When choosing 'delegate' twitter authentication you will have to use your twitter credentials to authorize the twitter application for the rtweet package (https://rtweet.info/) to access twitter on your behalf (full rights provided).")), 
-            shiny::fluidRow(shiny::column(12, "DISCLAIMER: Rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs.")),
+            shiny::fluidRow(shiny::column(12, "DISCLAIMER: Rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs."))
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'app'",

@@ -35,16 +35,20 @@ pkg_license <- package_desc$License
 pkg_url <- package_desc$URL
 
 ```
-<!-- Probably I would leave this out - it's already in the DESCRIPTIOn and not the -->
-<!-- objective of the vignette -->
 
-<!-- Package | Description -->
-<!-- ------- | ------------- -->
-<!-- Version | `r pkg_version` -->
-<!-- Published | `r pkg_date` -->
-<!-- Authors | `r pkg_authors` -->
-<!-- Maintainer | `r pkg_maintainer` -->
-<!-- License | `r pkg_license` -->
+<!-- Probably I would leave this out - it's already in the DESCRIPTIOn and not the 
+      objective of the vignette 
+ I take thid example from the episignal detection vignette..., but I let you choose 
+
+ Package | Description 
+ ------- | ------------- 
+ Version | `r pkg_version` 
+ Published | `r pkg_date` 
+
+ Authors | `r pkg_authors` 
+ Maintainer | `r pkg_maintainer` 
+ License | `r pkg_license` 
+> --> 
 
 ## Description
 
@@ -100,13 +104,13 @@ The CPU and RAM usage can be configured on the Shiny app configuration page (see
 
 ## Installation
 
-epitweetr is conceived to be an independent platform that works both on Windows and Linux (Mac is untested) <p style="color:red">Francisco, do we keep this in?</span>. We recommend that you use epitweetr on a computer that can be run continuously. You can switch the computer off, but you may miss some tweets, which will have implications for the alert detection. Before using epitweetr the following items need to be installed:
+epitweetr is conceived to be platform independent,  working both on Windows and Linux (Mac is untested) <p style="color:red">Francisco, do we keep this in?</span>. We recommend that you use epitweetr on a computer that can be run continuously. You can switch the computer off, but you may miss some tweets if the downtime is large enough, which will have implications for the alert detection. Before using epitweetr the following items need to be installed:
 
 ### Prerequisites for running epitweetr
 
 -   R version 3.6.3 or higher
 
--   Java 1.8 eg. openjdk version "1.8" [*https://www.java.com/download/*]. The 32-bit rather than the 64-bit version is preferred, due to potential memory constraints. <p style="color:red">Francisco please check this</span>
+-   Java 1.8 eg. openjdk version "1.8" [*https://www.java.com/download/*]. The 64-bit rather than the 32-bit version is preferred, due memory limitations.
 
 -   If you are running Windows, you will also need Microsoft Visual C++, however in most cases it is likely to be pre-installed:
 
@@ -148,11 +152,13 @@ If you would like to develop epitweetr yourself further, then the following deve
 
 -   If you are using Windows, then you will additionally need Rtools: [*https://cran.r-project.org/bin/windows/Rtools/*]
 
-### Embedded dependencies
+### External dependencies
 
-Note that for Windows users, the programme Winutils (Windows binaries for Hadoop versions) will be embedded by epitweetr during installation:
+epitweetr will need to download some dependencies in order to work? It will do it automatically the first time the alert detection process is launch. The administration page will allow you to change the target URLs of these depencencies. If you do not mind, you can use defaults.? The dependencies are the following:
 
--   Winutils.exe (spark dependencies) [*http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe*]
+- *CRAN JARs*: Transitive dependencies for running Spark, Lucene and embedded scala code. [*https://repo1.maven.org/maven2*]
+
+- *Winutils.exe* (Windows only) This is a Hadoop binary necessary for runnung SPARK locally on windows [*http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe*]. 
 
 ### Installing epitweetr from CRAN
 
@@ -170,9 +176,10 @@ Additionally, the R environment needs to know where the Java installation home i
 Sys.getenv("JAVA_HOME")
 ```
 
-If the command returns Null, then you will need to set the Java Home environment variable, using the Sys.setenv() function.
+If the command returns Null, then you will need to set the Java Home environment variable, for your OS, please see your specific OS instructions.
 
-<p style="color:red">**CHECK with Francisco if this is still valid:**</p>
+<p style="color:red">**CHECK with Francisco if this is still valid:**</p><p style="color:blue">**Yes it is:**</p>
+
 
 The first time you run the application if the tool cannot identify a secure password store provided by the operating system, you will see a pop-up window requesting a keyring password (Linux and Mac). This is a password necessary for storing encrypted Twitter credentials. Please choose a strong password and remember it. You will be asked for this password each time you run the tool. You can avoid this by setting a system environment variable named ecdc\_twitter\_tool\_kr\_password containing the chosen password.
 
@@ -211,16 +218,16 @@ knitr::include_graphics("img/Update detection pipeline.png")
 -   Activate the tweet collection
 
     -   Windows: Click on the “Tweet Search” activate button
-```{r echo=FALSE, fig.cap="", out.width = '80%'}
+```{r, echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/Activate tweet search.png")
-```    
+```
 
     -   Other platforms: In a new R session run the following command
     
 ```{r, eval=FALSE, echo=TRUE}
 library(epitweetr)
 search_loop("data_dir")
-``` 
+```
 
     -   You can confirm that the tweet collection is running if the "Tweet Search" status is "Running" in the Shiny app configuration page.
 
@@ -229,14 +236,14 @@ search_loop("data_dir")
     -   Windows: Click on the “Detection pipeline” activation button
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/Detection pipeline activate.png")
-``` 
+```
 
     -   Other platforms: In a new R session run the following command
     
 ```{r, eval=FALSE, echo=TRUE}
 library(epitweetr)
 detect_loop("data_dir")
-``` 
+```
 
     -   You can confirm that the detection pipeline is running if the “Detection Pipeline” status is “Running” in the Shiny app configuration page.
 
@@ -272,7 +279,7 @@ Other attributes of Twitter’s search API include:
 
 #### Twitter authentication
 
-You have two options for authentication to collect tweets, using a **Twitter account** (this approach utilises the rtweet package) and using a **Twitter application**. For the latter, you will need a Twitter developer account, which can take some time to obtain, due to verification procedures. We recommend for testing purposes and short-term use the first option (using a Twitter account via the rtweet package), but for long-term use the Twitter developer app.
+You have two options for authentication to collect tweets, using a **Twitter account** (this approach utilises the rtweet package App) and using a **Twitter application**. For the latter, you will need a Twitter developer account, which can take some time to obtain, due to verification procedures. We recommend for testing purposes and short-term use the first option (using a Twitter account via the rtweet package), but for long-term use the Twitter developer app.
 
 -   Using a Twitter account: delegated via rtweet (user authentication)
 
@@ -280,7 +287,7 @@ You have two options for authentication to collect tweets, using a **Twitter acc
 
     -   The rtweet package will send a request to Twitter, so it can access your Twitter account on your behalf
 
-    -   A pop-up window will appear <span style="color:red"> Francisco is this still applicable? I don't remember a pop-up window. I would also like to take a screenshot, but I am not sure if there is a problem on the config page. Should some of the text change if you click on Twitter account vs. Twitter developer app? </span>, where you enter your Twitter user name and password and then the created token will validate the fact that the application can access Twitter on your behalf. You will send this token each time you access tweets.
+    -   A pop-up window will appear <span style="color:red"> Francisco is this still applicable? I don't remember a pop-up window. I would also like to take a screenshot, but I am not sure if there is a problem on the config page. Should some of the text change if you click on Twitter account vs. Twitter developer app? </span>,<span style="color:blue">Yes it is appluicable, you should see it when you save your properties using that   uthentication. To force it you can remove the token.Rds file on your ~/rtweet folder</span>  where you enter your Twitter user name and password and then the created token will validate the fact that the application can access Twitter on your behalf. You will send this token each time you access tweets.
 
 -   Using a Twitter developer app: via epitweetr (app authentication)
 
@@ -298,7 +305,7 @@ You have two options for authentication to collect tweets, using a **Twitter acc
         
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/Twitter authentication dev app.png")
-``` 
+```
 
 #### Topics of tweets to collect and queries
 
@@ -310,7 +317,7 @@ epitweetr comes with a default list of topics as used by the ECDC Epidemic Intel
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/topics.png")
-``` 
+```
 
 On the configuration page, you can also download the topics list via the download button, modify the list and upload it via the upload button. The modified topics list will then be used for tweet collection and in the Shiny app. The topics list is an Excel file (\*.xlsx). This format was chosen as it handles user-specific regional settings (e.g. delimiters) and special characters well. You can create your own topics list and upload it too, noting that the structure should include at least:
 
@@ -334,7 +341,7 @@ The topics.xlsx file additionally includes the following fields:
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/Example topics list.png")
-``` 
+```
 
 When uploading your own file, please modify the topic and query fields, but do not modify the column titles.
 
@@ -353,7 +360,7 @@ For example, if the “search plan” begins at 4 am on the 10th of September 20
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/Schedule plan image.png")
-``` 
+```
 
 However, if topics are very popular (e.g. COVID-19 in 2020), then the “search plan” for a query in a given 4-hour window may not be completed. If this happens, epitweetr will move on to the “search plans” for the subsequent 4-hour window, but put any previous incomplete “search plans” in a queue to execute when “search plans” for this new 4-hour window are completed.
 
@@ -397,11 +404,11 @@ If search plans cannot be finished, this means that several search plans per que
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/Search plan queues.png")
-``` 
+```
 
 ### Geolocation
 
-In a parallel process to the collection of tweets, epitweetr attempts to geocode all collected tweets using a machine learning process. This process runs in the same schedule window as the collection of tweets (e.g. if a 4-hour window is set for tweet collection this will also count for the geocoding, with as many as possible of the newest tweets being geocoded first followed by any non-geocoded older tweets from previous 4-hour windows).
+In a parallel process to the collection of tweets, epitweetr attempts to geocode all collected tweets using a machine learning process. This process runs in the schedule window defined by "Detect span" property (e.g. if a 4-hour window is set it will run each 4 hours and will geolocate all tweets collected since the last time it successfully ran).
 
 There are different types of location information available for a tweet. There is the tweet location, which is geolocation information within the words of a tweet (or a retweeted or quoted tweet). There is also the user location, when a user shares their location at the time of tweeting, a user’s API location and the user location based on “home” in the public profile.
 
@@ -419,13 +426,13 @@ Separately, epitweetr also stores the geolocation based on the user location. In
 
 #### Matching tweet text to a location
 
-epitweetr identifies if a tweet text contains reference to a particular location by breaking down the tweet text into sets of words. epitweetr then matches these sets against a reference database, which is geonames.org. This is a geographical database available and accessible through various web services, under a Creative Commons attribution license. The GeoNames.org database contains over 25,000,000 geographical names. epitweetr uses by default those limited to currently existing ones and those with a known population (so just over 500 000 names). You can override this default on the Shiny app configuration page, by unchecking "Simplified geonames". The database also contains longitude and latitude attributes of localities and variant spellings (cross-references), which are useful for finding purposes, as well as non-Roman script spellings of many of these names.
+epitweetr identifies if a tweet text contains reference to a particular location by breaking down the tweet text into sets of words and evaluating those who are more likely to be a location by using a machine learning model. The algorithm test word by word also adds further words to the set and if the score grows by using more words, the algorithm tries to find a local maximum of the score with a bigger text. Then matches these words against a reference database, which is geonames.org. This is a geographical database available and accessible through various web services, under a Creative Commons attribution license. The GeoNames.org database contains over 25,000,000 geographical names. epitweetr uses by default those limited to currently existing ones and those with a known population (so just over 500 000 names). You can override this default on the Shiny app configuration page, by unchecking "Simplified geonames". The database also contains longitude and latitude attributes of localities and variant spellings (cross-references), which are useful for finding purposes, as well as non-Roman script spellings of many of these names.
 
 The matches can be performed at any level of administrative hierarchy. The matching is powered by Apache Lucene, which is an open-source high-performance full-featured text search engine library.
 
 #### Adding a score to a location match
 
-Some tweet text will give rise to several locations through the matching process, however epitweetr only chooses one location per tweet. In order to choose the most relevant location, a score is calculated for each match. The algorithm also adds further words to the set and if the score grows by using more words, the algorithm tries to find a local maximum of the score with a bigger text.
+Some text will give rise to several locations through the matching process, however to deduplicate a score is calculated for each match.
 
 A higher score is associated with a greater probability that a match is correct. A score is:
 
@@ -445,15 +452,15 @@ You can select which languages you would like to check for other kinds of words 
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/config languages.png")
-``` 
+```
 
 A minimum score can be globally set in the general settings on the configuration page to reduce the number of false positives (see image). This is the “geolocation threshold”. All geolocations with a smaller score than the geolocation threshold will be discarded by the algorithm as tweet location. If there is more than one match over the minimum score, then the match with the highest score will be chosen.
 
-The threshold is empirically chosen and can be evaluated against a human read of tweets and tweet locations.
+The threshold is empirically chosen and can be evaluated against a human read of tweets and tweet locations, on the geolo tag evaluation tab.
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/geolocation threshold.png")
-``` 
+```
 
 #### Geolocation based on user location
 
@@ -535,13 +542,15 @@ To override this, you can uncheck "Default with Bonferroni correction" in the "S
 #### Using same weekdays as baseline
 
 <span style="color:red">New section, please review. </span>
-It is possible that there is a "day of the week effect", where more tweets may be tweeted on a given day of the week (e.g. Monday) than on other days. To avoid this, you can also select to calculate the baseline not on consecutive days, but on the past 7 days that correspond to the same 24 hour window 7 days back. This way the baseline is calculated using the “days” from -8 to -56 (if the current "day" is zero).
+<span style="color:blue">reviewed with small fixes. </span>
+It is possible that there is a "day of the week effect", where more tweets may be tweeted on a given day of the week (e.g. Monday) than on other days. To avoid this, you can also select to calculate the baseline not on consecutive days, but on the past N days that correspond to the same 24 hour window N days back. This way if N = 7, the baseline is calculated using the “days” from -7, -14, -21, -28, -35, -42, -54 and -56 (if the current "day" is zero).
 
 This option is on the configuration page of the Shiny app "Default same weekday baseline".
 
 #### Sending email alerts
 
-Emails containing a list of signals detected are sent automatically by epitweetr according to the detect span. Signals very recently encountered and previously reported are not included in the current email alert <span style="color:red">Do we have details on this at all, Francisco?</span>.
+Emails containing a list of signals detected are sent automatically by epitweetr according to the detect span and the subscribers list. Due to the time necessary to collect, geolocate and aggregate the tweets, email alerts will miss the most recent tweets that has not yet gone to these process. The lag between tweets and alerts is excpected to be less than (2 * ( collect\_span ) + detect\_span) which should be 3h30 usiing defaul values. <span style="color:red">Do we have details on this at all, Francisco?</span>.
+<span style="color:blue">rewritten </span>
 
 The email alerts will include the following information on the signals for each topic:
 
@@ -562,20 +571,30 @@ This information is also available in the "Alerts" tab of the Shiny app. <span s
 ###  Folder structure
 
 <span style="color:red">Updated section, please review</span>
+<span style="color:blue">completed</span>
 
 epitweetr stores tweets, aggregations and the configuration in the “data folder” you have to choose when launching the application.
 
-Within the **data** folder there are 3 JSON files, the properties.json, the topics.json and the tasks.json file. They are generated from the information on the Shiny app configuration tab. There are also the subfolders
+Within the **data** folder there are 3 JSON files, 
+-   properties.json, generated from the information on the Geberal properties of the Shiny app
 
--   "geo", which stores the geonames data as a text file <span style="color:red">Francisco, is this  true?</span>
+-   topics.json managed by the search loop it keeps a track of tweet collection plan and progress
 
--   "hadoop",which stores Spark dependencies for Windows operating systems <span style="color:red">Francisco, is this  true?</span>
+-   tasks.json managed by the detect loop it keeps information and status of the different tasks done by this process.
 
--   "jars", where collections of Java files are stored that are needed in the geolocation process <span style="color:red">Francisco, is this  true?</span>
+also the following sufolders
 
--   "languages", where the fasttext files are stored that are used to perform geolocation in the tweet text
+-   "geo", which stores the geonames data as a text and index files <span style="color:red">Francisco, is this  true?</span><span style="color:blue">fixed</span>
 
--   "stats", <span style="color:red">Francisco, what does this do?</span>, and
+-   "hadoop",which stores Spark dependencies for Windows operating systems <span style="color:red">Francisco, is this  true?</span><span style="color:blue">Yes it is!!</span>
+
+-   "jars", where collections of Java dependencies are stored that are needed in the geolocation and aggregate process <span style="color:red">Francisco, is this  true?</span><span style="color:blue">Almost I have fixed it</span>
+
+-   "languages", where the fasttext files indexes and models are stored that are used to perform geolocation in the tweet text
+
+-   "stats", storing json files reporting statistics used to optimise the aggregate process by linking tweets files and posted dates of tweets <span style="color:red">Francisco, what does this do?</span><span style="color:blue">filled</span>, and
+
+-   "alerts" storing json files of alerts detected by the detect loop.
 
 -   "series" and "tweets" that are explained in more detail below.
 
@@ -605,7 +624,7 @@ There is a folder for each ISO week of date of collection containing three Rds f
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/series folder.png")
-``` 
+```
 
 This is the aggregate information as described in the section “How does it work? General architecture of epitweetr > Aggregation”.
 
@@ -630,7 +649,8 @@ The epitweetr interactive user application has four tabs:
 
 -   The alert tab, where you can view the current alerts and associated information
 
--   The "geotag evaluation" tab, where you can evaluate... <span style="color:red">What does this do?</span>
+-   The "geotag evaluation" tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choode the geolocation threshold <span style="color:red">What does this do?</span> <span style="color:blue">Filled</span>
+
 
 ### Dashboard: The interactive user interface for visualisation
 
@@ -650,7 +670,7 @@ You can select one item from the dropdown list of topics, which is populated by 
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/topics countries.png")
-``` 
+```
 
 If you select **World (all)**, all tweets are displayed. You can select an individual country, you can select regions and subregions, and you can select several items at the same time. You can also start typing in the text field and select the geographical item from the dropdown list.
 
@@ -658,7 +678,7 @@ If you select **World (all)**, all tweets are displayed. You can select an indiv
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/period.png")
-``` 
+```
 
 You can select from the past 7 (the default), 30, 60 or 180 days. You can also select "custom" and a calendar option to select study period will appear. These periods will be the time period for inclusion in the visualisations.
 
@@ -666,7 +686,7 @@ You can select from the past 7 (the default), 30, 60 or 180 days. You can also s
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/time unit.png")
-``` 
+```
 
 You can display the timeline for the number of tweets with weeks or days as units of time. The default is days.
 
@@ -674,7 +694,7 @@ You can display the timeline for the number of tweets with weeks or days as unit
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/include retweets.png")
-``` 
+```
 
 By default, retweets are not included in any of the visualisations. If “include retweets/quotes” is checked, the visualisations displays results of tweets and retweets/quotes. Otherwise, the visualisations display only tweets (without retweets/quotes).
 
@@ -682,7 +702,7 @@ By default, retweets are not included in any of the visualisations. If “includ
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/location type.png")
-``` 
+```
 
 Tweets are geolocated into regions, subregions and countries. “Location type” indicates what should be used for geolocation:
 
@@ -696,7 +716,7 @@ Tweets are geolocated into regions, subregions and countries. “Location type�
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/signal detection confidence.png")
-``` 
+```
 
 Using the slider, you can explore what difference a different alpha has for generating signals. Note that this will not change the signal confidence for the alert emails. This is just a tool for the user to explore this parameter. The default is 0.025. A higher alpha will increase the number of signals detected, a lower alpha will reduce the number.
 
@@ -704,7 +724,7 @@ Using the slider, you can explore what difference a different alpha has for gene
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/Bonferroni correction.png")
-``` 
+```
 
 The Bonferroni correction is selected by default. It accounts for false positive signal detection through multiple testing. For country-specific signal detection, the alpha is divided by the number of countries. For continent-specific signal detection, the alpha is divided by the number continents.
 
@@ -714,7 +734,7 @@ If you do not wish to use this correction, you can uncheck it.
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/days in baseline.png")
-``` 
+```
 
 The default days in baseline is 7. The user can explore the effect of having different days in the baseline. Again, this is only for the visualisation, any changes made for the email alerts have to be made in the configuration tab.
 
@@ -722,7 +742,7 @@ The default days in baseline is 7. The user can explore the effect of having dif
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/same weekday baseline.png")
-``` 
+```
 
 It is possible that there is a "day of the week effect", where more tweets may be tweeted on a given day of the week (e.g. Monday) than on other days. You can also select to calculate the baseline not on consecutive days, but on the past 7 days that correspond to the same 24 hour window 7 days back. This way the baseline is calculated using the “days” from -8 to -56 (if the current "day" is zero).
 
@@ -734,21 +754,21 @@ The timeline line graph is a time series graph, where you can see the number of 
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/timeline.png")
-``` 
+```
 
 
 If you hover over the graph, you obtain extra information on country, date, number of tweets and the number of tweets from the list of trusted users, the ratio of known users to unknown users, whether the number of tweets was associated with a signal and what the threshold and the alpha was.
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/hover trendline.png")
-``` 
+```
 
 
 #### Map
 
 ```{r echo=FALSE, fig.cap="", out.width = '60%'}
 knitr::include_graphics("img/map.png")
-``` 
+```
 
 The map shows a proportional symbol map of the tweets by country and by topic for the study period. The larger the circle, the greater the number of tweets.
 
@@ -756,7 +776,7 @@ The geographical information for the map is based on the choice in the filters: 
 
 ```{r echo=FALSE, fig.cap="", out.width = '60%'}
 knitr::include_graphics("img/hover map.png")
-``` 
+```
 
 When you hover over the map, you can get information on number of tweets and names of the geographical units underlying the circles on the map.
 
@@ -764,7 +784,7 @@ When you hover over the map, you can get information on number of tweets and nam
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/top words.png")
-``` 
+```
 
 Tweets are analysed globally to get the top 500 words of each chunk for the same language, day and topic. These 500 words are then subsetted by country.
 
@@ -901,7 +921,7 @@ You have two options for authentication to collect tweets, using a Twitter accou
         
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("img/Twitter authentication dev app.png")
-``` 
+```
 
 <span style="color:red">Francisco, is there anything to say about the checkbox **unsafe certificates**?
 
@@ -919,7 +939,7 @@ In the topics section on the configuration page, you can view the topic, the ass
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/topics.png")
-``` 
+```
 
 **Languages**
 
@@ -927,7 +947,7 @@ In the languages section, you can determine which language models are used to id
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/languages.png")
-``` 
+```
 
 
 #### The "Alerts" tab
