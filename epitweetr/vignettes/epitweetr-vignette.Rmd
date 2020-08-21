@@ -393,7 +393,7 @@ epitweetr will execute plans according to these rules:
 
 -   As a result of the two previous rules, requests for topics under the 180 limit of the search API (or 450 if you are using Twitter developer app authentication) will be executed first and will produce higher progress than topics over the limit.
 
-The rationale behind the last bullet point was that topics with such a large number of tweets that the 4-hour search window is not sufficient to collect them, is likely to already be a known topic of interest and less important for signal detection (within the parameters of the query). Therefore, priority should be given to smaller topics and possibly less known topics.
+The rationale behind the last bullet point was that topics with such a large number of tweets that the 4-hour search window is not sufficient to collect them, is likely to already be a known topic of interest and less important for signal detection (within the parameters of the query). Therefore, priority should be given to smaller topics and possibly less well-known topics.
 
 An example is the COVID-19 pandemic. The first signal for this event and signals during the start of the outbreak were very relevant. However, throughout the pandemic, this topic is already known as an event that should be followed, and the broad topic of COVID-19 is not effective for signal detection, while taking up a lot of time and requests for epitweetr. In such a case it is more relevant to prioritise the collection of smaller topics such as sub-topics related to COVID-19 (e.g. treatment AND COVID-19), or to make sure you do not miss other events with less social media attention.
 
@@ -461,7 +461,7 @@ knitr::include_graphics("img/geolocation threshold.png")
 
 #### Geolocation based on user location
 
-As mentioned above, some tweets will not contain location information in the tweet text. However, there may be information on user location. Some users share their exact or estimated location provided by the API. With exact locations, the longitude and latitude is provided. If it is the estimated location, epitweetr calculates the longitude and latitude from geonames.org.
+As mentioned above, some tweets will not contain location information in the tweet text. However, there may be information on user location. Some users share their exact or estimated location provided by the API. With exact locations, the longitude and latitude are provided. If it is the estimated location, epitweetr calculates the longitude and latitude from geonames.org.
 
 If user location information provided by the API is not available, then epitweetr will calculate longitude and latitude from the user declared location or the place name given in the user “public profile”, using geonames.org.
 
@@ -519,15 +519,22 @@ where $t_{1 - a}(k - 1)$ denotes the 1 − α quantile of the t-distribution wit
 
 #### Downweighting previous signals
 <span style="color:red">Michael to review this section</span>
-If previous signals are included without modification in the baseline to calculate the mean and standard deviation for the signal detection, then the mean and standard deviation will be larger, which may mean important current signals will not be detected. To address this, epitweetr downweights previous signals, so that they are taken into account in the signal detection process and thus the mean and standard deviation are lower. Data points that are not signals are given a weight of "1" and signals are given a weight lower than one, which is lower the greater the difference between the signal and the threshold is <span style="color:red">It is not 100% clear to me if the threshold here is the same as the threshold as calculated by the baseline, can you confirm?</span>. This is an approach used in the Farrington algorithm <span style="color:red">Link to Farrington reference </span>. Details on the downweighting can be found in Appendix 1 of this user documentation.
+If previous signals are included without modification in the baseline to calculate the mean and standard deviation for the signal detection, then the mean and standard deviation will be larger, which may mean important current signals will not be detected. To address this, epitweetr downweights previous signals, so that they are taken into account in the signal detection process and thus the mean and standard deviation are lower. Data points that are not signals are given a weight of "1" and signals are given a weight lower than one, calculated with an approach similar to that used in the Farrington algorithm[^4]. Details on the downweighting can be found in Appendix 1 of this user documentation.
 
 
 #### Timing of signal detection
 
-Signal detection is carried out based on “days”<span style="color:red"> (Question: if we choose "weeks" as a time unit, will the baseline be calculated on weeks? I need to test)</span>,<span style="color:blue">Answer: NO, when week is selected we perform all calculations as for daily and then we group. Showing alerts if a daily alert happened on the week </span> which are moving windows of 24 hours, moving according to the detect span <span style="color:red">Is it search or detect span??</span><span style="color:blue">No there is no direct relationship with the search or detect span. The 24 hours block starts the hour before the last aggregated tweet</span> (see also section *The interactive user application (Shiny app) > The configuration tab > General*). The baseline is calculated on these “days” from -1 to -8 (if the current "day" is zero).
+<span style="color:red"> (Question: if we choose "weeks" as a time unit, will the baseline be calculated on weeks? I need to test)</span>
+<span style="color:blue">Answer: NO, when week is selected we perform all calculations as for daily and then we group. Showing alerts if a daily alert happened on the week </span> 
+<span style="color:red">Is it search or detect span??</span>
+<span style="color:blue">No there is no direct relationship with the search or detect span. The 24 hours block starts the hour before the last aggregated tweet</span> 
 
-Signals are generated according to the detect span (see section *The interactive user application (Shiny app) > The configuration tab > General*), with 
+Signal detection is carried out based on “days”, which are moving windows of 24 hours, moving according to the detect span (see also section *The interactive user application (Shiny app) > The configuration tab > General*). The baseline is calculated on these “days” from -1 to -8 (if the current "day" is zero).
+
+Signals are generated according to the detect span (see section *The interactive user application (Shiny app) > The configuration tab > General*), with
+
 -   general email alerts either following this detect span (e.g. if the detect span was 4 hours, the email alerts will be sent every 4 hours)
+
 -   email alerts in real-time. In these email alerts, previously generated signals will be omitted.
 
 The different types of email alerts for each user can be specified in the configuration tab (see section *The interactive user application (Shiny app) > The configuration tab > General*).
@@ -547,16 +554,13 @@ To override this, you can uncheck "Default with Bonferroni correction" in the "S
 
 #### Using same weekdays as baseline
 
-<span style="color:red">New section, please review. </span>
-<span style="color:blue">reviewed with small fixes. </span>
-It is possible that there is a "day of the week effect", where more tweets may be tweeted on a given day of the week (e.g. Monday) than on other days. To avoid this, you can also select to calculate the baseline not on consecutive days, but on the past N days that correspond to the same 24 hour window N days back. This way if N = 7, the baseline is calculated using the “days” from -7, -14, -21, -28, -35, -42, -54 and -56 (if the current "day" is zero).
+It is possible that there is a "day of the week effect", where more tweets may be tweeted on a given day of the week (e.g. Monday) than on other days. To avoid this, you can also choose to calculate the baseline not on consecutive days, but on the past N days that correspond to the same 24 hour window N days back. This way if N = 7, the baseline is calculated using the “days” from -7, -14, -21, -28, -35, -42, -49 and -56 (if the current "day" is zero).
 
 This option is on the configuration page of the Shiny app "Default same weekday baseline".
 
 #### Sending email alerts
 
-Emails containing a list of signals detected are sent automatically by epitweetr according to the detect span and the subscribers list. Due to the time necessary to collect, geolocate and aggregate the tweets, email alerts will miss the most recent tweets that has not yet gone to these process. The lag between tweets and alerts is excpected to be less than (2 * ( collect\_span ) + detect\_span) which should be 3h30 usiing defaul values. <span style="color:red">Do we have details on this at all, Francisco?</span>.
-<span style="color:blue">rewritten </span>
+Emails containing a list of signals detected are sent automatically by epitweetr according to the detect span and the subscribers list. Due to the time necessary to collect, geolocate and aggregate the tweets, email alerts will miss the most recent tweets that have not yet gone to these processes. The lag between tweets and alerts is expected to be less than (2 * ( collect\_span ) + detect\_span) which should be 3h30 using default values.
 
 The email alerts will include the following information on the signals for each topic:
 
@@ -568,51 +572,54 @@ The email alerts will include the following information on the signals for each 
 
 -   The number of tweets and the threshold
 
--   The percentage of tweets from trusted users
+-   The percentage of tweets from important users
 
--   Information on the settings, such as: Was the Bonferroni correction used, was the same weekday baseline used, were retweets included, etc.
+-   Information on the settings, such as: was the Bonferroni correction used, was the same weekday baseline used, were retweets included, etc.
 
-This information is also available in the "Alerts" tab of the Shiny app. <span style="color:red">I cannot see this tab yet, so I cannot add anything about it here</span><span style="color:blue">Which information do ypu need?</span>
+This information is also available in the "Alerts" tab of the Shiny app. 
 
 ###  Folder structure
 
-<span style="color:red">Updated section, please review</span>
-<span style="color:blue">completed</span>
+epitweetr stores tweets, aggregations and the configuration in the “data folder” you have to designate when launching the application.
 
-epitweetr stores tweets, aggregations and the configuration in the “data folder” you have to choose when launching the application.
+Within the **data** folder there are 3 JSON files:
 
-Within the **data** folder there are 3 JSON files, 
--   properties.json, generated from the information on the Geberal properties of the Shiny app
+-   properties.json, generated from the information from the General properties of the Shiny app
 
--   topics.json managed by the search loop it keeps a track of tweet collection plan and progress
+-   topics.json managed by the search loop: it keeps a track of tweet collection plans and progress
 
--   tasks.json managed by the detect loop it keeps information and status of the different tasks done by this process.
+-   tasks.json managed by the detect loop: it keeps information and status of the different tasks done by this process.
 
-also the following sufolders
+There are also the following subfolders:
 
--   "geo", which stores the geonames data as a text and index files <span style="color:red">Francisco, is this  true?</span><span style="color:blue">fixed</span>
+-   "geo", which stores the geonames data as text and index files
 
--   "hadoop",which stores Spark dependencies for Windows operating systems <span style="color:red">Francisco, is this  true?</span><span style="color:blue">Yes it is!!</span>
+-   "hadoop", which stores Spark dependencies for Windows operating systems
 
--   "jars", where collections of Java dependencies are stored that are needed in the geolocation and aggregate process <span style="color:red">Francisco, is this  true?</span><span style="color:blue">Almost I have fixed it</span>
+-   "jars", where collections of Java dependencies are stored that are needed in the geolocation and aggregate processes
 
 -   "languages", where the fasttext files indexes and models are stored that are used to perform geolocation in the tweet text
 
--   "stats", storing json files reporting statistics used to optimise the aggregate process by linking tweets files and posted dates of tweets <span style="color:red">Francisco, what does this do?</span><span style="color:blue">filled</span>, and
+-   "stats", where json files are stored reporting statistics used to optimise the aggregate process by linking tweet files and posted dates of tweets
 
--   "alerts" storing json files of alerts detected by the detect loop.
+-   "alerts" that store json files of alerts detected by the detect loop.
 
--   "series" and "tweets" that are explained in more detail below.
+-   "tweets" and "series" that are explained in more detail below.
 
 #### Data folder &gt; tweets
 <span style="color:red">Francisco, this doesn't work on my machine, so can you review?</span><span style="color:blue">I have made some changed, reviewed</span>
-In the data folder, the subfolder “tweets” has two subfolders: **search** and **geolocated**
+In the data folder, the subfolder “tweets” has two further subfolders: **search** and **geolocated**
 
-The *search folder* contains subfolders for each topic listed on the topics list:\
-![][12]
+The *search folder* contains subfolders for each topic listed on the topics list:
 
-Within each of these topics you have a year (e.g. 2020) and then a compressed json file containing the tweets by day for each year. The dates pertain to the dates the tweet was collected (not tweeted). There may be more than one file for one day if the file exceeds 100 MB.\
-![][13]
+```{r echo=FALSE, fig.cap="", out.width = '40%'}
+knitr::include_graphics("img/search folder.png")
+```
+
+Within each of these topics you have a year (e.g. 2020) and then a compressed json file containing the tweets by day for each year. The dates pertain to the dates the tweet was collected (not tweeted). There may be more than one file for one day if the file exceeds 100 MB.
+```{r echo=FALSE, fig.cap="", out.width = '40%'}
+knitr::include_graphics("img/anthrax.png")
+```
 
 The *geolocated folder* contains compressed json files with geolocated information produced by the geolocated algorithm.
 
@@ -622,11 +629,11 @@ In the *series* folder, epitweetr stores the aggregated data of the geolocated t
 
 There is a folder for each ISO week of date of collection containing Rds files (a native R format file) for each day and serie:
 
--   geolocated_YYY.MM.DD.Rds contains daily tweet counts at finest possible location level
+-   geolocated\_YYY.MM.DD.Rds contains daily tweet counts at finest possible location level
 
--   topwords_YYY.MM.DD.Rds contains daily tweet top words counts at country level
+-   topwords\_YYY.MM.DD.Rds contains daily tweet top words counts at country level
 
--   country\_counts_YYY.MM.DD.Rds contains hourly tweet counts at country level
+-   country\_counts\_YYY.MM.DD.Rds contains hourly tweet counts at country level
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/series folder.png")
@@ -653,10 +660,9 @@ The epitweetr interactive user application has four tabs:
 
 -   The configuration tab, where you can change settings and check the status of the underlying processes
 
--   The alert tab, where you can view the current alerts and associated information
+-   The alerts tab, where you can view the current alerts and associated information
 
--   The "geotag evaluation" tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold <span style="color:red">What does this do?</span> <span style="color:blue">Filled</span>
-
+-   The "geotag evaluation" tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold
 
 ### Dashboard: The interactive user interface for visualisation
 
@@ -674,7 +680,7 @@ You can select one item from the dropdown list of topics, which is populated by 
 
 **Countries & regions**
 
-```{r echo=FALSE, fig.cap="", out.width = '50%'}
+```{r echo=FALSE, fig.cap="", out.width = '40%'}
 knitr::include_graphics("img/topics countries.png")
 ```
 
@@ -682,7 +688,7 @@ If you select **World (all)**, all tweets are displayed. You can select an indiv
 
 **Period**
 
-```{r echo=FALSE, fig.cap="", out.width = '50%'}
+```{r echo=FALSE, fig.cap="", out.width = '40%'}
 knitr::include_graphics("img/period.png")
 ```
 
@@ -702,7 +708,7 @@ You can display the timeline for the number of tweets with weeks or days as unit
 knitr::include_graphics("img/include retweets.png")
 ```
 
-By default, retweets are not included in any of the visualisations. If “include retweets/quotes” is checked, the visualisations displays results of tweets and retweets/quotes. Otherwise, the visualisations display only tweets (without retweets/quotes).
+By default, retweets are not included in any of the visualisations. If “include retweets/quotes” is checked, the visualisations display results of tweets and retweets/quotes. Otherwise, the visualisations display only tweets (without retweets/quotes).
 
 **Location type**
 
@@ -750,7 +756,7 @@ The default days in baseline is 7. The user can explore the effect of having dif
 knitr::include_graphics("img/same weekday baseline.png")
 ```
 
-It is possible that there is a "day of the week effect", where more tweets may be tweeted on a given day of the week (e.g. Monday) than on other days. You can also select to calculate the baseline not on consecutive days, but on the past 7 days that correspond to the same 24 hour window 7 days back. This way the baseline is calculated using the “days” from -8 to -56 (if the current "day" is zero).
+It is possible that there is a "day of the week effect", where more tweets may be tweeted on a given day of the week (e.g. Monday) than on other days. You can also select to calculate the baseline not on consecutive days, but on the past N days that correspond to the same 24 hour window N days back. This way if N = 7, the baseline is calculated using the “days” from -7, -14, -21, -28, -35, -42, -49 and -56 (if the current "day" is zero).
 
 
 #### The timeline
@@ -909,7 +915,7 @@ You have two options for authentication to collect tweets, using a Twitter accou
 
     -   The rtweet package will send a request to Twitter, so it can access your Twitter account on your behalf
 
-    -   A pop-up window will appear <span style="color:red"> Francisco is this still applicable? I don't remember a pop-up window. I would also like to take a screenshot, but I am not sure if there is a problem on the config page. Should some of the text change if you click on Twitter account vs. Twitter developer app? </span></span><span style="color:blue">This is correct, if you want to see the page you just have to click on update properties</span>, where you enter your Twitter user name and password and then the created token will validate the fact that the application can access Twitter on your behalf. You will send this token each time you access tweets.
+    -   A pop-up window will appear, where you enter your Twitter user name and password and then the created token will validate the fact that the application can access Twitter on your behalf. You will send this token each time you access tweets.
 
 -   Using a Twitter developer app: via epitweetr (app authentication)
 
@@ -941,7 +947,7 @@ A query is made up of operators that are used to match on tweet attributes. See 
 
 epitweetr comes with a default list of topics as used by the ECDC Epidemic Intelligence team at the date of package generation (*September 1 2020*). You can download this topics list and upload your own in the “Available Topics” section in the configuration page. See section *"How does it work? General architecture behind epitweetr > Collection of tweets > Topics of tweets to collect and queries"* for more details on how to structure the topics list.
 
-In the topics section on the configuration page, you can view the topic, the associated query, the query length and how many active search plans are associated with the query. If more than one search plan is active, this means that epitweetr did not manage to collect all possible tweets in the last session. Additionally you can see the progress and the number of requests from the last search plan.
+In the topics section on the configuration page, you can view the topic, the associated query, the query length and how many active search plans are associated with the query. If more than one search plan is active, this means that epitweetr did not manage to collect all possible tweets in the last session. Additionally, you can see the progress and the number of requests from the last search plan.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/topics.png")
@@ -973,29 +979,140 @@ knitr::include_graphics("img/geotag_eval.png")
 
 
 ### Downloading outputs from the interactive user interface (Shiny app)
-===================================================================
 
 <span style="color:red">I haven't reviewed this yet, I will review it in the morning </span><span style="color:blue">This is outdated, now the images are downloaded using the buttons 'Image'</span>
 
-Each visualisation on the Shiny app dashboard can be downloaded as an image, using the function integrated in the plots “download plot as a png”. A png is a portable network graphic file and is a versatile file format for images that do not need to be of a very high resolution (e.g. professional print graphics). You can hover over the image and select the first icon:
-
-![][28]
+Each visualisation on the Shiny app dashboard can be downloaded as an image, using the function integrated in the plots “download plot as a png”. A png is a portable network graphic file and is a versatile file format for images that do not need to be of a very high resolution (e.g. professional print graphics). Click on the "Image button".
 
 Note that the png format is not supported in the Internet Explorer browser (but you can download a svg file instead).
 
 You can also download the data of each visualisation by clicking on the data button. This will give you a csv file containing the underlying data that you can use for further analysis or to create your own graphs.
 
-Alternatively, you can use the PDF or the Md button at the bottom of the filters to download a PDF or an HTML file of the screen. Note that for this you will need to have pandoc installed (see section 5b).
+Alternatively, you can use the PDF or the Md button at the bottom of the filters to download a PDF or an HTML file of the screen. Note that for this you will need to have MiKTeX or TinyTeX installed.
 
-### Using rtweetr from the R console
+## Appendix 1: Re-weighting the previous signals
 
-<span style="color:red">I don't think we have time to include this, what do you think, Francisco?</span>
+**This section needs to be reviewed and the references properly added. We would also like to use one case study, with the graph for illustrative purposes.**
+
+## Introduction
+
+In this document we propose a re-weighting approach built on top of the modified EARS algorithm (@fricker_etal2008) used in the `epitweetr` package.
+
+Let the $\mathbf{y}$ denote the vector of historic values which is of length $n$. Part of the computation of the prediction interval at time 0 is the computation of the mean and standard deviation of these historic values, i.e.
+$$
+\overline{y}_0 = \frac{1}{n}\sum_{t=-n}^1 y_{t} \quad\text{and}\quad s_0^2 = \frac{1}{n-1} \sum_{t=-n}^1 (y_{t} - \overline{y}_0  )^2
+$$
+The upper limit of the one-sided $(1-\alpha)\cdot 100\%$ prediction interval for the observation $y_0$ under an $y_t \stackrel{\text{iid}}{\sim} N(\mu, \sigma^2), t=-n, \ldots, 0$ model is then computed as 
+$$
+U_0 = \overline{y}_0 + t_{1-\alpha}(n-1) \cdot s_0 \cdot \sqrt{1+\frac{1}{n}},
+$$
+where $t_{1−\alpha}(n − 1)$ denotes the $1 − \alpha$ quantile of the t-distribution with $n − 1$ degrees of freedom. This computation of the threshold corresponds to a statistical sound computation of the threshold [@allevius_hoehle2019]. See Section 6.e.i of the epitweetr user documentation for further details.
+
+
+A desired extension of the above algorithm is the handling of previous outbreaks in the historic values. This problem was already addressed in the quasi-Poisson framework of @farrington_etal1996 by first performing a GLM fit and then re-fit the GLM with weights  based on the Anscome residuals. We follow the same general idea, but adapt it to the Gaussian response used in the EARS algorithm.
+
+### EARS as a Linear Model
+
+We first observe that the above estimation of $\overline{y}_0$ and $s_0^2$ at time 0 can be embedded within a linear regression model, i.e. for $i=1, \ldots, n$ we model
+$$
+y_i = \mu + \epsilon_i, \quad\text{where}\quad \epsilon_t \stackrel{\text{iid}}{\sim} N(0, \sigma^2).
+$$
+Note that we for compatibility with the standard exposition in linear model theory have indexed the $y$ values s.t. $y_{-n}$ corresponds to $y_1$ and $y_{-1}$ corresponds to $y_n$. In matrix terms let $\mathbf{y} = (y_{1},\ldots,y_n)'$ and for the intercept-only model the design matrix is $\mathbf{X} = (1,\ldots,1)'$, which has rank $k=1$. Thus from standard OLS theory:
+$$
+\begin{align*}
+\hat{\mu} &=  (\mathbf{X}'\mathbf{X})^{-1} \mathbf{X}' \mathbf{y} = \frac{1}{n}\sum_{i=1}^n y_i,
+\end{align*}
+$$
+which corresponds to the above expression for $\overline{y}_0$. Furthermore, let the raw residuals be defined as $e_i = y_i - \hat{\mu}$ for $i=1,\ldots, n$ and denote by $\mathbf{e}=(e_1,\ldots,e_n)'$ the corresponding vector of residuals. Then
+$$
+\mathbf{e} = \mathbf{y} - \hat{\mathbf{y}} = \mathbf{y} - \mathbf{P} \mathbf{y} = (\mathbf{I}-\mathbf{P}) \mathbf{y}
+$$
+where $\mathbf{P} = \mathbf{X} (\mathbf{X}'\mathbf{X})^{-1}\mathbf{X}'$ is the so called hat-matrix known from linear modelling. With this notation we can write up the estimate for $\sigma^2$ as [@chatterjee_hadi1988]
+
+$$
+\hat{\sigma}^2 = \frac{\mathbf{e}' \mathbf{e}}{n-k} = \frac{\mathbf{y}'(\mathbf{I}-\mathbf{P})\mathbf{y}}{n-k} = \frac{1}{n-1} \sum_{t=-7}^1 (y_t - \hat{\mu})^2,
+$$
+which corresponds to the above used expression for $s_0^2$.
+
+### Reweighting
+
+We now consider the so called **externally Studentized residuals** [@chatterjee_hadi1988]
+$$
+r_i^* = \frac{e_i}{\hat{\sigma}_{(i)}\sqrt{1-p_{ii}}}, \quad i=1, \ldots, n,
+$$
+where $p_{ii}$ is i'th diagonal element of the hat-matrix $\mathbf{P}$ from the corresponding linear model used above. Furthermore,
+$$
+\hat{\sigma}_{(i)}^2 = \frac{\mathbf{y}_{(i)}' (\mathbf{I}-\mathbf{P}_{(i)}) \mathbf{y}_{(i)}}{n-k-1}
+$$
+is the variance estimate obtained from a linear regression, where the i'th observation is removed. Linear modelling theory [@chatterjee_hadi1988] now states that 
+$$
+r_i^* \stackrel{\text{identical}}{\sim} t(n-k-1)
+$$
+Note that the residuals are only identically distributed, but they are not independent (see, e.g., Section 4.2.1. of @chatterjee_hadi1988 for details). However, the above distributional form allows us to assess for each historic value, if it can be considered as an outlier. 
+
+Define $r_{\text{threshold}}$ as the $1-\alpha_{\text{outlier}}$ quantile of the t-distribution with $n-k-1$ degrees of freedom.
+An historic value is an outlier[^1], if
+$r_i^* > r_{\text{threshold}}$. We shall use this to formulate two  weighting schemes for the historic values:
+
+Drop-outliers:
+$$
+w^{(\text{drop})}_i = \left\{
+\begin{array}{ll}
+1 & \text{if } r_i^* < r_{\text{threshold}}\\
+0 & \text{otherwise}
+\end{array}
+\right.
+$$
+Downweight-Outliers:
+$$
+\begin{align}
+w^{(\text{dw})}_i &= \left\{
+\begin{array}{ll}
+1 & \text{if } r_i^* < r_{\text{threshold}}\\
+\left(\frac{r_{\text{threshold}}}{(r_i^*)}\right)^k & \text{otherwise}
+\end{array}
+\right. \\
+&= \min\left\{1,\left(\frac{r_{\text{threshold}}}{r_i^*}\right)^k\right\},
+\end{align}
+$$
+where the decay $k$ is a considered a known quantity. In the original @farrington_etal1996 algorithm, $k=2$ was used.
+
+Furthermore, a threshold value of 1 was used. In the later @noufaily_etal2013 paper, however, a threshold value of 2.58 was recommended. Note: both values are for the standardized Anscombe residuals, which follow a standard normal distribution, i.e. we take corresponding quantiles for the t-distribution with 6 degrees of freedom the values would be `r sprintf("%.2f",qt(pnorm(1), df=6))` and `r sprintf("%.2f",qt(pnorm(2.58), df=6))`.
+Note also that the term $(r_{\text{threshold}}/r_i^*)^k$ is a slight adaptation of @farrington_etal1996, which instead uses $1/(r_i^*)^2$. The advantage of our proposal is that it ensures a smooth handling of values around the threshold, if the threshold is not 1. It might be worth to consider a higher power than 2 to ensure an even larger down-weighting for gross outliers. 
+
+Finally, as in @farrington_etal1996, we normalize the weights such that they yield a sum of $n$ by
+$$
+w_i^* = n \cdot \frac{w_i}{\sum_{i=1}^n w_i}
+$$
+and then re-fit the linear model with these weights. For this purpose define the weight matrix as $\mathbf{W} = \operatorname{diag}(w_1^*,\ldots,w_n^*)$. We can use a subsequent weighted least squares approach to find
+$$
+\begin{align*}
+\hat{\mu}_W &=  (\mathbf{X}' \mathbf{W} \mathbf{X})^{-1} \mathbf{X}' \mathbf{W} \mathbf{y} = \frac{1}{n}\sum_{i=1}^n w_i^* y_i,
+\end{align*}
+$$
+where the 2nd equal sign is because $(\mathbf{X}' \mathbf{W} \mathbf{X})=\sum_{i=1}^n w_i=n$
+and $\mathbf{X}' \mathbf{W} \mathbf{y} = \sum_{i=1}^n w_i^* y_i$.
+Furthermore [mh: need to double check, RHS reproduces `lm` values],
+$$
+s_W^2 = 
+\frac{\mathbf{y}'(\mathbf{I}-\mathbf{P}_W)\mathbf{y}}{n-k} =
+\frac{\sum_{i=1}^n w_i^*(y_i - \mu_W)^2}{n-1},
+$$
+where $P_W = \mathbf{X} (\mathbf{X}'\mathbf{W} \mathbf{X})^{-1}\mathbf{X}\mathbf{W}$ is the hat-matrix of the weighted least squares.
+
+The reweighted procedure thus operates with $\mu_{W}$ and $s_W^2$ instead of $\overline{y}_0$ and $s_0^2$, respectively.
+
+
+
+## References
 
 [^1]: Fricker RD, Hegler BL, Dunfee DA (2008). “Comparing Syndromic Surveillance Detection Methods: EARS’ versus a CUSUM-Based Methodology.” *Statistics in Medicine*, **27**(17), 3407–3429. doi:10.1002/sim.3197.
 
-[^2]: Salmon M, Schumacher D, Höhle M (2016), [*Monitoring Count Time Series in R: Aberration Detection in Public Health Surveillance*], *Journal of Statistical Software* 70(10).
+[^2]: Salmon M, Schumacher D, Höhle M (2016), "Monitoring Count Time Series in R: Aberration Detection in Public Health Surveillance", *Journal of Statistical Software* 70(10).
 
-[^3]: Allévius B and Höhle M (2019), “*Prospective Detection of Outbreaks*”, Book Chapter in the Handbook of Infectious Disease Epidemiology, Held, L., Hens, N., O’Neill, P.D. and Wallinga, J. (Eds.). CRC Press., CRC Press. \[[*preprint*]\]
+[^3]: Allévius B and Höhle M (2019), “*Prospective Detection of Outbreaks*”, Book Chapter in the Handbook of Infectious Disease Epidemiology, Held, L., Hens, N., O’Neill, P.D. and Wallinga, J. (Eds.). CRC Press., CRC Press. *preprint*
+
+[^4]: Farrington CP, Andrews NJ, Beale AD, and Catchpole MA. 1996. "A Statistical Algorithm for the Early Detection of Outbreaks of Infectious Disease." *Journal of the Royal Statistical Society*, Series A 159: 547–63.
 
   [*https://www.java.com/download/*]: https://www.java.com/download/
   [*https://www.microsoft.com/en-us/download/details.aspx?id=14632*]: https://www.microsoft.com/en-us/download/details.aspx?id=14632

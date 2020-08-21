@@ -288,7 +288,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @examples 
 #' \dontrun{
 #' if(interactive()){
-#'    #Getting bubblr chart for dengue for South America for last 30 days
+#'    #Getting bubble chart for dengue for South America for last 30 days
 #'    create_map(topic = "dengue", countries = "South America", date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
 #'  }
 #' }
@@ -300,14 +300,12 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #'  \code{\link{detect_loop}}
 #'  \code{\link{search_loop}}
 #'  \code{\link[sp]{spTransform}},\code{\link[sp]{coordinates}},\code{\link[sp]{is.projected}},\code{\link[sp]{CRS-class}}
-#'  \code{\link[rnaturalearthdata]{countries}}
 #'  \code{\link[ggplot2]{fortify}},\code{\link[ggplot2]{geom_polygon}},\code{\link[ggplot2]{geom_point}}
 #' @rdname create_map
 #' @export 
 #' @importFrom magrittr `%>%`
 #' @importFrom dplyr filter rename select bind_rows group_by summarize ungroup mutate dense_rank
 #' @importFrom sp spTransform coordinates proj4string CRS
-#' @importFrom rnaturalearthdata countries50
 #' @importFrom ggplot2 fortify theme element_text element_blank element_rect ggplot geom_polygon aes geom_point scale_size_continuous scale_fill_manual coord_fixed labs theme_classic
 create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=F){
   #Importing pipe operator
@@ -668,8 +666,8 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' @examples 
 #' \dontrun{
 #' if(interactive()){
-#'    #Getting bubblr chart for dengue for South America for last 30 days
-#'    create_map(topic = "dengue", countries = "South America", date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
+#'    #Getting topword chart for dengue for France, Chile, Australia for last 30 days
+#'    create_topwords(topic = "dengue", country_codes = c("FR", "CL", "AU"), date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
 #'  }
 #' }
 #' @seealso 
