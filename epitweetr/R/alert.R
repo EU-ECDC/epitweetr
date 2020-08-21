@@ -1,19 +1,19 @@
 #' @title Execute the alert task  
-#' @description Evaluate alerts for last collected day for all topics and regions and send email alerts to subscribers
-#' @param tasks current tasks for reporting purposes, Default: get_tasks()
+#' @description Evaluate alerts for the last collected day for all topics and regions and send email alerts to subscribers
+#' @param tasks current tasks for reporting purposes, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details This function calculates for last aggregated day and then send emails to subscriptors
+#' @details This function calculates alerts for the last aggregated day and then send emails to subscribers.
 #'
 #' The alert calculation is based on the country_counts time series which stores alerts by country, hour and topics.
 #'
-#' For each country and region the process starts by aggregating the last N days. A day a block of contiguous 24 hours ending before the hour of the collected last tweet. 
-#' N is defined by the alert base line parameter of the shiny application.
+#' For each country and region the process starts by aggregating the last N days. A day is a block of consecutive 24 hours ending before the hour of the collected last tweet. 
+#' N is defined by the alert baseline parameter on the configuration page of the Shiny application (the default is N=7).
 #' 
-#' An alert will be produced when the number of tweets observates is under the threshold calculated by the modified version of the EARS algorithm (for more details see the package vignette) 
-#' The behaviour of the alert detection algoritm is mofied by the alert confidence level,  previous alert downgrade and weekly or daily baseline parameters 
-#' as defined on the shiny application and the topics file 
+#' An alert will be produced when the number of tweets observed is above the threshold calculated by the modified version of the EARS algorithm (for more details see the package vignette). 
+#' The behaviour of the alert detection algorithm is modified by the alert confidence level (alpha), downweighting of previous alerts and weekly or daily baseline parameters 
+#' as defined on the configuration page of the Shiny application and the topics file.
 #'
-#' A prerequisite to this funtion is that the search_loop must have already collected tweets on the search folder and that geotag and aggregate tasks have already run.
+#' A prerequisite to this function is that the search_loop must already have stored collected tweets in the search folder and that the geotagging and aggregation tasks have already been run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
 #' \dontrun{
@@ -28,7 +28,9 @@
 #' }
 #' @seealso 
 #'  \code{\link{detect_loop}}
+#'  
 #'  \code{\link{geotag_tweets}}
+#'  
 #'  \code{\link{aggregate_tweets}}
 #' @rdname generate_alerts
 #' @export
@@ -59,27 +61,27 @@ generate_alerts <- function(tasks = get_tasks()) {
 }
 
 
-#' @title algorithm for outbreak detection, extends the ears algorithm
+#' @title algorithm for outbreak detection, extends the EARS algorithm
 #' @author Michael Höhle <https://www.math.su.se/~hoehle>
-#' @description The simple 7 day running mean version of the EARS 
+#' @description The simple 7 day running mean version of the Early Aberration Reporting System (EARS) 
 #' algorithm is extended as follows:
 #' \itemize{
 #'   \item{proper computation of the prediction interval}
-#'   \item{re-weighted version inspired by Farrington (1996)}
+#'   \item{downweighting of previous signals, similar to the approach by Farrington (1996)}
 #' }
 #' @param ts A numeric vector containing the counts of the univariate
 #' time series to monitor. The last time point in ts is
 #' investigated
-#' @param alpha The upper limit is computed as the limit of a one-sided
-#' (1-alpha) times 100prc prediction interval, Default: 0.025
+#' @param alpha The alpha is used to compute the upper limit of the prediction interval:
+#' #' (1-alpha) * 100%, default: 0.025
 #' @param alpha_outlier Residuals beyond 1-alpha_outlier quantile of the 
-#'              the t(n-k-1) distribution are downweighted, Default: 0.05
-#' @param k_decay Power k in the expression (r_star/r_threshold)^k determining the weight, Default: 4
-#' @param no_historic no_historic Number of previous values i.e -1, -2, ..., no_historic
-#' to include when computing baseline parameters, Default: 7
-#' @param same_weekday_baseline whether to calculate baseline using same weekdays or any day, Default: FALSE
+#'              the t(n-k-1) distribution are downweighted, default: 0.05
+#' @param k_decay Power k in the expression (r_star/r_threshold)^k determining the weight, default: 4
+#' @param no_historic Number of previous values i.e -1, -2, ..., no_historic
+#' to include when computing baseline parameters, default: 7
+#' @param same_weekday_baseline whether to calculate baseline using same weekdays or any day, default: FALSE
 #' @return A dataframe containing the monitored time point,
-#'         the upper limit and whether an alarm is sounded or not.
+#'         the upper limit and whether a signal is detected or not.
 #' @details for algorithm details see package vignette.
 #' @examples
 #' \dontrun{
@@ -523,15 +525,15 @@ do_next_alerts <- function(tasks = get_tasks()) {
 }
 
  
-#' @title Getting alerts produced by the \code{\link{detect_loop}}
-#' @description Returns a dataframe of alerts produced by the detect loop, which are stored on the alert folder.
-#' @param topic Character vector. When it is not emptu it will limit the returned alerts to the provided topics , Default: character()
+#' @title Getting signals produced by the \code{\link{detect_loop}}
+#' @description Returns a dataframe of signals produced by the detect loop, which are stored on the signal folder.
+#' @param topic Character vector. When it is not empty it will limit the returned signals to the provided topics, default: character()
 #' @param countries Character vector containing the names of countries or regions or a numeric vector containing the indexes of countries 
-#' to filter the alerts to return. The indexes can be obtained by the calling \code{\link{get_country_items}}, Default: numeric()
-#' @param from date defining the beggining of the period of alerts to return, Default: '1900-01-01'
-#' @param until date defining the end of the period of alerts to return, Default: '2100-01-01'
+#' to filter the signals to return. The indexes can be obtained by the calling \code{\link{get_country_items}}, default: numeric()
+#' @param from Date defining the begining of the period of signals to return, default: '1900-01-01'
+#' @param until Date defining the end of the period of signals to return, default: '2100-01-01'
 #' @return 
-#' @details DETAILS
+#' @details For more details see the package vignette.
 #' @examples
 #' \dontrun{
 #' if(interactive()){
@@ -539,7 +541,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #'    # setting up the data folder
 #'    setup_config("/home/epitweetr/data")
 #'
-#'    #Getting alert produced for last 30 days for a particular country
+#'    # Getting signals produced for last 30 days for a particular country
 #'    get_alerts(countries = c("Chile", "Australia", "France"), from = as.Date(Sys.time())-30, until = as.Date(Sys.time()))
 #'  
 #'  }

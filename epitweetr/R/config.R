@@ -112,31 +112,35 @@ get_empty_config <- function(data_dir) {
 }
 
 #' @title Load epitweetr application settings
-#' @description Load epitweetr application settings from the provided data directory
-#' @param data_dir Path to de directory containing the application settings (it must exists). 
-#' If not provided it takes the value of the latest call to setup_config on the current session, or the valur of EPI_HOME environment variable or epitweetr subdirectory on the working directory, 
-#' Default: if (exists("data_dir", where = conf)) conf$data_dir else if (Sys.getenv("EPI_HOME") !=
+#' @description Load epitweetr application settings from the designated data directory
+#' @param data_dir Path to the directory containing the application settings (it must exist). 
+#' If not provided it takes the value of the latest call to setup_config in the current session, or the value of the EPI_HOME environment variable or epitweetr subdirectory in the working directory, 
+#' default: if (exists("data_dir", where = conf)) conf$data_dir else if (Sys.getenv("EPI_HOME") !=
 #'    "") Sys.getenv("EPI_HOME") else file.path(getwd(), "epitweetr")
-#' @param ignore_keyring whether to skip loading settings from the keyring (twitter and SMTP credentials), Default: FALSE
-#' @param ignore_properties whether to skip loading settings managed by the shiny app on properties.json file, Default: FALSE
-#' @param ignore_topics whether to skip loading settings defined on the topics.xlsx file and download plans from topics.json file, Default: FALSE
-#' @param save_first whether to save current settings before loading new ones from disk, Default: list()
+#' @param ignore_keyring Whether to skip loading settings from the keyring (Twitter and SMTP credentials), default: FALSE
+#' @param ignore_properties Whether to skip loading settings managed by the Shiny app in properties.json file, Default: FALSE
+#' @param ignore_topics Whether to skip loading settings defined in the topics.xlsx file and download plans from topics.json file, default: FALSE
+#' @param save_first Whether to save current settings before loading new ones from disk, default: list()
 #' @return nothing
-#' @details epitweetr relies on settings and data stored on a system folder, so before loading the dashboard, collect tweets or detect alerts the user has to point to this folder.
-#' When a user wants to use epitweetr from the R console he/her will need to call this function for initialisation.
-#' The 'data_folder' can also be given as a parameter for program launch functions \code{\link{epiweetr_app}}, \code{\link{search_loop}} or \code{\link{detect_loop}} which will internally call this function.
+#' @details epitweetr relies on settings and data stored in a system folder, so before loading the dashboard, collecting tweets or detecting alerts the user has to designate this folder.
+#' When a user wants to use epitweetr from the R console they will need to call this function for initialisation.
+#' The 'data_folder' can also be given as a parameter for program launch functions \code{\link{epiweetr_app}}, \code{\link{search_loop}} or \code{\link{detect_loop}}, which will internally call this function.
 #'
 #' This call will fill (or refresh) a package scoped environment 'conf' that will store the settings. Settings stored in conf are:
 #' \itemize{
-#'   \item{ General properties of the shiny App (stored on properties.json)}
-#'   \item{Download plans from the twitter collection process (stored on topics.json merged with data from topics.xlsx file}
-#'   \item{Credentials for twitter API and SMTP stored on the defined keyring}
+#'   \item{ General properties of the Shiny app (stored in properties.json)}
+#'   \item{Download plans from the Twitter collection process (stored in topics.json merged with data from the topics.xlsx file}
+#'   \item{Credentials for Twitter API and SMTP stored in the defined keyring}
 #' }
 #'
-#' When calling this function if the keyring is locked, a password will be prompted to unlock the keyring.
-#' This behavior can be changed by setting the enviroment variable 'ecdc_wtitter_tool_kr_password' with the password
+#' When calling this function and the keyring is locked, a password will be prompted for to unlock the keyring.
+#' This behaviour can be changed by setting the enviroment variable 'ecdc_wtitter_tool_kr_password' with the password.
 #' 
-#' Change made on conf can be persisted (excepting by 'data_dir') using \code{\link{save_config}} or \code{\link{ecdc_wtitter_tool_kr_password}}
+#' Changes made to conf can be stored permanently (excepting by 'data_dir') using 
+#' \itemize{
+#'   \item{\code{\link{save_config}}, or}
+#'    \item{\code{\link{ecdc_wtitter_tool_kr_password}}}
+#' }
 #' @examples
 #' \dontrun{
 #' if(interactive()){
@@ -337,14 +341,14 @@ copy_plans_from <- function(temp) {
   }
 }
 
-#' @title Save the configuration changer 
-#' @description Persists configuration changes to the data folder (excluding twittetr credentials, but not SMTP credentials)
+#' @title Save the configuration changes 
+#' @description Permanently saves configuration changes to the data folder (excluding Twitter credentials, but not SMTP credentials)
 #' @param data_dir Path to a directory to save configuration settings, Default: conf$data_dir
-#' @param properties whether to save the general properties to properties.json file, Default: TRUE
-#' @param topics wheter to save topic download plans to topics.json, Default: TRUE
+#' @param properties Whether to save the general properties to the properties.json file, default: TRUE
+#' @param topics Whether to save topic download plans to the topics.json file, default: TRUE
 #' @return nothing
-#' @details Persists configuration changes to the data folder (excluding twitter credentials, but not SMTP credentials)
-#' to save twitter credentials please use \code{\link{set_twitter_app_auth}}
+#' @details Permanently saves configuration changes to the data folder (excluding Twitter credentials, but not SMTP credentials)
+#' to save Twitter credentials please use \code{\link{set_twitter_app_auth}}
 #' @examples 
 #' \dontrun{
 #' if(interactive()){
@@ -353,7 +357,7 @@ copy_plans_from <- function(temp) {
 #'    setup_config("/home/epitweetr/data")
 #'    #make some changes
 #'    #conf$collect_span = 90
-#'    #saving changer    
+#'    #saving changes    
 #'    save_config()
 #'  }
 #' }
@@ -422,15 +426,15 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
   }
 }
 
-#' @title save twitter APP credentials
-#' @description Update twitter auth tokens on configuration object
+#' @title Save Twitter App credentials
+#' @description Update Twitter authentication tokens in configuration object
 #' @param app Application name
-#' @param access_token access token as provided by Twitter
-#' @param access_token_secret access token secret as provided by Twitter
-#' @param api_key API key as provided by twitter 
-#' @param api_secret API secret as provided by twitter
+#' @param access_token Access token as provided by Twitter
+#' @param access_token_secret Access token secret as provided by Twitter
+#' @param api_key API key as provided by Twitter 
+#' @param api_secret API secret as provided by Twitter
 #' @return nothing
-#' @details Update twitter auth tokens on configuration object
+#' @details Update Twitter authentication tokens in configuration object
 #' @examples 
 #' \dontrun{
 #' if(interactive()){

@@ -1,19 +1,25 @@
 #Environment for storing cached data
 cached <- new.env()
 
-#' @title Execute the aggregate task
-#' @description Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (\code{\link{geotag_tweets}}) and store results on the series folder as dalily RDS files
-#' @param series list of series to aggregate, Default: list("country_counts", "geolocated", "topwords")
-#' @param tasks current tasks for reporting purposes, Default: get_tasks()
+#' @title Execute the aggregation task
+#' @description Get all the tweets from the Search API json files and the geolocated tweets json files obtained by calling (\code{\link{geotag_tweets}}) and store the results ion the series folder as daily RDS files
+#' @param series List of series to aggregate, default: list("country_counts", "geolocated", "topwords")
+#' @param tasks Current tasks for reporting purposes, default: get_tasks()
 #' @return the list of tasks updated with aggregate messages
-#' @details this function will lauch a spark job for aggregating data colected from the search API and geolocated from geotag tweets. By doing the following steps:
-#' - Identify the last aggregates date by looking into series folder 
-#' - Look for date range of tweets collected since that day by looking on stat json files produced by the search loop
-#' - For each day that has to be updated a list of all geolocated and search files to load will be produced by looking on stat files
-#' - For each series passed as a parameter and for each date to update 
-#'  - a spark job will be called that will deduplicate tweets on each topic, join them with gelocation information, and aggregate them to the required level and retunred to the stanfard output as json lines
-#'  - the result of this job is parsed using jsonlite and saved into RDS files on the series folder
-#' A prerequisite to this funtion is that the search_loop must have already collected tweets on the search folder and that geotag_tweets has already run.
+#' @details This function will launch a SPARK task of aggregating data collected from the Twitter Search API and geolocated from geotag tweets. By doing the following steps:
+#' - Identify the last aggregates date by looking into the series folder
+#' 
+#' - Look for date range of tweets collected since that day by looking at the stat json files produced by the search loop
+#' 
+#' - For each day that has to be updated a list of all geolocated and search files to load will be produced by looking at the stat files
+#' 
+#' - For each series passed as a parameter and for each date to update: 
+#' 
+#'  - a SPARK task will be called that will deduplicate tweets for each topic, join them with gelocation information, and aggregate them to the required level and return to the standard output as json lines
+#'  
+#'  - the result of this task is parsed using jsonlite and saved into RDS files in the series folder
+#'  
+#' A prerequisite to this function is that the search_loop must have already collected tweets in the search folder and that geotag_tweets has already run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
 #' \dontrun{
@@ -28,7 +34,9 @@ cached <- new.env()
 #' }
 #' @seealso 
 #'  \code{\link{detect_loop}}
+#'  
 #'  \code{\link{geotag_tweets}}
+#'  
 #'  \code{\link{generate_alerts}}
 #' @rdname aggregate_tweets
 #' @importFrom magrittr `%>%`
@@ -110,33 +118,37 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 }
 
 #' @title Getting already aggregated time series produced by \code{\link{detect_loop}}
-#' @description returns the required aggregated dataset for the selected period and topics defined by filter.
-#' @param dataset a character(1) vector with the name of the serie to request, it must be one of 'country_counts', 'geolocated' or 'topwords', Default: 'country_counts'
-#' @param cache whether to use the cache for lookup and storing the returned daframe, Default: TRUE
-#' @param filter a named list defining the filter to apply on the requested serie, Default: list()
-#' @return A dataframe containing the requested serie for the requested period
-#' @details This function will look into the 'series' folder which contains Rds files per week day and serie it will parse name of file and folders to limit the files to read
-#' then it will apply the filters on each dataset for finally joining the matching results on a single dataframe.
-#' If no filter is provided all data serie is returned which can grows up to millions of rows depending on the time series. 
-#' To limit by period, the filter list must have an element 'period' containing a Date vector or list with two dates representing the start and end of the request.
+#' @description Returns the required aggregated dataset for the selected period and topics defined by the filter.
+#' @param dataset A character(1) vector with the name of the series to request, it must be one of 'country_counts', 'geolocated' or 'topwords', default: 'country_counts'
+#' @param cache Whether to use the cache for lookup and storing the returned dataframe, default: TRUE
+#' @param filter A named list defining the filter to apply on the requested series, default: list()
+#' @return A dataframe containing the requested series for the requested period
+#' @details This function will look in the 'series' folder, which contains Rds files per weekday and type of series. It will parse the names of file and folders to limit the files to be read.
+#' Then it will apply the filters on each dataset for finally joining the matching results in a single dataframe.
+#' If no filter is provided all data series are returned, which can end up with millions of rows depending on the time series. 
+#' To limit by period, the filter list must have an element 'period' containing a date vector or list with two dates representing the start and end of the request.
 #'
 #' To limit by topic, the filter list must have an element 'topic' containing a non empty character vector or list with the names of the topics to return.
 #' 
-#' The availabe time series are: 
-#' country_counts' counting tweets and retweets by posted date, hour and country 
-#' geolocated' counting tweets and retweets by posted date and the smallest possible geolocated item (city, adminitrative level or country)
-#' topwords' counting tweets and retweets by posted date, country and the most popular words, (this excludes words used on the topic search)
-#' The returned dataset can be cached for futher calls if requuested. Only one dataset per serie is cached
+#' The available time series are: 
+#' \itemize{
+#'   \item{"country_counts" counting tweets and retweets by posted date, hour and country}
+#'   
+#'   \item{"geolocated"'" counting tweets and retweets by posted date and the smallest possible geolocated unit (city, adminitrative level or country)}
+#'   
+#' item{"topwords" counting tweets and retweets by posted date, country and the most popular words, (this excludes words used in the topic search)}
+#' 
+#' The returned dataset can be cached for further calls if requested. Only one dataset per series is cached.
 #' @examples 
 #' \dontrun{
 #' if(interactive()){
-#'    # Getting all countryies tweets between 2020-jan-10 and 2020-jan-31 for all topics
+#'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for all topics
 #'    df <- get_aggregates("country_counts", list(period = c("2020-01-10", "2020-01-31"))
 #'
-#'    # Getting all country tweets for topic dengue
+#'    # Getting all country tweets for the topic dengue
 #'    df <- get_aggregates("country_counts", list(topic = "dengue"))
 #'
-#'    # Getting all countryies tweets between 2020-jan-10 and 2020-jan-31 for topic dengue
+#'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for the topic dengue
 #'    df <- get_aggregates("country_counts", list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
 #'  }
 #' }
