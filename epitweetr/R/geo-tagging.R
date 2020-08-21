@@ -38,7 +38,7 @@ geotag_tweets <- function(tasks = get_tasks()) {
   return(tasks)
 }
 
-#' Get the SQL like expression to extract tweet geolocation variables 
+# Get the SQL like expression to extract tweet geolocation variables 
 get_tweet_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
     paste("coalesce("
@@ -56,7 +56,7 @@ get_tweet_location_var <- function(varname) {
     )  
 }
 
-#' Get tweet geolocation used cols 
+# Get tweet geolocation used cols 
 get_tweet_location_columns <- function(table) {
   if(table == "tweet")
     list(
@@ -67,7 +67,7 @@ get_tweet_location_columns <- function(table) {
       ,"linked_text_loc"
     )
 }
-#' Get the SQL like expression to extract user geolocation variables 
+# Get the SQL like expression to extract user geolocation variables 
 get_user_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
     paste("coalesce("
@@ -91,7 +91,7 @@ get_user_location_var <- function(varname) {
       , sep = ""
     )  
 }
-#' Get user geolocation used cols 
+# Get user geolocation used cols 
 get_user_location_columns <- function(table) {
   if(table == "tweet")
     list(
@@ -115,8 +115,7 @@ get_user_location_columns <- function(table) {
       )
 }
 
-#' Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
-#' @export
+# Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
 get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL, params = NULL) {
  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
  # Creating parameters from configuration file as java objects
@@ -183,7 +182,7 @@ get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col =
 }
 
 
-#' Get raw countries from file
+# Get raw countries from file
 get_raw_countries <- function() {
   df <- readxl::read_excel(get_countries_path()) 
   names(df)<-make.names(names(df),unique = TRUE)
@@ -195,7 +194,7 @@ get_raw_countries <- function() {
 }
 
 
-#' Getting a list of regions, sub regions and countries for using as a select
+# Getting a list of regions, sub regions and countries for using as a select
 get_country_items <- function(order = "level") {
   `%>%` <- magrittr::`%>%`
   
@@ -321,26 +320,26 @@ get_country_items <- function(order = "level") {
   }
 }
 
-#' Get country codes
-#' usage 
-#' map <- get_country_code_map()
-#' map[["FR"]] 
+# Get country codes
+# usage 
+# map <- get_country_code_map()
+# map[["FR"]] 
 get_country_code_map <- function() {
   regions <- get_country_items()  
   countries <- regions[sapply(regions, function(i) i$level == 3)]
   return(setNames(sapply(countries, function(r) r$name), sapply(countries, function(r) r$code)))
 }
 
-#' Get country codes by name
-#' usage 
-#' map <- get_country_codes_by_name()
-#' map[["Asia"]] 
+# Get country codes by name
+# usage 
+# map <- get_country_codes_by_name()
+# map[["Asia"]] 
 get_country_codes_by_name <- function() {
   regions <- get_country_items()  
   return(setNames(sapply(regions, function(r) r$code), sapply(regions, function(r) r$name)))
 }
 
-#' Get regions data as dataframe
+# Get regions data as dataframe
 get_regions_df <- function() {
   regions <- get_country_items()
   data.frame(
@@ -354,10 +353,10 @@ get_regions_df <- function() {
   ) 
 }
 
-#' Get country indexes
-#' usage 
-#' map <- get_country_index_map()
-#' map[["FR"]] 
+# Get country indexes
+# usage 
+# map <- get_country_index_map()
+# map[["FR"]] 
 get_country_index_map <- function() {
   regions <- get_country_items()
   all_index <- 1:length(regions) 
@@ -366,6 +365,7 @@ get_country_index_map <- function() {
 }
 
 #' Dowloading and indexing a fresh version of geonames database from the  provided URL
+#' @export
 update_geonames <- function(tasks) {
   tasks <- tryCatch({
     tasks <- update_geonames_task(tasks, "running", "downloading", start = TRUE)

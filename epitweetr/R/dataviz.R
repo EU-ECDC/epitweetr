@@ -1,14 +1,32 @@
 
-#' Generates the trend line report with alerts
-#'
-#' @param s_topic 
-#' @param s_country 
-#' @param date_type 
-#' @param geo_country_code 
-#' @param date_min 
-#' @param date_max 
-#' @export
-#'
+#' @title Plots the trendline report of epitweetr dashboard
+#' @description Generates a trendline chart by region, for one topic, including alerts using the reweightes version of the EARS algorithm
+#' @param topic character(1) containing the topic for the report  
+#' @param countries PARAM_DESCRIPTION, Default: c(1)
+#' @param date_type PARAM_DESCRIPTION, Default: 'created_date'
+#' @param date_min PARAM_DESCRIPTION, Default: as.Date("1900-01-01")
+#' @param date_max PARAM_DESCRIPTION, Default: as.Date("2100-01-01")
+#' @param with_retweets PARAM_DESCRIPTION, Default: FALSE
+#' @param location_type PARAM_DESCRIPTION, Default: 'tweet'
+#' @param alpha PARAM_DESCRIPTION, Default: 0.025
+#' @param alpha_outlier PARAM_DESCRIPTION, Default: 0.05
+#' @param k_decay PARAM_DESCRIPTION, Default: 4
+#' @param no_historic PARAM_DESCRIPTION, Default: 7
+#' @param bonferroni_correction PARAM_DESCRIPTION, Default: FALSE
+#' @param same_weekday_baseline PARAM_DESCRIPTION, Default: FALSE
+#' @return OUTPUT_DESCRIPTION
+#' @details DETAILS
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'  #EXAMPLE1
+#'  }
+#' }
+#' @seealso 
+#'  \code{\link[stringr]{str_replace}}
+#' @rdname trend_line
+#' @export 
+#' @importFrom stringr str_replace_all
 trend_line <- function(
   topic
   , countries=c(1)
@@ -635,14 +653,14 @@ create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01
 
 
 
-#' Function to get the font family
+# Helper function to get the font family
 get_font_family <- function(){
   if(.Platform$OS.type == "windows" && is.null(windowsFonts("Helvetica")[[1]]))
     windowsFonts(Helvetica = windowsFont("Helvetica"))
   "Helvetica"
 }
 
-#' Returns an empty chart with provided message on title
+# Returns an empty chart with provided message on title
 get_empty_chart <- function(title) {
   chart <- ggplot2::ggplot() + ggplot2::theme_minimal(base_family = get_font_family() ) + ggplot2::labs(title = title)  
   df <- chart$data

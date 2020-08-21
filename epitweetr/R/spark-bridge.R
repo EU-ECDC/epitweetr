@@ -1,3 +1,4 @@
+# get the java path using JAVA_HOME if set
 java_path <-  function() {
   if(Sys.getenv("JAVA_HOME")=="") 
     "java"
@@ -6,6 +7,8 @@ java_path <-  function() {
   else
     paste("\"", Sys.getenv("JAVA_HOME"), "/bin/" , "java\"", sep = "")
 }
+
+# Setting the blas environment variables depending on chosen configuration and OS
 set_blas_env <- function() {
   if(.Platform$OS.type == "windows") {
     if(conf$use_mkl && file.exists("C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/redist/intel64_win/mkl")) {
@@ -15,6 +18,7 @@ set_blas_env <- function() {
   }
 }
 
+# Getting java options for using MKL BLAS if setup
 get_blas_java_opt <- function() {
   if(.Platform$OS.type == "windows") {
     if(conf$use_mkl && file.exists("C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/redist/intel64_win/mkl")) {
@@ -25,7 +29,7 @@ get_blas_java_opt <- function() {
 
 }
 
-#' getting a string for passing  languages as paramater for system calls
+# getting a string for passing  languages as paramater for system calls
 conf_languages_as_arg <- function() {
   paste(
     "langCodes \"", paste(lapply(conf$languages, function(l) l$code), collapse = ","), "\" ",
@@ -35,7 +39,7 @@ conf_languages_as_arg <- function() {
   )
 }
 
-#' getting a string for passing geonames as paramater for system calls
+# getting a string for passing geonames as paramater for system calls
 conf_geonames_as_arg <- function() {
   return(
     paste(
@@ -47,7 +51,7 @@ conf_geonames_as_arg <- function() {
 }
 
 
-#' making a spark call via system call
+# making a spark call via system call
 spark_job <- function(args) {
   set_blas_env()
   cmd <- paste(
@@ -81,7 +85,7 @@ spark_job <- function(args) {
 }
 
 
-#' getting a spark data frame by piping a system call
+# getting a spark data frame by piping a system call
 spark_df <- function(args, handler = NULL) {
   set_blas_env()
   half_mem <- paste(ceiling(as.integer(gsub("[^0-9]*", "", conf$spark_memory))/2), gsub("[0-9]*", "", conf$spark_memory), sep = "")
@@ -172,7 +176,7 @@ download_dependencies <- function(tasks = get_tasks()) {
   return(tasks)
 }
 
-#' Download SBT dependencies from maven (scala, spark, lucene, netlib (BLAS), httpclient) into package folder
+# Download SBT dependencies from maven (scala, spark, lucene, netlib (BLAS), httpclient) into package folder
 download_sbt_dependencies <- function(tasks = get_tasks()) {
   if(!exists("maven_repo", where = tasks$dependencies)) stop("Before running detect loop you have to manually update 'Java/Scala dependencies' to set the used repository")
   con <- file(get_sbt_file_dep_path())
@@ -209,8 +213,8 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
   return(tasks)
 }
 
-#' Download winutils (necessary for spark on Windows, 
-#' for more details on winutils please see https://issues.apache.org/jira/browse/HADOOP-13223 and https://issues.apache.org/jira/browse/HADOOP-16816
+# Download winutils (necessary for spark on Windows, 
+# for more details on winutils please see https://issues.apache.org/jira/browse/HADOOP-13223 and https://issues.apache.org/jira/browse/HADOOP-16816
 download_winutils <- function(tasks = get_tasks()) {
   if(!dir.exists(get_hadoop_home_path())) dir.create(get_hadoop_home_path())
   if(!dir.exists(file.path(get_hadoop_home_path(), "bin"))) dir.create(file.path(get_hadoop_home_path(), "bin"))

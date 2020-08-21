@@ -1,29 +1,27 @@
-#' Registers the search runner for the current process
-#' @export
+# Registers the search runner for the current process
 register_search_runner <- function() {
   stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
   register_runner("search")
 }
 
 
-#' Registers the detect runner for the current process
-#' @export
+# Registers the detect runner for the current process
 register_detect_runner <- function() {
   stop_if_no_config(paste("Cannot check running status for detect without configuration setup")) 
   register_runner("detect")
 }
 
-#' Register search runner task and start it
-#' @export
+# Register search runner task and start it
 register_search_runner_task <- function() {
   register_runner_task("search")
 }
-#' Register detect runner task and start it
-#' @export
+
+# Register detect runner task and start it
 register_detect_runner_task <- function() {
   register_runner_task("detect")
 }
-#' Register task and start it
+
+# Register task and start it
 register_runner_task <- function(task_name) {
   stop_if_no_config(paste("Cannot register scheduled task without configuration setup")) 
   
@@ -56,21 +54,19 @@ register_runner_task <- function(task_name) {
 		   
 }
 
-#' Get search runner execution status
-#' @export
+# Get search runner execution status
 is_search_running <- function() {
   stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
   get_running_task_pid("search")>=0
 }
 
-#' Get search runner execution status
-#' @export
+# Get search runner execution status
 is_detect_running <- function() {
   stop_if_no_config(paste("Cannot check detect batch status for search without configuration setup")) 
   get_running_task_pid("detect")>=0
 }
 
-#' Get runner active PID
+# Get runner active PID
 get_running_task_pid <- function(name) {
   pid_path <- paste(conf$data_dir, "/",name, ".PID", sep = "")
   if(file.exists(pid_path)) {
@@ -95,7 +91,7 @@ get_running_task_pid <- function(name) {
 }
 
 
-#' Register as the scheduler runner if there is no other scheduler running or quit otherwise
+# Register as the scheduler runner if there is no other scheduler running or quit otherwise
 register_runner <- function(name) {
   stop_if_no_config(paste("Cannot register ", name ," without configuration setup")) 
   # getting current 
@@ -260,8 +256,8 @@ get_tasks <- function(statuses = list()) {
     tasks[sapply(tasks, function(t) t$status %in% statuses)]
 }
 
-#' Getting the scheduler task lists with scheduled_for times updates.
-#' pan If tasks file exits it will read it, or get default tasks otherwise
+# Getting the scheduler task lists with scheduled_for times updates.
+# pan If tasks file exits it will read it, or get default tasks otherwise
 plan_tasks <-function(statuses = list()) {
   tasks <- get_tasks(statuses)
   # Updating next execution time for each task
@@ -321,7 +317,7 @@ plan_tasks <-function(statuses = list()) {
     tasks[sapply(tasks, function(t) t$status %in% statuses)]
 }
 
-#' get day slots
+# get day slots
 get_task_day_slots <- function(task) {
   span <- conf$schedule_span
   start_hour <- conf$schedule_start_hour
@@ -332,9 +328,8 @@ get_task_day_slots <- function(task) {
   day_slots <- hour_slots * 60 * 60 + (as.POSIXlt(as.Date(task$scheduled_for)))
   day_slots
 }
-#' saves the provided task lists to the data directory.
-#'
-#' @export
+
+# saves the provided task lists to the data directory.
 save_tasks <- function(tasks) {
   stop_if_no_config()
   tasks_path <- get_tasks_path()
@@ -415,7 +410,7 @@ detect_loop <- function(data_dir = NA) {
 
 }
 
-#Check if provided task is in pending status
+# Check if provided task is in pending status
 in_pending_status <- function(task) {
   (
     (is.na(task$status) || task$status %in% c("pending", "success", "failure", "aborted")) 
@@ -449,7 +444,7 @@ in_pending_status <- function(task) {
   )  
 }
 
-#Check if provided task is in pending status
+# Check if provided task is in requested status
 in_requested_status <- function(task) {
   (
     (
@@ -483,7 +478,7 @@ in_requested_status <- function(task) {
 
 
 
-#' Updating geonames task for reporting progress on geonames refresh
+# Updating geonames task for reporting progress on geonames refresh
 update_geonames_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
   if(start) tasks$geonames$started_on = Sys.time() 
   if(end) tasks$geonames$end_on = Sys.time() 
@@ -493,7 +488,7 @@ update_geonames_task <- function(tasks, status, message, start = FALSE, end = FA
   return(tasks)
 }
 
-#' Updating task for reporting progress on languages refresh
+# Updating task for reporting progress on languages refresh
 update_languages_task <- function(tasks, status, message, start = FALSE, end = FALSE, lang_code = character(0), lang_start = FALSE, lang_done = FALSE) {
   if(start) tasks$languages$started_on = Sys.time() 
   if(end) tasks$languages$end_on = Sys.time()
@@ -508,7 +503,7 @@ update_languages_task <- function(tasks, status, message, start = FALSE, end = F
 }
 
 
-#' Updating geotag task for reporting progress on geotagging
+# Updating geotag task for reporting progress on geotagging
 update_geotag_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
   if(start) tasks$geotag$started_on = Sys.time() 
   if(end) tasks$geotag$end_on = Sys.time() 
@@ -519,7 +514,7 @@ update_geotag_task <- function(tasks, status, message, start = FALSE, end = FALS
 
 }
 
-#' Updating aggregate task for reporting progress on aggregation
+# Updating aggregate task for reporting progress on aggregation
 update_aggregate_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
   if(start) tasks$aggregate$started_on = Sys.time() 
   if(end) tasks$aggregate$end_on = Sys.time() 
@@ -530,7 +525,7 @@ update_aggregate_task <- function(tasks, status, message, start = FALSE, end = F
 
 }
 
-#' Updating alert task for reporting progress on alert detection
+# Updating alert task for reporting progress on alert detection
 update_alerts_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
   if(start) tasks$alerts$started_on = Sys.time() 
   if(end) tasks$alerts$end_on = Sys.time() 
@@ -541,7 +536,7 @@ update_alerts_task <- function(tasks, status, message, start = FALSE, end = FALS
 }
 
 
-#' Updating dependencies task for reporting progress on downloading java & scala dependencies
+# Updating dependencies task for reporting progress on downloading java & scala dependencies
 update_dep_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
   if(start) tasks$dependencies$started_on = Sys.time() 
   if(end) tasks$dependencies$end_on = Sys.time() 

@@ -1,5 +1,4 @@
-#' Load stop words
-#' @export
+# Load stop words
 get_stop_words <- function(language_code) {
   #If language stopwords are already cached we retrun them
   stop_id <- paste("stop_words", language_code, sep  = "_")
@@ -25,7 +24,7 @@ get_stop_words <- function(language_code) {
   }
 }
 
-#' calculate top words for a text dataframe
+# calculate top words for a text dataframe
 pipe_top_words <- function(df, text_col, lang_col, topic_word_to_exclude, max_words = 1000, con_out, page_size) {
   `%>%` <- magrittr::`%>%`
   # Tokenisation and counting top maw_words popular words

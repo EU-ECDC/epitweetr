@@ -1141,7 +1141,7 @@ epitweetr_app <- function(data_dir = NA) {
   shiny::shinyApp(ui = ui, server = server, options = options(shiny.fullstacktrace = TRUE))
 }
 
-#' Get default data for dashoard
+# Get default data for dashoard
 refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   e$topics <- {
     codes <- unique(sapply(conf$topics, function(t) t$topic))
@@ -1181,7 +1181,7 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   return(e)
 }
 
-#' Get or update default data for config page 
+# Get or update default data for config page 
 refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks", "geo")) {
   # Refreshing configuration
   setup_config(data_dir = conf$data_dir, ignore_properties = TRUE)

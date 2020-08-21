@@ -210,7 +210,7 @@ epitweetr_app("data_dir")
 -   On the configuration page of the Shiny app, in the manual tasks of the "Detection pipeline", click on "Run dependencies" <p style="color:red">Francsico, is this only for Windows?</span>, "Run geonames" and "Run languages" (their status will change to “pending”). This downloads the elements needed for the detection pipeline.
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("img/Update detection pipeline.png")
+knitr::include_graphics("img/update detection pipeline.png")
 ```
 
 -   Set the Twitter authentication using a Twitter account or a Twitter developer app, see section *Collection of tweets>Twitter authentication* for more details

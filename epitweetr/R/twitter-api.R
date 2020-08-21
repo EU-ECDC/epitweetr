@@ -1,13 +1,13 @@
-#' Twitter base enpoint for direct api calls
+# Twitter base enpoint for direct api calls
 t_endpoint <- "https://api.twitter.com/1.1/"
 
-#' Twitter endpoint for getting rate limit status
+# Twitter endpoint for getting rate limit status
 ratelimit_endpoint <- paste(t_endpoint, "application/rate_limit_status.json", sep = "")
 
-#' Twitter endpoint for searching tweets
+# Twitter endpoint for searching tweets
 search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
 
-#' Get twitter token
+# Get twitter token
 get_token <- function() {
   if(exists("access_token", where = conf$twitter_auth) && conf$twitter_auth$access_token!="") {  
     if(file.exists("~/.rtweet_token.rds")) file.remove("~/.rtweet_token.rds")
@@ -32,8 +32,8 @@ get_token <- function() {
   return(token)
 }
 
-#' Execute a get request on twitter
-#' It wil internally deal with token génération and rate limits 
+# Execute a get request on twitter
+# It wil internally deal with token génération and rate limits 
 twitter_get <- function(url, i = 0, retries = 20) {
   if(is.null(conf$token) || !exists("token", where = conf)) conf$token <- get_token()
   res <-  tryCatch({

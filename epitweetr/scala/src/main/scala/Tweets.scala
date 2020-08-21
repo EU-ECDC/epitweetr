@@ -316,7 +316,7 @@ object Tweets {
       .map(_.take(10))
       .distinct
       .sortWith(_ < _)
-      ).last
+      ).toSeq.lastOption
     
     val files = (storage.getNode(sourcePath)
       .list(recursive = true)
@@ -324,7 +324,7 @@ object Tweets {
       .map(_.path.replace("\\", "/"))
       .map(p => p.split("/").reverse)
       .map(p => (p(0).replace(".json.gz", "")))
-      .filter(p => p.size > 9 && p.take(10) >= lastGeolocatedDay)
+      .filter(p => p.size > 9 && p.take(10) >= lastGeolocatedDay.getOrElse("0000.00.00"))
       .distinct
       .sortWith(_ < _)
       .toArray
@@ -338,7 +338,7 @@ object Tweets {
           , langs=langs
           , parallelism = parallelism
           , pathFilter = Some(s".*${file.replace(".", "\\.")}.*")
-          , ignoreIdsOn = if(file.take(10) == lastGeolocatedDay) Some(s"$destPath/${file.take(7)}/$file.json.gz") else None
+          , ignoreIdsOn = if(file.take(10) == lastGeolocatedDay.getOrElse("0000.00.00")) Some(s"$destPath/${file.take(7)}/$file.json.gz") else None
           )
           .geolocate(
             textLangCols = textLangCols
