@@ -104,7 +104,7 @@ The CPU and RAM usage can be configured on the Shiny app configuration page (see
 
 ## Installation
 
-epitweetr is conceived to be platform independent,  working both on Windows and Linux (Mac is untested) <p style="color:red">Francisco, do we keep this in?</span>. We recommend that you use epitweetr on a computer that can be run continuously. You can switch the computer off, but you may miss some tweets if the downtime is large enough, which will have implications for the alert detection. Before using epitweetr the following items need to be installed:
+epitweetr is conceived to be platform independent,  working both on Windows and Linux (Mac is untested). We recommend that you use epitweetr on a computer that can be run continuously. You can switch the computer off, but you may miss some tweets if the downtime is large enough, which will have implications for the alert detection. Before using epitweetr the following items need to be installed:
 
 ### Prerequisites for running epitweetr
 
@@ -178,9 +178,6 @@ Sys.getenv("JAVA_HOME")
 
 If the command returns Null, then you will need to set the Java Home environment variable, for your OS, please see your specific OS instructions.
 
-<p style="color:red">**CHECK with Francisco if this is still valid:**</p><p style="color:blue">**Yes it is:**</p>
-
-
 The first time you run the application if the tool cannot identify a secure password store provided by the operating system, you will see a pop-up window requesting a keyring password (Linux and Mac). This is a password necessary for storing encrypted Twitter credentials. Please choose a strong password and remember it. You will be asked for this password each time you run the tool. You can avoid this by setting a system environment variable named ecdc\_twitter\_tool\_kr\_password containing the chosen password.
 
 #### Launching the epitweetr Shiny app
@@ -207,7 +204,7 @@ Here there is a short version of steps to follow:
 library(epitweetr)
 epitweetr_app("data_dir")
 ```
--   On the configuration page of the Shiny app, in the manual tasks of the "Detection pipeline", click on "Run dependencies" <p style="color:red">Francsico, is this only for Windows?</span>, "Run geonames" and "Run languages" (their status will change to “pending”). This downloads the elements needed for the detection pipeline.
+-   On the configuration page of the Shiny app, in the manual tasks of the "Detection pipeline", click on "Run dependencies", "Run geonames" and "Run languages" (their status will change to “pending”). This downloads the elements needed for the detection pipeline.
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/Update detection pipeline.png")
@@ -229,7 +226,7 @@ library(epitweetr)
 search_loop("data_dir")
 ```
 
-    -   You can confirm that the tweet collection is running if the "Tweet Search" status is "Running" in the Shiny app configuration page.
+   -   You can confirm that the tweet collection is running if the "Tweet Search" status is "Running" on the Shiny app configuration page.
 
 -   Activate the detection pipeline:
 
@@ -249,7 +246,7 @@ detect_loop("data_dir")
 
 -   You will be able to visualise tweets after the aggregate step in the detection pipeline table on the Shiny app configuration page is finished and if "Tweet search" is activated.
 
--   You can start working with the generated signals. Happy signal detection!
+-   You can start working with the generated signals. **Happy signal detection!**
 
 For more details you can go through the following section *"How does it work? General architecture behind epitweetr"*, it outlines the underlying processes behind the tweet collection and the signal detection. Also the section *"The interactive Shiny application (Shiny app)>The configuration page"* describes the different settings on the configuration page.
 
@@ -287,7 +284,7 @@ You have two options for authentication to collect tweets, using a **Twitter acc
 
     -   The rtweet package will send a request to Twitter, so it can access your Twitter account on your behalf
 
-    -   A pop-up window will appear <span style="color:red"> Francisco is this still applicable? I don't remember a pop-up window. I would also like to take a screenshot, but I am not sure if there is a problem on the config page. Should some of the text change if you click on Twitter account vs. Twitter developer app? </span>,<span style="color:blue">Yes it is appluicable, you should see it when you save your properties using that   uthentication. To force it you can remove the token.Rds file on your ~/rtweet folder</span>  where you enter your Twitter user name and password and then the created token will validate the fact that the application can access Twitter on your behalf. You will send this token each time you access tweets.
+    -   A pop-up window will appear where you enter your Twitter user name and password and then the created token will validate the fact that the application can access Twitter on your behalf. You will send this token each time you access tweets.
 
 -   Using a Twitter developer app: via epitweetr (app authentication)
 
@@ -303,7 +300,7 @@ You have two options for authentication to collect tweets, using a **Twitter acc
 
         -   With this information epitweetr can request a token at any time directly to Twitter. The advantage of this method is that the token is not connected to any user information and tweets are returned independently of any user context.
         
-```{r echo=FALSE, fig.cap="", out.width = '80%'}
+```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/Twitter authentication dev app.png")
 ```
 
@@ -456,9 +453,9 @@ knitr::include_graphics("img/config languages.png")
 
 A minimum score can be globally set in the general settings on the configuration page to reduce the number of false positives (see image). This is the “geolocation threshold”. All geolocations with a smaller score than the geolocation threshold will be discarded by the algorithm as tweet location. If there is more than one match over the minimum score, then the match with the highest score will be chosen.
 
-The threshold is empirically chosen and can be evaluated against a human read of tweets and tweet locations, on the geolo tag evaluation tab.
+The threshold is empirically chosen and can be evaluated against a human read of tweets and tweet locations, on the geotag evaluation tab.
 
-```{r echo=FALSE, fig.cap="", out.width = '80%'}
+```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/geolocation threshold.png")
 ```
 
@@ -470,7 +467,7 @@ If user location information provided by the API is not available, then epitweet
 
 #### Stored geolocated tweet information
 
-The geolocation of the match is stored as a country code (using the ISO 3166 standard) and a longitude and latitude associated with the exact geolocation. This is stored in the aggregated data (see section <span style="color:red">x</span>).
+The geolocation of the match is stored as a country code (using the ISO 3166 standard) and a longitude and latitude associated with the exact geolocation. This is stored in the aggregated data.
 
 ### Most frequent words found in tweets
 
@@ -482,17 +479,25 @@ Note that, differently to the other visualisation figures, the most frequent wor
 
 #### Aggregation of data
 
-The geolocation process gives rise to a geolocated Rds file (a native R format), where the number of tweets or retweets by topic, date, tweet text geolocation longitude and latitude, user geolocation longitude and latitude is stored. Each of these rows also has the country associated with the tweet text geolocation and the country associated with the user geolocation (see partial screenshot below). Note that tweets without geolocation information are also included. ![][9]
-<span style="color:red">Esther update screenshot and review this section when epitweetr working </span>
-During the geolocation process, the country\_counts Rds file is also created, which is used to create the trendline in the Shiny app. This is a smaller Rds file, without the longitude and latitude information, and includes the number of tweets by hour within a day, by country (according to tweet location or user location), topic (see screenshot), and whether a tweet was a retweet or not. The known\_retweets and known\_original fields give the number of tweets or retweets from a list of “specific users”. See section <span style="color:red">x</span> for more information on “specific users”.
+The geolocation process gives rise to a geolocated Rds file (a native R format), where the number of tweets or retweets by topic, date, tweet text geolocation longitude and latitude, user geolocation longitude and latitude is stored. Each of these rows also has the country associated with the tweet text geolocation and the country associated with the user geolocation (see partial screenshot below). Note that tweets without geolocation information are also included.
 
-![][10]
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("img/geolocated.png")
+```
+
+During the geolocation process, the country\_counts Rds file is also created, which is used to create the trendline in the Shiny app. This is a smaller Rds file, without the longitude and latitude information, and includes the number of tweets by hour within a day, by country (according to tweet location or user location), topic (see screenshot), and whether a tweet was a retweet or not. The known\_retweets and known\_original fields give the number of tweets or retweets from a list of “important users”. See section <span style="color:red">x</span> for more information on “important users”.
+
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("img/country counts.png")
+```
 
 Again, here tweets without geolocation are also included. Including tweets without geolocation information enables you to view all tweets when selecting “world” as a region, regardless if geolocation was successful or not.
 
 The aggregation by top words is stored in topwords.Rds, and displays the number of tweets or retweets (or both) by topic, by top word, by date, by country of tweet location and if a tweet was a retweet or not (see screenshot).
-<span style="color:red">Esther update screenshot and review this section when epitweetr working </span>
-![][11]
+
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("img/topwords.png")
+```
 
 ### Signal detection
 
@@ -514,7 +519,8 @@ where $t_{1 - a}(k - 1)$ denotes the 1 − α quantile of the t-distribution wit
 
 #### Downweighting previous signals
 <span style="color:red">Michael to review this section</span>
-If previous signals are included without modification in the baseline to calculate the mean and standard deviation for the signal detection, then the mean and standard deviation will be larger, which may mean important current signals will not be detected. To address this, epitweetr has an option <span style="color:red">(Esther check if it is optional or default) </span> to downweight previous signals, so that they are taken into account in the signal detection process and thus the mean and standard deviation are lower. Data points that are not signals are given a weight of "1" and signals are given a weight lower than one, which is lower the greater the difference between the signal and the threshold is <span style="color:red">It is not 100% clear to me if the threshold here is the same as the threshold as calculated by the baseline, can you confirm?</span>. This is an approach used in the Farrington algorithm <span style="color:red">Link to Farrington reference </span>. Details on the downweighting can be found in Appendix 1 of this user documentation.
+If previous signals are included without modification in the baseline to calculate the mean and standard deviation for the signal detection, then the mean and standard deviation will be larger, which may mean important current signals will not be detected. To address this, epitweetr downweights previous signals, so that they are taken into account in the signal detection process and thus the mean and standard deviation are lower. Data points that are not signals are given a weight of "1" and signals are given a weight lower than one, which is lower the greater the difference between the signal and the threshold is <span style="color:red">It is not 100% clear to me if the threshold here is the same as the threshold as calculated by the baseline, can you confirm?</span>. This is an approach used in the Farrington algorithm <span style="color:red">Link to Farrington reference </span>. Details on the downweighting can be found in Appendix 1 of this user documentation.
+
 
 #### Timing of signal detection
 
