@@ -1,6 +1,31 @@
 
-#' Search for all tweets on topics defined on configuration
-#' @export
+#' @title Runs the search loop
+#' @description Infinite loop ensuring the permanent collection of tweets 
+#' @param data_dir path to the 'data directory' containing application settings, models and collected tweets.
+#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, Default: NA
+#' @return nothing
+#' @details The detect loop is a purely R function designed for downloading tweets from the Twitter search API. It can handle several topics ensuring that all of them will be downloaded fairly using a 
+#' round-robin philosophy and respecting twitter API rate-limits.
+#'
+#' The progress of this tasks is reported on the 'topics.json' file which is read or created by this function. This function will try to collect tweets respecting a 'collect_span' window
+#' in minutes which is defined on the shiny app and defaults to 60 minutes.
+#'
+#' To see more details about the collection algorithm please see epitwitter vignette.
+#'
+#' In order to work, this tasks needs Twitter credentials which can be set on the shiny app or using \code{\link{set_twitter_app_auth}}
+#'
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    #Running the search loop
+#'    library(epitweetr)
+#'    search_loop('/home/epitweetr/data')
+#'  }
+#' }
+#' @rdname search_loop
+#' @seealso
+#' \code{\link{set_twitter_app_auth}}
+#' @export 
 search_loop <-  function(data_dir = NA) {
   if(is.na(data_dir) )
     setup_config_if_not_already()

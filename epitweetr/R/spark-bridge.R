@@ -145,10 +145,39 @@ spark_df <- function(args, handler = NULL) {
   df
 }
 
-#' Install java & scala dependencies, which consists on the following tasks
-#'  - Download jar dependencies from configuration maven repo to project data folder. This includes, scala, spark, lucene. Packages to be downloaded are defined on package file 'sbt-deps.txt'
-#'  - Download winutils from configuration url to project data folder. For more details on winutils please see https://issues.apache.org/jira/browse/HADOOP-13223 and https://issues.apache.org/jira/browse/HADOOP-16816
-#' @export
+#' @title Updates JAVA dependencies
+#' @description Download java dependencies of the application mainly related to Apache SPARK and Lucene,  
+#' @param tasks tasks object for reporting progress and error messages, Default: get_tasks()
+#' @return The list of tasks updated with produced messages
+#' @details Run a one shot task consinsting on downloading java & scala dependencies, this is separated on the following subtasks
+#' \itemize{
+#'   \item{Download jar dependencies from configuration maven repo to project data folder. This includes, scala, spark, lucene. Packages to be downloaded are defined on package file 'sbt-deps.txt'}
+#'   \item{Download winutils from configuration url to project data folder. For more details on winutils please see 
+#'     \url{https://issues.apache.org/jira/browse/HADOOP-13223} and \url{https://issues.apache.org/jira/browse/HADOOP-16816}
+#'   }
+#' }
+#'
+#' The URLs to download the JAR dependencies (maven package manager) and winutils are ser on the configuration page of the shiny app.
+#'
+#' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    library(epitweetr)
+#'    # setting up the data folder
+#'    setup_config("/home/epitweetr/data")
+#'
+#'    # geolocating last tweets
+#'    tasks <- download_dependencies()
+#'  }
+#' }
+#' @rdname download_dependencies
+#' @seealso
+#'  \code{\link{detect_loop}}
+#'
+#'  \code{\link{get_tasks}}
+#'  
+#' @export 
 download_dependencies <- function(tasks = get_tasks()) {
   tasks <- tryCatch({
     tasks <- update_dep_task(tasks, "running", "getting sbt dependencies", start = TRUE)

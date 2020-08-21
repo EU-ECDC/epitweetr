@@ -1,6 +1,36 @@
 
-#' Running the epitwitter app
-#' @export
+#' @title Run the epitweetr Shiny App
+#' @description Open the epitweetr Shiny app, used to setup the search loop, the detect loop and to see the reports. 
+#' @param data_dir path to the 'data directory' containing application settings, models and collected tweets.
+#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, Default: NA
+#' @return the shiny server object containing the launched application
+#' @details The epitweetr app is the user entry point to the epitweetr package. This application will help the user to setup the tweet collection process, manage all settings, 
+#' see the interactive dashboard visualisations, export thel to markdown or PDF, and setup the alert emails.
+#'
+#' All its fonctionality is described on the epitweetr vignette.
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    #Running the epitweetr app
+#'    library(epitweetr)
+#'    epitweetr_app('/home/epitweetr/data')
+#'  }
+#' }
+#' @seealso 
+#'  \code{\link{search_loop}}
+#' 
+#'  \code{\link{detect_tasks}}
+#' @rdname epitweetr_app
+#' @export 
+#' @importFrom shiny fluidPage fluidRow column selectInput h4 conditionalPanel dateRangeInput radioButtons checkboxInput sliderInput numericInput downloadButton h3 htmlOutput actionButton span textInput textAreaInput h2 passwordInput h5 fileInput uiOutput navbarPage tabPanel observe updateSliderInput updateDateRangeInput downloadHandler invalidateLater renderText observeEvent renderUI validate need shinyApp
+#' @importFrom plotly plotlyOutput renderPlotly ggplotly config layout
+#' @importFrom DT dataTableOutput renderDataTable datatable formatPercentage replaceData dataTableProxy
+#' @importFrom rmarkdown render
+#' @importFrom magrittr `%>%`
+#' @importFrom stringr str_replace_all
+#' @importFrom grDevices png
+#' @importFrom ggplot2 ggsave
+#' @importFrom dplyr select
 epitweetr_app <- function(data_dir = NA) { 
   # Seting up configuration if not already done
   if(is.na(data_dir) )
