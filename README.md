@@ -1,6 +1,6 @@
-# epitweetr: Early detection of public health threats/events from Twitter data
+# epitweetr: Early detection of public health threats from Twitter data
 
-The epitweetr package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats/events through the detection of signals or unusual increase of the number of tweets for that time, place and topic. The epitweetr package was designed to focus on infectious diseases and health, and it can be extended to all hazards or other fields as well modifying the topics.
+The epitweetr package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats through the detection of signals or unusual increase of the number of tweets for that time, place and topic. The epitweetr package was designed to focus on infectious diseases and health, and it can be extended to all hazards or other fields by modifying the topics and keywords.
 
 epitweetr is designed to access Twitter standard search API, which returns a collection of relevant tweets, according to Twitter, matching a specified query. epitweetr uses this API to automatically collect tweets by topic, geolocalise the tweets, aggregate the tweets by time, place and topic and detect signals. Signals are detected when the number of tweets exceed the threshold of what is expected. The package also has a functionality to send email alerts for detected signals.
 
