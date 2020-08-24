@@ -42,7 +42,7 @@ register_runner_task <- function(task_name) {
         taskname = paste("epitweetr", task_name, "loop", sep = "_")
         , rscript = script
         , schedule = "HOUR"
-        , rscript_args = paste("\"", conf$data_dir,"\"")
+        , rscript_args = paste("\"", conf$data_dir,"\"", sep = "")
         , startdate =  tail(strsplit(shell("echo %DATE%", intern= T), " ")[[1]], 1)
         , schtasks_extra="/F"
       )
