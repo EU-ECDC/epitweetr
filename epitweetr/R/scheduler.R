@@ -105,11 +105,11 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
-#' @title Get the detect loop tasks status
-#' @description Reads the status of the detect loop tasks and update it with changed requested by the shiny app
-#' @param statuses chatacter vector for limiting the statuses of the returned tasks, Default: list()
-#' @return A named list containg all necessary information to run and monitor the detect loop tasks.
-#' @details After reading the tasks.json file and parsing it with jsonlite this function will update the necessary fields on the 
+#' @title Get the detect loop task status
+#' @description Reads the status of the detect loop tasks and updates it with changes requested by the Shiny app
+#' @param statuses Character vector for limiting the status of the returned tasks, default: list()
+#' @return A named list containing all necessary information to run and monitor the detect loop tasks.
+#' @details After reading the tasks.json file and parsing it with jsonlite this function will update the necessary fields in the 
 #' tasks for executing and monitoring them.
 #' @examples 
 #' \dontrun{
@@ -366,18 +366,18 @@ save_tasks <- function(tasks) {
 }
 
 #' @title Runs the detect loop
-#' @description Infinite loop ensuring the daily alert detection and email alerts 
-#' @param data_dir path to the 'data directory' containing application settings, models and collected tweets.
-#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, Default: NA
+#' @description Infinite loop ensuring the daily signal detection and email alerts 
+#' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
+#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
 #' @return nothing
-#' @details The detect loop is composed of thre 'one shoot tasks' \code{\link{download_dependencies}}, \code{\link{update_geonames}}, \code{\link{update_languages}} ensuring the system has
-#' all necessary comonents ans data to run and three recurrent tasks, \code{\link{geotag_tweets}}, \code{\link{aggregate_tweets}}, \code{\link{generate_alerts}}
+#' @details The detect loop is composed of three 'one shot tasks' \code{\link{download_dependencies}}, \code{\link{update_geonames}}, \code{\link{update_languages}} ensuring the system has
+#' all necessary components and data to run the three recurrent tasks, \code{\link{geotag_tweets}}, \code{\link{aggregate_tweets}}, \code{\link{generate_alerts}}
 #'
 #' The loop report progress on the 'tasks.json' file which is read or created by this function.
 #'
-#' The recurrent tasks are scheduled to be executed each 'detect span' minutes which is a parameter set on the shiny app.
+#' The recurrent tasks are scheduled to be executed each 'detect span' minutes, which is a parameter set on the Shiny app.
 #'
-#' If any of these tasks fails it will be retries three times before going to a aborted status. Aborted tasks can be relauched from the shiny app. 
+#' If any of these tasks fails it will be retried three times before going to a abort status. Aborted tasks can be relauched from the Shiny app. 
 #' @examples 
 #' \dontrun{
 #' if(interactive()){

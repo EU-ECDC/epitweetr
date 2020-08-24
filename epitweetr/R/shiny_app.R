@@ -1,13 +1,13 @@
 
-#' @title Run the epitweetr Shiny App
-#' @description Open the epitweetr Shiny app, used to setup the search loop, the detect loop and to see the reports. 
-#' @param data_dir path to the 'data directory' containing application settings, models and collected tweets.
-#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, Default: NA
-#' @return the shiny server object containing the launched application
+#' @title Run the epitweetr Shiny app
+#' @description Open the epitweetr Shiny app, used to setup the search loop, the detect loop and to visualise the reports. 
+#' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
+#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
+#' @return The Shiny server object containing the launched application
 #' @details The epitweetr app is the user entry point to the epitweetr package. This application will help the user to setup the tweet collection process, manage all settings, 
-#' see the interactive dashboard visualisations, export thel to markdown or PDF, and setup the alert emails.
+#' see the interactive dashboard visualisations, export them to Markdown or PDF, and setup the alert emails.
 #'
-#' All its fonctionality is described on the epitweetr vignette.
+#' All its functionality is described on the epitweetr vignette.
 #' @examples 
 #' \dontrun{
 #' if(interactive()){

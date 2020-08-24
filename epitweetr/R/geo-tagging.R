@@ -1,22 +1,22 @@
 #' @title Launches the geo-tagging loop
-#' @description This function will geoloacte all tweets before the current hour that has not been already geolocated
-#' @param tasks tasks object for reporting progress and error messages, Default: get_tasks()
+#' @description This function will geolocate all tweets before the current hour that has not been already geolocated
+#' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Geolocates tweets by collection date. And stores the result on the tweets/geolocated folder.
+#' @details Geolocates tweets by collection date. And stores the result in the tweets/geolocated folder.
 #' It starts from the last geolocated date until the last collected tweet. While running on a day that has been partially geolocated
-#' it will ignore tweets that has already been processed. 
+#' it will ignore tweets that have already been processed. 
 #'
-#' The gelocation is applied to several fields of tweets :text, original text (when retweet or quote), user description, user declared location, user biography, api location. For each field it will perform the following steps:
+#' The geolocation is applied to several fields of tweets: text, original text (if retweet or quote), user description, user declared location, user biography, API location. For each field it will perform the following steps:
 #' \itemize{
-#'   \item{Evaluate the part of the text which is more likely to be a location using a machine learning and language dependant model trained during \code{\link{update_languages}}}
-#'   \item{Match the selected text against a Lucene index of Geonames database build during \code{\link{update_geonames}}}
-#'   \item{Return the location with the higher matching score. for more information about the scoring process pleade refer to epitweetr vignette}
+#'   \item{Evaluate the part of the text which is more likely to be a location using a machine learning and language dependent model trained during \code{\link{update_languages}}}
+#'   \item{Match the selected text against a Lucene index of GeoNames database built during \code{\link{update_geonames}}}
+#'   \item{Return the location with the highest matching score. For more information about the scoring process pleade refer to the epitweetr vignette}
 #' }
 #'
 #' This algorithm has mainly been developed in SPARK. 
 #'
 #' A prerequisite to this function is that the search_loop must already have stored collected tweets in the search folder and that the tasks \code{\link{download_dependencies}}, 
-#' \code{\link{update_geonames}} and \code{\link{update_languages}} have successfully ran.
+#' \code{\link{update_geonames}} and \code{\link{update_languages}} have successfully been run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
 #' \dontrun{
@@ -195,17 +195,17 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 }
 
 
-#' @title Get a sample of latest tweets geolocates
-#' @description Get a sample of todays tweet for evaluatin geolocation threshold
-#' @param limit Size of the sample, Default: 1000
-#' @param text_col name of the tweet field to geolocate it should be one of the following ("text", "linked_text", "user_description", "user_location", "place_full_name", "linked_place_full_name"),
-#' Default: 'text'
-#' @param lang_col name of the tweet variable containing the language to evaluate. It should be one of the following ("lang", "linked_lang", NA), Default: NA
+#' @title Get a sample of latest tweet geolocations
+#' @description Get a sample of today's tweets for evaluation of geolocation threshold
+#' @param limit Size of the sample, default: 100
+#' @param text_col Name of the tweet field to geolocate it should be one of the following ("text", "linked_text", "user_description", "user_location", "place_full_name", "linked_place_full_name"),
+#' default: 'text'
+#' @param lang_col Name of the tweet variable containing the language to evaluate. It should be one of the following ("lang", "linked_lang", NA), default: NA
 #' @return Dataframe containing the sampled tweets and the geolocation metrics
-#' @details This function will take a sample of tweets collected on the current dat for testing the geolocation algorthm and giving the user the possibility to evaluate the optimal score.
+#' @details This function will take a sample of tweets collected on the current date for testing the geolocation algorithm and giving the user the possibility to evaluate the optimal score.
 #'
-#' In order to work this function needs that the search loop has run on the current day and that the tasks \code{\link{download_dependencies}}, 
-#' \code{\link{update_geonames}} and \code{\link{update_languages}} have successfully ran.
+#' In order for this function to work the search loop will have had to run on the current day and the tasks \code{\link{download_dependencies}}, 
+#' \code{\link{update_geonames}} and \code{\link{update_languages}} will have had to successfully been run.
 #' @examples 
 #' \dontrun{
 #' if(interactive()){
@@ -213,7 +213,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 #'    # setting up the data folder
 #'    setup_config("/home/epitweetr/data")
 #'
-#'    # geolocating todays tweets
+#'    # geolocating today's tweets
 #'    show(get_todays_sample_tweets())
 #'  }
 #' }
@@ -438,19 +438,19 @@ get_country_index_map <- function() {
   return(setNames(indexes, sapply(indexes, function(i) regions[[i]]$code)))
 }
 
-#' @title Updates the local copy of the Geonames database
-#' @description Dowloading and indexing a fresh version of geonames database from the provided URL
-#' @param tasks tasks object for reporting progress and error messages, Default: get_tasks()
+#' @title Updates the local copy of the GeoNames database
+#' @description Downloading and indexing a fresh version of the GeoNames database from the provided URL
+#' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Run a one shot task consinsting on downloading and indexing a local copy of the  \href{http://www.geonames.org/}{Geonames database}. 
-#' The GeoNames geographical database covers all countries and contains over eleven million placenames that are available Creative Commons Attribution 4.0 License. 
+#' @details Run a one shot task consisting of downloading and indexing a local copy of the  \href{http://www.geonames.org/}{Geonames database}. 
+#' The GeoNames geographical database covers all countries and contains over eleven million place names that are available; Creative Commons Attribution 4.0 License. 
 #'
-#' The url to download the database from is set on the configuration page of the shiny app.
+#' The URL to download the database from is set on the configuration page of the Shiny app.
 #'
-#' The indexing is developped in SPARK and Lucene
+#' The indexing is developed in SPARK and Lucene
 #'
 #' A prerequisite to this function is that the search_loop must already have stored collected tweets in the search folder and that the task \code{\link{download_dependencies}}
-#' has successfully ran.
+#' has been successfully run.
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
@@ -532,20 +532,20 @@ update_geonames <- function(tasks) {
 
  
 #' @title Updates local copies of languages
-#' @description Dowloading and indexing a fresh version of language models taggesd for update on the shiny App configuration page
-#' @param tasks tasks object for reporting progress and error messages, Default: get_tasks()
+#' @description Downloading and indexing a fresh version of language models tagged for update on the Shiny app configuration page
+#' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Run a one shot task consinsting on downloading and indexing a local fasttext \href{https://fasttext.cc/docs/en/crawl-vectors.html}{pretrained models}. 
-#' A fastext model is a collection of vectors for a language automatically produced scrolling a big corpus of text that can be used to capture the semantic of a word.
+#' @details Run a one shot task consisting on downloading and indexing a local fasttext \href{https://fasttext.cc/docs/en/crawl-vectors.html}{pretrained models}. 
+#' A fasttext model is a collection of vectors for a language automatically produced scrolling a big corpus of text that can be used to capture the semantic of a word.
 #'
-#' The url to download the vectors from are set on the configuration page of the shiny app.
+#' The URL to download the vectors from are set on the configuration page of the Shiny app.
 #'
-#' This task will also update SVM models to predict wether a word is a location that will be used on the geolocation process.
+#' This task will also update SVM models to predict whether a word is a location that will be used in the geolocation process.
 #'
-#' The indexing is developped in SPARK and Lucene.
+#' The indexing is developed in SPARK and Lucene.
 #'
 #' A prerequisite to this function is that the search_loop must already have stored collected tweets in the search folder and that the tasks \code{\link{download_dependencies}}
-#' and \code{\link{update_geonames}} have successfully ran.
+#' and \code{\link{update_geonames}} has been run successfully.
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 

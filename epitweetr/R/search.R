@@ -1,18 +1,18 @@
 
 #' @title Runs the search loop
 #' @description Infinite loop ensuring the permanent collection of tweets 
-#' @param data_dir path to the 'data directory' containing application settings, models and collected tweets.
+#' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, Default: NA
 #' @return nothing
-#' @details The detect loop is a purely R function designed for downloading tweets from the Twitter search API. It can handle several topics ensuring that all of them will be downloaded fairly using a 
-#' round-robin philosophy and respecting twitter API rate-limits.
+#' @details The detect loop is a pure R function designed for downloading tweets from the Twitter search API. It can handle several topics ensuring that all of them will be downloaded fairly using a 
+#' round-robin philosophy and respecting Twitter API rate-limits.
 #'
-#' The progress of this tasks is reported on the 'topics.json' file which is read or created by this function. This function will try to collect tweets respecting a 'collect_span' window
-#' in minutes which is defined on the shiny app and defaults to 60 minutes.
+#' The progress of this task is reported on the 'topics.json' file which is read or created by this function. This function will try to collect tweets respecting a 'collect_span' window
+#' in minutes, which is defined on the Shiny app and defaults to 60 minutes.
 #'
-#' To see more details about the collection algorithm please see epitwitter vignette.
+#' To see more details about the collection algorithm please see epitweetr vignette.
 #'
-#' In order to work, this tasks needs Twitter credentials which can be set on the shiny app or using \code{\link{set_twitter_app_auth}}
+#' In order to work, this task needs Twitter credentials, which can be set on the Shiny app or using \code{\link{set_twitter_app_auth}}
 #'
 #' @examples 
 #' \dontrun{
@@ -196,23 +196,23 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
 
 
 # @title get_plan S3 class constructor
-# @description Create a new get plan for importing tweets using the search api
-# @param expected_end character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the target end datetime of this plan
-# @param scheduled_for character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the expected datetime for next execution, Default: Sys.time()
-# @param start_on character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the datetime when this plan was fisrt executed, Default: NULL
-# @param end_on character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the datetime when this plan has finished, Default: NULL
-# @param max_id integer64, the newest tweet collected by this plan represented by its tweet id. This value is defined after the first successfull request is done and does not change on rquets, Default: NULL
-# @param since_id integer64 the oldest tweet that has currently been collected by this plan, this value is updated after each request , Default: NULL
-# @param since_target interger64, the oldest tweetèid that is expected to be obtained by this plan, this value is set as the max_id from the previous plan + 1 Default: NULL
-# @param results_span number of minutes after which this plan exires counting from start date , Default: 0
-# @param requests Integer, number of requets successfully executed Default: 0
-# @param progress Numeric, percentage of progress of current plan defined when since_target_id is known or when a request returns no more results., Default: 0
-# @return the get_plan object defined by input parameters
-# @details A plan is a S3 class representing a commitment to download tweets from the search API 
-# It targetsan spacific timeframe defined from the last tweet collected by the previous plan uf any an the last tweet collected on it firt request
-# This commitment will be valid during a period of time defined from the time of it first execution until the end_on parameter
-# a plan will perform several requets to the search API and each time a request is performed the number of requets will be inecreased.
-# The field schedfuled_for indicates the time when the next request is expoected to be executed.
+# @description Create a new 'get plan' for importing tweets using the Search API
+# @param expected_end Character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the target end datetime of this plan
+# @param scheduled_for Character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the expected datetime for next execution, default: Sys.time()
+# @param start_on Character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the datetime when this plan was first executed, default: NULL
+# @param end_on Character(\%Y-\%m-\%d \%H:\%M:\%S) establishing the datetime when this plan has finished, default: NULL
+# @param max_id Integer(64), the newest tweet collected by this plan represented by its tweet id. This value is defined after the first successful request is done and does not change by request, default: NULL
+# @param since_id Integer(64) the oldest tweet that has currently been collected by this plan, this value is updated after each request, default: NULL
+# @param since_target Interger(64), the oldest tweet id that is expected to be obtained by this plan, this value is set as the max_id from the previous plan + 1, default: NULL
+# @param results_span Number of minutes after which this plan expires counting from start date, default: 0
+# @param requests Integer, number of requests successfully executed, default: 0
+# @param progress Numeric, percentage of progress of current plan defined when since_target_id is known or when a request returns no more results, default: 0
+# @return The get_plan object defined by input parameters
+# @details A plan is an S3 class representing a commitment to download tweets from the search API 
+# It targets a specific time frame defined from the last tweet collected by the previous plan, if any, and the last tweet collected on its first request
+# This commitment will be valid during a period of time defined from the time of its first execution until the end_on parameter
+# a plan will perform several requests to the search API and each time a request is performed the number of requests will be increased.
+# The field scheduled_for indicates the time when the next request is expected to be executed.
 # @examples 
 # \dontrun{
 #  #creating the default plan
@@ -252,7 +252,7 @@ get_plan <- function(
 
 # @title Update get plans 
 # @description Updating plans for a particular topics
-# @param plans the existing plans for the topic, Default: list()
+# @param plans The existing plans for the topic, default: list()
 # @param target minutes for finishing a plan 
 # @return updated list of 'get_plan'
 # @details

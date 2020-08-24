@@ -145,19 +145,19 @@ spark_df <- function(args, handler = NULL) {
   df
 }
 
-#' @title Updates JAVA dependencies
-#' @description Download java dependencies of the application mainly related to Apache SPARK and Lucene,  
-#' @param tasks tasks object for reporting progress and error messages, Default: get_tasks()
+#' @title Updates Java dependencies
+#' @description Download Java dependencies of the application mainly related to Apache SPARK and Lucene,  
+#' @param tasks Task object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Run a one shot task consinsting on downloading java & scala dependencies, this is separated on the following subtasks
+#' @details Run a one shot task consisting of downloading Java and Scala dependencies, this is separated by the following subtasks
 #' \itemize{
-#'   \item{Download jar dependencies from configuration maven repo to project data folder. This includes, scala, spark, lucene. Packages to be downloaded are defined on package file 'sbt-deps.txt'}
+#'   \item{Download jar dependencies from configuration maven repo to project data folder. This includes, scala, spark, lucene. Packages to be downloaded are defined in package file 'sbt-deps.txt'}
 #'   \item{Download winutils from configuration url to project data folder. For more details on winutils please see 
 #'     \url{https://issues.apache.org/jira/browse/HADOOP-13223} and \url{https://issues.apache.org/jira/browse/HADOOP-16816}
 #'   }
 #' }
 #'
-#' The URLs to download the JAR dependencies (maven package manager) and winutils are ser on the configuration page of the shiny app.
+#' The URLs to download the JAR dependencies (maven package manager) and Winutils are on the configuration page of the Shiny app.
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
