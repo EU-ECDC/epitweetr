@@ -69,7 +69,7 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           shiny::conditionalPanel(
             condition = "input.fixed_period == 'custom'",
-            shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"),
+            shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month")
           ), 
           shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
           shiny::h4("Include Retweets/Quotes"),
