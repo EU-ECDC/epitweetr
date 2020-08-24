@@ -40,11 +40,12 @@ pkg_url <- package_desc$URL
 
 ## Description
 
-The `epitweetr` package allows you to automatically monitor trends of tweets by time, place and topic, in order to detect signals where a number of tweets that exceed what is expected. The `epitweetr` package was designed to do this for communicable diseases and other health topics, but could be used for other fields as well.
+The `epitweetr` package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats through the detection of signals or unusual increase of the number of tweets for that time, place and topic. The `epitweetr` package was designed to focus on infectious diseases and health, and it can be extended to all hazards or other fields by modifying the topics and keywords.
 
-`epitweetr` is designed to access Twitter's free search API, which returns a collection of relevant tweets matching a specified query. `epitweetr` uses this API to automatically collect tweets by topic, geolocalise the tweets, aggregate the tweets by time, place and topic and detect signals. Signals are when the number of tweets exceed the threshold of what is expected. The package has a functionality to send email alerts about these signals to subscribers.
+`epitweetr` is designed to access the Twitter standard search API version 1.1, which returns a collection of relevant tweets, according to Twitter, matching a specified query. `epitweetr` uses this API to automatically collect tweets by topic, geolocalise the tweets, aggregate the tweets by time, place and topic and detect signals. Signals are detected when the number of tweets exceed the threshold of what is expected. The package has a functionality to send email alerts about these signals to subscribers.
 
-The package includes an interactive Shiny application (Shiny app), in which the user can specify the configuration for the above-mentioned tasks. The Shiny app also includes an interactive visualisation component, the dashboard, in which users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
+
+The package includes an interactive web application (Shiny app), in which the user can specify the configuration for the above-mentioned tasks. The Shiny app also includes an interactive visualisation component, the dashboard, in which users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
 
 **Shiny app dashboard:**
 
@@ -63,18 +64,19 @@ knitr::include_graphics("img/config.png")
     
 Article 3 of the European Centre for Disease Prevention and Control (ECDC) funding regulation, the Decision No 1082/2013/EU on serious cross-border threats to health and the ECDC Strategy 2021-2027 have established the detection of public health threats as a core activity of ECDC.
 
-The ECDC performs Epidemic Intelligence (El) activities screening information worldwide using mostly media and social media data (i.e. event-based surveillance). The monitoring of social media is currently performed through the screening and analysis of posts from pre-selected experts or organisations, mainly in Twitter and Facebook.
+ECDC performs Epidemic Intelligence (El) activities aiming at rapidly detecting and assessing public health threats, focusing on infectious diseases, to ensure EU's health security. ECDC uses social media as part of its sources to early detect signals of public health threats. Until 2020, the monitoring of social media was currently performed through the screening and analysis of posts from pre-selected experts or organisations, mainly in Twitter and Facebook.
 
 ### Monitoring social media metadata
 
-
-Some signals are not detected at all or are not detected early enough by the methods explained above. The monitoring of metadata from social media (e.g. analysis of social media trends) allows the detection of signals that may not be detected by the monitoring of pre-selected accounts in social media, and it may also improve the timeliness of signal detection.
+Some signals are not detected at all or are not detected early enough by the methods explained above. The automated monitoring of metadata from social media (e.g. analysis of social media trends) allows the detection of signals that may not be detected by the monitoring of pre-selected accounts in social media, and it improves the timeliness of signal detection.
 
 The analysis of trends from social media by topic, time and place is expected to generate relevant signals for early detection. ECDC developed a prototype of an R-based tool for Twitter trend analyses. The `epitweetr` package is an extension of this prototype, to allow a wider geolocation of tweets and greater automatisation.
 
+In 2019, ECDC developed a prototype of a manual R-based tool for the early detection of public health threats from Twitter data. The `epitweetr` package is an extension of this prototype, to allow a wider geolocation of tweets and greater automatisation.
+
 ### Objectives of epitweetr
 
-The primary objective of `epitweetr` is to use Twitter’s free search API in order to detect early signals of potential threats or events by topic and by geographical unit.
+The primary objective of `epitweetr` is to use the Twitter standard search API version 1.1 in order to detect early signals of potential threats or events by topic and by geographical unit.
 
 Its secondary objective is to enable the user through an interactive Shiny interface to explore tweets by time, geographical location and topic, including information on top words and numbers of tweets from trusted users, using charts and tables.
 
@@ -715,6 +717,16 @@ knitr::include_graphics("img/signal detection confidence.png")
 
 Using the slider, you can explore what difference a different alpha has for generating signals. Note that this will not change the signal confidence for the alert emails. This is just a tool for the user to explore this parameter. The default is 0.025. A higher alpha will increase the number of signals detected, a lower alpha will reduce the number.
 
+**Outlier detection confidence and outlier downweight strength**
+
+```{r echo=FALSE, fig.cap="", out.width = '40%'}
+knitr::include_graphics("img/outlier dashboard.png")
+```
+
+The outlier detection confidence relates to the false positive rate for determining what an outlier is when downweighting previous outliers/signals. The lower the value, the fewer previous outliers will potentially be included. A higher value will potentially include more previous outliers.
+
+The outlier downweight strength determines how much an outlier will be downweighted by. The higher the value the greater the downweighting. For more information please see *Appendix 1*.
+
 **Bonferroni correction**
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
@@ -828,8 +840,12 @@ knitr::include_graphics("img/detection pipeline.png")
 In the signal detection section in the configuration tab, you can set the signal confidence alpha parameter, which increases (if larger) the sensitivity of the detection interval (more signals are detected), or decreases (if smaller) the sensitivity of the detection interval (fewer signals are detected).
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("img/signal detection.png")
+knitr::include_graphics("img/signal detection config.png")
 ```
+
+The outlier detection confidence relates to the false positive rate for determining what an outlier is when downweighting previous outliers/signals. The lower the value, the fewer previous outliers will potentially be included. A higher value will potentially include more previous outliers.
+
+The outlier downweight strength determines how much an outlier will be downweighted by. The higher the value the greater the downweighting. For more information please see *Appendix 1*.
 
 `epitweetr` calculates a threshold to determine if the current number of tweets for a given 24-hour window exceeds what is expected (see section *"How does it work? General architecture behind epitweetr > Signal detection"*). This threshold is based on a default of the previous 7 days. In the “default days in baseline” field, you can change the number of days.
 
@@ -1061,7 +1077,7 @@ $$
 where the decay $k$ is a considered a known quantity. In the original Farrington et al. algorithm [-@farrington_statistical_1996], $k=2$ was used.
 
 Furthermore, a threshold value of 1 was used. In the later Noufaily et al. [-@noufaily_improved_2013] paper, however, a threshold value of 2.58 was recommended. Note: both values are for the standardized Anscombe residuals, which follow a standard normal distribution, i.e. we take corresponding quantiles for the t-distribution with 6 degrees of freedom the values would be `r sprintf("%.2f",qt(pnorm(1), df=6))` and `r sprintf("%.2f",qt(pnorm(2.58), df=6))`.
-Note also that the term $(r_{\text{threshold}}/r_i^*)^k$ is a slight adaptation of Farrington et al. [-@farrington_statistical_1996], which instead uses $1/(r_i^*)^2$. The advantage of our proposal is that it ensures a smooth handling of values around the threshold, if the threshold is not 1. It might be worth considering a higher power than 2 to ensure an even larger down-weighting for gross outliers. The current default value in `epitweetr` is 3.
+Note also that the term $(r_{\text{threshold}}/r_i^*)^k$ is a slight adaptation of Farrington et al. [-@farrington_statistical_1996], which instead uses $1/(r_i^*)^2$. The advantage of our proposal is that it ensures a smooth handling of values around the threshold, if the threshold is not 1. It might be worth considering a higher power than 2 to ensure an even larger down-weighting for gross outliers. The current default value in `epitweetr` is 4.
 
 Finally, as in Farrington et al. [-@farrington_statistical_1996], we normalise the weights such that they yield a sum of $n$ by
 $$
