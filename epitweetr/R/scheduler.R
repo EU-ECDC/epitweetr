@@ -42,7 +42,7 @@ register_runner_task <- function(task_name) {
         taskname = paste("epitweetr", task_name, "loop", sep = "_")
         , rscript = script
         , schedule = "HOUR"
-        , rscript_args = conf$data_dir
+        , rscript_args = paste("\"", conf$data_dir,"\"")
         , startdate =  tail(strsplit(shell("echo %DATE%", intern= T), " ")[[1]], 1)
         , schtasks_extra="/F"
       )
@@ -75,7 +75,7 @@ get_running_task_pid <- function(name) {
       # Checking if last_pid is still running
     pid_running <- ( 
       if(.Platform$OS.type == "windows") {
-        length(system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE)) > 1
+        length(grep("R\\.exe|Rscript\\.exe", system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 1
       }
       else if(.Platform$OS.type == "mac") 
         system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0 

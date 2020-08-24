@@ -155,7 +155,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
   df$lim_start <- ifelse(df$lim_start < 0, 0, df$lim_start)
 
   # Calculating breaks
-  y_breaks <- unique(floor(pretty(seq(0, (max(df$limit) + 1) * 1.1))))
+  y_breaks <- unique(floor(pretty(seq(0, (max(df$limit, df$number_of_tweets) + 1) * 1.1))))
 
   # Calculating tweeter location scope count message
   scope_count <- format(sum(df$number_of_tweets), big.mark = " ", scientific=FALSE)
