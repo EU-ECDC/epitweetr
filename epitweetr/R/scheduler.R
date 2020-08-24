@@ -42,7 +42,7 @@ register_runner_task <- function(task_name) {
         taskname = paste("epitweetr", task_name, "loop", sep = "_")
         , rscript = script
         , schedule = "HOUR"
-        , rscript_args = conf$data_dir
+        , rscript_args = paste("\"", conf$data_dir,"\"", sep = "")
         , startdate =  tail(strsplit(shell("echo %DATE%", intern= T), " ")[[1]], 1)
         , schtasks_extra="/F"
       )
@@ -75,7 +75,7 @@ get_running_task_pid <- function(name) {
       # Checking if last_pid is still running
     pid_running <- ( 
       if(.Platform$OS.type == "windows") {
-        length(system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE)) > 1
+        length(grep("R\\.exe|Rscript\\.exe", system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0
       }
       else if(.Platform$OS.type == "mac") 
         system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0 
@@ -105,9 +105,38 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
-
-#' Getting the scheduler task lists with current status updated.
-#' @export
+#' @title Get the detect loop tasks status
+#' @description Reads the status of the detect loop tasks and update it with changed requested by the shiny app
+#' @param statuses chatacter vector for limiting the statuses of the returned tasks, Default: list()
+#' @return A named list containg all necessary information to run and monitor the detect loop tasks.
+#' @details After reading the tasks.json file and parsing it with jsonlite this function will update the necessary fields on the 
+#' tasks for executing and monitoring them.
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    #getting taskd statuses
+#'    tasks <- get_tasks()
+#'
+#'  }
+#' }
+#' @seealso 
+#'  \code{\link{download_dependencies}}
+#'
+#'  \code{\link{update_geonames}}
+#'
+#'  \code{\link{update_languages}}
+#'
+#'  \code{\link{detect_loop}}
+#'  
+#'  \code{\link{geotag_tweets}}
+#'  
+#'  \code{\link{aggregate_tweets}}
+#'
+#'  \code{\link{generate_alerts}}
+#'
+#' @rdname get_tasks
+#' @export 
+#' @importFrom jsonlite fromJSON
 get_tasks <- function(statuses = list()) {
   stop_if_no_config()
   tasks_path <- get_tasks_path()
@@ -336,10 +365,45 @@ save_tasks <- function(tasks) {
   write_json_atomic(tasks, tasks_path, pretty = TRUE, force = TRUE, auto_unbox = TRUE, POSIXt="epoch")
 }
 
-#' Infinite looop executing tasks respecting the order and time scheduling window.
-#' Included tasks are update geonames, update vectors, geotag, aggregate and alert detection 
-#' If tasks file exits it will read it, or get default task otherwise
-#' @export
+#' @title Runs the detect loop
+#' @description Infinite loop ensuring the daily alert detection and email alerts 
+#' @param data_dir path to the 'data directory' containing application settings, models and collected tweets.
+#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, Default: NA
+#' @return nothing
+#' @details The detect loop is composed of thre 'one shoot tasks' \code{\link{download_dependencies}}, \code{\link{update_geonames}}, \code{\link{update_languages}} ensuring the system has
+#' all necessary comonents ans data to run and three recurrent tasks, \code{\link{geotag_tweets}}, \code{\link{aggregate_tweets}}, \code{\link{generate_alerts}}
+#'
+#' The loop report progress on the 'tasks.json' file which is read or created by this function.
+#'
+#' The recurrent tasks are scheduled to be executed each 'detect span' minutes which is a parameter set on the shiny app.
+#'
+#' If any of these tasks fails it will be retries three times before going to a aborted status. Aborted tasks can be relauched from the shiny app. 
+#' @examples 
+#' \dontrun{
+#' if(interactive()){
+#'    #Running the detect loop
+#'    library(epitweetr)
+#'    detect_loop('/home/epitweetr/data')
+#'  }
+#' }
+#' @rdname detect_loop
+#' @seealso
+#'  \code{\link{download_dependencies}}
+#'
+#'  \code{\link{update_geonames}}
+#'
+#'  \code{\link{update_languages}}
+#'
+#'  \code{\link{detect_loop}}
+#'  
+#'  \code{\link{geotag_tweets}}
+#'  
+#'  \code{\link{aggregate_tweets}}
+#'  
+#'  \code{\link{generate_alerts}}
+#'
+#'  \code{\link{get_tasks}}
+#' @export 
 detect_loop <- function(data_dir = NA) {
   if(is.na(data_dir) )
     setup_config_if_not_already()
