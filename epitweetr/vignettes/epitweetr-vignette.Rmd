@@ -144,11 +144,11 @@ If you would like to develop `epitweetr` yourself further, then the following de
 
 ### External dependencies
 
-`epitweetr` will need to download some dependencies in order to work? It will do it automatically the first time the alert detection process is launch. The administration page will allow you to change the target URLs of these depencencies. If you do not mind, you can use defaults.? The dependencies are the following:
+`epitweetr` will need to download some dependencies in order to work. It will do it automatically the first time the alert detection process is launch. The administration page will allow you to change the target URLs of these depencencies. If you do not mind, you can use defaults. The dependencies are the following:
 
-- *CRAN JARs*: Transitive dependencies for running Spark, Lucene and embedded scala code. [*https://repo1.maven.org/maven2*]
+- *CRAN JARs*: Transitive dependencies for running Spark, Lucene and embedded scala code. *[https://repo1.maven.org/maven2]*
 
-- *Winutils.exe* (Windows only) This is a Hadoop binary necessary for runnung SPARK locally on windows [*http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe*]. 
+- *Winutils.exe* (Windows only) This is a Hadoop binary necessary for runnung SPARK locally on windows *[http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe]*. 
 
 ### Installing epitweetr from CRAN
 
