@@ -19,7 +19,7 @@
 #' @seealso 
 #'  \code{\link{search_loop}}
 #' 
-#'  \code{\link{detect_tasks}}
+#'  \code{\link{detect_loop}}
 #' @rdname epitweetr_app
 #' @export 
 #' @importFrom shiny fluidPage fluidRow column selectInput h4 conditionalPanel dateRangeInput radioButtons checkboxInput sliderInput numericInput downloadButton h3 htmlOutput actionButton span textInput textAreaInput h2 passwordInput h5 fileInput uiOutput navbarPage tabPanel observe updateSliderInput updateDateRangeInput downloadHandler invalidateLater renderText observeEvent renderUI validate need shinyApp

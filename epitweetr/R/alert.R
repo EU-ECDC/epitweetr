@@ -525,11 +525,11 @@ do_next_alerts <- function(tasks = get_tasks()) {
 }
 
  
-#' @title Getting signals produced by the \code{\link{detect_loop}}
+#' @title Getting signals produced by the task \code{\link{generate_alerts}} of \code{\link{detect_loop}}
 #' @description Returns a dataframe of signals produced by the detect loop, which are stored on the signal folder.
 #' @param topic Character vector. When it is not empty it will limit the returned signals to the provided topics, default: character()
 #' @param countries Character vector containing the names of countries or regions or a numeric vector containing the indexes of countries 
-#' to filter the signals to return. The indexes can be obtained by the calling \code{\link{get_country_items}}, default: numeric()
+#' as displayed at the shiny App to filter the signals to return., default: numeric()
 #' @param from Date defining the begining of the period of signals to return, default: '1900-01-01'
 #' @param until Date defining the end of the period of signals to return, default: '2100-01-01'
 #' @return 
@@ -547,7 +547,9 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #'  }
 #' }
 #' @seealso
-#' \code{\link{get_country_items}}
+#' \code{\link{generate_alerts}}
+#'
+#' \code{\link{detect_loop}}
 #' @rdname get_alerts
 #' @export
 #' @importFrom magrittr `%>%`

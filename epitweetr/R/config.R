@@ -124,7 +124,7 @@ get_empty_config <- function(data_dir) {
 #' @return nothing
 #' @details epitweetr relies on settings and data stored in a system folder, so before loading the dashboard, collecting tweets or detecting alerts the user has to designate this folder.
 #' When a user wants to use epitweetr from the R console they will need to call this function for initialisation.
-#' The 'data_folder' can also be given as a parameter for program launch functions \code{\link{epiweetr_app}}, \code{\link{search_loop}} or \code{\link{detect_loop}}, which will internally call this function.
+#' The 'data_folder' can also be given as a parameter for program launch functions \code{\link{epitweetr_app}}, \code{\link{search_loop}} or \code{\link{detect_loop}}, which will internally call this function.
 #'
 #' This call will fill (or refresh) a package scoped environment 'conf' that will store the settings. Settings stored in conf are:
 #' \itemize{
@@ -139,7 +139,7 @@ get_empty_config <- function(data_dir) {
 #' Changes made to conf can be stored permanently (excepting by 'data_dir') using 
 #' \itemize{
 #'   \item{\code{\link{save_config}}, or}
-#'    \item{\code{\link{ecdc_wtitter_tool_kr_password}}}
+#'    \item{\code{\link{set_twitter_app_auth}}}
 #' }
 #' @examples
 #' \dontrun{
@@ -151,8 +151,8 @@ get_empty_config <- function(data_dir) {
 #' }
 #' @seealso
 #' \code{\link{save_config}}
-#' \code{\link{ecdc_wtitter_tool_kr_password}}
-#' \code{\link{epiweetr_app}}
+#' \code{\link{set_twitter_app_auth}}
+#' \code{\link{epitweetr_app}}
 #' \code{\link{search_loop}}
 #' \code{\link{detect_loop}}
 #' @rdname setup_config
