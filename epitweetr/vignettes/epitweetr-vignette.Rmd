@@ -40,9 +40,9 @@ pkg_url <- package_desc$URL
 
 ## Description
 
-The `epitweetr` package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats through the detection of signals or unusual increase of the number of tweets for that time, place and topic. The `epitweetr` package was designed to focus on infectious diseases and health, and it can be extended to all hazards or other fields by modifying the topics and keywords.
+The `epitweetr` package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats through the detection of signals or unusual increase of the number of tweets for that time, place and topic. The `epitweetr` package was designed to focus on infectious diseases and health, but it can be readily used for other public health hazards or other fields by modifying the topics and keywords.
 
-`epitweetr` is designed to access the Twitter standard search API version 1.1, which returns a collection of relevant tweets, according to Twitter, matching a specified query. `epitweetr` uses this API to automatically collect tweets by topic, geolocalise the tweets, aggregate the tweets by time, place and topic and detect signals. Signals are detected when the number of tweets exceed the threshold of what is expected. The package has a functionality to send email alerts about these signals to subscribers.
+`epitweetr` is designed to access the [Twitter standard search API version 1.1](https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/overview/standard), which returns a collection of relevant tweets, according to Twitter, matching a specified query. `epitweetr` uses this API to automatically collect tweets by topic, geolocalise the tweets, aggregate the tweets by time, place and topic and detect signals. Signals are detected when the number of tweets exceed the threshold of what is expected. The package has a functionality to send email alerts about these signals to subscribers.
 
 
 The package includes an interactive web application (Shiny app), in which the user can specify the configuration for the above-mentioned tasks. The Shiny app also includes an interactive visualisation component, the dashboard, in which users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
@@ -491,25 +491,34 @@ knitr::include_graphics("img/topwords.png")
 
 ### Signal detection
 
-The main objective of `epitweetr` is to detect signals, i.e. counts in the aggregated time series that exceed what is expected. For the detection `epitweetr` uses a modified EARS (Early Aberration Reporting System, used by the CDC) algorithm [@fricker_comparing_2008]. This algorithm is part of the R surveillance package [@salmon_monitoring_2016].
+The main objective of `epitweetr` is to detect signals in the observed data streams, i.e. counts in the aggregated time series that exceed what is expected. For the detection `epitweetr` uses an extended version of the EARS (Early Aberration Reporting System, used by the CDC) algorithm [@fricker_comparing_2008], which in what follows shall be denoted by `eears`(extended ears). This algorithm is part of the R package `surveillance` [@salmon_monitoring_2016].
 
-As a default it uses a moving window of the past seven days to calculate a threshold. If the current day exceeds the threshold, then a signal is generated.
+As a default it uses a moving window of the past seven days to calculate a threshold. If the count for the current day exceeds this threshold, then a signal is generated.
 
 #### Details of the algorithm underlying signal detection
 
-The modified EARS algorithm is applied on the past seven 24-hour blocks prior to the current 24 hour block of the signal detection. A running mean and running standard deviation is calculated:
+The extended EARS algorithm is applied on the counts from the past seven 24-hour blocks prior to the current 24 hour block of the signal detection. The running mean and the running standard deviation are calculated:
 
-$\underline{\ y_{0}} = \frac{1}{7}y_{t}$ and $s_{0}^{2} = \frac{1}{7 - 1}{(y_{t} - \underline{y_{0}})}^{2}$ 
+$$
+\overline{y}_{0} = \frac{1}{7}\sum_{t=-7}^{-1} y_{t} \quad\text{and}\quad  s_{0}^{2} = \frac{1}{7 - 1}\sum_{t=-7}^{-1}{(y_{t} - \overline{y}_{0})}^{2},
+$$
 
-Under the null hypothesis of no spikes, this statistics follows a standard normal distribution $N(0,1)$. The upper bound $U_{0}$ is found by taking the (1 − α)-th quantile of this distribution, i.e. $U_{0} = {\underline{y}}_{0} + z_{1 - a}s_{0}$, where $z_{1 - a}$is the (1 − α)- quantile of the standard normal distribution. An alert is raised if $y_{0} > U_{0}$ . If one uses α=0.025, then this corresponds to investigating, if $y_{0}$ exceeds the upper limit of a two-sided confidence interval for the mean. However, as pointed out by Allévius and Höhle [-@allevius_prospective_2017], the correct approach would be to compare the observation to the upper limit of a 95% prediction interval for $y_{0}$, because this respects both the sampling variation of a new observation *and* the uncertainty originating from the parameter estimation of the mean and variance. Hence, the statistical appropriate form is to use a t-distribution, i.e. to compute the upper limit by
+where $y_{t}, t=\ldots, -2, -1, 0$ denotes the observed count data time series with time index $0$ denoting the current block. Furthermore, the time index $-7,\ldots, -1$ denote the seven blocks prior to the current block.
 
-$U_{0} = \underline{\ y_{0}} + t_{1 - a}(7 - 1)\times s_{0} \times   \sqrt{1 + \frac{1}{7}}$
+Under the null hypothesis of no spikes, it is assumed that the $y_t$ are identically and independently $N(\mu, \sigma^2)$ distributed with unknown mean $\mu$ and unknown variance $\sigma^2$. Hence, the upper limit of a simple one-sided $(1-\alpha)\times$ 100% plug-in prediction interval for $y_0$ based on $y_{-7},\ldots,y_{-1}$ is given as 
+$$
+U_{0} = {\overline{y}}_{0} + z_{1 - a} \times s_{0},
+$$
+where $z_{1 - a}$ is the (1 − α)- quantile of the standard normal distribution. An alert is raised if $y_{0} > U_{0}$ . If one uses α=0.025, then this corresponds to investigating, if $y_{0}$ exceeds the estimate for the mean plus 1.96 times the standard deviation. However, as pointed out by @allevius_prospective_2017, the correct approach would be to compare the observation to the upper limit of a two-sided 95% prediction interval for $y_{0}$, because this respects both the sampling variation of a new observation *and* the uncertainty originating from the parameter estimation of the mean and variance. Hence, the statistical appropriate form is to compute the upper limit by
+$$
+U_{0} = \overline{\ y_{0}} + t_{1 - a}(7 - 1)\times s_{0} \times   \sqrt{1 + \frac{1}{7}}.
+$$
 
 where $t_{1 - a}(k - 1)$ denotes the 1 − α quantile of the t-distribution with k − 1 degrees of freedom.
 
 #### Downweighting previous signals
-<span style="color:red">Michael to review this section</span>
-If previous signals are included without modification in the baseline to calculate the mean and standard deviation for the signal detection, then the mean and standard deviation will be larger, which may mean important current signals will not be detected. To address this, `epitweetr` downweights previous signals, so that they are taken into account in the signal detection process and thus the mean and standard deviation are lower. Data points that are not signals are given a weight of "1" and signals are given a weight lower than one, calculated with an approach similar to that used in the Farrington algorithm [-@farrington_statistical_1996]. Details on the downweighting can be found in Appendix 1 of this user documentation.
+
+If previous signals are included without modification in the historic values when calculating the running mean and standard deviation for the signal detection, then the estimated mean and standard deviation might become too large. This may mean that important current signals will not be detected. To address this issue, `epitweetr` downweights previous signals, such that the mean and standard deviation estimation is adjusted for such outliers using an approach similar to that used in the @farrington_statistical_1996. Historic values that are not identified as previous signals are given a weight of "1". Similarly, historic values identified as signals are given a weight lower than one and a new fit is performed using these weights (scaled s.t. they again sum to 7 observations). Details on the downweighting procedure can be found in [Appendix 1](#appendix1) of this user documentation.
 
 
 #### Timing of signal detection
@@ -992,41 +1001,41 @@ You can also download the data of each visualisation by clicking on the data but
 
 Alternatively, you can use the PDF or the Md button at the bottom of the filters to download a PDF or an HTML file of the screen. Note that for this you will need to have MiKTeX or TinyTeX installed.
 
-## Appendix 1: Re-weighting the previous signals
+## Appendix 1: Re-weighting the previous signals {#appendix1}
 
 ## Introduction
 
-In this document we propose a re-weighting approach built on top of the modified EARS algorithm [@fricker_comparing_2008] used in the `epitweetr` package.
+In this document we propose a re-weighting approach built on top of the extended EARS algorithm used in the `epitweetr` package and which was described above.
 
 Let the $\mathbf{y}$ denote the vector of historic values which is of length $n$. Part of the computation of the prediction interval at time 0 is the computation of the mean and standard deviation of these historic values, i.e.
 $$
-\overline{y}_0 = \frac{1}{n}\sum_{t=-n}^1 y_{t} \quad\text{and}\quad s_0^2 = \frac{1}{n-1} \sum_{t=-n}^1 (y_{t} - \overline{y}_0  )^2
+\overline{y}_0 = \frac{1}{n}\sum_{t=-n}^{-1} y_{t} \quad\text{and}\quad s_0^2 = \frac{1}{n-1} \sum_{t=-n}^{-1} (y_{t} - \overline{y}_0  )^2
 $$
-The upper limit of the one-sided $(1-\alpha)\cdot 100\%$ prediction interval for the observation $y_0$ under an $y_t \stackrel{\text{iid}}{\sim} N(\mu, \sigma^2), t=-n, \ldots, 0$ model is then computed as 
+The upper limit of the one-sided $(1-\alpha)\times 100\%$ prediction interval for the observation $y_0$ under an $y_t \stackrel{\text{iid}}{\sim} N(\mu, \sigma^2), t=-n, \ldots, 0$ model is then computed as 
 $$
-U_0 = \overline{y}_0 + t_{1-\alpha}(n-1) \cdot s_0 \cdot \sqrt{1+\frac{1}{n}},
+U_0 = \overline{y}_0 + t_{1-\alpha}(n-1) \times s_0 \times \sqrt{1+\frac{1}{n}},
 $$
 where $t_{1−\alpha}(n − 1)$ denotes the $1 − \alpha$ quantile of the t-distribution with $n − 1$ degrees of freedom. This computation of the threshold corresponds to a statistical sound computation of the threshold [@allevius_prospective_2017].
 
-A desired extension of the above algorithm is the handling of previous signals in the historic values. This problem was already addressed in the quasi-Poisson framework of Farrington et al. [-@farrington_statistical_1996] by first performing a GLM fit and then re-fit the GLM with weights  based on the Anscombe residuals. We follow the same general idea, but adapt it to the Gaussian response used in the EARS algorithm.
+A desired extension of the above algorithm is the handling of previous signals in the historic values. This problem was already addressed in the quasi-Poisson framework of @farrington_statistical_1996 by first performing a GLM fit and then re-fit the GLM with weights  based on the Anscombe residuals. We follow the same general idea, but adapt it to the Gaussian response used in the EARS algorithm and corresponding residuals from the linear model.
 
 ### EARS as a Linear Model
 
-We first observe that the above estimation of $\overline{y}_0$ and $s_0^2$ at time 0 can be embedded within a linear regression model, i.e. for $i=1, \ldots, n$ we model
+We first observe that the above estimation of $\mu$ and $\sigma^2$ through $\overline{y}_0$ and $s_0^2$ at time 0 can be embedded within a linear regression model, i.e. for $i=1, \ldots, n$ we model
 $$
 y_i = \mu + \epsilon_i, \quad\text{where}\quad \epsilon_t \stackrel{\text{iid}}{\sim} N(0, \sigma^2).
 $$
-Note that we for compatibility with the standard exposition in linear model theory have indexed the $y$ values s.t. $y_{-n}$ corresponds to $y_1$ and $y_{-1}$ corresponds to $y_n$. In matrix terms let $\mathbf{y} = (y_{1},\ldots,y_n)'$ and for the intercept-only model the design matrix is $\mathbf{X} = (1,\ldots,1)'$, which has rank $k=1$. Thus from standard OLS theory:
+Note that we, for compatibility with the standard exposition in linear model theory, have indexed the $y$ values s.t. $y_{-n}$ corresponds to $y_1$ and $y_{-1}$ corresponds to $y_n$. In matrix terms let $\mathbf{y} = (y_{1},\ldots,y_n)'$ and for the intercept-only model the design matrix is $\mathbf{X} = (1,\ldots,1)'$, which has rank $k=1$. Thus from standard OLS theory:
 $$
 \begin{align*}
 \hat{\mu} &=  (\mathbf{X}'\mathbf{X})^{-1} \mathbf{X}' \mathbf{y} = \frac{1}{n}\sum_{i=1}^n y_i,
 \end{align*}
 $$
-which corresponds to the above expression for $\overline{y}_0$. Furthermore, let the raw residuals be defined as $e_i = y_i - \hat{\mu}$ for $i=1,\ldots, n$ and denote by $\mathbf{e}=(e_1,\ldots,e_n)'$ the corresponding vector of residuals. Then
+which corresponds to $\overline{y}_0$. Furthermore, let the raw residuals be defined as $e_i = y_i - \hat{\mu}$ for $i=1,\ldots, n$ and denote by $\mathbf{e}=(e_1,\ldots,e_n)'$ the corresponding vector of residuals. Then
 $$
 \mathbf{e} = \mathbf{y} - \hat{\mathbf{y}} = \mathbf{y} - \mathbf{P} \mathbf{y} = (\mathbf{I}-\mathbf{P}) \mathbf{y}
 $$
-where $\mathbf{P} = \mathbf{X} (\mathbf{X}'\mathbf{X})^{-1}\mathbf{X}'$ is the so called hat-matrix known from linear modelling. With this notation we can write up the estimate for $\sigma^2$ as in Chatterjee and Hadi [-@chatterjee_sensitivity_1988]
+where $\mathbf{P} = \mathbf{X} (\mathbf{X}'\mathbf{X})^{-1}\mathbf{X}'$ is the so called hat-matrix known from linear modelling. With this notation we can write up the estimate for $\sigma^2$ as in @chatterjee_sensitivity_1988:
 
 $$
 \hat{\sigma}^2 = \frac{\mathbf{e}' \mathbf{e}}{n-k} = \frac{\mathbf{y}'(\mathbf{I}-\mathbf{P})\mathbf{y}}{n-k} = \frac{1}{n-1} \sum_{t=-7}^1 (y_t - \hat{\mu})^2,
@@ -1035,7 +1044,7 @@ which corresponds to the above used expression for $s_0^2$.
 
 ### Reweighting
 
-We now consider the so called **externally Studentized residuals** [@chatterjee_sensitivity_1988]
+We now compute the so called **externally Studentized residuals** [@chatterjee_sensitivity_1988]
 $$
 r_i^* = \frac{e_i}{\hat{\sigma}_{(i)}\sqrt{1-p_{ii}}}, \quad i=1, \ldots, n,
 $$
@@ -1045,23 +1054,13 @@ $$
 $$
 is the variance estimate obtained from a linear regression, where the i'th observation is removed. Linear modelling theory [@chatterjee_sensitivity_1988] now states that 
 $$
-r_i^* \stackrel{\text{identical}}{\sim} t(n-k-1)
+r_i^* \stackrel{\text{identical}}{\sim} t(n-k-1).
 $$
-Note that the residuals are only identically distributed, but they are not independent (see, e.g., Section 4.2.1. of Chatterjee and Hadi [-@chatterjee_sensitivity_1988] for details). However, the above distributional form allows us to assess for each historic value, if it can be considered as an outlier. 
-
-Define $r_{\text{threshold}}$ as the $1-\alpha_{\text{outlier}}$ quantile of the t-distribution with $n-k-1$ degrees of freedom.
+Note that the residuals are only identically distributed, because they are not independent (see Section 4.2.1. of @chatterjee_sensitivity_1988 for details). However, the above distributional form allows us to assess for each historic value, if it can be considered as an outlier. 
+For this purpose define $r_{\text{threshold}}$ as the $1-\alpha_{\text{outlier}}$ quantile of the t-distribution with $n-k-1$ degrees of freedom.
 A historic value is an outlier (for which one possible explanation is that it originates from a true increase in tweets, e.g. an outbreak situation), if
-$r_i^* > r_{\text{threshold}}$. We shall use this to formulate two weighting schemes for the historic values:
+$r_i^* > r_{\text{threshold}}$. We shall use this to formulate a weighting schemes for the historic values:
 
-Drop-outliers:
-$$
-w^{(\text{drop})}_i = \left\{
-\begin{array}{ll}
-1 & \text{if } r_i^* < r_{\text{threshold}}\\
-0 & \text{otherwise}
-\end{array}
-\right.
-$$
 Downweight-Outliers:
 $$
 \begin{align}
@@ -1074,14 +1073,12 @@ w^{(\text{dw})}_i &= \left\{
 &= \min\left\{1,\left(\frac{r_{\text{threshold}}}{r_i^*}\right)^k\right\},
 \end{align}
 $$
-where the decay $k$ is a considered a known quantity. In the original Farrington et al. algorithm [-@farrington_statistical_1996], $k=2$ was used.
+where the decay parameter $k>0$ is a known quantity. In the original @farrington_statistical_1996 algorithm, $k=2$ was used. Furthermore, a threshold value of 1 was used. In the later @noufaily_improved_2013 paper, however, a threshold value of 2.58 was recommended. Note: both values are for the standardized Anscombe residuals, which follow a standard normal distribution. If we take corresponding quantiles for the t-distribution with 6 degrees of freedom the values would be `r sprintf("%.2f",qt(pnorm(1), df=6))` and `r sprintf("%.2f",qt(pnorm(2.58), df=6))`.
+Note also that the term $(r_{\text{threshold}}/r_i^*)^k$ is a slight adaptation of @farrington_statistical_1996, which instead uses $1/(r_i^*)^2$. The advantage of our proposal is that it ensures a smooth handling of values around the threshold if the threshold is not 1. It might be worth considering a higher power than 2 to ensure an even larger down-weighting for gross outliers. The current default value for the decay parameter in `epitweetr` is 4.
 
-Furthermore, a threshold value of 1 was used. In the later Noufaily et al. [-@noufaily_improved_2013] paper, however, a threshold value of 2.58 was recommended. Note: both values are for the standardized Anscombe residuals, which follow a standard normal distribution, i.e. we take corresponding quantiles for the t-distribution with 6 degrees of freedom the values would be `r sprintf("%.2f",qt(pnorm(1), df=6))` and `r sprintf("%.2f",qt(pnorm(2.58), df=6))`.
-Note also that the term $(r_{\text{threshold}}/r_i^*)^k$ is a slight adaptation of Farrington et al. [-@farrington_statistical_1996], which instead uses $1/(r_i^*)^2$. The advantage of our proposal is that it ensures a smooth handling of values around the threshold, if the threshold is not 1. It might be worth considering a higher power than 2 to ensure an even larger down-weighting for gross outliers. The current default value in `epitweetr` is 4.
-
-Finally, as in Farrington et al. [-@farrington_statistical_1996], we normalise the weights such that they yield a sum of $n$ by
+Finally, as in @farrington_statistical_1996, we normalise the weights such that they yield a sum of $n$ by
 $$
-w_i^* = n \cdot \frac{w_i}{\sum_{i=1}^n w_i}
+w_i^* = n \times \frac{w_i}{\sum_{i=1}^n w_i}
 $$
 and then re-fit the linear model with these weights. For this purpose define the weight matrix as $\mathbf{W} = \operatorname{diag}(w_1^*,\ldots,w_n^*)$. We can use a subsequent weighted least squares approach to find
 $$
@@ -1091,7 +1088,7 @@ $$
 $$
 where the 2nd equal sign is because $(\mathbf{X}' \mathbf{W} \mathbf{X})=\sum_{i=1}^n w_i=n$
 and $\mathbf{X}' \mathbf{W} \mathbf{y} = \sum_{i=1}^n w_i^* y_i$.
-Furthermore [mh: need to double check, RHS reproduces `lm` values],
+Furthermore,
 $$
 s_W^2 = 
 \frac{\mathbf{y}'(\mathbf{I}-\mathbf{P}_W)\mathbf{y}}{n-k} =
@@ -1099,13 +1096,13 @@ s_W^2 =
 $$
 where $P_W = \mathbf{X} (\mathbf{X}'\mathbf{W} \mathbf{X})^{-1}\mathbf{X}\mathbf{W}$ is the hat-matrix of the weighted least squares.
 
-The reweighted procedure thus operates with $\mu_{W}$ and $s_W^2$ instead of $\overline{y}_0$ and $s_0^2$, respectively.
+The reweighted procedure thus operates with $\mu_{W}$ and $s_W^2$ instead of $\overline{y}_0$ and $s_0^2$, respectively, when computing the upper limit $U_0$ using the above mentioned formula.
 
-### Example of downweighting using Ebola data
+### Example of the downweighting approach using Ebola data
 
-Figure 3 below shows the upper limit of the signal detection threshold for `epitweetr` Ebola data, both the original (in red) with no re-weighting and the downweighted upper threshold (in blue) after taking previous signals into account. Note that the downweighted upper threshold detects three additional signals, compared to the original threshold. 
+Figure 3 below shows the upper limit of the signal detection threshold for `epitweetr` Ebola data, both the original (in red) with no re-weighting and the downweighted upper threshold (in blue) after taking previous signals in the historic values into account. Note that the downweighted upper threshold detects three additional signals, compared to the original threshold. 
 
-```{r echo=FALSE, fig.cap="Figure 3. Upper limit and down-weighted upper limit of epitweetr Ebola data", out.width = '100%'}
+```{r echo=FALSE, fig.cap="Figure 3. Upper limit with and without downweighting for the epitweetr Ebola data", out.width = '100%'}
 knitr::include_graphics("img/ebola.png")
 ```
 
