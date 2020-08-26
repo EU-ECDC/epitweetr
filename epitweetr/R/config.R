@@ -439,7 +439,13 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
 #' \dontrun{
 #' if(interactive()){
 #'  #Setting the configuration values
-#'  set_twitter_app_auth(app = "my super app", access_token = "123456", access_token_secret = "123456", api_key = "123456", api_secret = "123456")
+#'    set_twitter_app_auth(
+#'      app = "my super app", 
+#'      access_token = "123456", 
+#'      access_token_secret = "123456", 
+#'      api_key = "123456", 
+#'      api_secret = "123456"
+#'    )
 #'  }
 #' }
 #' @seealso

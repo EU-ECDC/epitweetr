@@ -542,7 +542,11 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #'    setup_config("/home/epitweetr/data")
 #'
 #'    # Getting signals produced for last 30 days for a particular country
-#'    get_alerts(countries = c("Chile", "Australia", "France"), from = as.Date(Sys.time())-30, until = as.Date(Sys.time()))
+#'    get_alerts(
+#'      countries = c("Chile", "Australia", "France"), 
+#'      from = as.Date(Sys.time())-30, 
+#'      until = as.Date(Sys.time())
+#'    )
 #'  
 #'  }
 #' }

@@ -71,13 +71,13 @@ epitweetr_app <- function(data_dir = NA) {
             condition = "input.fixed_period == 'custom'",
             shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month")
           ), 
-          shiny::radioButtons("period_type", label = shiny::h4("Time Unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
-          shiny::h4("Include Retweets/Quotes"),
+          shiny::radioButtons("period_type", label = shiny::h4("Time nit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
+          shiny::h4("Include retweets/quotes"),
 	        shiny::checkboxInput("with_retweets", label = NULL, value = conf$alert_with_retweets),
-          shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","both"="both" ), selected = "tweet", inline = TRUE),
-          shiny::sliderInput("alpha_filter", label = shiny::h4("Signal detection confidence"), min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005),
-          shiny::sliderInput("alpha_outlier_filter", label = shiny::h4("Outliers detection confidence"), min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005),
-          shiny::sliderInput("k_decay_filter", label = shiny::h4("Outliers downweight strength"), min = 1, max = 10, value = conf$alert_k_decay, step = 0.5),
+          shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","Both"="both" ), selected = "tweet", inline = TRUE),
+          shiny::sliderInput("alpha_filter", label = shiny::h4("Signal false positive rate"), min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005),
+          shiny::sliderInput("alpha_outlier_filter", label = shiny::h4("Outliers false positive rate confidence"), min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005),
+          shiny::sliderInput("k_decay_filter", label = shiny::h4("Outlier downweight strength"), min = 1, max = 10, value = conf$alert_k_decay, step = 0.5),
           shiny::h4("Bonferroni correction"),
 	        shiny::checkboxInput("bonferroni_correction", label = NULL, value = conf$alert_with_bonferroni_correction),
           shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
@@ -132,7 +132,7 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   alerts_page <- 
     shiny::fluidPage(
-          shiny::h3("Generated Alerts"),
+          shiny::h3("Generated alerts"),
           shiny::fluidRow(
             ################################################
             ######### ALERTS FILTERS #######################
@@ -177,7 +177,7 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Status"),
           shiny::fluidRow(
-            shiny::column(4, "Tweet Search"), 
+            shiny::column(4, "Tweet search"), 
             shiny::column(4, shiny::htmlOutput("search_running")),
             shiny::column(4, shiny::actionButton("activate_search", "activate"))
           ),
@@ -189,22 +189,22 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           ######### GENERAL PROPERTIES ###################
           ################################################
-          shiny::h3("Signal Detection"),
-          shiny::fluidRow(shiny::column(3, "Default confidence"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005))),
-          shiny::fluidRow(shiny::column(3, "Default outliers confidence"), shiny::column(9, shiny::sliderInput("conf_alpha_outlier", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005))),
-          shiny::fluidRow(shiny::column(3, "Downweight strength"), shiny::column(9, shiny::sliderInput("conf_k_decay", label = NULL, min = 1, max = 10, value = conf$alert_k_decay, step = 0.5))),
-          shiny::fluidRow(shiny::column(3, "Default days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
-          shiny::fluidRow(shiny::column(3, "Default same weekday baseline"), shiny::column(9, shiny::checkboxInput("conf_same_weekday_baseline", label = NULL , value = conf$alert_same_weekday_baseline))),
-          shiny::fluidRow(shiny::column(3, "Default with retweets/Quotes"), shiny::column(9, shiny::checkboxInput("conf_with_retweets", label = NULL , value = conf$alert_with_retweets))),
+          shiny::h3("Signal detection"),
+          shiny::fluidRow(shiny::column(3, "Signal false positive rate"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005))),
+          shiny::fluidRow(shiny::column(3, "Outlier false positive rate"), shiny::column(9, shiny::sliderInput("conf_alpha_outlier", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005))),
+          shiny::fluidRow(shiny::column(3, "Outlier downweight strength"), shiny::column(9, shiny::sliderInput("conf_k_decay", label = NULL, min = 1, max = 10, value = conf$alert_k_decay, step = 0.5))),
+          shiny::fluidRow(shiny::column(3, "Days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
+          shiny::fluidRow(shiny::column(3, "Same weekday baseline"), shiny::column(9, shiny::checkboxInput("conf_same_weekday_baseline", label = NULL , value = conf$alert_same_weekday_baseline))),
+          shiny::fluidRow(shiny::column(3, "Include retweets/quotes"), shiny::column(9, shiny::checkboxInput("conf_with_retweets", label = NULL , value = conf$alert_with_retweets))),
           shiny::fluidRow(
-            shiny::column(3, "Default with bonferroni correction"), 
+            shiny::column(3, "Bonferroni correction"), 
             shiny::column(9, shiny::checkboxInput("conf_with_bonferroni_correction", label = NULL , value = conf$alert_with_bonferroni_correction))
           ),
           shiny::h3("General"),
-          shiny::fluidRow(shiny::column(3, "Data Dir"), shiny::column(9, shiny::span(conf$data_dir))),
-          shiny::fluidRow(shiny::column(3, "Search span (m)"), shiny::column(9, shiny::numericInput("conf_collect_span", label = NULL, value = conf$collect_span))), 
-          shiny::fluidRow(shiny::column(3, "Detect span (m)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
-          shiny::fluidRow(shiny::column(3, "Launch Slots"), shiny::column(9, shiny::htmlOutput("conf_schedule_slots"))), 
+          shiny::fluidRow(shiny::column(3, "Data dir"), shiny::column(9, shiny::span(conf$data_dir))),
+          shiny::fluidRow(shiny::column(3, "Search span (min)"), shiny::column(9, shiny::numericInput("conf_collect_span", label = NULL, value = conf$collect_span))), 
+          shiny::fluidRow(shiny::column(3, "Detect span (min)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
+          shiny::fluidRow(shiny::column(3, "Launch slots"), shiny::column(9, shiny::htmlOutput("conf_schedule_slots"))), 
           shiny::fluidRow(shiny::column(3, "Password Store"), shiny::column(9, 
             shiny::selectInput(
               "conf_keyring", 
@@ -212,61 +212,61 @@ epitweetr_app <- function(data_dir = NA) {
               choices = c("wincred", "macos", "file", "secret_service", "environment"), 
               selected = conf$keyring
             ))), 
-          shiny::fluidRow(shiny::column(3, "Spark Cores"), shiny::column(9, shiny::numericInput("conf_spark_cores", label = NULL, value = conf$spark_cores))) ,
-          shiny::fluidRow(shiny::column(3, "Spark Memory"), shiny::column(9, shiny::textInput("conf_spark_memory", label = NULL, value = conf$spark_memory))), 
-          shiny::fluidRow(shiny::column(3, "Geolocation Threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
-          shiny::fluidRow(shiny::column(3, "Geonames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
-          shiny::fluidRow(shiny::column(3, "Simplified Geonames"), shiny::column(9, shiny::checkboxInput("conf_geonames_simplify", label = NULL, value = conf$geonames_simplify))),
+          shiny::fluidRow(shiny::column(3, "Spark cores"), shiny::column(9, shiny::numericInput("conf_spark_cores", label = NULL, value = conf$spark_cores))) ,
+          shiny::fluidRow(shiny::column(3, "Spark memory"), shiny::column(9, shiny::textInput("conf_spark_memory", label = NULL, value = conf$spark_memory))), 
+          shiny::fluidRow(shiny::column(3, "Geolocation threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
+          shiny::fluidRow(shiny::column(3, "GeoNames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
+          shiny::fluidRow(shiny::column(3, "Simplified GeoNames"), shiny::column(9, shiny::checkboxInput("conf_geonames_simplify", label = NULL, value = conf$geonames_simplify))),
           shiny::fluidRow(shiny::column(3, "Maven repository"), shiny::column(9,  shiny::textInput("conf_maven_repo", label = NULL, value = conf$maven_repo))),
           shiny::conditionalPanel(
             condition = ".Platform$OS.type == 'windows'",
-            shiny::fluidRow(shiny::column(3, "Winutils url"), shiny::column(9,  shiny::textInput("conf_winutils_url", label = NULL, value = conf$winutils_url)))
+            shiny::fluidRow(shiny::column(3, "Winutils URL"), shiny::column(9,  shiny::textInput("conf_winutils_url", label = NULL, value = conf$winutils_url)))
           ),
-          shiny::fluidRow(shiny::column(3, "Regions Disclaimer"), shiny::column(9, shiny::textAreaInput("conf_regions_disclaimer", label = NULL, value = conf$regions_disclaimer))),
-          shiny::h2("Twitter Authentication"),
+          shiny::fluidRow(shiny::column(3, "Region disclaimer"), shiny::column(9, shiny::textAreaInput("conf_regions_disclaimer", label = NULL, value = conf$regions_disclaimer))),
+          shiny::h2("Twitter authentication"),
           shiny::fluidRow(shiny::column(3, "Mode"), shiny::column(9
             , shiny::radioButtons(
               "twitter_auth"
               , label = NULL
-              , choices = list("Twitter Account" = "delegated", "Twitter Developer App" = "app")
+              , choices = list("Twitter account" = "delegated", "Twitter developer app" = "app")
               , selected = if(cd$app_auth) "app" else "delegated" 
               ))
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'delegated'",
-            shiny::fluidRow(shiny::column(12, "When choosing 'delegate' twitter authentication you will have to use your twitter credentials to authorize the twitter application for the rtweet package (https://rtweet.info/) to access twitter on your behalf (full rights provided).")), 
-            shiny::fluidRow(shiny::column(12, "DISCLAIMER: Rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs."))
+            shiny::fluidRow(shiny::column(12, "When choosing 'Twitter account' authentication you will have to use your Twitter credentials to authorize the Twitter application for the rtweet package (https://rtweet.info/) to access twitter on your behalf (full rights provided).")), 
+            shiny::fluidRow(shiny::column(12, "DISCLAIMER: rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs."))
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'app'",
-            shiny::fluidRow(shiny::column(3, "App Name"), shiny::column(9, shiny::textInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
-            shiny::fluidRow(shiny::column(3, "Api Key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
-            shiny::fluidRow(shiny::column(3, "Api Secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
-            shiny::fluidRow(shiny::column(3, "Access Token"), shiny::column(9, 
+            shiny::fluidRow(shiny::column(3, "App name"), shiny::column(9, shiny::textInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
+            shiny::fluidRow(shiny::column(3, "API key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
+            shiny::fluidRow(shiny::column(3, "API Secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
+            shiny::fluidRow(shiny::column(3, "Access token"), shiny::column(9, 
               shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
             ), 
-            shiny::fluidRow(shiny::column(3, "Token Secret"), shiny::column(9, 
+            shiny::fluidRow(shiny::column(3, "Token secret"), shiny::column(9, 
               shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
             )
           ), 
-          shiny::h2("Email Authentication (smtp)"),
+          shiny::h2("Email authentication (STMP)"),
           shiny::fluidRow(shiny::column(3, "Server"), shiny::column(9, shiny::textInput("smtp_host", label = NULL, value = conf$smtp_host))), 
           shiny::fluidRow(shiny::column(3, "Port"), shiny::column(9, shiny::numericInput("smtp_port", label = NULL, value = conf$smtp_port))), 
           shiny::fluidRow(shiny::column(3, "From"), shiny::column(9, shiny::textInput("smtp_from", label = NULL, value = conf$smtp_from))), 
           shiny::fluidRow(shiny::column(3, "Login"), shiny::column(9, shiny::textInput("smtp_login", label = NULL, value = conf$smtp_login))), 
           shiny::fluidRow(shiny::column(3, "Password"), shiny::column(9, shiny::passwordInput("smtp_password", label = NULL, value = conf$smtp_password))), 
           shiny::fluidRow(shiny::column(3, "Unsafe certificates"), shiny::column(9, shiny::checkboxInput("smtp_insecure", label = NULL, value = conf$smtp_insecure))), 
-          shiny::actionButton("save_properties", "Update Properties")
+          shiny::actionButton("save_properties", "Save settings")
         ), 
         shiny::column(8,
           ################################################
           ######### DETECTION PANEL ######################
           ################################################
-          shiny::h3("Detection Pipeline"),
+          shiny::h3("Detection pipeline"),
           shiny::h5("Manual tasks"),
           shiny::fluidRow(
             shiny::column(2, shiny::actionButton("update_dependencies", "Run dependencies")),
-            shiny::column(2, shiny::actionButton("update_geonames", "Run geonames")),
+            shiny::column(2, shiny::actionButton("update_geonames", "Run GeoNames")),
             shiny::column(2, shiny::actionButton("update_languages", "Run languages")),
             shiny::column(2, shiny::actionButton("request_geotag", "Run geotag")),
             shiny::column(2, shiny::actionButton("request_aggregate", "Run aggregate")),
@@ -278,9 +278,9 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Topics"),
           shiny::fluidRow(
-            shiny::column(4, shiny::h5("Available Topics")),
+            shiny::column(4, shiny::h5("Available topics")),
             shiny::column(2, shiny::downloadButton("conf_topics_download", "Download")),
-            shiny::column(2, shiny::downloadButton("conf_orig_topics_download", "Download Defaults")),
+            shiny::column(2, shiny::downloadButton("conf_orig_topics_download", "Download default")),
             shiny::column(4, shiny::fileInput("conf_topics_upload", label = NULL, buttonLabel = "Upload")),
           ),
           DT::dataTableOutput("config_topics"),
@@ -289,13 +289,13 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Languages"),
           shiny::fluidRow(
-            shiny::column(4, shiny::h5("Available Languages")),
+            shiny::column(4, shiny::h5("Available languages")),
             shiny::column(2, shiny::downloadButton("conf_lang_download", "Download")),
-            shiny::column(2, shiny::downloadButton("conf_orig_lang_download", "Download Defaults")),
+            shiny::column(2, shiny::downloadButton("conf_orig_lang_download", "Download default")),
             shiny::column(4, shiny::fileInput("conf_lang_upload", label = NULL , buttonLabel = "Upload")),
           ),
           shiny::fluidRow(
-            shiny::column(4, shiny::h5("Active Languages")),
+            shiny::column(4, shiny::h5("Active languages")),
             shiny::column(6, shiny::uiOutput("lang_items_0")),
             shiny::column(1, shiny::actionButton("conf_lang_add", "+")),
             shiny::column(1, shiny::actionButton("conf_lang_remove", "-")),
@@ -304,11 +304,11 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           ######### IMPORTANT USERS ######################
           ################################################
-          shiny::h3("Important Users"),
+          shiny::h3("Important users"),
           shiny::fluidRow(
             shiny::column(4, shiny::h5("User file")),
             shiny::column(2, shiny::downloadButton("conf_users_download", "Download")),
-            shiny::column(2, shiny::downloadButton("conf_orig_users_download", "Download Defaults")),
+            shiny::column(2, shiny::downloadButton("conf_orig_users_download", "Download default")),
             shiny::column(4, shiny::fileInput("conf_users_upload", label = NULL , buttonLabel = "Upload")),
           ),
           ################################################
@@ -318,18 +318,18 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(4, shiny::h5("Subscribers")),
             shiny::column(2, shiny::downloadButton("conf_subscribers_download", "Download")),
-            shiny::column(2, shiny::downloadButton("conf_orig_subscribers_download", "Download Defaults")),
+            shiny::column(2, shiny::downloadButton("conf_orig_subscribers_download", "Download default")),
             shiny::column(4, shiny::fileInput("conf_subscribers_upload", label = NULL, buttonLabel = "Upload")),
           ),
           DT::dataTableOutput("config_subscribers"),
           ################################################
           ######### COUNTRIES / REGIONS PANEL ############
           ################################################
-          shiny::h3("Countries / Regions"),
+          shiny::h3("Countries & regions"),
           shiny::fluidRow(
-            shiny::column(4, shiny::h5("Countries / Territories")),
+            shiny::column(4, shiny::h5("Countries & regions")),
             shiny::column(2, shiny::downloadButton("conf_countries_download", "Download")),
-            shiny::column(2, shiny::downloadButton("conf_orig_countries_download", "Download Defaults")),
+            shiny::column(2, shiny::downloadButton("conf_orig_countries_download", "Download defaults")),
             shiny::column(4, shiny::fileInput("conf_countries_upload", label = NULL, buttonLabel = "Upload")),
           ),
           DT::dataTableOutput("config_regions")
@@ -342,17 +342,17 @@ epitweetr_app <- function(data_dir = NA) {
   geotest_page <- 
     shiny::fluidPage(
           shiny::h3("Geotagging sample"),
-          shiny::h5("random today's tweets"),
+          shiny::h5("Random selection of today's tweets"),
           shiny::fluidRow(
             ################################################
             ######### GEO TAG FILTERS #######################
             ################################################
             shiny::column(1, 
-              shiny::h4("Geo Field") 
+              shiny::h4("Geo field") 
             ),
             shiny::column(3, shiny::selectInput("geotest_fields", label = NULL, multiple = FALSE, choices = cd$geo_cols)),
             shiny::column(1, 
-              shiny::h4("Sample Size") 
+              shiny::h4("Sample size") 
             ),
             shiny::column(3, 
               shiny::numericInput("geotest_size", label = NULL, value = 100), 
@@ -995,7 +995,7 @@ epitweetr_app <- function(data_dir = NA) {
       `%>%` <- magrittr::`%>%`
        cd$topics_df %>%
         DT::datatable(
-          colnames = c("Query Length" = "QueryLength", "Active Plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests", "Alpha" = "Alpha", "Outliers Alpha" = "OutliersAlpha"),
+          colnames = c("Query length" = "QueryLength", "Active plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests", "Signal Alpha (FPR)" = "Alpha", "Outlier alpha (FPR)" = "OutliersAlpha"),
           filter = "top",
           escape = TRUE,
         ) %>%
@@ -1033,7 +1033,16 @@ epitweetr_app <- function(data_dir = NA) {
       `%>%` <- magrittr::`%>%`
       get_subscribers() %>%
         DT::datatable(
-          colnames = c("User", "Email",  "Topics", "Excluded Topics", "Immediate Topics", "Regions", "Immediate Regions", "Alert Slots"),
+          colnames = c(
+            "User" = "User", 
+            "Email" = "Email",  
+            "Topics" = "Topics", 
+            "Excluded topics" = "Excluded topics", 
+            "Immediate topics" = "Immediate Topics", 
+            "Regions" = "Regions", 
+            "Immediate regions" = "Immediate Regions", 
+            "Alert slots" = "Alert Slots"
+          ),
           filter = "top",
           escape = TRUE,
         )
@@ -1069,7 +1078,15 @@ epitweetr_app <- function(data_dir = NA) {
       `%>%` <- magrittr::`%>%`
       get_regions_df() %>%
         DT::datatable(
-          colnames = c("Name", "Codes",  "Level", "Min. Lat.", "Max. Lat.", "Min. Long.", "Max. Long"),
+          colnames = c(
+            "Name" = "Name", 
+            "Codes" = "Code",  
+            "Level" = "Level", 
+            "Min. lat." = "Min. Lat.", 
+            "Max. lat." = "Max Lat.", 
+            "Min. long." = "Min Long.", 
+            "Max. long." = "Max. Long"
+          ),
           filter = "top",
           escape = TRUE,
         )

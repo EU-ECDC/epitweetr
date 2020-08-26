@@ -25,7 +25,12 @@
 #' \dontrun{
 #' if(interactive()){
 #'    #Getting trendline for dengue for South America for the last 30 days
-#'    trend_line(topic = "dengue", countries = "South America", date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
+#'    trend_line(
+#'      topic = "dengue", 
+#'      countries = "South America", 
+#'      date_min = as.Date(Sys.time())-30, 
+#'      date_max=as.Date(Sys.time())
+#'    ) 
 #'  }
 #' }
 #' @seealso 
@@ -289,7 +294,12 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' \dontrun{
 #' if(interactive()){
 #'    #Getting bubble chart for dengue for South America for last 30 days
-#'    create_map(topic = "dengue", countries = "South America", date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
+#'    create_map(
+#'      topic = "dengue", 
+#'      countries = "South America", 
+#'      date_min = as.Date(Sys.time())-30, 
+#'      date_max=as.Date(Sys.time())
+#'    ) 
 #'  }
 #' }
 #' @seealso 
@@ -667,7 +677,11 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' \dontrun{
 #' if(interactive()){
 #'    #Getting topword chart for dengue for France, Chile, Australia for last 30 days
-#'    create_topwords(topic = "dengue", country_codes = c("FR", "CL", "AU"), date_min = as.Date(Sys.time())-30, date_max=as.Date(Sys.time())) 
+#'    create_topwords(
+#'      topic = "dengue", country_codes = c("FR", "CL", "AU")
+#'      date_min = as.Date(Sys.time())-30, 
+#'      date_max=as.Date(Sys.time())
+#'    ) 
 #'  }
 #' }
 #' @seealso 
