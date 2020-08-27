@@ -121,7 +121,7 @@ get_empty_config <- function(data_dir) {
 #' @param ignore_properties Whether to skip loading settings managed by the Shiny app in properties.json file, Default: FALSE
 #' @param ignore_topics Whether to skip loading settings defined in the topics.xlsx file and download plans from topics.json file, default: FALSE
 #' @param save_first Whether to save current settings before loading new ones from disk, default: list()
-#' @return nothing
+#' @return Nothing
 #' @details epitweetr relies on settings and data stored in a system folder, so before loading the dashboard, collecting tweets or detecting alerts the user has to designate this folder.
 #' When a user wants to use epitweetr from the R console they will need to call this function for initialisation.
 #' The 'data_folder' can also be given as a parameter for program launch functions \code{\link{epitweetr_app}}, \code{\link{search_loop}} or \code{\link{detect_loop}}, which will internally call this function.
@@ -133,10 +133,10 @@ get_empty_config <- function(data_dir) {
 #'   \item{Credentials for Twitter API and SMTP stored in the defined keyring}
 #' }
 #'
-#' When calling this function and the keyring is locked, a password will be prompted for to unlock the keyring.
+#' When calling this function and the keyring is locked, a password will be prompted to unlock the keyring.
 #' This behaviour can be changed by setting the enviroment variable 'ecdc_wtitter_tool_kr_password' with the password.
 #' 
-#' Changes made to conf can be stored permanently (excepting by 'data_dir') using 
+#' Changes made to conf can be stored permanently (except for 'data_dir') using:
 #' \itemize{
 #'   \item{\code{\link{save_config}}, or}
 #'    \item{\code{\link{set_twitter_app_auth}}}
@@ -346,7 +346,7 @@ copy_plans_from <- function(temp) {
 #' @param data_dir Path to a directory to save configuration settings, Default: conf$data_dir
 #' @param properties Whether to save the general properties to the properties.json file, default: TRUE
 #' @param topics Whether to save topic download plans to the topics.json file, default: TRUE
-#' @return nothing
+#' @return Nothing
 #' @details Permanently saves configuration changes to the data folder (excluding Twitter credentials, but not SMTP credentials)
 #' to save Twitter credentials please use \code{\link{set_twitter_app_auth}}
 #' @examples 
@@ -427,13 +427,13 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
 }
 
 #' @title Save Twitter App credentials
-#' @description Update Twitter authentication tokens in configuration object
+#' @description Update Twitter authentication tokens in a configuration object
 #' @param app Application name
 #' @param access_token Access token as provided by Twitter
 #' @param access_token_secret Access token secret as provided by Twitter
 #' @param api_key API key as provided by Twitter 
 #' @param api_secret API secret as provided by Twitter
-#' @return nothing
+#' @return Nothing
 #' @details Update Twitter authentication tokens in configuration object
 #' @examples 
 #' \dontrun{

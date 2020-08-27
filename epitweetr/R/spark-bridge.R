@@ -157,7 +157,7 @@ spark_df <- function(args, handler = NULL) {
 #'   }
 #' }
 #'
-#' The URLs to download the JAR dependencies (maven package manager) and Winutils are on the configuration page of the Shiny app.
+#' The URLs to download the JAR dependencies (maven package manager) and Winutils are on the configuration tab of the Shiny app.
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 

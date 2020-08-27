@@ -2,7 +2,7 @@
 cached <- new.env()
 
 #' @title Execute the aggregation task
-#' @description Get all the tweets from the Search API json files and the geolocated tweets json files obtained by calling (\code{\link{geotag_tweets}}) and store the results ion the series folder as daily RDS files
+#' @description Get all the tweets from the Twitter Standard Search API json files and the geolocated tweets json files obtained by calling (\code{\link{geotag_tweets}}) and store the results in the series folder as daily Rds files
 #' @param series List of series to aggregate, default: list("country_counts", "geolocated", "topwords")
 #' @param tasks Current tasks for reporting purposes, default: get_tasks()
 #' @return the list of tasks updated with aggregate messages
@@ -15,11 +15,11 @@ cached <- new.env()
 #' 
 #' - For each series passed as a parameter and for each date to update: 
 #' 
-#'  - a SPARK task will be called that will deduplicate tweets for each topic, join them with gelocation information, and aggregate them to the required level and return to the standard output as json lines
+#'  - a Spark task will be called that will deduplicate tweets for each topic, join them with gelocation information, and aggregate them to the required level and return to the standard output as json lines
 #'  
 #'  - the result of this task is parsed using jsonlite and saved into RDS files in the series folder
 #'  
-#' A prerequisite to this function is that the search_loop must have already collected tweets in the search folder and that geotag_tweets has already run.
+#' A prerequisite to this function is that the \code{\link{search_loop}} must have already collected tweets in the search folder and that geotag_tweets has already run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
 #' \dontrun{
@@ -149,7 +149,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #'    df <- get_aggregates("country_counts", list(topic = "dengue"))
 #'
 #'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for the topic dengue
-#'    df <- get_aggregates("country_counts", list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
+#'     df <- get_aggregates("country_counts", list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
 #'  }
 #' }
 #' @seealso 

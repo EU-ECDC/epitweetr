@@ -1,6 +1,6 @@
 
 #' @title Run the epitweetr Shiny app
-#' @description Open the epitweetr Shiny app, used to setup the search loop, the detect loop and to visualise the reports. 
+#' @description Open the epitweetr Shiny app, used to setup the search loop, the detect loop and to visualise the outputs. 
 #' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
 #' @return The Shiny server object containing the launched application

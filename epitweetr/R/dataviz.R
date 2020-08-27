@@ -276,12 +276,12 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @param date_max Date indicating end of the reporting period, default: "2100-01-01"
 #' @param with_retweets Logical value indicating whether to include retweets in the time series, default: FALSE
 #' @param location_type Character(1) vector indicating the location type. Possible values 'tweet', 'user' or 'both', default: 'tweet'
-#' @param caption Character(1) vector indicating a caption to print at the bottom of the chart, default: ''
+#' @param caption Character(1) vector indicating a caption to print at the bottom of the chart, default: ""
 #' @param proj Parameter indicating the CRS (Corrdinate Reference System) to use on PROJ4 format \code{\link[sp]{CRS-class}}?
 #' If null and all countries are selected +proj=robin is used (Robinson projection) otherwise the Lambert azimuthal equal-area projection will be chosen, default: NULL
-#' @param forplotly Logical(1) parameter indicating whether some hacks are activated to improve plotly rendering, default: F
+#' @param forplotly Logical(1) parameter indicating whether some hacks are activated to improve plotly rendering, default: FALSE
 #' @return A named list containing two elements: 'chart' with the ggplot2 figure and 'data' containing the dataframe that was used to build the map.
-#' @details Produces a map bubble chart for a particular topic of number of tweets collected based on the provided parameters.
+#' @details Produces a bubble chart map for a particular topic on number of tweets collected based on the provided parameters.
 #' The map will display information at country level if more than one country is selected, otherwise it will display bubbles at the smallest possible location identified for each tweet within the period
 #' which could be any administrative level or city level.
 #' 

@@ -1,21 +1,21 @@
 #' @title Launches the geo-tagging loop
-#' @description This function will geolocate all tweets before the current hour that has not been already geolocated
+#' @description This function will geolocate all tweets before the current hour that have not been already geolocated
 #' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Geolocates tweets by collection date. And stores the result in the tweets/geolocated folder.
-#' It starts from the last geolocated date until the last collected tweet. While running on a day that has been partially geolocated
+#' @details Geolocates tweets by collection date, and stores the result in the tweets/geolocated folder.
+#' It starts from the last geolocated date until the last collected tweet. When running on a day that has been partially geolocated,
 #' it will ignore tweets that have already been processed. 
 #'
 #' The geolocation is applied to several fields of tweets: text, original text (if retweet or quote), user description, user declared location, user biography, API location. For each field it will perform the following steps:
 #' \itemize{
-#'   \item{Evaluate the part of the text which is more likely to be a location using a machine learning and language dependent model trained during \code{\link{update_languages}}}
+#'   \item{Evaluate the part of the text which is more likely to be a location using an unsupervised machine learning and language dependent model trained during \code{\link{update_languages}}}
 #'   \item{Match the selected text against a Lucene index of GeoNames database built during \code{\link{update_geonames}}}
-#'   \item{Return the location with the highest matching score. For more information about the scoring process pleade refer to the epitweetr vignette}
+#'   \item{Return the location with the highest matching score. For more information about the scoring process please refer to the epitweetr vignette}
 #' }
 #'
-#' This algorithm has mainly been developed in SPARK. 
+#' This algorithm has mainly been developed in Spark. 
 #'
-#' A prerequisite to this function is that the search_loop must already have stored collected tweets in the search folder and that the tasks \code{\link{download_dependencies}}, 
+#' A prerequisite to this function is that the \code{\link{search_loop}} must already have stored collected tweets in the search folder and that the tasks \code{\link{download_dependencies}}, 
 #' \code{\link{update_geonames}} and \code{\link{update_languages}} have successfully been run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
@@ -442,14 +442,14 @@ get_country_index_map <- function() {
 #' @description Downloading and indexing a fresh version of the GeoNames database from the provided URL
 #' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Run a one shot task consisting of downloading and indexing a local copy of the  \href{http://www.geonames.org/}{Geonames database}. 
+#' @details Run a one shot task to download and index a local copy of the  \href{http://www.geonames.org/}{GeoNames database}. 
 #' The GeoNames geographical database covers all countries and contains over eleven million place names that are available; Creative Commons Attribution 4.0 License. 
 #'
-#' The URL to download the database from is set on the configuration page of the Shiny app.
+#' The URL to download the database from is set on the configuration tab of the Shiny app, in case it changes.
 #'
-#' The indexing is developed in SPARK and Lucene
+#' The indexing is developed in Spark and Lucene
 #'
-#' A prerequisite to this function is that the search_loop must already have stored collected tweets in the search folder and that the task \code{\link{download_dependencies}}
+#' A prerequisite to this function is that the \code{\link{search_loop}} must already have stored collected tweets in the search folder and that the task \code{\link{download_dependencies}}
 #' has been successfully run.
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
@@ -532,19 +532,19 @@ update_geonames <- function(tasks) {
 
  
 #' @title Updates local copies of languages
-#' @description Downloading and indexing a fresh version of language models tagged for update on the Shiny app configuration page
+#' @description Downloading and indexing a fresh version of language models tagged for update on the Shiny app configuration tab
 #' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Run a one shot task consisting on downloading and indexing a local fasttext \href{https://fasttext.cc/docs/en/crawl-vectors.html}{pretrained models}. 
+#' @details Run a one shot task to download and index a local fasttext \href{https://fasttext.cc/docs/en/crawl-vectors.html}{pretrained models}. 
 #' A fasttext model is a collection of vectors for a language automatically produced scrolling a big corpus of text that can be used to capture the semantic of a word.
 #'
-#' The URL to download the vectors from are set on the configuration page of the Shiny app.
+#' The URL to download the vectors from are set on the configuration tab of the Shiny app.
 #'
 #' This task will also update SVM models to predict whether a word is a location that will be used in the geolocation process.
 #'
 #' The indexing is developed in SPARK and Lucene.
 #'
-#' A prerequisite to this function is that the search_loop must already have stored collected tweets in the search folder and that the tasks \code{\link{download_dependencies}}
+#' A prerequisite to this function is that the \code{\link{search_loop}} must already have stored collected tweets in the search folder and that the tasks \code{\link{download_dependencies}}
 #' and \code{\link{update_geonames}} has been run successfully.
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
