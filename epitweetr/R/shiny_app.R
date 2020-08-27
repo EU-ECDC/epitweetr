@@ -71,12 +71,12 @@ epitweetr_app <- function(data_dir = NA) {
             condition = "input.fixed_period == 'custom'",
             shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month")
           ), 
-          shiny::radioButtons("period_type", label = shiny::h4("Time nit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
+          shiny::radioButtons("period_type", label = shiny::h4("Time unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
           shiny::h4("Include retweets/quotes"),
 	        shiny::checkboxInput("with_retweets", label = NULL, value = conf$alert_with_retweets),
           shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","Both"="both" ), selected = "tweet", inline = TRUE),
           shiny::sliderInput("alpha_filter", label = shiny::h4("Signal false positive rate"), min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005),
-          shiny::sliderInput("alpha_outlier_filter", label = shiny::h4("Outliers false positive rate confidence"), min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005),
+          shiny::sliderInput("alpha_outlier_filter", label = shiny::h4("Outlier false positive rate"), min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005),
           shiny::sliderInput("k_decay_filter", label = shiny::h4("Outlier downweight strength"), min = 1, max = 10, value = conf$alert_k_decay, step = 0.5),
           shiny::h4("Bonferroni correction"),
 	        shiny::checkboxInput("bonferroni_correction", label = NULL, value = conf$alert_with_bonferroni_correction),
@@ -205,7 +205,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Search span (min)"), shiny::column(9, shiny::numericInput("conf_collect_span", label = NULL, value = conf$collect_span))), 
           shiny::fluidRow(shiny::column(3, "Detect span (min)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
           shiny::fluidRow(shiny::column(3, "Launch slots"), shiny::column(9, shiny::htmlOutput("conf_schedule_slots"))), 
-          shiny::fluidRow(shiny::column(3, "Password Store"), shiny::column(9, 
+          shiny::fluidRow(shiny::column(3, "Password store"), shiny::column(9, 
             shiny::selectInput(
               "conf_keyring", 
               label = NULL, 
@@ -234,14 +234,14 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'delegated'",
-            shiny::fluidRow(shiny::column(12, "When choosing 'Twitter account' authentication you will have to use your Twitter credentials to authorize the Twitter application for the rtweet package (https://rtweet.info/) to access twitter on your behalf (full rights provided).")), 
+            shiny::fluidRow(shiny::column(12, "When choosing 'Twitter account' authentication you will have to use your Twitter credentials to authorize the Twitter application for the rtweet package (https://rtweet.info/) to access Twitter on your behalf (full rights provided).")), 
             shiny::fluidRow(shiny::column(12, "DISCLAIMER: rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs."))
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'app'",
             shiny::fluidRow(shiny::column(3, "App name"), shiny::column(9, shiny::textInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
             shiny::fluidRow(shiny::column(3, "API key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
-            shiny::fluidRow(shiny::column(3, "API Secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
+            shiny::fluidRow(shiny::column(3, "API secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
             shiny::fluidRow(shiny::column(3, "Access token"), shiny::column(9, 
               shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
             ), 
@@ -995,7 +995,7 @@ epitweetr_app <- function(data_dir = NA) {
       `%>%` <- magrittr::`%>%`
        cd$topics_df %>%
         DT::datatable(
-          colnames = c("Query length" = "QueryLength", "Active plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests", "Signal Alpha (FPR)" = "Alpha", "Outlier alpha (FPR)" = "OutliersAlpha"),
+          colnames = c("Query length" = "QueryLength", "Active plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests", "Signal alpha (FPR)" = "Alpha", "Outlier alpha (FPR)" = "OutliersAlpha"),
           filter = "top",
           escape = TRUE,
         ) %>%
@@ -1037,10 +1037,10 @@ epitweetr_app <- function(data_dir = NA) {
             "User" = "User", 
             "Email" = "Email",  
             "Topics" = "Topics", 
-            "Excluded topics" = "Excluded topics", 
-            "Immediate topics" = "Immediate Topics", 
+            "Excluded topics" = "Excluded Topics", 
+            "Immediate topics" = "Real time Topics", 
             "Regions" = "Regions", 
-            "Immediate regions" = "Immediate Regions", 
+            "Immediate regions" = "Real time Regions", 
             "Alert slots" = "Alert Slots"
           ),
           filter = "top",
@@ -1080,12 +1080,12 @@ epitweetr_app <- function(data_dir = NA) {
         DT::datatable(
           colnames = c(
             "Name" = "Name", 
-            "Codes" = "Code",  
+            "Codes" = "Codes",  
             "Level" = "Level", 
-            "Min. lat." = "Min. Lat.", 
-            "Max. lat." = "Max Lat.", 
-            "Min. long." = "Min Long.", 
-            "Max. long." = "Max. Long"
+            "Min. lat." = "MinLatitude", 
+            "Max. lat." = "MaxLatitude", 
+            "Min. long." = "MinLongitude", 
+            "Max. long." = "MaxLingityde"
           ),
           filter = "top",
           escape = TRUE,
@@ -1147,8 +1147,8 @@ epitweetr_app <- function(data_dir = NA) {
             "Day rank" = "rank",
             "With retweets" = "with_retweets",
             "Location" = "location_type",
-            "Alert confidence" = "alpha",
-            "Outliers Confidence" = "alpha_outlier",
+            "Alert FPR (alpha)" = "alpha",
+            "Outlier FPR (alpha)" = "alpha_outlier",
             "Downweight strenght" = "k_decay"
             ),
           filter = "top",
@@ -1166,12 +1166,12 @@ epitweetr_app <- function(data_dir = NA) {
        get_todays_sample_tweets(limit = input$geotest_size, text_col = text_col, lang_col = lang_col) %>%
          DT::datatable(
            colnames = c(
-             "Tweet Id" = "id",  
+             "Tweet ID" = "id",  
              "Text" =  text_col,
              "Language" = lang_col_name,
              "Location name" = "geo_name",
              "Location type" = "geo_type",
-             "Country Code" =  "geo_country_code",
+             "Country code" =  "geo_country_code",
              "Country" = "country", 
              "Score" = "score", 
              "Tagged text" = "tagged"
@@ -1263,7 +1263,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
       Language = unlist(lang_tasks$names), 
       Code = unlist(lang_tasks$codes), 
       Status = unlist(lang_tasks$statuses), 
-      Url = unlist(lang_tasks$urls)
+      URL = unlist(lang_tasks$urls)
     )
   }
   # Updating topics related fields
