@@ -62,7 +62,7 @@ get_empty_config <- function(data_dir) {
   ret <- list()
   ret$keyring <- 
    if(.Platform$OS.type == "windows") "wincred"
-   else if(.Platform$OS.type == "mac") "macos"
+   else if(Sys.info()[['sysname']] == "Darwin") "macos"
    else "file"
   ret$data_dir <- data_dir
   ret$collect_span <- 60

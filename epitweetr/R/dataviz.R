@@ -4,8 +4,8 @@
 #' @param topic Character(1) containing the topic to use for the report  
 #' @param countries Character vector containing the name of the countries and regions to plot or their respective indexes on the Shiny app select, default: c(1)
 #' @param date_type Character vector specifying the time granularity of the report either 'created_weeknum' or 'created_date', default: 'created_date'
-#' @param date_min Date indicating start of the reporting period, default: as.Date("1900-01-01")
-#' @param date_max Date indicating end of the reporting period, default: as.Date("2100-01-01")
+#' @param date_min Date indicating start of the reporting period, default: "1900-01-01"
+#' @param date_max Date indicating end of the reporting period, default: "2100-01-01"
 #' @param with_retweets Logical value indicating whether to include retweets in the time series, default: FALSE
 #' @param location_type Character(1) vector indicating the location type. Possible values 'tweet', 'user' or 'both', default: 'tweet'
 #' @param alpha Numeric(1) value indicating the alert detection confidence, default: 0.025
@@ -48,8 +48,8 @@ trend_line <- function(
   topic
   , countries=c(1)
   , date_type="created_date"
-  , date_min=as.Date("1900-01-01")
-  , date_max=as.Date("2100-01-01")
+  , date_min="1900-01-01"
+  , date_max="2100-01-01"
   , with_retweets = FALSE
   , location_type = "tweet"
   , alpha = 0.025
@@ -272,8 +272,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @description Generates a bubble map plot of number of tweets by countries, for one topic
 #' @param topic Character(1) containing the topic to use for the report  
 #' @param countries Character vector containing the name of the countries and regions to plot or their respective indexes on the Shiny app, default: c(1)
-#' @param date_min Date indicating start of the reporting period, default: as.Date("1900-01-01")
-#' @param date_max Date indicating end of the reporting period, default: as.Date("2100-01-01")
+#' @param date_min Date indicating start of the reporting period, default: "1900-01-01"
+#' @param date_max Date indicating end of the reporting period, default: "2100-01-01"
 #' @param with_retweets Logical value indicating whether to include retweets in the time series, default: FALSE
 #' @param location_type Character(1) vector indicating the location type. Possible values 'tweet', 'user' or 'both', default: 'tweet'
 #' @param caption Character(1) vector indicating a caption to print at the bottom of the chart, default: ""
@@ -661,8 +661,8 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' @description Generates a bar plot of most popular words in tweets, for one topic
 #' @param topic Character(1) containing the topic to use for the report
 #' @param country_codes Character vector containing the ISO 3166-1 alpha-2 countries to plot, default: c()
-#' @param date_min Date indicating start of the reporting period, default: as.Date("1900-01-01")
-#' @param date_max Date indicating end of the reporting period, default: as.Date("2100-01-01")
+#' @param date_min Date indicating start of the reporting period, default: "1900-01-01"
+#' @param date_max Date indicating end of the reporting period, default: "2100-01-01"
 #' @param with_retweets Logical value indicating whether to include retweets in the time series, default: FALSE
 #' @param location_type Character(1) this parameter is currently being IGNORED since this report shows only tweet location and cannot showed user or both locations for performance reasons, default: 'tweet'
 #' @param top numeric(1) Parameter indicating the number of words to show, default: 25
@@ -678,7 +678,8 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' if(interactive()){
 #'    #Getting topword chart for dengue for France, Chile, Australia for last 30 days
 #'    create_topwords(
-#'      topic = "dengue", country_codes = c("FR", "CL", "AU")
+#'      topic = "dengue", 
+#'      country_codes = c("FR", "CL", "AU"),
 #'      date_min = as.Date(Sys.time())-30, 
 #'      date_max=as.Date(Sys.time())
 #'    ) 
@@ -695,7 +696,7 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' @importFrom magrittr `%>%`
 #' @importFrom dplyr filter group_by summarize ungroup arrange mutate
 #' @importFrom ggplot2 ggplot aes geom_col xlab coord_flip labs scale_y_continuous theme_classic theme element_text margin element_blank
-create_topwords <- function(topic,country_codes=c(),date_min=as.Date("1900-01-01"),date_max=as.Date("2100-01-01"), with_retweets = FALSE, location_type = "tweet", top = 25) {
+create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", top = 25) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   f_topic <- topic
