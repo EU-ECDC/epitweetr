@@ -3,7 +3,7 @@
 #' @description Infinite loop ensuring the permanent collection of tweets 
 #' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, Default: NA
-#' @return nothing
+#' @return Nothing
 #' @details The detect loop is a pure R function designed for downloading tweets from the Twitter search API. It can handle several topics ensuring that all of them will be downloaded fairly using a 
 #' round-robin philosophy and respecting Twitter API rate-limits.
 #'

@@ -105,11 +105,11 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
-#' @title Get the detect loop task status
-#' @description Reads the status of the detect loop tasks and updates it with changes requested by the Shiny app
+#' @title Get the \code{\link{detect_loop}} task status
+#' @description Reads the status of the \code{\link{detect_loop}} tasks and updates it with changes requested by the Shiny app
 #' @param statuses Character vector for limiting the status of the returned tasks, default: list()
 #' @return A named list containing all necessary information to run and monitor the detect loop tasks.
-#' @details After reading the tasks.json file and parsing it with jsonlite this function will update the necessary fields in the 
+#' @details After reading the tasks.json file and parsing it with jsonlite, this function will update the necessary fields in the 
 #' tasks for executing and monitoring them.
 #' @examples 
 #' \dontrun{
