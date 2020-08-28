@@ -1137,6 +1137,86 @@ knitr::include_graphics("img/ebola.png")
 
 ## Annex II: Troubleshooting and tips {#annexII}
 
+This annex contains some tips and common solutions to errors or issues that `epitweetr` users may encounter.
+
+### Management of search and detection loops (Windows)
+After activating the search and detection pipeline from the configuration tab of `epitweetr` (Windows), two tasks will be created in the task scheduler and two terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.
+
+If you activate these tasks from the configuration tab of `epitweetr` again, the system will overwrite the tasks created in the task scheduler. Instead, after the first successful activation of these tasks from `epitweetr`, you can easily manage these from the task scheduler. You can stop these tasks by ending and disabling the tasks in the task scheduler, and you can restart these tasks by enabling and running these in the task scheduler.
+
+In the task scheduler, you can establish that the search and detection tasks “run whether the user is logged on or not” to avoid that these tasks stop when you log/turn off the computer. 
+
+### Management of search and detection loops (Linux and Mac)
+Since the search and detection pipeline in Linux or Mac have to be run manually, if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop. Please remember to follow the steps in the section *“Setting up tweet collection and the alert detection loop”* to run these tasks again.
+
+### Running search and detection pipeline
+
+#### “Cannot execute task \#####: the task is already running”
+The detect and the search loop create two files containing their process IDs located in the `epitwitter` data folder: serarch.PID and detect.PID. This error arises if `epitweetr` finds another R process currently running with the same ID. In order to fix this error you should first verify if the search / detect loop are not already running in another R session. If this is the case, you should not try to start the task since `epitweetr` only supports one instance of the same task running in the same data folder. If the running process is not associated with the task then you can manually delete the PID file and try to start it again.
+
+### Change the user of the Twitter authentication when using a Twitter account
+1. End and disable the search loop/task in the task scheduler (Windows) or close the R/terminal window with the search loop/task (Linux and Mac)
+
+2. Search for a file called “.rtweet_token” in hidden files. It is usually saved in the Documents folder.
+
+3. Delete that file.
+
+4. Click on “Update properties” in the configuration tab of `epitweetr`.
+
+5. Enable and run the search loop/task in the task scheduler (Windows) or run the command in a new R/terminal window with the search loop/task (Linux and Mac). More details are available in the section *“Setting up tweet collection and the alert detection loop”*
+
+### Downloading GeoNames and/or languages
+
+#### “The specified size exceeds the maximum representable size. Error: Could not create the Java Virtual Machine”
+
+If this error appears when running GeoNames, it means that the machine has Java 32bits. You need to install Java 64bits.
+
+#### “Max number of retried reached failed while processing languages. Error in get_geolocated_period(dataset): To aggregate, or calculate alerts geolocation must have been successfully executed, but no geolocation files were found”
+
+If you see this error in the configuration tab, it means that `epitweetr` could not geotag the collected tweets. It is highly recommended to run GeoNames and languages again since these may have not been properly downloaded. When running this task, you need to ensure that the machine is not logged/turned off or does not go into sleep mode.
+
+### The “Launch slots” in the configuration tab show NAs instead of the time slots
+
+If it is the first time that you install and launch `epitweetr`, the geotag task of the detection pipeline has to be run at least once in order to see time slots in the “Launch slots” in the configuration tab.
+
+### Downloading PDF of the dashboard
+
+#### “Error in: LaTeX failed to compile C:&#92;Users&#92;name~1&#92;...&#92;file######.tex.”
+
+This error appears in Windows when clicking on “PDF” in the dashboard and no PDF is saved. The reason is that the path to TEMP and TMP environment variables of the user is too long, Windows shortens the path and epitweetr cannot find this new path. Please follow the next steps to fix this:
+
+1. Open the “environment variable for your account”
+
+2. Change the path for TEMP and TMP to a shorter path (e.g. “C:&#92;Temp”). The same path should be used for both environment variables.
+
+3. Log off and log on
+
+4. You can now download and save the PDF from the dashboard
+
+#### “Error: pandoc document conversion failed with error 6”
+
+1. Downloading this script (https://raw.githubusercontent.com/jgm/pandoc/master/macos/uninstall-pandoc.pl)
+
+2. Uninstall pandoc (https://pandoc.org/installing.html) by running perl uninstall-pandoc.pl
+
+### Different totals in dashboard outputs
+When counting the total tweets in the dashboard of the Shiny app or in the downloadable data, you might get differences in the total numbers of tweets between the three outputs. This might be due to the following reasons:
+
+1. World (all) versus World (geolocated)
+
+    - The default option for the regions in World (all), this means that also non-geolocated tweets are included in the trendline, but only geolocated tweets can be visualized in the maps and the most frequent words figure, therefore the overall total of tweets can differ between these outputs wen selecting World (all) or the empty default.
+
+2. Country specific analysis
+
+    - If you select only one country in the filters, the trendline will show all tweets for this country, but the map will show the tweets on a subnational level in the map. It could be that some tweets might have been geolocated to a certain country, but without further subnational data. These tweets will then be visible in the trendline total, but not in the subnational bubbles in the map.
+
+3. Most frequent words
+
+    - In contrast to the other outputs in the dashboard, the most frequent words figure is always based on tweet location regardless of the filter (due to memory capacity). Therefore, if user location or both locations are selected in the location filter, this figure might have a different total then the other two outputs.
+
+### Receiving only real-time alerts
+This relates to users who have selected topics and/or regions for receiving related alerts in real-time or have selected topics and/or regions for receiving related alerts on a scheduled time span. If, in these cases, you only receive real-time alerts with all topics and regions, it may be that no time slots have been included in the subscribers file from the configuration tab. These time slots are used for the scheduled alerts and if no slots are included in the file, alerts from all topics and regions are sent as real-time alerts.
+
 
 ## References
 
