@@ -1,6 +1,6 @@
 Package: epitweetr
 Title: Early detection of signals from Twitter data
-Version: 0.1.11
+Version: 0.1.12
 Authors@R: c( 
     person(given = "Francisco",
            family = "Orchard",
@@ -25,28 +25,24 @@ Authors@R: c(
      person(given = "Adrian",
             family = "Prodan",
             role = "ctb",
-            email = "adrian.prodan@ecdc.europa.eu")
-            )
+            email = "adrian.prodan@ecdc.europa.eu"),
      person(given = "Thomas",
             family = "Czernichow",
             role = "ctb",
-            email = "thomas.czernichow@epiconcept.fr")
-            )
+            email = "thomas.czernichow@epiconcept.fr"),
      person(given = "Maria",
             family = "Prieto Gonzalez",
             role = "ctb",
-            email = "m.gonzalez@epiconcept.fr")
-            )
+            email = "m.gonzalez@epiconcept.fr"),
      person(given = "Esther",
             family = "Kissling",
             role = "ctb",
-            email = "e.kissling@epiconcept.fr")
-            ) 
+            email = "e.kissling@epiconcept.fr"), 
      person(given = "Michael",
             family = "Höhle",
             role = "ctb",
             email = "hoehle@math.su.se")
-            )            
+     )
 Description: The epitweetr package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats through the detection of signals or an unusual increase of the number of tweets   for that time, place and topic. The epitweetr package was designed to focus on infectious diseases, and it can be extended to all hazards or other fields of study by modifying the topics and keywords.
 License: European Union Public License 1.2 http://www.eupl.eu
 Encoding: UTF-8

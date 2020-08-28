@@ -160,15 +160,15 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
   df$lim_start <- ifelse(df$lim_start < 0, 0, df$lim_start)
 
   # Calculating breaks
-  y_breaks <- unique(floor(pretty(seq(0, (max(df$limit, df$number_of_tweets) + 1) * 1.1))))
+  y_breaks <- unique(floor(pretty(seq(0, (max(df$limit, df$number_of_tweets, na.rm = TRUE, 0) + 1) * 1.1))))
 
   # Calculating tweeter location scope count message
   scope_count <- format(sum(df$number_of_tweets), big.mark = " ", scientific=FALSE)
   total_count <- if(is.na(total_count)) NA else format(total_count, big.mark = " ", scientific=FALSE)
-  location_message <- ( 
-    if(location_type == "both") paste("with tweet and user location.", scope_count, "tweets")
-    else paste("with ", location_type ,"location. ", scope_count, "of", total_count, "tweets")
-  )
+  location_message <- (paste("(n=",scope_count,")", sep = "")) 
+  #  if(location_type == "both") paste("with tweet and user location.", scope_count, "tweets")
+  #  else paste("with ", location_type ,"location. ", scope_count, "of", total_count, "tweets")
+  #)
   fig_line <- ggplot2::ggplot(df, ggplot2::aes(x = date, y = number_of_tweets, label = Details)) +
     # Line
     ggplot2::geom_line(ggplot2::aes(colour=country)) + {
@@ -180,8 +180,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
     # Title
     ggplot2::labs(
       title=ifelse(length(countries)==1,
-        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in ", regions[[as.integer(countries)]]$name," ", location_message, ". Alpha=", alpha),
-        paste0("Number of tweets mentioning ",topic,"\n from ",date_min, " to ",date_max," in multiples regions ", location_message, ". Alpha=", alpha)
+        paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in ", if(as.integer(countries) == 1) " the world " else regions[[as.integer(countries)]]$name,", ", location_message),
+        paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in multiples regions, ", location_message)
       ),
       fill="Countries / Regions",
       color="Countries / Regions"
@@ -629,23 +629,23 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
        title = (
          if(location_type == "both")
            paste(
-             "Geographical distribution of tweets mentioning", 
+             "Geographical distribution of tweets mentioning ", 
              topic, 
-             "\nwith user and tweet location. ",
+             "\nwith user and tweet location, (n=",
              format(total_count, big.mark = " ", scientific=FALSE),
-             " geolocated tweets"
+             ")",
+             sep = ""
            )
          else
            paste(
-             "Geographical distribution of tweets mentioning", 
+             "Geographical distribution of tweets mentioning ", 
              topic, 
              "\nwith ", 
              location_type,
-             " location," ,
+             " location, (n=" ,
              format(scope_count, big.mark = " ", scientific=FALSE),
-             " of the ",
-             format(total_count, big.mark = " ", scientific=FALSE),
-             " geolocated tweets"
+             ")",
+             sep = ""
            )
        ),
        caption = paste(caption, ". Projection: ", proj, sep = "")

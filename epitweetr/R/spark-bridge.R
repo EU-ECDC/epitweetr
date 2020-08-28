@@ -220,7 +220,13 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
   urls2 <- paste(tasks$dependencies$maven_repo , gsub("\\.", "/", sapply(parts, `[[`, 3)), sapply(parts, `[[`, 4), versions2, sapply(parts, `[[`, 5), sep = "/")
   
   #Creating destination directory
-  if(!dir.exists(get_jars_dest_path())) dir.create(get_jars_dest_path())
+  if(!dir.exists(get_jars_dest_path())) 
+    dir.create(get_jars_dest_path()) 
+  else {
+    #Deleting existing files
+    existing <- list.files(get_jars_dest_path())
+    file.remove(existing)
+  }
 
   dest_file <- file.path(get_jars_dest_path(), paste(sapply(parts, `[[`, 3), sapply(parts, `[[`, 4), sapply(parts, `[[`, 5), sep = "_"))
   #dest_file <- file.path(get_jars_dest_path(), sapply(parts, `[[`, 5))

@@ -513,7 +513,7 @@ epitweetr_app <- function(data_dir = NA) {
          if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
            gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
          else 
-           gg$x$data[[i]]$name = " "
+           gg$x$data[[i]]$name = "                        "
          gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
        }
        gg
@@ -528,7 +528,7 @@ epitweetr_app <- function(data_dir = NA) {
          plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
 	       plotly::layout(
            title=list(text= paste("<b>", chart$labels$title, "</b>")), 
-           margin = list(l = 30, r=30, b = 70, t = 80),
+           margin = list(l = 5, r=5, b = 50, t = 80),
            annotations = list(
              text = chart$labels$caption,
              font = list(size = 10),
@@ -536,14 +536,15 @@ epitweetr_app <- function(data_dir = NA) {
              xref = 'paper', 
              x = 0,
              yref = 'paper', 
-             y = -0.3)
-           ) %>%
+             y = -0.2),
+           legend = list(orientation = 'h', x = 0.5, y = 0)
+         ) %>%
          plotly::config(displayModeBar = F) 
     
          # Fixing bad entries on ggplotly chart
          for(i in 1:length(gg$x$data)) {
            if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
-             gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
+             gg$x$data[[i]]$name = paste(substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)), "        ") 
            #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
          }
          gg
@@ -559,7 +560,7 @@ epitweetr_app <- function(data_dir = NA) {
          plotly::ggplotly(height = height, width = width) %>% 
 	       plotly::layout(
            title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
-           margin = list(l = 30, r=30, b = 70, t = 80),
+           margin = list(l = 30, r=30, b = 100, t = 80),
            annotations = list(
              text = chart$labels$caption,
              font = list(size = 10),
@@ -567,7 +568,7 @@ epitweetr_app <- function(data_dir = NA) {
              xref = 'paper', 
              x = 0,
              yref = 'paper', 
-             y = -0.3)
+             y = -0.4)
          ) %>%
 	       plotly::config(displayModeBar = F)
     })  
@@ -1121,7 +1122,7 @@ epitweetr_app <- function(data_dir = NA) {
     ######### ALERTS LOGIC ##################
     output$alerts_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
-      alerts <- get_alerts(topic = input$alerts_topics, countries = input$alerts_countries, from = input$alerts_period[[1]], until = input$alerts_period[[2]])
+      alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]])
       shiny::validate(
         shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
       )
@@ -1161,7 +1162,6 @@ epitweetr_app <- function(data_dir = NA) {
        text_col <- strsplit(input$geotest_fields, ";")[[1]][[1]]
        lang_col <-  if(length(strsplit(input$geotest_fields, ";")[[1]]) > 1) strsplit(input$geotest_fields, ";")[[1]][[2]] else NA
        lang_col_name <- if(is.na(lang_col)) "lang" else lang_col
-       message(paste(text_col, lang_col))
 
        get_todays_sample_tweets(limit = input$geotest_size, text_col = text_col, lang_col = lang_col) %>%
          DT::datatable(
@@ -1332,7 +1332,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
 can_render <- function(input, d) {
   shiny::validate(
       shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
-      , shiny::need(length(d$topics)>0, paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure this is the right folder, and that the detect loop has successfully run"))
+      , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the detect loop has successfully ran"))
       , shiny::need(input$topics != '', 'Please select a topic')
   )
 }

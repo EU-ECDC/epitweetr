@@ -85,7 +85,9 @@ get_empty_config <- function(data_dir) {
   ret$known_users <- list()
   ret$spark_cores <- {
     all_cores <- floor(parallel::detectCores(all.tests = FALSE, logical = TRUE)*0.5)
-    if(all_cores <1) 1 else all_cores
+    if(is.na(all_cores)) 1
+    else if(all_cores <1) 1 
+    else all_cores
   }
   ret$spark_memory <- "4g"
   ret$topics <- list()

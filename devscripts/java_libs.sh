@@ -1,4 +1,6 @@
 export cdir=`pwd`
+export SPARK_VERSION=3.0.0
+
 cd "$cdir/epitweetr/scala"
 
 sbt package

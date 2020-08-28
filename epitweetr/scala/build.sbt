@@ -2,7 +2,7 @@ lazy val sparkVersion = if(System.getenv("SPARK_VERSION")==null) "2.3.2" else Sy
 lazy val root = (project in file("."))
   .settings(
     name := "ecdc-twitter-bundle",
-    scalaVersion := "2.11.8",
+    scalaVersion := "2.12.12",
     retrieveManaged := true,
     version := "1.0",
     libraryDependencies += "org.apache.spark" %% "spark-core" % sparkVersion,

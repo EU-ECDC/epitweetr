@@ -1,4 +1,4 @@
-#' @title Execute the alert task  
+#le' @title Execute the alert task  
 #' @description Evaluate alerts for the last collected day for all topics and regions and send email alerts to subscribers
 #' @param tasks current tasks for reporting purposes, default: get_tasks()
 #' @return The list of tasks updated with produced messages
@@ -532,7 +532,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #' as displayed at the shiny App to filter the signals to return., default: numeric()
 #' @param from Date defining the beginning of the period of signals to return, default: '1900-01-01'
 #' @param until Date defining the end of the period of signals to return, default: '2100-01-01'
-#' @return 
+#' @return a dataframe containing the calculated alerts for the period. If no alerts are found then NULL is returned 
 #' @details For more details see the package vignette.
 #' @examples
 #' \dontrun{
@@ -564,7 +564,7 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
   # preparing filers dealing with possible names collitions with dataframe
   regions <- get_country_items()
   t <- topic
-  c <- ( 
+  cnames <- ( 
     if(class(countries) %in% c("numeric", "integer"))
       lapply(countries, function(i) regions[[i]]$name)
     else 
@@ -572,33 +572,37 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
   )
  
   alert_files <- list.files(file.path(conf$data_dir, "alerts"), recursive=TRUE, full.names =TRUE)  
-  file_dates <- lapply(alert_files, function(f) {list(path = f, date = as.Date(substr(tail(strsplit(f, "/")[[1]], n = 1), 1, 10), format="%Y.%m.%d"))})
-  files_in_period <- lapply(file_dates[sapply(file_dates, function(fd) fd$date >= as.Date(from) && fd$date <= as.Date(until))], function(fd) fd$path)
-  alerts <- lapply(files_in_period, function(alert_file) {
-    f <- file(alert_file, "rb")
-    df <- jsonlite::stream_in(f, verbose = FALSE)
-    close(f)
-    # Adding default valur for same_weekday_baseline if does not exists
-    if(!("same_weekday_baseline" %in% colnames(df)))
-      df$same_weekday_baseline <- sapply(df$topic, function(t) FALSE)
-    # Adding default valur for alpha_outlier if does not exists
-    if(!("alpha_outlier" %in% colnames(df)))
-      df$alpha_outlier <- as.numeric(sapply(df$topic, function(t) NA))
-    # Adding default valur for k_decay if does not exists
-    if(!("k_decay" %in% colnames(df)))
-      df$k_decay <- as.numeric(sapply(df$topic, function(t) NA))
+  if(length(alert_files)==0) {
+    NULL
+  } else {
+    file_dates <- lapply(alert_files, function(f) {list(path = f, date = as.Date(substr(tail(strsplit(f, "/")[[1]], n = 1), 1, 10), format="%Y.%m.%d"))})
+    files_in_period <- lapply(file_dates[sapply(file_dates, function(fd) fd$date >= as.Date(from) && fd$date <= as.Date(until))], function(fd) fd$path)
+    alerts <- lapply(files_in_period, function(alert_file) {
+      f <- file(alert_file, "rb")
+      df <- jsonlite::stream_in(f, verbose = FALSE)
+      close(f)
+      # Adding default valur for same_weekday_baseline if does not exists
+      if(!("same_weekday_baseline" %in% colnames(df)))
+        df$same_weekday_baseline <- sapply(df$topic, function(t) FALSE)
+      # Adding default valur for alpha_outlier if does not exists
+      if(!("alpha_outlier" %in% colnames(df)))
+        df$alpha_outlier <- as.numeric(sapply(df$topic, function(t) NA))
+      # Adding default valur for k_decay if does not exists
+      if(!("k_decay" %in% colnames(df)))
+        df$k_decay <- as.numeric(sapply(df$topic, function(t) NA))
 
 
-    df %>% dplyr::filter(
-      (if(length(c)==0) TRUE else country %in% c) &
-      (if(length(t)==0) TRUE else topic %in% t)
-    ) %>%
-     dplyr::arrange(topic, country, hour) %>%
-     dplyr::group_by(topic, country) %>%
-     dplyr::mutate(rank = rank(hour, ties.method = "first")) %>%
-     dplyr::ungroup()
-  })
-  Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
+      df %>% dplyr::filter(
+        (if(length(cnames)==0) TRUE else country %in% cnames) &
+        (if(length(t)==0) TRUE else topic %in% t)
+      ) %>%
+       dplyr::arrange(topic, country, hour) %>%
+       dplyr::group_by(topic, country) %>%
+       dplyr::mutate(rank = rank(hour, ties.method = "first")) %>%
+       dplyr::ungroup()
+    })
+    Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
+  }
 }
 
 
