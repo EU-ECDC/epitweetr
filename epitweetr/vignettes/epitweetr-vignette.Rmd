@@ -715,7 +715,7 @@ The `epitweetr` interactive user application has four tabs:
 
 ### Dashboard: The interactive user interface for visualisation
 
-The dashboard is where you can interactively explore visualisations of tweets. It includes a line graph (trend line) with alerts, a map and top words of tweets for a given topic.
+The dashboard is where you can interactively explore visualisations of tweets. It includes a line graph (trend line) with alerts, a map and top words of tweets for a given topic. Please note that the first time a period is selected, you will need to wait 1-2 minutes until you see the outputs. Likewise, for any new selection (adding a region, changing topic, etc), `epitweetr` will start reading the corresponding data; so if several selections are done, you may need to wait 1-2 minutes until the last selection is shown in the dashboard. When `epitweetr` is reading new data, the outputs have less intensity giving you an indication that new data is being read and plotted.
 
 In order to interactively explore the data, you can select from several filters, such as topics, countries and regions, time period, time unit, signal confidence and days in baseline.
 
