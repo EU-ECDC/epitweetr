@@ -197,7 +197,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     # No cache hit getting from aggregated files
     files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".*\\.Rds", sep=""))
     if(length(files) == 0) {
-      error(paste("Dataset ", dataset, " not found in any week folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
+      warning(paste("Dataset ", dataset, " not found in any week folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
       return (data.frame(created_date=as.Date(character()),topic=character()))
     }
     else {

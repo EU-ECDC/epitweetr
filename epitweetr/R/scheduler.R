@@ -43,13 +43,17 @@ register_runner_task <- function(task_name) {
         , rscript = script
         , schedule = "HOUR"
         , rscript_args = paste("\"", conf$data_dir,"\"", sep = "")
-        , startdate =  tail(strsplit(shell("echo %DATE%", intern= T), " ")[[1]], 1)
+        , startdate =  
+          if(conf$force_date_format == "")
+            tail(strsplit(shell("echo %DATE%", intern= T), " ")[[1]], 1)
+          else
+            strftime(Sys.time(), conf$force_date_format)
         , schtasks_extra="/F"
       )
     }
-    else stop("Please install taskscheduler Package")
+    else warning("Please install taskscheduler Package")
   } else {
-     Stop("Not implemetef yet or this OS")
+     warning("Not implemetef yet or this OS")
   }
 		   
 }
@@ -274,7 +278,7 @@ get_tasks <- function(statuses = list()) {
     conf$tasks$languages = sapply(conf$languages[sapply(conf$languages, function(l) l$code == c)], function(l) l$vectors)  
   })
   tasks$languages$status <- (
-    if((is.na(tasks$languages$status) || tasks$languages$status != "running") &&  length(to_remove) + length(to_add) + length(to_update) > 0) 
+    if((!is.na(tasks$languages$status) && tasks$languages$status != "running") &&  length(to_remove) + length(to_add) + length(to_update) > 0) 
       "pending"
     else
       tasks$languages$status

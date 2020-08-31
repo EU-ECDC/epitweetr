@@ -256,6 +256,8 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Login"), shiny::column(9, shiny::textInput("smtp_login", label = NULL, value = conf$smtp_login))), 
           shiny::fluidRow(shiny::column(3, "Password"), shiny::column(9, shiny::passwordInput("smtp_password", label = NULL, value = conf$smtp_password))), 
           shiny::fluidRow(shiny::column(3, "Unsafe certificates"), shiny::column(9, shiny::checkboxInput("smtp_insecure", label = NULL, value = conf$smtp_insecure))), 
+          shiny::h2("Task registering"),
+          shiny::fluidRow(shiny::column(3, "Custom date format"), shiny::column(9, shiny::textInput("force_date_format", label = NULL, value = conf$force_date_format))), 
           shiny::actionButton("save_properties", "Save settings")
         ), 
         shiny::column(8,
@@ -367,6 +369,26 @@ epitweetr_app <- function(data_dir = NA) {
               DT::dataTableOutput("geotest_table")
           ))
   ) 
+  ################################################
+  ######### TROUBLESHOOT PAGE ##########################
+  ################################################
+  troubleshoot_page <- 
+    shiny::fluidPage(
+          shiny::h3("Diagnostics"),
+          shiny::h5("Automated diagnostic tasks"),
+          shiny::fluidRow(
+            shiny::column(12, 
+              shiny::actionButton("run_diagnostic", "Run Diagnostics")
+            )
+          ),
+          shiny::fluidRow(
+            shiny::column(12, 
+              ################################################
+              ######### DIAGNOSTIC TABLE #####################
+              ################################################
+              DT::dataTableOutput("diagnostic_table")
+          ))
+  ) 
   
   # Defining navigation UI
   ui <- 
@@ -375,6 +397,7 @@ epitweetr_app <- function(data_dir = NA) {
       , shiny::tabPanel("Alerts", alerts_page)
       , shiny::tabPanel("Geotag evaluation", geotest_page)
       , shiny::tabPanel("Configuration", config_page)
+      , shiny::tabPanel("Troubleshoot", troubleshoot_page)
     )
 
 
@@ -536,15 +559,15 @@ epitweetr_app <- function(data_dir = NA) {
              xref = 'paper', 
              x = 0,
              yref = 'paper', 
-             y = -0.2),
-           legend = list(orientation = 'h', x = 0.5, y = 0)
+             y = -0.205),
+           legend = list(orientation = 'h', x = 0.5, y = 0.1)
          ) %>%
          plotly::config(displayModeBar = F) 
     
          # Fixing bad entries on ggplotly chart
          for(i in 1:length(gg$x$data)) {
            if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
-             gg$x$data[[i]]$name = paste(substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)), "        ") 
+             gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
            #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
          }
          gg
@@ -822,6 +845,11 @@ epitweetr_app <- function(data_dir = NA) {
     })
 
     shiny::observeEvent(input$activate_detect, {
+      if(is.na(conf$dep_updated_on)) conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      if(is.na(conf$geonames_updated_on)) conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      if(is.na(conf$lang_updated_on)) conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      cd$tasks_refresh_flag(Sys.time())
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       register_detect_runner_task()
       refresh_config_data(cd, list("tasks"))
     })
@@ -906,6 +934,7 @@ epitweetr_app <- function(data_dir = NA) {
       conf$smtp_login <- input$smtp_login
       conf$smtp_insecure <- input$smtp_insecure
       conf$smtp_password <- input$smtp_password
+      conf$force_date_format <- input$force_date_format
 
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
 
@@ -998,7 +1027,7 @@ epitweetr_app <- function(data_dir = NA) {
         DT::datatable(
           colnames = c("Query length" = "QueryLength", "Active plans" = "ActivePlans",  "Progress" = "Progress", "Requests" = "Requests", "Signal alpha (FPR)" = "Alpha", "Outlier alpha (FPR)" = "OutliersAlpha"),
           filter = "top",
-          escape = TRUE,
+          escape = TRUE
         ) %>%
         DT::formatPercentage(columns = c("Progress"))
     })
@@ -1045,7 +1074,7 @@ epitweetr_app <- function(data_dir = NA) {
             "Alert slots" = "Alert Slots"
           ),
           filter = "top",
-          escape = TRUE,
+          escape = TRUE
         )
     })
     shiny::observe({
@@ -1089,7 +1118,7 @@ epitweetr_app <- function(data_dir = NA) {
             "Max. long." = "MaxLingityde"
           ),
           filter = "top",
-          escape = TRUE,
+          escape = TRUE
         )
     })
     shiny::observe({
@@ -1153,7 +1182,7 @@ epitweetr_app <- function(data_dir = NA) {
             "Downweight strenght" = "k_decay"
             ),
           filter = "top",
-          escape = TRUE,
+          escape = TRUE
         )
     })
     ######### GEOTEST LOGIC ##################
@@ -1163,7 +1192,11 @@ epitweetr_app <- function(data_dir = NA) {
        lang_col <-  if(length(strsplit(input$geotest_fields, ";")[[1]]) > 1) strsplit(input$geotest_fields, ";")[[1]][[2]] else NA
        lang_col_name <- if(is.na(lang_col)) "lang" else lang_col
 
-       get_todays_sample_tweets(limit = input$geotest_size, text_col = text_col, lang_col = lang_col) %>%
+       df <- get_todays_sample_tweets(limit = input$geotest_size, text_col = text_col, lang_col = lang_col)
+       shiny::validate(
+         shiny::need(!is.null(df) && nrow(df) > 0, 'Cannot geolocate sample tweets, please check the troubleshoot tab')
+       )
+       df %>%
          DT::datatable(
            colnames = c(
              "Tweet ID" = "id",  
@@ -1177,9 +1210,35 @@ epitweetr_app <- function(data_dir = NA) {
              "Tagged text" = "tagged"
            ),
            filter = "top",
-           escape = TRUE,
+           escape = TRUE
          )
     })
+
+    ######## DIAGNOSTIC LOGIC ############
+    shiny::observeEvent(input$run_diagnostic, {
+      `%>%` <- magrittr::`%>%`
+       
+      output$diagnostic_table <- DT::renderDataTable(
+      check_all() %>%
+        DT::datatable(
+          colnames = c(
+            "Check Code" = "check",  
+            "Passed" =  "passed",
+            "Message" = "message"
+          ),
+          filter = "top",
+          escape = TRUE,
+          rownames= FALSE,
+          options = list(pageLength = 50)
+        ) %>%
+        DT::formatStyle(
+          columns = c("Passed"),
+          valueColumns = c("Passed"),
+          color = DT::styleEqual(c(TRUE, FALSE), c("green", "red"))
+        )
+      )
+    })
+
   } 
   # Printing PID 
   message(Sys.getpid())

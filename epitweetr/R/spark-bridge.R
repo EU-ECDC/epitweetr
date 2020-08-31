@@ -59,7 +59,7 @@ spark_job <- function(args) {
       "export OPENBLAS_NUM_THREADS=1"
     }
     else {
-      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_hadoop_home_path())
+      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_winutils_hadoop_home_path())
       "" 
     }
     ,paste(
@@ -81,7 +81,9 @@ spark_job <- function(args) {
   )
 
   #message(cmd)
-  system(cmd)
+  res <- system(cmd)
+  if(res != 0)
+    stop(paste("Error encountered while exeuting: ", cmd))
 }
 
 
@@ -93,7 +95,7 @@ spark_df <- function(args, handler = NULL) {
     if(.Platform$OS.type != "windows") 
       "export OPENBLAS_NUM_THREADS=1"
     else {
-      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_hadoop_home_path())
+      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_winutils_hadoop_home_path())
       "" 
     }
    ,paste(
@@ -251,10 +253,10 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
 # Download winutils (necessary for spark on Windows, 
 # for more details on winutils please see https://issues.apache.org/jira/browse/HADOOP-13223 and https://issues.apache.org/jira/browse/HADOOP-16816
 download_winutils <- function(tasks = get_tasks()) {
-  if(!dir.exists(get_hadoop_home_path())) dir.create(get_hadoop_home_path())
-  if(!dir.exists(file.path(get_hadoop_home_path(), "bin"))) dir.create(file.path(get_hadoop_home_path(), "bin"))
+  if(!dir.exists(get_winutils_hadoop_home_path())) dir.create(get_winutils_hadoop_home_path())
+  if(!dir.exists(file.path(get_winutils_hadoop_home_path(), "bin"))) dir.create(file.path(get_winutils_hadoop_home_path(), "bin"))
   if(!exists("winutils_url", where = tasks$dependencies)) stop("Before running detect loop you have to manually activate 'Java/Scala dependencies' to set the winutils to use")
   tasks <- update_dep_task(tasks, "running", paste("downloading", tasks$dependencies$winutils_url))
-  download.file(url = tasks$dependencies$winutils_url, destfile = file.path(get_hadoop_home_path(), "bin", "winutils.exe"), mode = "wb")
+  download.file(url = tasks$dependencies$winutils_url, destfile = get_winutils_path(), mode = "wb")
   return(tasks)
 } 

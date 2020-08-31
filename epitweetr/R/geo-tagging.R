@@ -489,7 +489,7 @@ update_geonames <- function(tasks) {
     tasks <- update_geonames_task(tasks, "running", "decompressing")
     unzip(zipfile = temp, files = "allCountries.txt", exdir = temp_dir)
     file.remove(temp)
-    file.rename(from = file.path(temp_dir, "allCountries.txt"), to = file.path(conf$data_dir, "geo", "allCountries.txt"))
+    file.rename(from = file.path(temp_dir, "allCountries.txt"), to = get_geonames_txt_path())
     
     # Assembling geonames datasets
     tasks <- update_geonames_task(tasks, "running", "assembling")
@@ -571,7 +571,6 @@ update_geonames <- function(tasks) {
 #'  
 #' @export 
 update_languages <- function(tasks) {
-  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
   tasks <- tryCatch({
     tasks <- update_languages_task(tasks, "running", "downloading", start = TRUE)
 
@@ -598,7 +597,7 @@ update_languages <- function(tasks) {
         "updateLanguages"
         , conf_geonames_as_arg()
         , conf_languages_as_arg()
-        , "langIndexPath", paste("\"", index_path, "\"", sep = "")
+        , "langIndexPath", paste("\"", get_lang_index_path(), "\"", sep = "")
         , "parallelism", conf$spark_cores 
       )
     )

@@ -25,6 +25,7 @@ object JavaBridge {
       SparkSession.builder()
         .master(s"local[${if(cores == 0) "*" else cores.toString}]")
         .config("spark.sql.files.ignoreCorruptFiles", true)
+        .config("spark.sql.legacy.timeParserPolicy", "LEGACY")
         .appName("epitweetr")
         .getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
@@ -35,6 +36,7 @@ object JavaBridge {
   def df2StdOut(df:Dataset[_]):Unit  = { 
     val out = new OutputStreamWriter(System.out, "UTF-8")
     val ls = System.getProperty("line.separator")
+    
     Some(df)
       .map(df => df.select(df.schema.map{
           case StructField(name, LongType, _, _) => col(name).cast(StringType) 
@@ -42,7 +44,9 @@ object JavaBridge {
           case StructField(name, _, _, _) => col(name) 
         }:_*)
       )
-      .map(df => df.toJSON.toLocalIterator.asScala)
+      .map{df =>
+        df.toJSON.localCheckpoint().toLocalIterator.asScala
+      }
       .get
       .foreach{line => 
         out.write(line, 0, line.length)

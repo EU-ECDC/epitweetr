@@ -50,6 +50,7 @@ trait Application {
       SparkSession.builder
     ) match {case b => appName match {case Some(s) =>b.appName(s) case _ => b} }
     ) match {case b => master match {case Some(s) => b.master(s) case _ => b} }
-    ).getOrCreate()
+    )
+    .getOrCreate()
   }
 }

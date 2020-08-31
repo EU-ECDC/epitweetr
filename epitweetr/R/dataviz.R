@@ -180,7 +180,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
     # Title
     ggplot2::labs(
       title=ifelse(length(countries)==1,
-        paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in ", if(as.integer(countries) == 1) " the world " else regions[[as.integer(countries)]]$name,", ", location_message),
+        paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in ", if(as.integer(countries) == 1) "the world" else regions[[as.integer(countries)]]$name,", ", location_message),
         paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in multiples regions, ", location_message)
       ),
       fill="Countries / Regions",

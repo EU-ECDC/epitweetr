@@ -1,4 +1,4 @@
-#le' @title Execute the alert task  
+#' @title Execute the alert task  
 #' @description Evaluate alerts for the last collected day for all topics and regions and send email alerts to subscribers
 #' @param tasks current tasks for reporting purposes, default: get_tasks()
 #' @return The list of tasks updated with produced messages
@@ -526,7 +526,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
 
  
 #' @title Getting signals produced by the task \code{\link{generate_alerts}} of \code{\link{detect_loop}}
-#' @description Returns a dataframe of signals produced by the \code{\link{detect loop}}, which are stored on the signal folder.
+#' @description Returns a dataframe of signals produced by the \code{\link{detect_loop}}, which are stored on the signal folder.
 #' @param topic Character vector. When it is not empty it will limit the returned signals to the provided topics, default: character()
 #' @param countries Character vector containing the names of countries or regions or a numeric vector containing the indexes of countries 
 #' as displayed at the shiny App to filter the signals to return., default: numeric()

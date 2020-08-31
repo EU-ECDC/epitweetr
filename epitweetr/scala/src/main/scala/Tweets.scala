@@ -180,8 +180,9 @@ object Tweets {
         .map{n => n.path.replace("\\", "/")}
         .filter(p => p.endsWith(".json.gz") && pathFilter.map(f => p.matches(f)).getOrElse(true))
         .toArray
+
     Some(spark.read.option("timestampFormat", "EEE MMM dd HH:mm:ss ZZZZZ yyyy").schema(schemas.searchAPI)
-      .json(files: _*)
+      .json(files :_*)
       .withColumn("topic", udf((p:String)=>p.split("/").reverse(2)).apply(input_file_name()))
       .withColumn("file",  udf((p:String)=>p.split("/").reverse(0)).apply(input_file_name()))
     )

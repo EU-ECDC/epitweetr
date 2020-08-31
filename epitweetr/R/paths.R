@@ -72,10 +72,13 @@ get_sbt_file_dep_path <- function() system.file("extdata", "sbt-deps.txt", packa
 get_jars_dest_path <- function() file.path(conf$data_dir, "jars")
 
 # Get application JAR (embedded on package)
-get_app_jar_path <- function() system.file("java", "ecdc-twitter-bundle_2.11-1.0.jar", package = get_package_name())
+get_app_jar_path <- function() system.file("java", "ecdc-twitter-bundle_2.12-1.0.jar", package = get_package_name())
 
 # Get hadoop home path for winutils
-get_hadoop_home_path <- function() file.path(conf$data_dir, "hadoop")
+get_winutils_hadoop_home_path <- function() file.path(conf$data_dir, "hadoop")
+
+# Get winutils path
+get_winutils_path <- function() file.path(get_winutils_hadoop_home_path(), "bin", "winutils.exe") 
 
 # Get JSON file name for alert on given date
 get_alert_file <- function(date) {
@@ -84,4 +87,19 @@ get_alert_file <- function(date) {
   alert_folder <- file.path(alert_folder, strftime(date, format="%Y"))
   if(!file.exists(alert_folder)) dir.create(alert_folder)
   alert_file <- file.path(alert_folder, paste(strftime(date, format="%Y.%m.%d"), "-alerts.json", sep = ""))
+}
+
+# Get geonames txt file
+get_geonames_txt_path <- function() {
+  file.path(conf$data_dir, "geo", "allCountries.txt") 
+}
+
+# Get geonames index path
+get_geonames_index_path <- function() {
+  file.path(conf$data_dir, "geo", "all-geos.parquet.index") 
+}
+
+# Get languages index path 
+get_lang_index_path <- function() {
+  file.path(conf$data_dir, "geo", "lang_vectors.index") 
 }

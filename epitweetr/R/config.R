@@ -108,6 +108,7 @@ get_empty_config <- function(data_dir) {
   ret$smtp_login <- ""
   ret$smtp_password <- ""
   ret$smtp_insecure <- FALSE
+  ret$force_date_format <- ""
   ret$maven_repo <- "https://repo1.maven.org/maven2"
   ret$winutils_url <- "http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe"
   return(ret)
@@ -223,6 +224,7 @@ setup_config <- function(
     conf$smtp_from <- temp$smtp_from
     conf$smtp_login <- temp$smtp_login
     conf$smtp_insecure <- temp$smtp_insecure
+    conf$force_date_format <- temp$force_date_format
     conf$maven_repo <- temp$maven_repo
     conf$winutils_url <- temp$winutils_url
   }
@@ -408,6 +410,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$smtp_login <- conf$smtp_login
     if(!is.null(conf$smtp_password) && conf$smtp_password != "") set_secret("smtp_password", conf$smtp_password)
     temp$smtp_insecure <- conf$smtp_insecure
+    temp$force_date_format <- conf$force_date_format
     temp$maven_repo <- conf$maven_repo
     temp$winutils_url <- conf$winutils_url
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)

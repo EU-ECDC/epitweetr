@@ -8,7 +8,7 @@ ratelimit_endpoint <- paste(t_endpoint, "application/rate_limit_status.json", se
 search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
 
 # Get twitter token
-get_token <- function() {
+get_token <- function(request_new = T) {
   if(exists("access_token", where = conf$twitter_auth) && conf$twitter_auth$access_token!="") {  
     if(file.exists("~/.rtweet_token.rds")) file.remove("~/.rtweet_token.rds")
     token <- rtweet::create_token(
@@ -20,13 +20,14 @@ get_token <- function() {
     token <- rtweet::bearer_token(token)
   } else {
     token <- (
-       if(interactive())
+       if(interactive() && request_new)
          rtweet::get_token()
        else if(file.exists("~/.rtweet_token.rds")){
          readRDS("~/.rtweet_token.rds")
-       } else {
+       } else if(request_new){
          stop("Cannot get a token on an non interactive session. Create it from configuration page first")
-       }
+       } else 
+         stop("Cannot ger a token. Please create it from the configuration page")
      )
   } 
   return(token)
