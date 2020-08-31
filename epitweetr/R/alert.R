@@ -636,7 +636,23 @@ send_alert_emails <- function(tasks = get_tasks()) {
       excluded <- if(is.na(subscribers$`Excluded Topics`[[i]])) NA else strsplit(subscribers$`Excluded Topics`[[i]], ";")[[1]]         
       realtime_topics <- if(is.na(subscribers$`Real time Topics`[[i]])) NA else strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
       realtime_regions <- if(is.na(subscribers$`Real time Regions`[[i]])) NA else strsplit(subscribers$`Real time Regions`[[i]], ";")[[1]]         
-      slots <- as.integer(if(is.na(subscribers$`Alert Slots`[[i]])) NA else strsplit(subscribers$`Alert Slots`[[i]], ";")[[1]])
+      slots <- as.integer(
+        if(is.na(subscribers$`Alert Slots`[[i]])) 
+          NA 
+        else { 
+          times <- strsplit(subscribers$`Alert Slots`[[i]], ";")[[1]]
+          times <- sapply(
+            times, 
+            function(t) {
+              parts <- as.integer(strsplit(t, "[^0-9]")[[1]]);
+              if(length(parts)<=1) 
+                parts 
+              else 
+                parts[[1]] + parts[[2]]/60
+            }
+          )
+        }
+      )
       # Adding users statistics if does not existd already
       if(!exists(user, where=tasks$alerts$sent)) 
         tasks$alerts$sent[[user]] <- list()
@@ -666,10 +682,12 @@ send_alert_emails <- function(tasks = get_tasks()) {
 
 
         # Defining if this slot corresponds to a user slot
-        current_hour <- as.integer(strftime(Sys.time(), format="%H"))
+        current_minutes <- as.numeric(strftime(Sys.time(), format="%M"))
+        current_hour <- as.numeric(strftime(Sys.time(), format="%H")) + current_minutes / 60
+        
         current_slot <- (
           if(all(is.na(slots))) 
-            current_hour
+            as.integer(current_hour)
           else if(length(slots[slots <= current_hour])==0) 
             tail(slots, 1) 
           else 

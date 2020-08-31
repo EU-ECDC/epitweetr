@@ -417,7 +417,7 @@ check_all <- function() {
   checks <- list(
     scheduler = check_scheduler,
     twitter_auth = check_twitter_auth,
-    search = check_search_running,
+    search_running = check_search_running,
     tweets = check_tweets_present, 
     os64 = check_64, 
     java = check_java_present, 
@@ -425,7 +425,7 @@ check_all <- function() {
     java_version = check_java_version, 
     winmsvc = check_winmsvcr100, 
     detect_activation = check_manual_task_request,
-    detection = check_detect_running,
+    detection_running = check_detect_running,
     winutils = check_winutils, 
     java_deps = check_java_deps, 
     move_from_temp = check_move_from_temp, 

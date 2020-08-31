@@ -378,7 +378,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h5("Automated diagnostic tasks"),
           shiny::fluidRow(
             shiny::column(12, 
-              shiny::actionButton("run_diagnostic", "Run Diagnostics")
+              shiny::actionButton("run_diagnostic", "run diagnostics")
             )
           ),
           shiny::fluidRow(
@@ -1265,8 +1265,7 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
     if(!is.null(fixed_period)) fixed_period
     else if(is.na(collected_days)) "custom"
     else if(collected_days < 7) "custom"
-    else if(collected_days < 30) "last 7 days"
-    else "last 30 days"
+    else "last 7 days"
   )
   e$date_start <- ( 
     if(e$fixed_period == "custom" && exists("date_start", e))

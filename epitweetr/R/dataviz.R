@@ -180,8 +180,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
     # Title
     ggplot2::labs(
       title=ifelse(length(countries)==1,
-        paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in ", if(as.integer(countries) == 1) "the world" else regions[[as.integer(countries)]]$name,", ", location_message),
-        paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in multiples regions, ", location_message)
+        paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in ", if(as.integer(countries) == 1) "the world" else regions[[as.integer(countries)]]$name," ", location_message),
+        paste0("Number of tweets mentioning ",topic," from ",date_min, " to ",date_max,"\n in multiples regions ", location_message)
       ),
       fill="Countries / Regions",
       color="Countries / Regions"
@@ -604,7 +604,8 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     axis.text.y = ggplot2::element_blank(),
     axis.ticks = ggplot2::element_blank(),
     axis.title.x = ggplot2::element_blank(),
-    axis.title.y = ggplot2::element_blank()
+    axis.title.y = ggplot2::element_blank(),
+    legend.position = "bottom"
   ))
   fig <- ggplot2::ggplot(df) + 
     ggplot2::geom_polygon(data=countries_proj_df, ggplot2::aes(x,y, group=group, fill=selected, label = Details)) + 
@@ -630,8 +631,9 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
          if(location_type == "both")
            paste(
              "Geographical distribution of tweets mentioning ", 
-             topic, 
-             "\nwith user and tweet location, (n=",
+             topic,
+             "\nfrom ",date_min, " to ",date_max, 
+             "\nwith user and tweet location (n=",
              format(total_count, big.mark = " ", scientific=FALSE),
              ")",
              sep = ""
@@ -640,9 +642,10 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
            paste(
              "Geographical distribution of tweets mentioning ", 
              topic, 
+             "\nfrom ",date_min, " to ",date_max, 
              "\nwith ", 
              location_type,
-             " location, (n=" ,
+             " location (n=" ,
              format(scope_count, big.mark = " ", scientific=FALSE),
              ")",
              sep = ""
