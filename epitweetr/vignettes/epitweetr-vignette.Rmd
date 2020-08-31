@@ -45,7 +45,7 @@ The `epitweetr` package allows you to automatically monitor trends of tweets by 
 
 The general principle behind `epitweetr` is that it collects tweets and related metadata from the Twitter Standard Search API version 1.1 (https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/overview/standard) according to specified topics and stores these tweets in a compressed form on your computer. `epitweetr` geolocalises the tweets and collects information on key words within a tweet. Tweets are aggregated according to topic and geographical location. Next, a signal detection algorithm identifies the number of tweets (by topic and geographical location) that exceeds what is expected for a given day. Then, `epitweetr` sends out email alerts to notify those who need to further investigate these signals following the epidemic intelligence processes (filtering, validation, analysis and preliminary assessment).
 
-The package includes  an interactive web application (Shiny app) with four tabs: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts tab, where you can view the current alerts and associated information (Fig 2), the geotag evaluation tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold (Fig 3), and the configuration tab, where you can change settings and check the status of the underlying processes (Fig 4). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
+The package includes  an interactive web application (Shiny app) with five tabs: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts tab, where you can view the current alerts and associated information (Fig 2), the geotag evaluation tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold (Fig 3), the configuration tab, where you can change settings and check the status of the underlying processes (Fig 4), and the troubleshoot tab, with automatic checks and hints for using `epitweetr` with all its functionalities (Fig 5). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
 
 **Shiny app dashboard:**
 
@@ -80,6 +80,15 @@ knitr::include_graphics("img/geotag evaluation.png")
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/config.png")
+```
+
+
+**Shiny app troubleshoot tab:**
+
+<center>Fig 5: Shiny app troubleshoot tab</center>
+
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("img/troubleshoot.PNG")
 ```
 
 ## Background
@@ -212,6 +221,8 @@ epitweetr_app("data_dir")
 Alternatively, you can use a launcher: In an executable .bat or shell file type the following, (replacing “data\_dir” with the designated data directory)
 
 R --vanilla -e epitweetr::epitweetr\_app("data\_dir")
+
+You can check that all requirements are properly installed in the troubleshoot tab. More information is available in section *The interactive user application (Shiny app)>Dashboard:The interactive user interface for visualisation>The troubleshoot tab*
 
 ### Setting up tweet collection and the alert detection loop
 
@@ -704,7 +715,7 @@ Alternatively, you can use a launcher: In an executable bat or sh file  put the 
 
 R --vanilla -e epitweetr::epitweetr\_app('data\_dir')
 
-The `epitweetr` interactive user application has four tabs:
+The `epitweetr` interactive user application has five tabs:
 
 -   The dashboard, where a user can visualise and explore tweets
 
@@ -713,6 +724,8 @@ The `epitweetr` interactive user application has four tabs:
 -   The alerts tab, where you can view the current alerts and associated information
 
 -   The geotag evaluation tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold
+
+-   The troubleshoot tab, with with automatic checks and hints for using `epitweetr` with all its functionalities
 
 ### Dashboard: The interactive user interface for visualisation
 
@@ -866,6 +879,21 @@ This graph then displays the top words of tweets by topic for the study period f
 
 Note that, differently to other visualisation figures, the most frequent words found in tweets is always related to “tweet location” and is not influenced by the filter option for choice of location (user or tweet location).
 
+#### The alerts tab
+
+The alerts tab summarises the signals detected within the specified study period. This summary includes the date, hour, topic and geographical unit of the signal, which top words are included, the number of tweets, the number of tweets from important users and the threshold. It additionally includes many of the settings specified in the configuration tab, which were used for detecting signals. This is also the output received in the emails alerts.
+
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("img/alerts.png")
+```
+
+#### The geotag evaluation tab
+This tab supports the user in establishing the geolocation threshold in the configuration tab. The user can choose the field of the tweets to test and the number of tweets to sample. This tab is for visualization only and no changes in the geolocation detected by `epitweetr` is allowed.  
+
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("img/geotag evaluation.png")
+```
+
 #### The configuration tab
 
 In the configuration tab, you can change settings of the tool, you can check the status of the various processes/pipelines of the tool and you can add, delete and modify topics and their associated requests, languages for geolocation and the list of the “important users” and email alert subscribers. When changing anything in the “Signal detection” or “General” sections, do not forget to click on the “Update Properties” button at the end of the “General” section. The following sections describe the configuration tab in more detail.
@@ -1002,22 +1030,12 @@ In the languages section, you can determine which language models are used to id
 knitr::include_graphics("img/languages.png")
 ```
 
-
-#### The alerts tab
-
-The alerts tab summarises the signals detected within the specified study period. This summary includes the date, hour, topic and geographical unit of the signal, which top words are included, the number of tweets, the number of tweets from important users and the threshold. It additionally includes many of the settings specified in the configuration tab, which were used for detecting signals. This is also the output received in the emails alerts.
+#### The troubleshoot tab
+The troubleshoot tab has a list of automatic check and hint for using `epitweetr` with all its functionalities. Click on "Run diagnostics" to see the list of checks, whether it passed the check ("true") or not ("false"), and hints in case it did not pass the check. More detailed information can be found in [Annex II](#annexII) of this user documentation.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/alerts.png")
+knitr::include_graphics("img/troubleshoot.PNG")
 ```
-
-#### The geotag evaluation tab
-This tab supports the user in establishing the geolocation threshold in the configuration tab. The user can choose the field of the tweets to test and the number of tweets to sample. This tab is for visualization only and no changes in the geolocation detected by `epitweetr` is allowed.  
-
-```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/geotag evaluation.png")
-```
-
 
 ### Downloading outputs from the interactive user interface (Shiny app)
 
@@ -1138,7 +1156,32 @@ knitr::include_graphics("img/ebola.png")
 
 ## Annex II: Troubleshooting and tips {#annexII}
 
-This annex contains some tips and common solutions to errors or issues that `epitweetr` users may encounter.
+This annex contains some tips and common solutions to errors or issues that `epitweetr` users may encounter, including a detailed explanation on the checks and hints included in the troubleshoot tab.
+
+### The troubleshoot tab
+After running the diagnostics in the troubleshoot tab, you can see the checks and status on the following aspects:
+
+-   **twitter_auth**: Twitter authentication either with Twitter account or Twitter app
+-   **search**: search task is running
+-   **detect_activation**: 
+-   **detection**: detection task is running
+-   **scheduler**:
+-   **tweets**:
+-   **os64**:
+-   **java**: Java is installed
+-   **java64**: Java 64bits is installed
+-   **java_version**: the Java version installed is compatible with `epitweetr`
+-   **winmsvc**:
+-   **winutils**:
+-   **java_deps**: Java dependencies are installed
+-   **move_from_temp**:
+-   **geonames**: Geonames.org database is downloaded
+-   **languages**: languages vectors and indexes are downloaded
+-   **geotag**: geotag task is running
+-   **aggregate**: aggregate task is running
+-   **alerts**: alerts task is running
+-   **pandoc**: Pandoc is installed
+-   **tex**: Tex is installed
 
 ### Management of search and detection loops (Windows)
 After activating the search and detection pipeline from the configuration tab of `epitweetr` (Windows), two tasks will be created in the task scheduler and two terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.
