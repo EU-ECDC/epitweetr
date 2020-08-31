@@ -15,7 +15,7 @@ is_java_present <- function() {
   programs <- "java"
   # If java home is not set cheking if the system can found java on the path
   if(Sys.getenv("JAVA_HOME") == "" || is.null(Sys.getenv("JAVA_HOME"))) {
-    length(grepl(programs, Sys.which(programs))) == length(programs)  
+    length(grep(programs, Sys.which(programs))) == length(programs)  
   } else {
     #checking if java binary can be foung from java_home
     if(.Platform$OS.type == "windows")
@@ -57,17 +57,16 @@ check_java_64 <- function() {
 # get java version
 get_java_version <- function() {
   jver <- get_java_version_vector()
-  index <- grep("version", get_java_version_vector())
+  index <- grep("version", jver)
   if(length(index)== 0)
     NULL
   else {
-    j_version_parts <- strsplit(gsub("[a-z A-Z\"]", "", jver[[index[[1]]]]), "\\.")[[1]]
-    p1 <- as.integer(j_version_parts[[1]])
-    p2 <- as.integer(j_version_parts[[2]])
-    if(p1 == 1)
-      p2
+    j_version_parts <- strsplit(gsub("[^0-9]",".", jver[[index[[1]]]]), "\\.+")[[1]]
+    j_version_parts <- j_version_parts[grepl("[0-9]", j_version_parts)]
+    if(length(j_version_parts) > 1 && as.integer(j_version_parts[[1]]) == 1)
+      as.integer(j_version_parts[[2]])
     else
-      p1
+      as.integer(j_version_parts[[1]])
   }
 
 }
@@ -119,11 +118,11 @@ check_winmsvcr100 <- function() {
     if(file.exists(msvcr100Path))
       TRUE
     else {
-      warning("Running Spark on Windows requires the ",
-        "Microsoft Visual C++ 2010 SP1 Redistributable Package. ",
+      warning(paste("Running Spark on Windows requires the",
+        "Microsoft Visual C++ 2010 SP1 Redistributable Package.",
         "Please download and install from: \nhttps://www.microsoft.com/download/en/details.aspx?id=13523",
         "Then restart R after the installation completes"
-      )
+      ))
       FALSE
     }
   } else {
@@ -416,17 +415,17 @@ check_move_from_temp <- function() {
 #' @export 
 check_all <- function() {
   checks <- list(
+    scheduler = check_scheduler,
     twitter_auth = check_twitter_auth,
     search = check_search_running,
-    detect_activation = check_manual_task_request,
-    detection = check_detect_running,
-    scheduler = check_scheduler,
     tweets = check_tweets_present, 
     os64 = check_64, 
     java = check_java_present, 
     java64 = check_java_64, 
     java_version = check_java_version, 
     winmsvc = check_winmsvcr100, 
+    detect_activation = check_manual_task_request,
+    detection = check_detect_running,
     winutils = check_winutils, 
     java_deps = check_java_deps, 
     move_from_temp = check_move_from_temp, 
