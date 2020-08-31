@@ -201,7 +201,7 @@ download_dependencies <- function(tasks = get_tasks()) {
     # Setting status to failed
     message("Failed...")
     message(paste("failed while", tasks$alerts$message," ", error_condition))
-    tasks <- update_dependencies_task(tasks, "failed", paste("failed while", tasks$dependencies$message," getting dependencies ", error_condition))
+    tasks <- update_dep_task(tasks, "failed", paste("failed while", tasks$dependencies$message," getting dependencies ", error_condition))
     tasks
   })
   return(tasks)
@@ -226,7 +226,7 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
     dir.create(get_jars_dest_path()) 
   else {
     #Deleting existing files
-    existing <- list.files(get_jars_dest_path())
+    existing <- list.files(get_jars_dest_path(), full.names=T)
     file.remove(existing)
   }
 

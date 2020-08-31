@@ -1,7 +1,8 @@
 ---
 title: "epitweetr: user documentation"
 author: "European Centre for Disease Prevention and Control (ECDC)"
-output: rmarkdown::html_vignette
+output: 
+  - rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{epitweetr: user documentation}
   %\VignetteEngine{knitr::rmarkdown}
@@ -1238,36 +1239,7 @@ This relates to users who have selected topics and/or regions for receiving rela
   [*https://www.scala-sbt.org/download.html*]: https://www.scala-sbt.org/download.html
   [*https://cran.r-project.org/bin/windows/Rtools/*]: https://cran.r-project.org/bin/windows/Rtools/
   [*http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe*]: http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe
-  [1]: img/image12.png
   [*https://developer.twitter.com/en/apply-for-access*]: https://developer.twitter.com/en/apply-for-access
-  [2]: img/image36.png
-  [3]: img/image32.png
-  [4]: img/image5.png
-  [5]: img/image19.png
-  [6]: img/image18.png
-  [7]: img/image28.png
-  [8]: img/image20.png
-  [9]: img/image26.png
-  [10]: img/image31.png
-  [11]: img/image21.png
-  [12]: img/image23.png
-  [13]: img/image24.png
-  [14]: img/image27.png
-  [15]: img/image7.png
-  [16]: img/image25.png
-  [17]: img/image9.png
-  [18]: img/image1.png
-  [19]: img/image2.png
-  [C:\\Users\\EKG\\AppData\\Local\\Temp\\config.PNG]: img/image10.png
-  [20]: img/image22.png
-  [21]: img/image6.png
   [*https://cran.r-project.org/web/packages/keyring/index.html*]: https://cran.r-project.org/web/packages/keyring/index.html
-  [22]: img/image14.png
-  [23]: img/image34.png
-  [24]: img/image35.png
-  [25]: img/image4.png
-  [26]: img/image13.png
-  [27]: img/image16.png
-  [28]: img/image15.png
   [*Monitoring Count Time Series in R: Aberration Detection in Public Health Surveillance*]: https://www.jstatsoft.org/article/view/v070i10
   [*preprint*]: https://arxiv.org/pdf/1711.08960.pdf
