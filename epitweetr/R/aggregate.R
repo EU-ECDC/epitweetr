@@ -28,7 +28,8 @@ cached <- new.env()
 #'    # setting up the data folder
 #'    setup_config("/home/epitweetr/data")
 #'
-#'    # aggregating all geolocated tweets collected since last aggregation for producing all time series
+#'    # aggregating all geolocated tweets collected since last aggregation for producing 
+#'    # all time series
 #'    aggregate_tweets()
 #'  }
 #' }
@@ -78,7 +79,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
             # Calculating the created week
             agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
             # Filtering only tweets for current week
-            agg_df <- agg_df %>% dplyr::filter(created_week == week)
+            agg_df <- agg_df %>% dplyr::filter(.data$created_week == week)
             agg_df$created_week <- NULL
             # Casting week and date to numeric values
             agg_df$created_weeknum <- as.integer(strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G%V"))
@@ -149,7 +150,10 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #'    df <- get_aggregates("country_counts", list(topic = "dengue"))
 #'
 #'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for the topic dengue
-#'     df <- get_aggregates("country_counts", list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
+#'     df <- get_aggregates(
+#'         "country_counts",
+#'          list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
+#'     )
 #'  }
 #' }
 #' @seealso 
@@ -160,6 +164,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #' @importFrom magrittr `%>%`
 #' @importFrom dplyr filter
 #' @importFrom jsonlite rbind_pages
+#' @importFrom utils tail
 get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
   `%>%` <- magrittr::`%>%`
   last_filter_name <- paste("last_filter", dataset, sep = "_")
@@ -188,8 +193,8 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
   if(cache && exists(dataset, where = cached) && reuse_filter) {
     return (cached[[dataset]] %>% 
       dplyr::filter(
-        (if(exists("topic", where = filter)) topic %in% filter$topic else TRUE) & 
-        (if(exists("period", where = filter)) created_date >= filter$period[[1]] & created_date <= filter$period[[2]] else TRUE)
+        (if(exists("topic", where = filter)) .data$topic %in% filter$topic else TRUE) & 
+        (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE)
       )
     )
   }
@@ -221,8 +226,8 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
 	      message(paste("reading", file))
         readRDS(file.path(conf$data_dir, "series", file)) %>% 
           dplyr::filter(
-            (if(exists("topic", where = filter)) topic %in% filter$topic else TRUE) & 
-            (if(exists("period", where = filter)) created_date >= filter$period[[1]] & created_date <= filter$period[[2]] else TRUE)
+            (if(exists("topic", where = filter)) .data$topic %in% filter$topic else TRUE) & 
+            (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE)
           )
       })
       
@@ -416,11 +421,11 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
       if(!("tweet_geo_country_code" %in% colnames(top_chunk))) top_chunk$tweet_geo_country_code <- NA
 
       top_chunk %>% 
-        dplyr::group_by(tokens, topic, created_date, tweet_geo_country_code)  %>%
-        dplyr::summarize(frequency = sum(count), original = sum(original), retweets = sum(retweets))  %>%
+        dplyr::group_by(.data$tokens, .data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
+        dplyr::summarize(frequency = sum(.data$count), original = sum(.data$original), retweets = sum(.data$retweets))  %>%
         dplyr::ungroup()  %>%
-        dplyr::group_by(topic, created_date, tweet_geo_country_code)  %>%
-        dplyr::top_n(n = 200, wt = frequency) %>%
+        dplyr::group_by(.data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
+        dplyr::top_n(n = 200, wt = .data$frequency) %>%
         dplyr::ungroup() 
     }
   } else if(serie_name == "country_counts") {

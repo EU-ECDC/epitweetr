@@ -1,6 +1,6 @@
 Package: epitweetr
 Title: Early detection of signals from Twitter data
-Version: 0.1.12
+Version: 0.1.13
 Authors@R: c( 
     person(given = "Francisco",
            family = "Orchard",
@@ -53,9 +53,12 @@ Imports:
     plyr,
     DT,
     httpuv,
+    httr,
     jsonlite,
     keyring,
     emayili,
+    ggplot2,
+    magrittr,
     parallel,
     plotly,
     rtweet,
@@ -67,12 +70,16 @@ Imports:
     shiny,
     sp,
     stringr,
+    stats,
     tidyverse,
     tidytext,
     tokenizers,
     tools,
-    xtable
+    utils,
+    xtable,
+    xml2
 RoxygenNote: 7.1.0
 Suggests: 
-    knitr
+    knitr,
+    taskscheduleR
 VignetteBuilder: knitr

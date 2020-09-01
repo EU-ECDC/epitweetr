@@ -503,8 +503,8 @@ get_topics_labels <- function() {
   `%>%` <- magrittr::`%>%`
   t <- ( 
     get_topics_df() %>% 
-      dplyr::group_by(Topics) %>%
-      dplyr::summarise(label = Label[which(!is.na(Label))[1]]) %>%
+      dplyr::group_by(.data$Topics) %>%
+      dplyr::summarise(label = .data$Label[which(!is.na(.data$Label))[1]]) %>%
       dplyr::ungroup()
   )
   setNames(t$label, t$Topics)
@@ -515,8 +515,8 @@ get_topics_alphas <- function() {
   `%>%` <- magrittr::`%>%`
   t <- ( 
     get_topics_df() %>% 
-      dplyr::group_by(Topics) %>%
-      dplyr::summarise(alpha = Alpha[which(!is.na(Alpha))[1]]) %>%
+      dplyr::group_by(.data$Topics) %>%
+      dplyr::summarise(alpha = .data$Alpha[which(!is.na(.data$Alpha))[1]]) %>%
       dplyr::ungroup()
   )
   setNames(t$alpha, t$Topics)
@@ -527,8 +527,8 @@ get_topics_alpha_outliers <- function() {
   `%>%` <- magrittr::`%>%`
   t <- ( 
     get_topics_df() %>% 
-      dplyr::group_by(Topics) %>%
-      dplyr::summarise(alpha_outlier = OutliersAlpha[which(!is.na(OutliersAlpha))[1]]) %>%
+      dplyr::group_by(.data$Topics) %>%
+      dplyr::summarise(alpha_outlier = .data$OutliersAlpha[which(!is.na(.data$OutliersAlpha))[1]]) %>%
       dplyr::ungroup()
   )
   setNames(t$alpha_outlier, t$Topics)
@@ -539,7 +539,7 @@ get_topics_k_decays <- function() {
   `%>%` <- magrittr::`%>%`
   t <- ( 
     get_topics_df() %>% 
-      dplyr::group_by(Topics) %>%
+      dplyr::group_by(.data$Topics) %>%
       dplyr::summarise(k_decay = conf$alert_k_decay) %>%
       dplyr::ungroup()
   )

@@ -180,6 +180,7 @@ spark_df <- function(args, handler = NULL) {
 #'  \code{\link{get_tasks}}
 #'  
 #' @export 
+#' @importFrom utils download.file 
 download_dependencies <- function(tasks = get_tasks()) {
   tasks <- tryCatch({
     tasks <- update_dep_task(tasks, "running", "getting sbt dependencies", start = TRUE)

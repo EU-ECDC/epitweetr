@@ -40,18 +40,18 @@ pipe_top_words <- function(df, text_col, lang_col, topic_word_to_exclude, max_wo
       x = lapply(conf$languages, function(l) {(
             df %>% 
               dplyr::filter((!!as.symbol(lang_col)) == l$code) %>%
-              tidytext::unnest_tokens(tokens, (!!as.symbol(text_col)), drop = TRUE, stopwords=get_stop_words(l$code))
+              tidytext::unnest_tokens(.data$tokens, (!!as.symbol(text_col)), drop = TRUE, stopwords=get_stop_words(l$code))
          )})
       , f = function(a, b) dplyr::bind_rows(a, b)
       )
 
     temp %>% 
-      dplyr::filter(nchar(tokens)>1 & !(paste(topic, tokens, sep="_") %in% topic_word_to_exclude))  %>%
-      dplyr::group_by(tokens, topic, created_date, tweet_geo_country_code)  %>%
-      dplyr::summarize(count = dplyr::n(), original = sum(!is_retweet), retweets = sum(is_retweet))  %>%
+      dplyr::filter(nchar(.data$tokens)>1 & !(paste(.data$topic, .data$tokens, sep="_") %in% topic_word_to_exclude))  %>%
+      dplyr::group_by(.data$tokens, .data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
+      dplyr::summarize(count = dplyr::n(), original = sum(!.data$is_retweet), retweets = sum(.data$is_retweet))  %>%
       dplyr::ungroup()  %>%
-      dplyr::group_by(topic, created_date, tweet_geo_country_code)  %>%
-      dplyr::top_n(n = max_words, wt = count) %>%
+      dplyr::group_by(.data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
+      dplyr::top_n(n = .data$max_words, wt = .data$count) %>%
       dplyr::ungroup() 
   }
   # Saving the data to JSON out file

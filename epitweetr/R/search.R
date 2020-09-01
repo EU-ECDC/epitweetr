@@ -109,7 +109,7 @@ search_topic <- function(plan, query, topic) {
       }
     if(got_rows) {
       update_file_stats(
-        file = gsub(".gz", "", file_name), 
+        filename = gsub(".gz", "", file_name), 
         topic = topic,
         year = year,
         first_date = min(parse_date(json$statuses$created_at)), 

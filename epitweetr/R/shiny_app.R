@@ -31,6 +31,8 @@
 #' @importFrom grDevices png
 #' @importFrom ggplot2 ggsave
 #' @importFrom dplyr select
+#' @importFrom stats setNames 
+#' @importFrom utils write.csv head 
 epitweetr_app <- function(data_dir = NA) { 
   # Seting up configuration if not already done
   if(is.na(data_dir) )

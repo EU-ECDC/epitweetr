@@ -413,6 +413,7 @@ check_move_from_temp <- function() {
 #' }
 #' @rdname check_all
 #' @export 
+#' @importFrom utils installed.packages 
 check_all <- function() {
   checks <- list(
     scheduler = check_scheduler,

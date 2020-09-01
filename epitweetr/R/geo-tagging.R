@@ -279,21 +279,21 @@ get_country_items <- function(order = "level") {
   else {
     # Getting country data from package embeded csv, ignoring antartica
     # obtained from https://gist.github.com/AdrianBinDC/621321d6083b176b3a3215c0b75f8146#file-country-bounding-boxes-md
-    countries <- get_raw_countries() %>% dplyr::filter(region != "")
+    countries <- get_raw_countries() %>% dplyr::filter(.data$region != "")
 
     # using intermediate region when available
     countries$sub.region <- mapply(function(int, sub) {if(is.na(int)) sub else int}, countries$intermediate.region, countries$sub.region)
     #getting regions and subregions
     regions <- (
       countries 
-        %>% dplyr::group_by(region) 
-        %>% dplyr::summarize(minLat = min(minLat), minLong = min(minLong), maxLat = max(maxLat), maxLong = max(maxLong))
+        %>% dplyr::group_by(.data$region) 
+        %>% dplyr::summarize(minLat = min(.data$minLat), minLong = min(.data$minLong), maxLat = max(.data$maxLat), maxLong = max(.data$maxLong))
         %>% dplyr::ungroup()
     )   
     subregions <- (
       countries 
-        %>% dplyr::group_by(region, sub.region) 
-        %>% dplyr::summarize(minLat = min(minLat), minLong = min(minLong), maxLat = max(maxLat), maxLong = max(maxLong))
+        %>% dplyr::group_by(.data$region, .data$sub.region) 
+        %>% dplyr::summarize(minLat = min(.data$minLat), minLong = min(.data$minLong), maxLat = max(.data$maxLat), maxLong = max(.data$maxLong))
         %>% dplyr::ungroup()
     )   
 
@@ -473,6 +473,7 @@ get_country_index_map <- function() {
 #'  \code{\link{get_tasks}}
 #'  
 #' @export 
+#' @importFrom utils download.file unzip 
 update_geonames <- function(tasks) {
   tasks <- tryCatch({
     tasks <- update_geonames_task(tasks, "running", "downloading", start = TRUE)
@@ -570,6 +571,7 @@ update_geonames <- function(tasks) {
 #'  \code{\link{get_tasks}}
 #'  
 #' @export 
+#' @importFrom utils download.file 
 update_languages <- function(tasks) {
   tasks <- tryCatch({
     tasks <- update_languages_task(tasks, "running", "downloading", start = TRUE)
