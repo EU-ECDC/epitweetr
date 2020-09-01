@@ -1161,27 +1161,27 @@ This annex contains some tips and common solutions to errors or issues that `epi
 ### The troubleshoot tab
 After running the diagnostics in the troubleshoot tab, you can see the checks and status on the following aspects:
 
--   **twitter_auth**: Twitter authentication either with Twitter account or Twitter app
--   **search**: search task is running
--   **detect_activation**: 
--   **detection**: detection task is running
--   **scheduler**:
--   **tweets**:
--   **os64**:
+-   **scheduler**: R package `taskscheduleR` is installed
+-   **twitter_auth**: Twitter token is created after authenticating either with Twitter account or Twitter app
+-   **search_running**: search task is running
+-   **tweets**: tweets have been collected
+-   **os64**: R is 64bits
 -   **java**: Java is installed
 -   **java64**: Java 64bits is installed
 -   **java_version**: the Java version installed is compatible with `epitweetr`
--   **winmsvc**:
--   **winutils**:
--   **java_deps**: Java dependencies are installed
--   **move_from_temp**:
--   **geonames**: Geonames.org database is downloaded
+-   **winmsvc**: Microsoft Visual C++ 2010 SP1 Redistributable Package is installed. Only applicable for Windows machines
+-   **detect_activation**: detect loop has been activated
+-   **detection_running**: detection task is running
+-   **winutils**: winutils is installed. If false, it can be downloaded by running the update dependencies task
+-   **java_deps**: java dependencies are installed 
+-   **move_from_temp**: `epitweetr` files can be moved from temporary folder to data directory
+-   **geonames**: Geonames.org database is downloaded and indexed
 -   **languages**: languages vectors and indexes are downloaded
--   **geotag**: geotag task is running
--   **aggregate**: aggregate task is running
--   **alerts**: alerts task is running
+-   **geotag**: geotag task has successfully run
+-   **aggregate**: aggregate task has successfully run
+-   **alerts**: alerts have been created
 -   **pandoc**: Pandoc is installed
--   **tex**: Tex is installed
+-   **tex**: a tex distribution is installed
 
 ### Management of search and detection loops (Windows)
 After activating the search and detection pipeline from the configuration tab of `epitweetr` (Windows), two tasks will be created in the task scheduler and two terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.

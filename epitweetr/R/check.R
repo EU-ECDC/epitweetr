@@ -49,7 +49,7 @@ check_java_64 <- function() {
   if(any(grepl("64-Bit", get_java_version_vector())))
     TRUE
   else {
-    warning(paste("Your current java version does not seems as 64 bits epitweetr needs java 64 bits between ", java_min_version(), " and ", java_max_version()))
+    warning(paste("Your current java version does not seem to be 64 bits. epitweetr needs java 64 bits between ", java_min_version(), " and ", java_max_version()))
     FALSE  
   }
 }
@@ -82,7 +82,7 @@ check_java_version <- function() {
   } else if(java_version >= java_min_version() && java_version <= java_max_version()) {
     TRUE  
   } else {
-    warning(paste("Your current java version is", java_version, " epitweetr needs java to be between ", java_min_version(), " and ", java_max_version()))
+    warning(paste("Your current java version is", java_version, ". epitweetr needs java versions between ", java_min_version(), " and ", java_max_version()))
     FALSE  
   }
 }
@@ -121,7 +121,7 @@ check_winmsvcr100 <- function() {
       warning(paste("Running Spark on Windows requires the",
         "Microsoft Visual C++ 2010 SP1 Redistributable Package.",
         "Please download and install from: \nhttps://www.microsoft.com/download/en/details.aspx?id=13523",
-        "Then restart R after the installation completes"
+        "Then restart R after the installation is completed"
       ))
       FALSE
     }
@@ -137,7 +137,7 @@ check_winutils <- function() {
     if(file.exists(get_winutils_path()))
       TRUE
     else {
-      warning("To run SPARK on Windows you nees winutils which is an HADOOP binary, you can download it by running the update dependencies tasks")  
+      warning("To run SPARK on Windows you need winutils which is a HADOOP binary, you can download it by running the update dependencies task")  
       FALSE
     }
   } else {
@@ -167,7 +167,7 @@ check_java_deps <- function() {
 #check geonames is downloaded and indexed
 check_geonames <- function() {
   if(!file.exists(get_geonames_txt_path())) {
-    warning("to geolocate epitweetr needs geonames to be downloaded and unziped. Please run the geonames task on detect loop")
+    warning("epitweetr needs geonames to be downloaded and unziped for geolocating tweets. Please run the geonames task on detect loop")
     FALSE
   } else {
     dir <- get_geonames_index_path()
@@ -186,7 +186,7 @@ check_geonames <- function() {
     if(ret)
       TRUE
     else {
-      warning("geonames has not been indexed. Please execute the geonames tasks")
+      warning("geonames has not been indexed. Please execute the geonames task")
       FALSE
     }
   }
@@ -197,7 +197,7 @@ check_geonames <- function() {
 check_languages <- function() {
   lang_files <- sapply(conf$languages, function(l) l$vectors)
   if(length(lang_files) == 0 || !all(sapply(lang_files, function(f) file.exists(f)))) {
-    warning("to geolcate, epitweetr needs languages models to be downloaded. Please activete some languages and launch the languages tasks")
+    warning("epitweetr needs languages models to be downloaded for geolocating tweets. Please activate some languages and launch the languages task")
     FALSE  
   } else {
     dir <- get_lang_index_path()
@@ -216,7 +216,7 @@ check_languages <- function() {
     if(ret)
       TRUE
     else {
-      warning("Language vector index has not yet been built. Please activate some languages and launch the languages tasks")
+      warning("Language vector index has not been built. Please activate some languages and launch the languages task")
       FALSE
     }
   }
@@ -240,7 +240,7 @@ check_series_present <- function(series = c("country_counts", "geolocated", "top
    if(all(counts > 0))
      TRUE
    else {
-     warning("No aggregated series found. Please execute the aggreate tasks")  
+     warning("No aggregated series found. Please execute the aggregate task")  
      FALSE
    }
 }
@@ -254,7 +254,7 @@ check_tweets_present <- function() {
   if(length(last_file) > 0) {
     TRUE
   } else {
-    warning("No tweet files found. Please execute the run the search loop")
+    warning("No tweet files found. Please execute the search loop")
     FALSE
   }
 }
@@ -279,7 +279,7 @@ check_scheduler <- function() {
     if(installed) {
       TRUE  
     } else {
-      warning("To activate tasks you need to install taskscheduleR package manually. Please run install.packages('taskscheduleR') on an R session and restart epitweetr")
+      warning("To activate tasks, you need to install taskscheduleR package manually. Please run install.packages('taskscheduleR') on an R session and restart epitweetr")
       FALSE  
     }
   } else {
@@ -290,7 +290,7 @@ check_scheduler <- function() {
 # check if pandoc is installed
 check_pandoc <- function() {
   if(unname(Sys.which("pandoc")) == "") {
-    warning("To allow report PDF export, Pandoc has to be installed.")
+    warning("For exporting the PDF report from the dashboard, Pandoc has to be installed.")
     FALSE  
   } else
     TRUE
@@ -300,8 +300,8 @@ check_pandoc <- function() {
 check_tex <- function() {
   if(unname(Sys.which("pdflatex")) == "") {
     warning(paste(
-      "To allow report PDF export, a tex distribution has to be installed.",
-      "We suggests to install tinytex, you can do this with the following commands on an r session:",
+      "For exporting the PDF report from the dashboard, a tex distribution has to be installed.",
+      "We suggest to install tinytex with the following commands on an r session:",
       "install.packages('tinytex'); tinytex::install_tinytex()"
     ))
     FALSE  
@@ -315,8 +315,8 @@ check_search_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Search loop is not running. On Windows you can activate it by clicking on the 'Activate Search Button' on the config page ",
-      "You can also manually run the search loop by executing the following commang on a separate R session. epitweetr::search_loop('",
+      "Search loop is not running. On Windows, you can activate it by clicking on the 'activate' Tweet search button on the config page ",
+      "You can also manually run the search loop by executing the following command on a separate R session. epitweetr::search_loop('",
       conf$data_dir,
       "')"
     ))
@@ -330,8 +330,8 @@ check_detect_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Detection loop is not running. On Windows you can activate it by clicking on the 'Activate Detect Button' on the config page ",
-      "You can also manually run the detection loop by executing the following commang on a separate R session. epitweetr::detect_loop('",
+      "Detection pipeline is not running. On Windows, you can activate it by clicking on the 'activate' detection pipeline button on the config page ",
+      "You can also manually run the detection loop by executing the following command on a separate R session. epitweetr::detect_loop('",
       conf$data_dir,
       "')"
     ))
@@ -352,7 +352,7 @@ check_twitter_auth <- function() {
     
     TRUE 
   else {
-    warning("Cannot create a Twitter token, please choose un authentication method on the configuration page")
+    warning("Cannot create a Twitter token, please choose an authentication method on the configuration page")
     FALSE
   }
 }
@@ -364,7 +364,7 @@ check_manual_task_request <- function() {
     || is.na(conf$geonames_updated_on)
     || is.na(conf$lang_updated_on)
   ) {
-    warning("Before running the detect loop you have to click on 'Activate Detect Loop' button on configuration page")
+    warning("Before running the detect loop, you have to click on 'activate' detection pipeline button on configuration page")
     FALSE  
   } else 
     TRUE
