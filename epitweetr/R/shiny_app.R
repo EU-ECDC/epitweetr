@@ -1196,7 +1196,7 @@ epitweetr_app <- function(data_dir = NA) {
 
        df <- get_todays_sample_tweets(limit = input$geotest_size, text_col = text_col, lang_col = lang_col)
        shiny::validate(
-         shiny::need(!is.null(df) && nrow(df) > 0, 'Cannot geolocate sample tweets, please check the troubleshoot tab')
+         shiny::need(!is.null(df) && nrow(df) > 0, 'Cannot geolocate sample tweets, please check the troubleshoot page')
        )
        df %>%
          DT::datatable(
