@@ -45,7 +45,7 @@ The `epitweetr` package allows you to automatically monitor trends of tweets by 
 
 The general principle behind `epitweetr` is that it collects tweets and related metadata from the Twitter Standard Search API version 1.1 (https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/overview/standard) according to specified topics and stores these tweets in a compressed form on your computer. `epitweetr` geolocalises the tweets and collects information on key words within a tweet. Tweets are aggregated according to topic and geographical location. Next, a signal detection algorithm identifies the number of tweets (by topic and geographical location) that exceeds what is expected for a given day. Then, `epitweetr` sends out email alerts to notify those who need to further investigate these signals following the epidemic intelligence processes (filtering, validation, analysis and preliminary assessment).
 
-The package includes  an interactive web application (Shiny app) with five tabs: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts tab, where you can view the current alerts and associated information (Fig 2), the geotag evaluation tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold (Fig 3), the configuration tab, where you can change settings and check the status of the underlying processes (Fig 4), and the troubleshoot tab, with automatic checks and hints for using `epitweetr` with all its functionalities (Fig 5). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
+The package includes  an interactive web application (Shiny app) with five pages: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts page, where you can view the current alerts and associated information (Fig 2), the geotag evaluation page, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold (Fig 3), the configuration page, where you can change settings and check the status of the underlying processes (Fig 4), and the troubleshoot page, with automatic checks and hints for using `epitweetr` with all its functionalities (Fig 5). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
 
 **Shiny app dashboard:**
 
@@ -56,36 +56,36 @@ knitr::include_graphics("img/dashboard.png")
 ```
 
 
-**Shiny app alerts tab:**
+**Shiny app alerts page:**
 
-<center>Fig 2: Shiny app alerts tab</center>
+<center>Fig 2: Shiny app alerts page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/alerts.png")
 ```
 
 
-**Shiny app geotag evaluation tab:**
+**Shiny app geotag evaluation page:**
 
-<center>Fig 3: Shiny app geotag evaluation tab</center>
+<center>Fig 3: Shiny app geotag evaluation page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/geotag_evaluation.png")
 ```
 
 
-**Shiny app configuration tab:**
+**Shiny app configuration page:**
 
-<center>Fig 4: Shiny app configuration tab</center>
+<center>Fig 4: Shiny app configuration page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/config.png")
 ```
 
 
-**Shiny app troubleshoot tab:**
+**Shiny app troubleshoot page:**
 
-<center>Fig 5: Shiny app troubleshoot tab</center>
+<center>Fig 5: Shiny app troubleshoot page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/troubleshoot.PNG")
@@ -129,17 +129,17 @@ The minimum and suggested hardware requirements for the computer are in the tabl
   CPU Needed                            4 cores        12 cores
   Space needed for 3 years of storage   3TB            5TB
 
-The CPU and RAM usage can be configured on the Shiny app configuration tab (see section "The interactive user application (Shiny app)>The configuration tab"). The RAM, CPU and space needed may depend on the amount and size of the topics you request in the collection process.
+The CPU and RAM usage can be configured on the Shiny app configuration page (see section *The interactive user application (Shiny app)>The configuration page*). The RAM, CPU and space needed may depend on the amount and size of the topics you request in the collection process.
 
 ## Installation
 
-`epitweetr` is conceived to be platform independent, working on Windows, Linux and Mac. We recommend that you use `epitweetr` on a computer that can be run continuously. You can switch the computer off, but you may miss some tweets if the downtime is large enough, which will have implications for the alert detection. Before using `epitweetr` the following items need to be installed:
+`epitweetr` is conceived to be platform independent, working on Windows, Linux and Mac. We recommend that you use `epitweetr` on a computer that can be run continuously. You can switch the computer off, but you may miss some tweets if the downtime is large enough, which will have implications for the alert detection. Before using `epitweetr`, the following items need to be installed:
 
 ### Prerequisites for running epitweetr
 
 -   R version 3.6.3 or higher
 
--   Java 1.8 eg. openjdk version "1.8" [*https://www.java.com/download/*]. The 64-bit rather than the 32-bit version is preferred, due to memory limitations.
+-   Java 1.8 eg. openjdk version "1.8" [*https://www.java.com/download/*]. The 64-bit rather than the 32-bit version is preferred, due to memory limitations. In Mac, also the Java Development Kit [*https://docs.oracle.com/javase/10/install/installation-jdk-and-jre-macos.htm*]
 
 -   If you are running it in Windows, you will also need Microsoft Visual C++, however in most cases it is likely to be pre-installed:
 
@@ -183,7 +183,7 @@ If you would like to develop `epitweetr` further, then the following development
 
 ### External dependencies
 
-`epitweetr` will need to download some dependencies in order to work. The tool will do this automatically the first time the alert detection process is launched. The administration page will allow you to change the target URLs of these dependencies, which are the following:
+`epitweetr` will need to download some dependencies in order to work. The tool will do this automatically the first time the alert detection process is launched. The Shiny app configuration page will allow you to change the target URLs of these dependencies, which are the following:
 
 - *CRAN JARs*: Transitive dependencies for running Spark, Lucene and embedded scala code. *[https://repo1.maven.org/maven2]*
 
@@ -205,7 +205,7 @@ Additionally, the R environment needs to know where the Java installation home i
 Sys.getenv("JAVA_HOME")
 ```
 
-If the command returns Null, then you will need to set the Java Home environment variable, for your OS, please see your specific OS instructions.
+If the command returns Null or empty, then you will need to set the Java Home environment variable, for your OS, please see your specific OS instructions. In some cases, `epitweetr` can work without setting the Java Home environment variable.
 
 The first time you run the application, if the tool cannot identify a secure password store provided by the operating system, you will see a pop-up window requesting a keyring password (Linux and Mac). This is a password necessary for storing encrypted Twitter credentials. Please choose a strong password and remember it. You will be asked for this password each time you run the tool. You can avoid this by setting a system environment variable named ecdc\_twitter\_tool\_kr\_password containing the chosen password.
 
@@ -218,15 +218,17 @@ library(epitweetr)
 epitweetr_app("data_dir")
 ```
 
+Please note that the data directory entered in R should have "/" instead of "\" (an example of a correct path would be 'C:/user/name/Documents'). This applies especially in Windows if you copy the path from the File Explorer.
+
 Alternatively, you can use a launcher: In an executable .bat or shell file type the following, (replacing “data\_dir” with the designated data directory)
 
 R --vanilla -e epitweetr::epitweetr\_app("data\_dir")
 
-You can check that all requirements are properly installed in the troubleshoot tab. More information is available in section *The interactive user application (Shiny app)>Dashboard:The interactive user interface for visualisation>The troubleshoot tab*
+You can check that all requirements are properly installed in the troubleshoot page. More information is available in section *The interactive user application (Shiny app)>Dashboard:The interactive user interface for visualisation>The troubleshoot page*
 
 ### Setting up tweet collection and the alert detection loop
 
-In order to use `epitweetr`, you will need to collect tweets and run the alert detection loop (geonames, languages, geotag, aggregate and alerts). Further details are also available in subsequent sections of the user documentation. As ummary of the steps needed is as follows:
+In order to use `epitweetr`, you will need to collect tweets and run the alert detection loop (geonames, languages, geotag, aggregate and alerts). Further details are also available in subsequent sections of the user documentation. A summary of the steps needed is as follows:
 
 -   Launch the Shiny app (from the R console) 
 ```{r, eval=FALSE, echo=TRUE}
@@ -238,7 +240,6 @@ epitweetr_app("data_dir")
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/run_geonames.png")
 ```
-
 
 -   Set up the Twitter authentication using a Twitter account or a Twitter developer app, see section *Collection of tweets>Twitter authentication* for more details
 
@@ -256,7 +257,7 @@ library(epitweetr)
 search_loop("data_dir")
 ```
 
-   -   You can confirm that the tweet collection is running if the "Tweet search" status is "Running" on the Shiny app configuration page (green text in screenshot above).
+   -   You can confirm that the tweet collection is running if the "Tweet search" status is "Running" on the Shiny app configuration page (green text in screenshot above) and "true" in the Shiny app troubleshoot page.
 
 -   Activate the detection pipeline:
 
@@ -270,27 +271,27 @@ library(epitweetr)
 detect_loop("data_dir")
 ```
 
-   -   You can confirm that the detection pipeline is running if the "Detection Pipeline" status is "Running" in the Shiny app configuration page.
+   -   You can confirm that the detection pipeline is running if the "Detection pipeline" status is "Running" in the Shiny app configuration page and "true" in the Shiny app troubleshoot page.
 
 -   You will be able to visualise tweets after the aggregate step in the detection pipeline table on the Shiny app configuration page is finished and if "Tweet search" is activated.
 
 -   You can start working with the generated signals. **Happy signal detection!**
 
-For more details you can go through the section *"How does it work? General architecture behind `epitweetr`"*, which describes the underlying processes behind the tweet collection and the signal detection. Also, the section *"The interactive Shiny application (Shiny app)>The configuration page"* describes the different settings on the configuration page.
+For more details you can go through the section *How does it work? General architecture behind `epitweetr`*, which describes the underlying processes behind the tweet collection and the signal detection. Also, the section *"The interactive Shiny application (Shiny app)>The configuration page"* describes the different settings on the configuration page.
 
 
 ## How does it work? General architecture behind epitweetr
 
-The following sections describe in detail the above general principles. The settings of many of these elements can be configured in the Shiny app configuration tab, which is explained in the section *"The interactive Shiny application (Shiny app)>The configuration page"*.
+The following sections describe in detail the above general principles. The settings of many of these elements can be configured in the Shiny app configuration page, which is explained in the section *The interactive Shiny application (Shiny app)>The configuration page*.
 
 ###  Collection of tweets
 
 
 #### Use of the Twitter Standard Search API version 1.1
 
-`epitweetr` uses the Twitter Standard Search API version 1.1. The advantage of this API is that it is a free service provided by Twitter and enables users of `epitweetr` to access tweets free of charge. However, the search API is not meant to be an exhaustive source of tweets. It searches against a sample of recent tweets published in the past 7 days and is focused on relevance and not completeness. This means that some tweets and users may be missing from search results.
+`epitweetr` uses the Twitter Standard Search API version 1.1. The advantage of this API is that it is a free service provided by Twitter enabling users of `epitweetr` to access tweets free of charge. The search API is not meant to be an exhaustive source of tweets. It searches against a sample of recent tweets published in the past 7 days and it focuses on relevance and not completeness. This means that some tweets and users may be missing from search results.
 
-While this may be a limitation in other fields of public health or research, the `epitweetr` development team believe that for the objective of signal detection a sample of tweets is sufficient to detect potential threats of importance.
+While this may be a limitation in other fields of public health or research, the `epitweetr` development team believe that for the objective of signal detection a sample of tweets is sufficient to detect potential threats of importance in combination with other type of sources.
 
 Other attributes of the Twitter Standard Search API version 1.1 include:
 
@@ -302,7 +303,7 @@ Other attributes of the Twitter Standard Search API version 1.1 include:
 
 #### Twitter authentication
 
-You can authenticate the collection of tweets by using a **Twitter account** (this approach utilises the rtweet package App) or by using a **Twitter application**. For the latter, you will need a Twitter developer account, which can take some time to obtain, due to verification procedures. We recommend for testing purposes and short-term use the first option (using a Twitter account via the rtweet package), and for long-term use the Twitter developer application.
+You can authenticate the collection of tweets by using a **Twitter account** (this approach utilises the rtweet package app) or by using a **Twitter application**. For the latter, you will need a Twitter developer account, which can take some time to obtain, due to verification procedures. We recommend using a Twitter account via the rtweet package for testing purposes and short-term use, and the Twitter developer application for long-term use.
 
 -   **Using a Twitter account:** delegated via rtweet (user authentication)
 
@@ -336,7 +337,7 @@ knitr::include_graphics("img/Twitter_authentication_dev_app.png")
 
 After the Twitter authentication, you need to specify a list of topics in `epitweetr` to indicate which tweets to collect. For each topic, you have one or more queries that `epitweetr` uses to collect the relevant tweets (e.g. several queries for a topic using different terminology and/or languages).
 
-A query consists of operators that are used to match tweet attributes. Keywords separated by a space indicate an AND clause. You can also use an OR operator A minus sign before the keyword (with no space between the sign and the keyword) indicates the keyword should not be in the tweet attributes. While queries can be up to 512 characters long, best practice is to limit your query to 10 keywords and operators and limit complexity of the query, meaning that sometimes you need more than one query per topic.
+A query consists of keywords and operators that are used to match tweet attributes. Keywords separated by a space indicate an AND clause. You can also use an OR operator. A minus sign before the keyword (with no space between the sign and the keyword) indicates the keyword should not be in the tweet attributes. While queries can be up to 512 characters long, best practice is to limit your query to 10 keywords and operators and limit complexity of the query, meaning that sometimes you need more than one query per topic.
 
 `epitweetr` comes with a default list of topics as used by the ECDC Epidemic Intelligence team at the date of package generation (1^st^ of September, 2020). You can view details of the list of topics in the Shiny app configuration page (see screenshot below).
 
@@ -344,7 +345,7 @@ A query consists of operators that are used to match tweet attributes. Keywords 
 knitr::include_graphics("img/topics.png")
 ```
 
-On the configuration tab, you can also download the list of topics, modify the list and upload it to `epitweetr`. The new list of topics will then be used for tweet collection and visible in the Shiny app. The list of topics is an Excel file (\*.xlsx) as it handles user-specific regional settings (e.g. delimiters) and special characters well. You can create your own list of topics and upload it too, noting that the structure should include at least:
+On the configuration page, you can also download the list of topics, modify it and upload it to `epitweetr`. The new list of topics will then be used for tweet collection and visible in the Shiny app. The list of topics is an Excel file (\*.xlsx) as it handles user-specific regional settings (e.g. delimiters) and special characters well. You can create your own list of topics and upload it too, noting that the structure should include at least:
 
 -   The name of the topic, with the header “Topic” in the Excel spreadsheet. This name should include alphanumeric characters, spaces, dashes and underscores only. Note that it should start with a letter.
 
@@ -364,7 +365,7 @@ The topics.xlsx file additionally includes the following fields:
 
 -   An alpha parameter, with the header “Outlier alpha (FPR)” in the Excel spreadsheet. FPR stands for “false positive rate”. This alpha sets the false positive rate for determining what an outlier is when downweighting previous outliers/signals. The lower the value, the fewer previous outliers will potentially be included. A higher value will potentially include more previous outliers.
 
--   "Rank" is set as 1 if there is only one query for this topic and set as 2 if there are 2 queries, etc.
+-   "Rank" is the number of queries per topic
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
 knitr::include_graphics("img/Example_topics_list.png")
@@ -381,7 +382,7 @@ In order to collect the maximum number of tweets, given the Standard Search API 
 
 The first “search plan” for a query will collect tweets from the current date-time backwards until 7 days (7 days because of the Standard Search API limitation) before the current “search plan” was implemented. The first “search plan” is the biggest, as no tweets have been collected so far.
 
-All subsequent “search plans” are scheduled intervals that are set up in the configuration tab of the `epitweetr` Shiny app (see section *The interactive Shiny app > the configuration tab > General*). For illustration purposes, let us consider the search plans are scheduled at four-hour intervals. The plans collect tweets for a specific query from the current date-time back until four hours before the date-time when the current “search plan” is implemented (see image below). `epitweetr` will make as many requests (each returning up to 100 tweets) during the four-hour interval as needed to obtain all tweets created within that four-hour interval.
+All subsequent “search plans” are scheduled intervals that are set up in the configuration page of the `epitweetr` Shiny app (see section *The interactive Shiny app > the configuration page > General*). For illustration purposes, let us consider the search plans are scheduled at four-hour intervals. The plans collect tweets for a specific query from the current date-time back until four hours before the date-time when the current “search plan” is implemented (see image below). `epitweetr` will make as many requests (each returning up to 100 tweets) during the four-hour interval as needed to obtain all tweets created within that four-hour interval.
 
 For example, if the “search plan” begins at 4 am on the 10^th^ of September 2020, `epitweetr` will launch requests for tweets corresponding to its queries for the four-hour period from 4 am to midnight on the 10^th^ of September 2020. `epitweetr` starts by collecting the most recent tweets (the ones from 4 am) and continues backwards. If during the four-hour time period between 4am and midnight the API does not return any more results, the “search plan” for this query is considered completed.
 
@@ -435,7 +436,7 @@ knitr::include_graphics("img/Search_plan_queues.png")
 
 ### Geolocation
 
-In a parallel process to the collection of tweets, `epitweetr` attempts to geolocate all collected tweets using an unsupervised machine learning process. This process runs in the schedule window defined by "Detect span" property in the configuration tab under "General settings" (e.g. if a four-hour window is set it will run every four hours and will geolocate all tweets collected since the last time it successfully ran).
+In a parallel process to the collection of tweets, `epitweetr` attempts to geolocate all collected tweets using an unsupervised machine learning process. This process runs in the schedule window defined by "Detect span" property in the configuration page under "General settings" (e.g. if a four-hour window is set it will run every four hours and will geolocate all tweets collected since the last time it successfully ran).
 
 `epitweetr` stores two types of geolocation for a tweet: tweet location, which is geolocation information within the text of a tweet (or a retweeted or quoted tweet), and user location from the available metadata. For signal detection, the best location is used while in the dashboard both types can be visualised. 
 
@@ -472,9 +473,9 @@ knitr::include_graphics("img/config_languages.png")
 In addition, you can unselect languages by selecting the language within the configuration page of the Shiny app and clicking on the "-"  icon:
 ADD IMAGE HERE
 
-A minimum score (the "geolocation threshold") can be globally set in the general settings on the configuration tab to reduce the number of false positives (see image). All geolocations with a smaller score than the geolocation threshold will be discarded by the algorithm as tweet location. If there is more than one match over the minimum score, then the match with the highest score will be chosen.
+A minimum score (the "geolocation threshold") can be globally set in the general settings on the configuration page to reduce the number of false positives (see image). All geolocations with a smaller score than the geolocation threshold will be discarded by the algorithm as tweet location. If there is more than one match over the minimum score, then the match with the highest score will be chosen.
 
-The threshold is empirically chosen and can be evaluated against a human read of tweets and tweet locations, on the geotag evaluation tab.
+The threshold is empirically chosen and can be evaluated against a human read of tweets and tweet locations, on the geotag evaluation page.
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/geolocation_threshold.png")
@@ -566,27 +567,27 @@ If previous signals are included without modification in the historic values whe
 
 #### Timing of signal detection
 
-Signal detection is carried out based on “days”, which are moving windows of 24 hours, moving according to the detect span (see also section *The interactive user application (Shiny app) > The configuration tab > General*). The baseline is calculated on these “days” from -1 to -8 (if the current "day" is zero).
+Signal detection is carried out based on “days”, which are moving windows of 24 hours, moving according to the detect span (see also section *The interactive user application (Shiny app) > The configuration page > General*). The baseline is calculated on these “days” from -1 to -8 (if the current "day" is zero).
 
-Signals are generated according to the detect span (see section *The interactive user application (Shiny app) > The configuration tab > General*), with
+Signals are generated according to the detect span (see section *The interactive user application (Shiny app) > The configuration page > General*), with
 
 -   general email alerts either following this detect span (e.g. if the detect span was four hours, the email alerts will be sent every four hours)
 
 -   email alerts in real-time. In these email alerts, previously generated signals will be omitted.
 
-The different types of email alerts for each user can be specified in the configuration tab (see section *The interactive user application (Shiny app) > The configuration tab > General*).
+The different types of email alerts for each user can be specified in the configuration page (see section *The interactive user application (Shiny app) > The configuration page > General*).
 
 #### The alpha parameter: the false positive rate of the signal detection
 
 A key attribute of signal detection is the ability of an algorithm to detect true threats or events without overloading the investigators with too many false positives. In this way, the alpha parameter determines the threshold of the detection interval. If the alpha is high, then more potential signals are generated and if the alpha is low fewer potential signals are generated (but potential threats or events could be missed). The setting of the alpha is often done empirically, and depends also on the resources of those investigating the signals and the importance of missing a potential threat or event.
 
-There is a global alpha, that can be set/changed in the `epitweetr` configuration page under "Signal false positive rate" (see section *The interactive user application (Shiny app) > The configuration tab > General*). Additionally, the default alpha can be overridden in the topics list. Here, if you like, you can associate each topic with a specific alpha, depending on the estimated public health importance of the topic or potential associated event or threat.
+There is a global alpha, that can be set/changed in the `epitweetr` configuration page under "Signal false positive rate" (see section *The interactive user application (Shiny app) > The configuration page > General*). Additionally, the default alpha can be overridden in the topics list. Here, if you like, you can associate each topic with a specific alpha, depending on the estimated public health importance of the topic or potential associated event or threat.
 
 #### Bonferroni correction
 
 To account for multiple testing, for country-specific signal detection, as a default, the alpha is divided by the number of countries. For continent-specific signal detection, the alpha is divided by the number continents. This is a Bonferroni correction for multiple testing.
 
-To override this, you can uncheck "Bonferroni correction" in the "Signal detection" part of the configuration tab in the Shiny app.
+To override this, you can uncheck "Bonferroni correction" in the "Signal detection" part of the configuration page in the Shiny app.
 
 
 #### Using same weekdays as baseline
@@ -613,9 +614,9 @@ The email alerts will include the following information on the signals for each 
 
 -   Information on the settings, such as: was the Bonferroni correction used, was the same weekday baseline used, were retweets included, etc.
 
-This information is also available in the alerts tab of the Shiny app. 
+This information is also available in the alerts page of the Shiny app. 
 
-The subscribers can receive real-time alerts (i.e. as soon as the detection loop is finalised) or scheduled alerts (e.g. once or twice a day). The subscribers list can be changed in the configuration tab by downloading the Excel spreadsheet. This file has the following variables:
+The subscribers can receive real-time alerts (i.e. as soon as the detection loop is finalised) or scheduled alerts (e.g. once or twice a day). The subscribers list can be changed in the configuration page by downloading the Excel spreadsheet. This file has the following variables:
 
   - “User”: name of the subscriber (e.g. Jane Doe).
 
@@ -631,9 +632,9 @@ The subscribers can receive real-time alerts (i.e. as soon as the detection loop
 
   - “Real time Regions”: list of regions for which the subscriber will receive real-time alerts.
 
-  - “Alert Slots”: these are the detection loop slots after which the subscriber will receive the scheduled alert. Available slots can be taken from “Launch slots” in the “General” section of the configuration tab. If no value is included, the subscriber will receive real-time alerts for all topics and regions, even if there are real-time topics or regions specified in the Excel spreadsheet.
+  - “Alert Slots”: these are the detection loop slots after which the subscriber will receive the scheduled alert. Available slots can be taken from “Launch slots” in the “General” section of the configuration page. If no value is included, the subscriber will receive real-time alerts for all topics and regions, even if there are real-time topics or regions specified in the Excel spreadsheet.
 
-When including more than one topic and/or region in the subscribers list, these should be separated by semi-colon (;) with no spaces (e.g. Ebola;infectious diseases;dengue). The names must match the column “Topics” in the list of topics and the column “Name” in the contry/region list from the configuration tab.
+When including more than one topic and/or region in the subscribers list, these should be separated by semi-colon (;) with no spaces (e.g. Ebola;infectious diseases;dengue). The names must match the column “Topics” in the list of topics and the column “Name” in the contry/region list from the configuration page.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/subscribers.png")
@@ -715,21 +716,21 @@ Alternatively, you can use a launcher: In an executable bat or sh file  put the 
 
 R --vanilla -e epitweetr::epitweetr\_app('data\_dir')
 
-The `epitweetr` interactive user application has five tabs:
+The `epitweetr` interactive user application has five pages:
 
 -   The dashboard, where a user can visualise and explore tweets
 
--   The configuration tab, where you can change settings and check the status of the underlying processes
+-   The configuration page, where you can change settings and check the status of the underlying processes
 
--   The alerts tab, where you can view the current alerts and associated information
+-   The alerts page, where you can view the current alerts and associated information
 
--   The geotag evaluation tab, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold
+-   The geotag evaluation page, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold
 
--   The troubleshoot tab, with with automatic checks and hints for using `epitweetr` with all its functionalities
+-   The troubleshoot page, with with automatic checks and hints for using `epitweetr` with all its functionalities
 
 ### Dashboard: The interactive user interface for visualisation
 
-The dashboard is where you can interactively explore visualisations of tweets. It includes a line graph (trend line) with alerts, a map and top words of tweets for a given topic. Please note that the first time a period is selected, you will need to wait 1-2 minutes until you see the outputs. Likewise, for any new selection (adding a region, changing topic, etc), `epitweetr` will start reading the corresponding data; so if several selections are done, you may need to wait 1-2 minutes until the last selection is shown in the dashboard. When `epitweetr` is reading new data, the outputs have less intensity giving you an indication that new data is being read and plotted.
+The dashboard is where you can interactively explore visualisations of tweets. It includes a line graph (trend line) with alerts, a map and top words of tweets for a given topic. Please note that the first time a period is selected, you will need to **wait 1-2 minutes until you see the outputs**. Likewise, for any new selection (adding a region, changing topic, etc), `epitweetr` will start reading the corresponding data; so if several selections are done, you may need to wait 1-2 minutes until the last selection is shown in the dashboard. When `epitweetr` is reading new data, the outputs have less intensity giving you an indication that new data is being read and plotted.
 
 In order to interactively explore the data, you can select from several filters, such as topics, countries and regions, time period, time unit, signal confidence and days in baseline.
 
@@ -739,7 +740,7 @@ Note that whatever options/settings you select on the dashboard, will have no ef
 
 **Topics**
 
-You can select one item from the dropdown list of topics, which is populated by what is specified in the topics on the configuration page. You can also start typing in the text field and select the topics from the filtered dropdown list.
+You can select one item from the drop-down list of topics, which is populated by what is specified in the topics on the configuration page. You can also start typing in the text field and select the topics from the filtered dropdown list.
 
 **Countries & regions**
 
@@ -747,7 +748,7 @@ You can select one item from the dropdown list of topics, which is populated by 
 knitr::include_graphics("img/topics_countries.png")
 ```
 
-If you select **World (all)**, all tweets are displayed regardless of their geolocation. You can select an individual country, you can select regions and subregions, and you can select several items at the same time. You can also start typing in the text field and select the geographical item from the dropdown list.
+If you select **World (all)**, all tweets are displayed regardless of their geolocation. You can select an individual country, you can select regions and subregions, and you can select several items at the same time. You can also start typing in the text field and select the geographical item from the drop-down list.
 
 **Period**
 
@@ -755,7 +756,7 @@ If you select **World (all)**, all tweets are displayed regardless of their geol
 knitr::include_graphics("img/period.png")
 ```
 
-You can select from the past 7 (the default), 30, 60 or 180 days. You can also select "custom" and a calendar option to select study period will appear. These periods will be the time period for inclusion in the visualisations.
+You can select from the past 7 (the default), 30, 60 or 180 days. You can also select "custom" and a calendar option to select study period will appear. These periods will be the time period for inclusion in the visualisations. When selecting custom period, please ensure that the first date is at least one day before the second date.
 
 **Time unit**
 
@@ -821,7 +822,7 @@ If you do not wish to use this correction, you can uncheck it.
 knitr::include_graphics("img/days_in_baseline.png")
 ```
 
-The default days in baseline is 7. The user can explore the effect of having different days in the baseline. This is only for the visualisation, any changes made for the email alerts have to be made in the configuration tab.
+The default days in baseline is 7. The user can explore the effect of having different days in the baseline. This is only for the visualisation, any changes made for the email alerts have to be made in the configuration page.
 
 **Same weekday baseline**
 
@@ -879,24 +880,24 @@ This graph then displays the top words of tweets by topic for the study period f
 
 Note that, differently to other visualisation figures, the most frequent words found in tweets is always related to “tweet location” and is not influenced by the filter option for choice of location (user or tweet location).
 
-#### The alerts tab
+### The alerts page
 
-The alerts tab summarises the signals detected within the specified study period. This summary includes the date, hour, topic and geographical unit of the signal, which top words are included, the number of tweets, the number of tweets from important users and the threshold. It additionally includes many of the settings specified in the configuration tab, which were used for detecting signals. This is also the output received in the emails alerts.
+The alerts page summarises the signals detected within the specified study period. This summary includes the date, hour, topic and geographical unit of the signal, which top words are included, the number of tweets, the number of tweets from important users and the threshold. It additionally includes many of the settings specified in the configuration page, which were used for detecting signals. This is also the output received in the emails alerts.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/alerts.png")
 ```
 
-#### The geotag evaluation tab
-This tab supports the user in establishing the geolocation threshold in the configuration tab. The user can choose the field of the tweets to test and the number of tweets to sample. This tab is for visualization only and no changes in the geolocation detected by `epitweetr` is allowed.  
+### The geotag evaluation page
+This page supports the user in establishing the geolocation threshold in the configuration page. The user can choose the field of the tweets to test and the number of tweets to sample. This page is for visualization only and no changes in the geolocation detected by `epitweetr` is allowed.  
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/geotag_evaluation.png")
 ```
 
-#### The configuration tab
+### The configuration page
 
-In the configuration tab, you can change settings of the tool, you can check the status of the various processes/pipelines of the tool and you can add, delete and modify topics and their associated requests, languages for geolocation and the list of the “important users” and email alert subscribers. When changing anything in the “Signal detection” or “General” sections, do not forget to click on the “Update Properties” button at the end of the “General” section. The following sections describe the configuration tab in more detail.
+In the configuration page, you can change settings of the tool, you can check the status of the various processes/pipelines of the tool and you can add, delete and modify topics and their associated requests, languages for geolocation and the list of the “important users” and email alert subscribers. When changing anything in the “Signal detection” or “General” sections, do not forget to click on the “Update Properties” button at the end of the “General” section. The following sections describe the configuration page in more detail.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/config.png")
@@ -931,7 +932,7 @@ knitr::include_graphics("img/detection_pipeline.png")
 
 **Signal detection**
 
-In the signal detection section in the configuration tab, you can set the signal false positive rate alpha parameter, which increases (if larger) the the detection interval (more signals are detected), or decreases (if smaller) the detection interval (fewer signals are detected).
+In the signal detection section in the configuration page, you can set the signal false positive rate alpha parameter, which increases (if larger) the the detection interval (more signals are detected), or decreases (if smaller) the detection interval (fewer signals are detected).
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("img/signal_detection_config.png")
@@ -964,7 +965,7 @@ knitr::include_graphics("img/general.png")
 
 -   The **Detect span** relates to how frequently the processes of the detection pipeline (geotagging, aggregation and alert detection) are carried out. The default is 90 minutes. Email alerts are sent at the end of the detect loop. This value is treated as a lower bound, the detect loop could take more time to finish depending on the volume of tweeets and your system specifications. 
 
--   The **Launch slots** for the detection pipeline processes will be spaced out according to the "Detect span", with the first one starting at midnight. These values can be used in the subscribers file of the configuration tab.
+-   The **Launch slots** for the detection pipeline processes will be spaced out according to the "Detect span", with the first one starting at midnight. These values can be used in the subscribers file of the configuration page.
 
 -   To avoid storing Twitter credentials in plain files, `epitweetr` uses a system dependent password store functionality, which is stored in the **Password store**. Depending on your system you can choose the mechanism that suits the environment where `epitweetr` is running. For details on each implementation see [*https://cran.r-project.org/web/packages/keyring/index.html*]
 
@@ -1030,8 +1031,8 @@ In the languages section, you can determine which language models are used to id
 knitr::include_graphics("img/languages.png")
 ```
 
-#### The troubleshoot tab
-The troubleshoot tab has a list of automatic check and hint for using `epitweetr` with all its functionalities. Click on "Run diagnostics" to see the list of checks, whether it passed the check ("true") or not ("false"), and hints in case it did not pass the check. More detailed information can be found in [Annex II](#annexII) of this user documentation.
+### The troubleshoot page
+The troubleshoot page has a list of automatic check and hint for using `epitweetr` with all its functionalities. Click on "Run diagnostics" to see the list of checks, whether it passed the check ("true") or not ("false"), and hints in case it did not pass the check. More detailed information can be found in [Annex II](#annexII) of this user documentation.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("img/troubleshoot.PNG")
@@ -1156,13 +1157,13 @@ knitr::include_graphics("img/ebola.png")
 
 ## Annex II: Troubleshooting and tips {#annexII}
 
-This annex contains some tips and common solutions to errors or issues that `epitweetr` users may encounter, including a detailed explanation on the checks and hints included in the troubleshoot tab.
+This annex contains some tips and common solutions to errors or issues that `epitweetr` users may encounter, including an explanation on the checks included in the troubleshoot page.
 
-### The troubleshoot tab
-After running the diagnostics in the troubleshoot tab, you can see the checks and status on the following aspects:
+### The troubleshoot page
+After running the diagnostics in the troubleshoot page, you can see the checks and status on the following aspects:
 
 -   **scheduler**: R package `taskscheduleR` is installed
--   **twitter_auth**: Twitter token is created after authenticating either with Twitter account or Twitter app
+-   **twitter_auth**: Twitter token is created after authenticating either with Twitter account or Twitter developer application
 -   **search_running**: search task is running
 -   **tweets**: tweets have been collected
 -   **os64**: R is 64bits
@@ -1175,7 +1176,7 @@ After running the diagnostics in the troubleshoot tab, you can see the checks an
 -   **winutils**: winutils is installed. If false, it can be downloaded by running the update dependencies task
 -   **java_deps**: java dependencies are installed 
 -   **move_from_temp**: `epitweetr` files can be moved from temporary folder to data directory
--   **geonames**: Geonames.org database is downloaded and indexed
+-   **geonames**: GeoNames.org database is downloaded and indexed
 -   **languages**: languages vectors and indexes are downloaded
 -   **geotag**: geotag task has successfully run
 -   **aggregate**: aggregate task has successfully run
@@ -1184,19 +1185,19 @@ After running the diagnostics in the troubleshoot tab, you can see the checks an
 -   **tex**: a tex distribution is installed
 
 ### Management of search and detection loops (Windows)
-After activating the search and detection pipeline from the configuration tab of `epitweetr` (Windows), two tasks will be created in the task scheduler and two terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.
+After activating the search and detection pipeline from the configuration page of `epitweetr` (Windows), two tasks will be created in the task scheduler and two terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.
 
-If you activate these tasks from the configuration tab of `epitweetr` again, the system will overwrite the tasks created in the task scheduler. Instead, after the first successful activation of these tasks from `epitweetr`, you can easily manage these from the task scheduler. You can stop these tasks by ending and disabling the tasks in the task scheduler, and you can restart these tasks by enabling and running these in the task scheduler.
+If you activate these tasks from the configuration page of `epitweetr` again, the system will overwrite the tasks created in the task scheduler. Instead, after the first successful activation of these tasks from `epitweetr`, you can easily manage these from the task scheduler. You can stop these tasks by ending and disabling the tasks in the task scheduler, and you can restart these tasks by enabling and running these in the task scheduler.
 
 In the task scheduler, you can establish that the search and detection tasks “run whether the user is logged on or not” to avoid that these tasks stop when you log/turn off the computer. 
 
 ### Management of search and detection loops (Linux and Mac)
-Since the search and detection pipeline in Linux or Mac have to be run manually, if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop. Please remember to follow the steps in the section *“Setting up tweet collection and the alert detection loop”* to run these tasks again.
+Since the search and detection pipeline in Linux or Mac have to be run manually, if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop. Please remember to follow the steps in the section *Setting up tweet collection and the alert detection loop* to run these tasks again.
 
 ### Running search and detection pipeline
 
 #### “Cannot execute task \#####: the task is already running”
-The detect and the search loop create two files containing their process IDs located in the `epitwitter` data folder: serarch.PID and detect.PID. This error arises if `epitweetr` finds another R process currently running with the same ID. In order to fix this error you should first verify if the search / detect loop are not already running in another R session. If this is the case, you should not try to start the task since `epitweetr` only supports one instance of the same task running in the same data folder. If the running process is not associated with the task then you can manually delete the PID file and try to start it again.
+The detect and the search loop create two files containing their process IDs located in the `epitwitter` data folder: search.PID and detect.PID. This error arises if `epitweetr` finds another R process currently running with the same ID. In order to fix this error you should first verify if the search / detect loop are not already running in another R session. If this is the case, you should not try to start the task since `epitweetr` only supports one instance of the same task running in the same data folder. If the running process is not associated with the task then you can manually delete the PID file and try to start it again.
 
 ### Change the user of the Twitter authentication when using a Twitter account
 1. End and disable the search loop/task in the task scheduler (Windows) or close the R/terminal window with the search loop/task (Linux and Mac)
@@ -1205,7 +1206,7 @@ The detect and the search loop create two files containing their process IDs loc
 
 3. Delete that file.
 
-4. Click on “Update properties” in the configuration tab of `epitweetr`.
+4. Click on “Update properties” in the configuration page of `epitweetr`.
 
 5. Enable and run the search loop/task in the task scheduler (Windows) or run the command in a new R/terminal window with the search loop/task (Linux and Mac). More details are available in the section *“Setting up tweet collection and the alert detection loop”*
 
@@ -1217,17 +1218,17 @@ If this error appears when running GeoNames, it means that the machine has Java 
 
 #### “Max number of retried reached failed while processing languages. Error in get_geolocated_period(dataset): To aggregate, or calculate alerts geolocation must have been successfully executed, but no geolocation files were found”
 
-If you see this error in the configuration tab, it means that `epitweetr` could not geotag the collected tweets. It is highly recommended to run GeoNames and languages again since these may have not been properly downloaded. When running this task, you need to ensure that the machine is not logged/turned off or does not go into sleep mode.
+If you see this error in the configuration page, it means that `epitweetr` could not geotag the collected tweets. It is highly recommended to run GeoNames and languages again since these may have not been properly downloaded. When running this task, you need to ensure that the machine is not logged/turned off or does not go into sleep mode.
 
-### The “Launch slots” in the configuration tab show NAs instead of the time slots
+### The “Launch slots” in the configuration page show NAs instead of the time slots
 
-If it is the first time that you install and launch `epitweetr`, the geotag task of the detection pipeline has to be run at least once in order to see time slots in the “Launch slots” in the configuration tab.
+If it is the first time that you install and launch `epitweetr`, the geotag task of the detection pipeline has to be run at least once in order to see time slots in the “Launch slots” in the configuration page.
 
 ### Downloading PDF of the dashboard
 
 #### “Error in: LaTeX failed to compile C:&#92;Users&#92;name~1&#92;...&#92;file######.tex.”
 
-This error appears in Windows when clicking on “PDF” in the dashboard and no PDF is saved. The reason is that the path to TEMP and TMP environment variables of the user is too long, Windows shortens the path and epitweetr cannot find this new path. Please follow the next steps to fix this:
+This error appears in Windows when clicking on “PDF” in the dashboard and no PDF is saved. The reason is that the path to TEMP and TMP environment variables of the user are too long, Windows shortens the path and epitweetr cannot find this new path. Please follow the next steps to fix this:
 
 1. Open the “environment variable for your account”
 
@@ -1259,7 +1260,7 @@ When counting the total tweets in the dashboard of the Shiny app or in the downl
     - In contrast to the other outputs in the dashboard, the most frequent words figure is always based on tweet location regardless of the filter (due to memory capacity). Therefore, if user location or both locations are selected in the location filter, this figure might have a different total then the other two outputs.
 
 ### Receiving only real-time alerts
-This relates to users who have selected topics and/or regions for receiving related alerts in real-time or have selected topics and/or regions for receiving related alerts on a scheduled time span. If, in these cases, you only receive real-time alerts with all topics and regions, it may be that no time slots have been included in the subscribers file from the configuration tab. These time slots are used for the scheduled alerts and if no slots are included in the file, alerts from all topics and regions are sent as real-time alerts.
+This relates to users who have selected topics and/or regions for receiving related alerts in real-time or have selected topics and/or regions for receiving related alerts on a scheduled time span. If, in these cases, you only receive real-time alerts with all topics and regions, it may be that no time slots have been included in the subscribers file from the configuration page. These time slots are used for the scheduled alerts and if no slots are included in the file, alerts from all topics and regions are sent as real-time alerts.
 
 
 ## References
