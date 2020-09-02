@@ -51,7 +51,7 @@ pipe_top_words <- function(df, text_col, lang_col, topic_word_to_exclude, max_wo
       dplyr::summarize(count = dplyr::n(), original = sum(!.data$is_retweet), retweets = sum(.data$is_retweet))  %>%
       dplyr::ungroup()  %>%
       dplyr::group_by(.data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
-      dplyr::top_n(n = .data$max_words, wt = .data$count) %>%
+      dplyr::top_n(n = max_words, wt = .data$count) %>%
       dplyr::ungroup() 
   }
   # Saving the data to JSON out file

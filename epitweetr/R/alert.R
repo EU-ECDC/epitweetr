@@ -504,7 +504,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
       # Adding used parameters
       alerts <- alerts %>% 
         dplyr::mutate(
-          hour = .data$alert_to_hour, 
+          hour = alert_to_hour, 
           location_type = "tweet", 
           with_retweets = conf$alert_with_retweets, 
           alpha = as.numeric(get_topics_alphas()[.data$topic]), 
