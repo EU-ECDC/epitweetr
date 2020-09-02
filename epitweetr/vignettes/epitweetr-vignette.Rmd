@@ -1161,34 +1161,34 @@ This annex contains some tips and common solutions to errors or issues that `epi
 ### The troubleshoot tab
 After running the diagnostics in the troubleshoot tab, you can see the checks and status on the following aspects:
 
--   **scheduler**: R package `taskscheduleR` is installed
--   **twitter_auth**: Twitter token is created after authenticating either with Twitter account or Twitter app
+-   **scheduler**: R package `taskscheduleR` is installed. Only applicable for Windows machines
+-   **twitter_auth**: Twitter token has been created after authenticating either with Twitter account or Twitter app
 -   **search_running**: search task is running
 -   **tweets**: tweets have been collected
 -   **os64**: R is 64bits
--   **java**: Java is installed
--   **java64**: Java 64bits is installed
+-   **java**: Java is installed and accessible to epitweetr
+-   **java64**: Java 64bits is installed and accessible to epitweetr
 -   **java_version**: the Java version installed is compatible with `epitweetr`
 -   **winmsvc**: Microsoft Visual C++ 2010 SP1 Redistributable Package is installed. Only applicable for Windows machines
 -   **detect_activation**: detect loop has been activated
 -   **detection_running**: detection task is running
--   **winutils**: winutils is installed. If false, it can be downloaded by running the update dependencies task
+-   **winutils**: winutils is installed. If false, it can be downloaded by running the update dependencies task. Only applicable for Windows machines
 -   **java_deps**: java dependencies are installed 
--   **move_from_temp**: `epitweetr` files can be moved from temporary folder to data directory
+-   **move_from_temp**: `epitweetr` can atomically move files from temporary folder to data directory
 -   **geonames**: Geonames.org database is downloaded and indexed
--   **languages**: languages vectors and indexes are downloaded
+-   **languages**: languages vectors are downloaded and indexed
 -   **geotag**: geotag task has successfully run
 -   **aggregate**: aggregate task has successfully run
 -   **alerts**: alerts have been created
--   **pandoc**: Pandoc is installed
--   **tex**: a tex distribution is installed
+-   **pandoc**: Pandoc is installed and accessible to epitweetr. Necessary for PDF creation.
+-   **tex**: a tex distribution is installed and accessible to epitweetr. Necessary for PDF creation.
 
 ### Management of search and detection loops (Windows)
 After activating the search and detection pipeline from the configuration tab of `epitweetr` (Windows), two tasks will be created in the task scheduler and two terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.
 
 If you activate these tasks from the configuration tab of `epitweetr` again, the system will overwrite the tasks created in the task scheduler. Instead, after the first successful activation of these tasks from `epitweetr`, you can easily manage these from the task scheduler. You can stop these tasks by ending and disabling the tasks in the task scheduler, and you can restart these tasks by enabling and running these in the task scheduler.
 
-In the task scheduler, you can establish that the search and detection tasks “run whether the user is logged on or not” to avoid that these tasks stop when you log/turn off the computer. 
+In the task scheduler, you can establish that the search and detection tasks “run whether the user is logged on or not” to avoid that these tasks stop when you log off or restart the computer. 
 
 ### Management of search and detection loops (Linux and Mac)
 Since the search and detection pipeline in Linux or Mac have to be run manually, if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop. Please remember to follow the steps in the section *“Setting up tweet collection and the alert detection loop”* to run these tasks again.
@@ -1213,7 +1213,7 @@ The detect and the search loop create two files containing their process IDs loc
 
 #### “The specified size exceeds the maximum representable size. Error: Could not create the Java Virtual Machine”
 
-If this error appears when running GeoNames, it means that the machine has Java 32bits. You need to install Java 64bits.
+If this error appears when running GeoNames, it means that the machine has Java 32bits. You need to install Java 64bits. And make it accessible to epitwitter either by setting "JAVA\_HOME" environment variable or by setting the right java binary on the system PATH. 
 
 #### “Max number of retried reached failed while processing languages. Error in get_geolocated_period(dataset): To aggregate, or calculate alerts geolocation must have been successfully executed, but no geolocation files were found”
 

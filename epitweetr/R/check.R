@@ -73,6 +73,7 @@ get_java_version <- function() {
 
 java_min_version <- function() 8
 java_max_version <- function() 11
+java_tested_version <- function() 14
 # check java version
 check_java_version <- function() {
   java_version <- get_java_version() 
@@ -81,8 +82,16 @@ check_java_version <- function() {
     FALSE
   } else if(java_version >= java_min_version() && java_version <= java_max_version()) {
     TRUE  
-  } else {
-    warning(paste("Your current java version is", java_version, ". epitweetr needs java versions between ", java_min_version(), " and ", java_max_version()))
+  } else if(java_version <= java_tested_version()){
+    warning(paste(
+      "Your current java version is", 
+      java_version, 
+      ". epitweetr needs java versions between ", 
+      java_min_version(), 
+      " and ", 
+      java_max_version(), 
+      "however some users have reported that your version also works. You can still give it a try but downgrading is recommended"
+    ))
     FALSE  
   }
 }

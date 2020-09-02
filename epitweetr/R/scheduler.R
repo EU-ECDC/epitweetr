@@ -79,12 +79,12 @@ get_running_task_pid <- function(name) {
       # Checking if last_pid is still running
     pid_running <- ( 
       if(.Platform$OS.type == "windows") {
-        length(grep("R\\.exe|Rscript\\.exe", system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0
+        length(grep("R\\.exe|Rscript\\.exe|rsession\\.exe", system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0
       }
       else if(.Platform$OS.type == "mac") 
-        system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0 
+        system(paste("ps -cax | grep 'R\\|rsession' | grep ", last_pid), ignore.stdout = TRUE)==0 
       else 
-        system(paste("ps -cax | grep R | grep ", last_pid), ignore.stdout = TRUE)==0
+        system(paste("ps -cax | grep 'R\\|rsession' | grep ", last_pid), ignore.stdout = TRUE)==0
     )
     if(pid_running)
       last_pid

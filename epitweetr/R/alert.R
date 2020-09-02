@@ -852,9 +852,9 @@ send_alert_emails <- function(tasks = get_tasks()) {
           )
           smtp(msg)
           
-          # Storing last day sendung alerts for current user
+          # Storing last day sending alerts for current user
           # If new dates resetting hours to 0
-          if(exists("date", where = tasks$alerts$sent[[user]]) || tasks$alerts$sent[[user]]$date != alert_date ) {
+          if(exists("date", where = tasks$alerts$sent[[user]]) && tasks$alerts$sent[[user]]$date != alert_date ) {
             tasks$alerts$sent[[user]]$hour_slot <- 0
             tasks$alerts$sent[[user]]$hour_instant <- 0
           }

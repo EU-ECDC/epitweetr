@@ -561,8 +561,8 @@ epitweetr_app <- function(data_dir = NA) {
              xref = 'paper', 
              x = 0,
              yref = 'paper', 
-             y = -0.205),
-           legend = list(orientation = 'h', x = 0.5, y = 0.1)
+             y = -0.15),
+           legend = list(orientation = 'h', x = 0.5, y = 0.08)
          ) %>%
          plotly::config(displayModeBar = F) 
     
