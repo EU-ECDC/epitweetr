@@ -176,7 +176,7 @@ check_java_deps <- function() {
 #check geonames is downloaded and indexed
 check_geonames <- function() {
   if(!file.exists(get_geonames_txt_path())) {
-    warning("epitweetr needs geonames to be downloaded and unziped for geolocating tweets. Please run the geonames task on detect loop")
+    warning("epitweetr needs geonames to be downloaded and unziped for geolocating tweets. Please run the geonames task of the detection pipeline")
     FALSE
   } else {
     dir <- get_geonames_index_path()
