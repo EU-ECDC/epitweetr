@@ -251,7 +251,7 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
             )
           ), 
-          shiny::h2("Email authentication (STMP)"),
+          shiny::h2("Email authentication (SMTP)"),
           shiny::fluidRow(shiny::column(3, "Server"), shiny::column(9, shiny::textInput("smtp_host", label = NULL, value = conf$smtp_host))), 
           shiny::fluidRow(shiny::column(3, "Port"), shiny::column(9, shiny::numericInput("smtp_port", label = NULL, value = conf$smtp_port))), 
           shiny::fluidRow(shiny::column(3, "From"), shiny::column(9, shiny::textInput("smtp_from", label = NULL, value = conf$smtp_from))), 
