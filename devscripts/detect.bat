@@ -1,2 +1,2 @@
-R -e "epitweetr::detect_loop('Z:/epitweetr')" 
+R -e "epitweetr::detect_loop(Sys.getenv('EPI_HOME'))" 
 

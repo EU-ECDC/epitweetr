@@ -1,7 +1,7 @@
 #!/bin/bash
 export SPARK_VERSION=2.4.5
 export SBT_OPTS="-Xmx10G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
-cd scalaBridge
+cd scala
 expect -c '
 spawn sbt consoleQuick
 expect "scala>"

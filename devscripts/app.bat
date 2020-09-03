@@ -1,1 +1,1 @@
-R -e "epitweetr::epitweetr_app('Z:/epitweetr')" 
+R -e "epitweetr::epitweetr_app(Sys.getenv('EPI_HOME'))" 

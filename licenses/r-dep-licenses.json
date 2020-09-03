@@ -1,15 +1,7 @@
 [
   {
     "package": ["pkgbuild"],
-    "license": ["Not available"]
-  },
-  {
-    "package": ["pkgload"],
-    "license": ["Not available"]
-  },
-  {
-    "package": ["praise"],
-    "license": ["MIT + file LICENSE"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["ps"],
@@ -17,23 +9,23 @@
   },
   {
     "package": ["ini"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["sys"],
     "license": ["MIT + file LICENSE"]
   },
   {
-    "package": ["testthat"],
+    "package": ["pkgload"],
+    "license": ["GPL-3"]
+  },
+  {
+    "package": ["praise"],
     "license": ["MIT + file LICENSE"]
   },
   {
     "package": ["colorspace"],
     "license": ["BSD_3_clause + file LICENSE"]
-  },
-  {
-    "package": ["plyr"],
-    "license": ["MIT + file LICENSE"]
   },
   {
     "package": ["processx"],
@@ -45,7 +37,7 @@
   },
   {
     "package": ["git2r"],
-    "license": ["Not available"]
+    "license": ["GPL-2"]
   },
   {
     "package": ["rematch2"],
@@ -53,11 +45,11 @@
   },
   {
     "package": ["rprojroot"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["fansi"],
-    "license": ["Not available"]
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["pkgconfig"],
@@ -68,16 +60,8 @@
     "license": ["MIT + file LICENSE"]
   },
   {
-    "package": ["gtable"],
-    "license": ["Not available"]
-  },
-  {
-    "package": ["isoband"],
+    "package": ["testthat"],
     "license": ["MIT + file LICENSE"]
-  },
-  {
-    "package": ["withr"],
-    "license": ["Not available"]
   },
   {
     "package": ["farver"],
@@ -101,15 +85,15 @@
   },
   {
     "package": ["highr"],
-    "license": ["Not available"]
+    "license": ["GPL"]
   },
   {
     "package": ["markdown"],
-    "license": ["Not available"]
+    "license": ["GPL-2"]
   },
   {
     "package": ["backports"],
-    "license": ["Not available"]
+    "license": ["GPL-2 | GPL-3"]
   },
   {
     "package": ["reshape2"],
@@ -117,7 +101,7 @@
   },
   {
     "package": ["DBI"],
-    "license": ["Not available"]
+    "license": ["LGPL (>= 2.1)"]
   },
   {
     "package": ["utf8"],
@@ -125,7 +109,7 @@
   },
   {
     "package": ["clipr"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["callr"],
@@ -133,23 +117,23 @@
   },
   {
     "package": ["fs"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["whisker"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["selectr"],
-    "license": ["Not available"]
+    "license": ["BSD_3_clause + file LICENCE"]
   },
   {
     "package": ["ISOcodes"],
-    "license": ["Not available"]
+    "license": ["GPL-2"]
   },
   {
     "package": ["usethis"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["desc"],
@@ -157,15 +141,15 @@
   },
   {
     "package": ["bit"],
-    "license": ["Not available"]
+    "license": ["GPL-2"]
   },
   {
     "package": ["ellipsis"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["generics"],
-    "license": ["Not available"]
+    "license": ["GPL-2"]
   },
   {
     "package": ["glue"],
@@ -173,11 +157,7 @@
   },
   {
     "package": ["lifecycle"],
-    "license": ["Not available"]
-  },
-  {
-    "package": ["magrittr"],
-    "license": ["MIT + file LICENSE"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["R6"],
@@ -185,7 +165,7 @@
   },
   {
     "package": ["rlang"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["tibble"],
@@ -193,15 +173,19 @@
   },
   {
     "package": ["tidyselect"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["vctrs"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
+  },
+  {
+    "package": ["Rcpp"],
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["htmltools"],
-    "license": ["Not available"]
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["htmlwidgets"],
@@ -216,28 +200,32 @@
     "license": ["MIT + file LICENSE"]
   },
   {
-    "package": ["Rcpp"],
-    "license": ["Not available"]
-  },
-  {
     "package": ["later"],
-    "license": ["Not available"]
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["BH"],
-    "license": ["Not available"]
+    "license": ["BSL-1.0"]
   },
   {
-    "package": ["assertthat"],
-    "license": ["Not available"]
+    "package": ["curl"],
+    "license": ["MIT + file LICENSE"]
   },
   {
-    "package": ["getPass"],
-    "license": ["BSD 2-clause License + file LICENSE"]
+    "package": ["mime"],
+    "license": ["GPL"]
   },
   {
     "package": ["openssl"],
     "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["assertthat"],
+    "license": ["GPL-3"]
+  },
+  {
+    "package": ["getPass"],
+    "license": ["BSD 2-clause License + file LICENSE"]
   },
   {
     "package": ["sodium"],
@@ -257,35 +245,31 @@
   },
   {
     "package": ["base64enc"],
-    "license": ["Not available"]
-  },
-  {
-    "package": ["curl"],
-    "license": ["MIT + file LICENSE"]
-  },
-  {
-    "package": ["httr"],
-    "license": ["MIT + file LICENSE"]
-  },
-  {
-    "package": ["mime"],
-    "license": ["Not available"]
+    "license": ["GPL-2 | GPL-3"]
   },
   {
     "package": ["stringi"],
-    "license": ["file LICENSE", "License_is_FOSS: yes"]
+    "license": ["file LICENSE"]
   },
   {
-    "package": ["ggplot2"],
-    "license": ["GPL-2 | file LICENSE"]
+    "package": ["digest"],
+    "license": ["GPL (>= 2)"]
+  },
+  {
+    "package": ["gtable"],
+    "license": ["GPL-2"]
+  },
+  {
+    "package": ["isoband"],
+    "license": ["MIT + file LICENSE"]
   },
   {
     "package": ["scales"],
     "license": ["MIT + file LICENSE"]
   },
   {
-    "package": ["digest"],
-    "license": ["Not available"]
+    "package": ["withr"],
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["viridisLite"],
@@ -297,15 +281,15 @@
   },
   {
     "package": ["hexbin"],
-    "license": ["Not available"]
+    "license": ["GPL-2"]
   },
   {
     "package": ["RColorBrewer"],
-    "license": ["Not available"]
+    "license": ["Apache License 2.0"]
   },
   {
     "package": ["lazyeval"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["purrr"],
@@ -325,7 +309,7 @@
   },
   {
     "package": ["knitr"],
-    "license": ["Not available"]
+    "license": ["GPL"]
   },
   {
     "package": ["evaluate"],
@@ -365,7 +349,7 @@
   },
   {
     "package": ["forcats"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["haven"],
@@ -373,19 +357,19 @@
   },
   {
     "package": ["hms"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["lubridate"],
-    "license": ["Not available"]
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["modelr"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["pillar"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["readr"],
@@ -401,15 +385,11 @@
   },
   {
     "package": ["rvest"],
-    "license": ["Not available"]
-  },
-  {
-    "package": ["xml2"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["hunspell"],
-    "license": ["Not available"]
+    "license": ["GPL-2 | LGPL-2.1 | MPL-1.1"]
   },
   {
     "package": ["janeaustenr"],
@@ -425,10 +405,14 @@
   },
   {
     "package": ["bit64"],
-    "license": ["Not available"]
+    "license": ["GPL-2"]
   },
   {
     "package": ["dplyr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
+    "package": ["plyr"],
     "license": ["MIT + file LICENSE"]
   },
   {
@@ -440,6 +424,10 @@
     "license": ["GPL (>= 2) | file LICENSE"]
   },
   {
+    "package": ["httr"],
+    "license": ["MIT + file LICENSE"]
+  },
+  {
     "package": ["jsonlite"],
     "license": ["MIT + file LICENSE"]
   },
@@ -449,7 +437,15 @@
   },
   {
     "package": ["emayili"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
+  },
+  {
+    "package": ["ggplot2"],
+    "license": ["GPL-2 | file LICENSE"]
+  },
+  {
+    "package": ["magrittr"],
+    "license": ["MIT + file LICENSE"]
   },
   {
     "package": ["plotly"],
@@ -461,23 +457,23 @@
   },
   {
     "package": ["readxl"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["rgeos"],
-    "license": ["Not available"]
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["rgdal"],
-    "license": ["Not available"]
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["rmarkdown"],
-    "license": ["Not available"]
+    "license": ["GPL-3"]
   },
   {
     "package": ["rnaturalearthdata"],
-    "license": ["Not available"]
+    "license": ["CC0"]
   },
   {
     "package": ["shiny"],
@@ -485,7 +481,7 @@
   },
   {
     "package": ["sp"],
-    "license": ["Not available"]
+    "license": ["GPL (>= 2)"]
   },
   {
     "package": ["stringr"],
@@ -505,6 +501,10 @@
   },
   {
     "package": ["xtable"],
-    "license": ["Not available"]
+    "license": ["GPL (>= 2)"]
+  },
+  {
+    "package": ["xml2"],
+    "license": ["GPL (>= 2)"]
   }
 ]

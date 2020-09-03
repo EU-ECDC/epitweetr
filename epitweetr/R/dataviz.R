@@ -44,6 +44,7 @@
 #' @rdname trend_line
 #' @export 
 #' @importFrom stringr str_replace_all
+#' @importFrom grDevices windowsFont windowsFonts
 trend_line <- function(
   topic
   , countries=c(1)
@@ -320,6 +321,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @importFrom sp spTransform coordinates proj4string CRS
 #' @importFrom ggplot2 fortify theme element_text element_blank element_rect ggplot geom_polygon aes geom_point scale_size_continuous scale_fill_manual coord_fixed labs theme_classic
 #' @importFrom stats setNames 
+#' @importFrom grDevices windowsFont windowsFonts
 create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=F){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
@@ -719,6 +721,7 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' @importFrom ggplot2 ggplot aes geom_col xlab coord_flip labs scale_y_continuous theme_classic theme element_text margin element_blank
 #' @importFrom stats reorder
 #' @importFrom utils head
+#' @importFrom grDevices windowsFont windowsFonts
 create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", top = 25) {
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`

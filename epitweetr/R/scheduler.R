@@ -53,7 +53,7 @@ register_runner_task <- function(task_name) {
     }
     else warning("Please install taskscheduler Package")
   } else {
-     warning("Not implemetef yet or this OS")
+     warning("Task scheduling is not implemeted yet or this OS. You can still schedule it manually. Please refer to package vignette.")
   }
 		   
 }

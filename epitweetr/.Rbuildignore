@@ -1,7 +1,2 @@
-scala/lib_managed
-scala/target
-scala/null
-scala/project/target
-scala/project/project
 ^doc$
 ^Meta$

@@ -1,17 +1,16 @@
 recover/
 data/
-Twitter-ebola-data_Rscript_EpiConcept.R
 *.swp
 *.swo
 *.class
 *.log
 *.retry
 *.swp
-epitweetr/scala/project/project
-epitweetr/scala/project/build.properties
-epitweetr/scala/project/target
-epitweetr/scala/target
-epitweetr/scala/lib_managed
+scala/project/project
+scala/project/build.properties
+scala/project/target
+scala/target
+scala/lib_managed
 *.jar
 
 #Excel locj files
