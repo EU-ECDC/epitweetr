@@ -90,7 +90,7 @@ check_java_version <- function() {
       java_min_version(), 
       " and ", 
       java_max_version(), 
-      "however some users have reported that your version also works. You can still give it a try but downgrading is recommended"
+      ". Some users have reported that your version also works, but is is recommended to use previous compatible java versions"
     ))
     FALSE  
   }
