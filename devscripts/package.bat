@@ -10,7 +10,7 @@ call sbt package
 if not exist "%cdir%\epitweetr\inst\java" mkdir "%cdir%\epitweetr\inst\java"
 copy "%cdir%\scala\target\scala-2.11\ecdc-twitter-bundle_2.11-1.0.jar" "%cdir%\epitweetr\inst\java"
 
-git archive --format zip --output "%cdir%/epitweetr/java/ecdc-twitter-bundle_2.12-1.0-source.zip" 
+git archive --format zip --output "%cdir%/epitweetr/java/ecdc-twitter-bundle_2.12-1.0-source.zip" HEAD 
 
 cd "%cdir%\epitweetr"
 
