@@ -1,1 +1,18 @@
-The source code for "ecdc-twitter-bundle_2.12-1.0.jar" is distributed with this package in "ecdc-twitter-bundle_2.12-1.0.zip".
+This is the source code for ecdc-twitter-bundle_2.12-1.0.jar. 
+To build the jar yourself you have to execute you can do:
+
+On Linux
+
+#make sure the decompressed files are on the current directory
+export SPARK_VERSION=3.0.0
+sbt package
+
+On Windows
+#make sure the decompressed files are on the current directory
+set SPARK_VERSION=3.0.0
+sbt package
+
+
+
+
+
