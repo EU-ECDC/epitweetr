@@ -144,15 +144,15 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #' \dontrun{
 #' if(interactive()){
 #'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for all topics
-#'    df <- get_aggregates("country_counts", list(period = c("2020-01-10", "2020-01-31"))
+#'    df <- get_aggregates(dataset = "country_counts", filter = list(period = c("2020-01-10", "2020-01-31"))
 #'
 #'    # Getting all country tweets for the topic dengue
-#'    df <- get_aggregates("country_counts", list(topic = "dengue"))
+#'    df <- get_aggregates(dataset = "country_counts", filter = list(topic = "dengue"))
 #'
 #'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for the topic dengue
 #'     df <- get_aggregates(
-#'         "country_counts",
-#'          list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
+#'         dataset = "country_counts",
+#'          filter = list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
 #'     )
 #'  }
 #' }
@@ -236,7 +236,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
         if(length(files) > 0)
           jsonlite::rbind_pages(dfs)
         else 
-          readRDS(file.path(conf$data_dir, "series", tail(file, n = 1))) %>% dplyr::filter(1 == 0)
+          readRDS(tail(list.files(file.path(conf$data_dir, "series"), full.names=TRUE, recursive=T, pattern="*.Rds"), 1)) %>% dplyr::filter(1 == 0)
       if(cache) cached[[dataset]] <- ret
       return(ret)
     }

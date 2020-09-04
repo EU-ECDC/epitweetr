@@ -1393,6 +1393,7 @@ can_render <- function(input, d) {
   shiny::validate(
       shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
       , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the detect loop has successfully ran"))
+      , shiny::need(!is.na(input$period[[1]]) && !is.na(input$period[[2]]), 'Please select a start and end period for the report')
       , shiny::need(input$topics != '', 'Please select a topic')
   )
 }
