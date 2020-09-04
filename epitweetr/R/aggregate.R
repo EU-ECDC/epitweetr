@@ -144,7 +144,10 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #' \dontrun{
 #' if(interactive()){
 #'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for all topics
-#'    df <- get_aggregates(dataset = "country_counts", filter = list(period = c("2020-01-10", "2020-01-31"))
+#'    df <- get_aggregates(
+#'      dataset = "country_counts", 
+#'      filter = list(period = c("2020-01-10", "2020-01-31"))
+#'    )
 #'
 #'    # Getting all country tweets for the topic dengue
 #'    df <- get_aggregates(dataset = "country_counts", filter = list(topic = "dengue"))
