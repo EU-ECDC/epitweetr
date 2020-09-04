@@ -1262,6 +1262,12 @@ When counting the total tweets in the dashboard of the Shiny app or in the downl
 ### Receiving only real-time alerts
 This relates to users who have selected topics and/or regions for receiving related alerts in real-time or have selected topics and/or regions for receiving related alerts on a scheduled time span. If, in these cases, you only receive real-time alerts with all topics and regions, it may be that no time slots have been included in the subscribers file from the configuration page. These time slots are used for the scheduled alerts and if no slots are included in the file, alerts from all topics and regions are sent as real-time alerts.
 
+### Not receiving email alerts
+If you do not receive email alerts and you see an error in `epitweetr` referring to denied login, it means that `epitweetr` could not login to the email account provided in the configuration page. Some of the reasons for that are:
+
+-   The server or port included in the configuration page are incorrect
+-   The attempt of `epitweetr` to login to the email account is being blocked by the server. This can happen with some organisational email accounts. In that case, please contact the IT department of your organisation
+-   If using Gmail account, you need to allow less secure apps in the settings of your account
 
 ## References
 
