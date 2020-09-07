@@ -139,7 +139,8 @@ The CPU and RAM usage can be configured on the Shiny app configuration page (see
 
 -   R version 3.6.3 or higher
 
--   Java 1.8 eg. openjdk version "1.8" [*https://www.java.com/download/*]. The 64-bit rather than the 32-bit version is preferred, due to memory limitations. In Mac, also the Java Development Kit [*https://docs.oracle.com/javase/10/install/installation-jdk-and-jre-macos.htm*]
+-   Java 1.8 eg. openjdk version "1.8" [*https://www.java.com/download/*]. The 64-bit rather than the 32-bit version is preferred, due to memory limitations. In Mac, also the Java Development Kit
+[*https://docs.oracle.com/javase/9/install/installation-jdk-and-jre-macos.htm*](https://docs.oracle.com/javase/9/install/installation-jdk-and-jre-macos.htm)]
 
 -   If you are running it in Windows, you will also need Microsoft Visual C++, however in most cases it is likely to be pre-installed:
 
@@ -150,7 +151,7 @@ The CPU and RAM usage can be configured on the Shiny app configuration page (see
 -   Pandoc, for exporting PDFs and Markdown
 
     -   [*https://pandoc.org/installing.html*]
-
+-
 -   Tex installation (TinyTeX or MiKTeX) (or other TeX installation) for exporting PDFs
 
     -   (easiest) [*https://yihui.org/tinytex/*] (install from R, logoff/logon required after installation)
@@ -967,7 +968,7 @@ knitr::include_graphics("img/general.png")
 
 -   The **Launch slots** for the detection pipeline processes will be spaced out according to the "Detect span", with the first one starting at midnight. These values can be used in the subscribers file of the configuration page.
 
--   To avoid storing Twitter credentials in plain files, `epitweetr` uses a system dependent password store functionality, which is stored in the **Password store**. Depending on your system you can choose the mechanism that suits the environment where `epitweetr` is running. For details on each implementation see [*https://cran.r-project.org/web/packages/keyring/index.html*]
+-   To avoid storing Twitter credentials in plain files, `epitweetr` uses a system dependent password store functionality, which is stored in the **Password store**. Depending on your system you can choose the mechanism that suits the environment where `epitweetr` is running. For details on each implementation see [*https://CRAN.R-project.org/package=keyring*]
 
      -   wincred: (Windows only) uses the windows credential manager.
 
@@ -977,7 +978,7 @@ knitr::include_graphics("img/general.png")
 
      -   secret service: (Linux only) uses Linux secret service
 
-     -   environment: Uses environment variables (extra setup needed, see [*https://cran.r-project.org/web/packages/keyring/index.html*])
+     -   environment: Uses environment variables (extra setup needed, see [*https://CRAN.R-project.org/package=keyring*])
 
 -   **Spark cores and spark memory:** The memory allocation for `epitweetr` in terms of CPU (Spark cores) and RAM (Spark Memory) is also defined in the “general” section. The default is 6 cores and 6 GB of RAM. This will depend on the CPU and RAM capacity of your machine and it has to be equal or less than that.
 
@@ -1285,6 +1286,5 @@ If you do not receive email alerts and you see an error in `epitweetr` referring
   [*https://cran.r-project.org/bin/windows/Rtools/*]: https://cran.r-project.org/bin/windows/Rtools/
   [*http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe*]: http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe
   [*https://developer.twitter.com/en/apply-for-access*]: https://developer.twitter.com/en/apply-for-access
-  [*https://cran.r-project.org/web/packages/keyring/index.html*]: https://cran.r-project.org/web/packages/keyring/index.html
+  [*https://CRAN.R-project.org/package=keyring*]: https://CRAN.R-project.org/package=keyring
   [*Monitoring Count Time Series in R: Aberration Detection in Public Health Surveillance*]: https://www.jstatsoft.org/article/view/v070i10
-  [*preprint*]: https://arxiv.org/pdf/1711.08960.pdf
