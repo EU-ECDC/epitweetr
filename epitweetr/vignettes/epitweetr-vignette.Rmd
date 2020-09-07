@@ -88,7 +88,7 @@ knitr::include_graphics("img/config.png")
 <center>Fig 5: Shiny app troubleshoot page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/troubleshoot.PNG")
+knitr::include_graphics("img/troubleshoot.png")
 ```
 
 ## Background
@@ -1036,7 +1036,7 @@ knitr::include_graphics("img/languages.png")
 The troubleshoot page has a list of automatic check and hint for using `epitweetr` with all its functionalities. Click on "Run diagnostics" to see the list of checks, whether it passed the check ("true") or not ("false"), and hints in case it did not pass the check. More detailed information can be found in [Annex II](#annexII) of this user documentation.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/troubleshoot.PNG")
+knitr::include_graphics("img/troubleshoot.png")
 ```
 
 ### Downloading outputs from the interactive user interface (Shiny app)
