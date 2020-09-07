@@ -1,4 +1,4 @@
-# epitweetr: Early detection of public health threats from Twitter data
+# epitweetr: Early Detection of Public Health Threats from Twitter Data
 
 [epitweetr site](https://github.com/EU-ECDC/epitweetr)
 
