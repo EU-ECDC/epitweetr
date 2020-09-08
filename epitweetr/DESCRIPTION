@@ -43,7 +43,7 @@ Authors@R: c(
             role = "ctb",
             email = "hoehle@math.su.se")
      )
-Description: The epitweetr package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats through the detection of signals or an unusual increase of the number of tweets   for that time, place and topic. The epitweetr package was designed to focus on infectious diseases, and it can be extended to all hazards or other fields of study by modifying the topics and keywords.
+Description: It allows you to automatically monitor trends of tweets by time, place and topic aiming at detecting public health threats early through the detection of signals (e.g. an unusual increase in the number of tweets). It was designed to focus on infectious diseases, and it can be extended to all hazards or other fields of study by modifying the topics and keywords.
 License: EUPL
 URL: https://github.com/EU-ECDC/epitweetr
 BugReports: https://github.com/EU-ECDC/epitweetr/issues 
