@@ -200,7 +200,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 #' @param limit Size of the sample, default: 100
 #' @param text_col Name of the tweet field to geolocate it should be one of the following ("text", "linked_text", "user_description", "user_location", "place_full_name", "linked_place_full_name"),
 #' default: 'text'
-#' @param lang_col Name of the tweet variable containing the language to evaluate. It should be one of the following ("lang", "linked_lang", NA), default: NA
+#' @param lang_col Name of the tweet variable containing the language to evaluate. It should be one of the following ("lang", "linked_lang", NA), default: "lang"
 #' @return Dataframe containing the sampled tweets and the geolocation metrics
 #' @details This function will take a sample of tweets collected on the current date for testing the geolocation algorithm and giving the user the possibility to evaluate the optimal score.
 #'
@@ -228,7 +228,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 #'  \code{\link{geotag_tweets}}
 #'  
 #' @export 
-get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col = NA) {
+get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col = "lang") {
  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
 
  # Creating parameters from configuration file as java objects

@@ -69,7 +69,7 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
       import spark.implicits._
       Some(ds)
         .map{
-          case ds if langs.size > 0 =>
+          case ds if langs.size > 0 && textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol}.size > 0 =>
             ds.vectorize(langs, reuseLangIndex, langIndexPath, textLangCols, tokenizerRegex)
               .addLikehoods(
                  languages = langs
