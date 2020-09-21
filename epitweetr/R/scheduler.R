@@ -45,7 +45,7 @@ register_runner_task <- function(task_name) {
         , rscript_args = paste("\"", conf$data_dir,"\"", sep = "")
         , startdate =  
           if(conf$force_date_format == "")
-            tail(strsplit(shell("echo %DATE%", intern= T), " ")[[1]], 1)
+            tail(strsplit(shell("echo %DATE%", intern= TRUE), " ")[[1]], 1)
           else
             strftime(Sys.time(), conf$force_date_format)
         , schtasks_extra="/F"
@@ -116,12 +116,11 @@ register_runner <- function(name) {
 #' @details After reading the tasks.json file and parsing it with jsonlite, this function will update the necessary fields in the 
 #' tasks for executing and monitoring them.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
-#'    #getting taskd statuses
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    setup_config("/home/epitweetr/data")
 #'    tasks <- get_tasks()
-#'
-#'  }
 #' }
 #' @seealso 
 #'  \code{\link{download_dependencies}}
@@ -383,12 +382,10 @@ save_tasks <- function(tasks) {
 #'
 #' If any of these tasks fails it will be retried three times before going to a abort status. Aborted tasks can be relauched from the Shiny app. 
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    #Running the detect loop
 #'    library(epitweetr)
 #'    detect_loop('/home/epitweetr/data')
-#'  }
 #' }
 #' @rdname detect_loop
 #' @seealso

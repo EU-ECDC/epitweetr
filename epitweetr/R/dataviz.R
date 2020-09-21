@@ -22,7 +22,6 @@
 #'
 #' This function requires \code{\link{search_loop}} and \code{\link{detect_loop}} to have already run successfully to show results.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    #Getting trendline for dengue for South America for the last 30 days
 #'    trend_line(
@@ -31,7 +30,6 @@
 #'      date_min = as.Date(Sys.time())-30, 
 #'      date_max=as.Date(Sys.time())
 #'    ) 
-#'  }
 #' }
 #' @seealso 
 #'  \code{\link{create_map}}
@@ -111,7 +109,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   regions <- get_country_items()
-  spen <- options("scipen")
+  old <- options()
+  on.exit(options(old))
   options(scipen=999)
 
   # Calculate alert ranking to avoid alert symbol overlapping 
@@ -266,7 +265,6 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
   
 
   df <- dplyr::rename(df,"Number of tweets" = .data$number_of_tweets, "Tweet date" = .data$date,"Topic"= .data$topic)
-  options(scipen=spen)
   list("chart" = fig_line, "data" = df) 
 }
 
@@ -293,7 +291,6 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #'
 #' This functions requires that \code{\link{search_loop}} and \code{\link{detect_loop}} have already been run successfully to show results.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    #Getting bubble chart for dengue for South America for last 30 days
 #'    create_map(
@@ -302,7 +299,6 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #'      date_min = as.Date(Sys.time())-30, 
 #'      date_max=as.Date(Sys.time())
 #'    ) 
-#'  }
 #' }
 #' @seealso 
 #'  \code{\link{trend_line}}
@@ -320,11 +316,13 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @importFrom sp spTransform coordinates proj4string CRS
 #' @importFrom ggplot2 fortify theme element_text element_blank element_rect ggplot geom_polygon aes geom_point scale_size_continuous scale_fill_manual coord_fixed labs theme_classic
 #' @importFrom stats setNames 
-create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=F){
+create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=FALSE){
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
-  spen <- options("scipen")
+  old <- options()
+  on.exit(options(old))
   options(scipen=999)
+
   regions <- get_country_items()
   
   # If countries are names they have to be changes to region indexes
@@ -673,7 +671,6 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     ) +
     ggplot2::theme_classic(base_family = get_font_family()) +
     theme_opts
-  options(scipen=spen)
 
   list("chart" = fig, "data" = df) 
 }
@@ -695,7 +692,6 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #'
 #' This functions requires that \code{\link{search_loop}} and \code{\link{detect_loop}} have already been run successfully to show results.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    #Getting topword chart for dengue for France, Chile, Australia for last 30 days
 #'    create_topwords(
@@ -705,7 +701,6 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #'      date_max=as.Date(Sys.time())
 #'    ) 
 #'  }
-#' }
 #' @seealso 
 #'  \code{\link{trend_line}}
 #'  \code{\link{create_map}}
@@ -749,8 +744,10 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
   }
   # Calculating breaks
   y_breaks <- unique(floor(pretty(seq(0, (max(df$frequency) + 1) * 1.1))))
-  spen <- options("scipen")
+  old <- options()
+  on.exit(options(old))
   options(scipen=999)
+
   fig <- (
       df %>% ggplot2::ggplot(ggplot2::aes(x = .data$tokens, y = .data$frequency)) +
            ggplot2::geom_col(fill = "#65B32E") +
@@ -774,7 +771,6 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
              axis.ticks.y = ggplot2::element_blank()
            )
     )
-  options(scipen=spen)
   list("chart" = fig, "data" = df) 
 }
 

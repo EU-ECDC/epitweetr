@@ -19,7 +19,6 @@
 #' \code{\link{update_geonames}} and \code{\link{update_languages}} have successfully been run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    library(epitweetr)
 #'    # setting up the data folder
@@ -27,7 +26,6 @@
 #'
 #'    # geolocating last tweets
 #'    tasks <- geotag_tweets()
-#'  }
 #' }
 #' @rdname geotag_tweets
 #' @seealso
@@ -207,7 +205,6 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 #' In order for this function to work the search loop will have had to run on the current day and the tasks \code{\link{download_dependencies}}, 
 #' \code{\link{update_geonames}} and \code{\link{update_languages}} will have had to successfully been run.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    library(epitweetr)
 #'    # setting up the data folder
@@ -215,7 +212,6 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 #'
 #'    # geolocating today's tweets
 #'    show(get_todays_sample_tweets())
-#'  }
 #' }
 #' @rdname get_todays_sample_tweets
 #' @seealso
@@ -454,7 +450,6 @@ get_country_index_map <- function() {
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    library(epitweetr)
 #'    # setting up the data folder
@@ -462,7 +457,6 @@ get_country_index_map <- function() {
 #'
 #'    # geolocating last tweets
 #'    tasks <- update_geonames()
-#'  }
 #' }
 #' @rdname update_geonames
 #' @seealso
@@ -550,7 +544,6 @@ update_geonames <- function(tasks) {
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    library(epitweetr)
 #'    # setting up the data folder
@@ -558,7 +551,6 @@ update_geonames <- function(tasks) {
 #'
 #'    # geolocating last tweets
 #'    tasks <- update_languages()
-#'  }
 #' }
 #' @rdname update_languages
 #' @seealso

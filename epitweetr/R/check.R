@@ -102,7 +102,7 @@ is_64bit <- function() {
   if(.Platform$OS.type == "windows") {
     Sys.getenv("PROCESSOR_ARCHITECTURE") == "AMD64"
   } else {
-    grepl("64", system("uname -a", intern = T))
+    grepl("64", system("uname -a", intern = TRUE))
   }
 }
 
@@ -284,7 +284,7 @@ check_alerts_present <- function() {
 # check if taskScheduleR is installed on windows
 check_scheduler <- function() {
   if(.Platform$OS.type == "windows") {
-    installed <- "taskscheduleR" %in% rownames(installed.packages())
+    installed <- tryCatch({func <-  taskscheduleR::taskscheduler_create;TRUE}, warning = function(w) FALSE, error = function(e) FALSE)
     if(installed) {
       TRUE  
     } else {
@@ -411,18 +411,15 @@ check_move_from_temp <- function() {
 #' @return Dataframe containing the statuses of all realized checks
 #' @details This function executes a series of sanity checks, concerninr, java, bitness, task statusn dependencies and Twitter authentication.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    #importing epitweer
 #'    library(epitweetr)
 #'    setup_config('/home/user/epitweetr')
 #     #running all tests
 #'    check_all
-#'  }
 #' }
 #' @rdname check_all
 #' @export 
-#' @importFrom utils installed.packages 
 check_all <- function() {
   checks <- list(
     scheduler = check_scheduler,

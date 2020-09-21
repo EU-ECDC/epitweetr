@@ -163,7 +163,6 @@ spark_df <- function(args, handler = NULL) {
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    library(epitweetr)
 #'    # setting up the data folder
@@ -171,7 +170,6 @@ spark_df <- function(args, handler = NULL) {
 #'
 #'    # geolocating last tweets
 #'    tasks <- download_dependencies()
-#'  }
 #' }
 #' @rdname download_dependencies
 #' @seealso
@@ -227,7 +225,7 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
     dir.create(get_jars_dest_path()) 
   else {
     #Deleting existing files
-    existing <- list.files(get_jars_dest_path(), full.names=T)
+    existing <- list.files(get_jars_dest_path(), full.names=TRUE)
     file.remove(existing)
   }
 

@@ -22,7 +22,6 @@ cached <- new.env()
 #' A prerequisite to this function is that the \code{\link{search_loop}} must have already collected tweets in the search folder and that geotag_tweets has already run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    library(epitweetr)
 #'    # setting up the data folder
@@ -31,7 +30,6 @@ cached <- new.env()
 #'    # aggregating all geolocated tweets collected since last aggregation for producing 
 #'    # all time series
 #'    aggregate_tweets()
-#'  }
 #' }
 #' @seealso 
 #'  \code{\link{detect_loop}}
@@ -141,7 +139,6 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #' }
 #' The returned dataset can be cached for further calls if requested. Only one dataset per series is cached.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for all topics
 #'    df <- get_aggregates(
@@ -157,7 +154,6 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #'         dataset = "country_counts",
 #'          filter = list(topic = "dengue", period = c("2020-01-10", "2020-01-31"))
 #'     )
-#'  }
 #' }
 #' @seealso 
 #'  \code{\link{detect_loop}}
@@ -239,7 +235,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
         if(length(files) > 0)
           jsonlite::rbind_pages(dfs)
         else 
-          readRDS(tail(list.files(file.path(conf$data_dir, "series"), full.names=TRUE, recursive=T, pattern="*.Rds"), 1)) %>% dplyr::filter(1 == 0)
+          readRDS(tail(list.files(file.path(conf$data_dir, "series"), full.names=TRUE, recursive=TRUE, pattern="*.Rds"), 1)) %>% dplyr::filter(1 == 0)
       if(cache) cached[[dataset]] <- ret
       return(ret)
     }

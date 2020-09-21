@@ -145,12 +145,10 @@ get_empty_config <- function(data_dir) {
 #'    \item{\code{\link{set_twitter_app_auth}}}
 #' }
 #' @examples
-#' \dontrun{
 #' if(interactive()){
 #'    library(epitweetr)
 #'    #loading system settings
 #'    setup_config("/home/epitweetr/data")
-#'  }
 #' }
 #' @seealso
 #' \code{\link{save_config}}
@@ -354,7 +352,6 @@ copy_plans_from <- function(temp) {
 #' @details Permanently saves configuration changes to the data folder (excluding Twitter credentials, but not SMTP credentials)
 #' to save Twitter credentials please use \code{\link{set_twitter_app_auth}}
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    library(epitweetr)
 #'    #load configuration
@@ -363,7 +360,6 @@ copy_plans_from <- function(temp) {
 #'    #conf$collect_span = 90
 #'    #saving changes    
 #'    save_config()
-#'  }
 #' }
 #' @rdname save_config
 #' @seealso
@@ -441,7 +437,6 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
 #' @return Nothing
 #' @details Update Twitter authentication tokens in configuration object
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'  #Setting the configuration values
 #'    set_twitter_app_auth(
@@ -451,7 +446,6 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
 #'      api_key = "123456", 
 #'      api_secret = "123456"
 #'    )
-#'  }
 #' }
 #' @seealso
 #' \code{\link{save_config}}

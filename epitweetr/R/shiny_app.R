@@ -9,12 +9,10 @@
 #'
 #' All its functionality is described on the epitweetr vignette.
 #' @examples 
-#' \dontrun{
 #' if(interactive()){
 #'    #Running the epitweetr app
 #'    library(epitweetr)
 #'    epitweetr_app('/home/epitweetr/data')
-#'  }
 #' }
 #' @seealso 
 #'  \code{\link{search_loop}}
@@ -532,7 +530,7 @@ epitweetr_app <- function(data_dir = NA) {
        height <- session$clientData$output_line_chart_height
        width <- session$clientData$output_line_chart_width
 	     chart_not_empty(chart)
-       gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = F) 
+       gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = FALSE) 
        # Fixing bad entries on ggplotly chart
        for(i in 1:length(gg$x$data)) {
          if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
@@ -564,7 +562,7 @@ epitweetr_app <- function(data_dir = NA) {
              y = -0.15),
            legend = list(orientation = 'h', x = 0.5, y = 0.08)
          ) %>%
-         plotly::config(displayModeBar = F) 
+         plotly::config(displayModeBar = FALSE) 
     
          # Fixing bad entries on ggplotly chart
          for(i in 1:length(gg$x$data)) {
@@ -595,7 +593,7 @@ epitweetr_app <- function(data_dir = NA) {
              yref = 'paper', 
              y = -0.4)
          ) %>%
-	       plotly::config(displayModeBar = F)
+	       plotly::config(displayModeBar = FALSE)
     })  
     output$export_line <- shiny::downloadHandler(
       filename = function() { 
@@ -1245,6 +1243,8 @@ epitweetr_app <- function(data_dir = NA) {
   # Printing PID 
   message(Sys.getpid())
   # Launching the app
+  old <- options()
+  on.exit(options(old))
   shiny::shinyApp(ui = ui, server = server, options = options(shiny.fullstacktrace = TRUE))
 }
 

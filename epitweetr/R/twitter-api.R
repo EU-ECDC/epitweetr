@@ -8,7 +8,7 @@ ratelimit_endpoint <- paste(t_endpoint, "application/rate_limit_status.json", se
 search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
 
 # Get twitter token
-get_token <- function(request_new = T) {
+get_token <- function(request_new = TRUE) {
   if(exists("access_token", where = conf$twitter_auth) && conf$twitter_auth$access_token!="") {  
     if(file.exists("~/.rtweet_token.rds")) file.remove("~/.rtweet_token.rds")
     token <- rtweet::create_token(
