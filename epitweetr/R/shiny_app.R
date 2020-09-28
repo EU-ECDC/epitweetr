@@ -9,10 +9,12 @@
 #'
 #' All its functionality is described on the epitweetr vignette.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    #Running the epitweetr app
 #'    library(epitweetr)
-#'    epitweetr_app('/home/epitweetr/data')
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    epitweetr_app()
 #' }
 #' @seealso 
 #'  \code{\link{search_loop}}

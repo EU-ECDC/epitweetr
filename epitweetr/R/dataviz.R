@@ -22,7 +22,9 @@
 #'
 #' This function requires \code{\link{search_loop}} and \code{\link{detect_loop}} to have already run successfully to show results.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'    #Getting trendline for dengue for South America for the last 30 days
 #'    trend_line(
 #'      topic = "dengue", 
@@ -291,8 +293,10 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #'
 #' This functions requires that \code{\link{search_loop}} and \code{\link{detect_loop}} have already been run successfully to show results.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    #Getting bubble chart for dengue for South America for last 30 days
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'    create_map(
 #'      topic = "dengue", 
 #'      countries = "South America", 
@@ -692,7 +696,9 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #'
 #' This functions requires that \code{\link{search_loop}} and \code{\link{detect_loop}} have already been run successfully to show results.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'    #Getting topword chart for dengue for France, Chile, Australia for last 30 days
 #'    create_topwords(
 #'      topic = "dengue", 

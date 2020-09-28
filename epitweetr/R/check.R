@@ -411,12 +411,13 @@ check_move_from_temp <- function() {
 #' @return Dataframe containing the statuses of all realized checks
 #' @details This function executes a series of sanity checks, concerninr, java, bitness, task statusn dependencies and Twitter authentication.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    #importing epitweer
 #'    library(epitweetr)
-#'    setup_config('/home/user/epitweetr')
-#     #running all tests
-#'    check_all
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    #running all tests
+#'    check_all()
 #' }
 #' @rdname check_all
 #' @export 

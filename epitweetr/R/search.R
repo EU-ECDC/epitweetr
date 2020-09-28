@@ -15,10 +15,11 @@
 #' In order to work, this task needs Twitter credentials, which can be set on the Shiny app or using \code{\link{set_twitter_app_auth}}
 #'
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    #Running the search loop
 #'    library(epitweetr)
-#'    search_loop('/home/epitweetr/data')
+#'    message('Please choose the epitweetr data directory')
+#'    search_loop(file.choose())
 #' }
 #' @rdname search_loop
 #' @seealso
@@ -212,7 +213,7 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
 # a plan will perform several requests to the search API and each time a request is performed the number of requests will be increased.
 # The field scheduled_for indicates the time when the next request is expected to be executed.
 # @examples 
-# if(interactive()){
+# if(FALSE){
 #  #creating the default plan
 #  get_plan()    
 # }
@@ -258,7 +259,7 @@ get_plan <- function(
 # If current plan has started and the expected end has passed, a new plan will be added for collecting new tweets (previous plan will be stored for future execution if possible)
 # Any finished plans after the first will be discharged (note that after 7 days all should be discharged because of empty results as a measure of precaution  a max od 100 plans are kept)
 # @examples 
-# if(interactive()){
+# if(FALSE){
 #  #Getting deault plan
 #  update_plans(plans = list(), schedule_span = 120) 
 #  #Updating topics for first topic

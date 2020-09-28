@@ -22,10 +22,11 @@ cached <- new.env()
 #' A prerequisite to this function is that the \code{\link{search_loop}} must have already collected tweets in the search folder and that geotag_tweets has already run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    # setting up the data folder
-#'    setup_config("/home/epitweetr/data")
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'
 #'    # aggregating all geolocated tweets collected since last aggregation for producing 
 #'    # all time series
@@ -139,7 +140,9 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #' }
 #' The returned dataset can be cached for further calls if requested. Only one dataset per series is cached.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'    # Getting all country tweets between 2020-jan-10 and 2020-jan-31 for all topics
 #'    df <- get_aggregates(
 #'      dataset = "country_counts", 

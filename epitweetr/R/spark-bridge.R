@@ -163,10 +163,11 @@ spark_df <- function(args, handler = NULL) {
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    # setting up the data folder
-#'    setup_config("/home/epitweetr/data")
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'
 #'    # geolocating last tweets
 #'    tasks <- download_dependencies()

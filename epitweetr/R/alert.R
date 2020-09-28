@@ -16,10 +16,11 @@
 #' A prerequisite to this function is that the \code{\link{search_loop}} must already have stored collected tweets in the search folder and that the geotagging and aggregation tasks have already been run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    # setting up the data folder
-#'    setup_config("/home/epitweetr/data")
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'
 #'    # calculating alerts for last day tweets and sending emails to subscriptors
 #'    generate_alerts()
@@ -83,7 +84,7 @@ generate_alerts <- function(tasks = get_tasks()) {
 #'         the upper limit and whether a signal is detected or not.
 #' @details for algorithm details see package vignette.
 #' @examples
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    #Running the modifies version of the ears algorithm for a particular data series
 #'     ts <- c(150, 130, 122, 160, 155, 128, 144, 125, 300, 319, 289, 277, 500)
@@ -532,10 +533,11 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #' @return a dataframe containing the calculated alerts for the period. If no alerts are found then NULL is returned 
 #' @details For more details see the package vignette.
 #' @examples
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    # setting up the data folder
-#'    setup_config("/home/epitweetr/data")
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose()) 
 #'
 #'    # Getting signals produced for last 30 days for a particular country
 #'    get_alerts(

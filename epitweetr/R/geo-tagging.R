@@ -19,10 +19,11 @@
 #' \code{\link{update_geonames}} and \code{\link{update_languages}} have successfully been run.
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    # setting up the data folder
-#'    setup_config("/home/epitweetr/data")
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'
 #'    # geolocating last tweets
 #'    tasks <- geotag_tweets()
@@ -205,10 +206,11 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 #' In order for this function to work the search loop will have had to run on the current day and the tasks \code{\link{download_dependencies}}, 
 #' \code{\link{update_geonames}} and \code{\link{update_languages}} will have had to successfully been run.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    # setting up the data folder
-#'    setup_config("/home/epitweetr/data")
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'
 #'    # geolocating today's tweets
 #'    show(get_todays_sample_tweets())
@@ -450,10 +452,11 @@ get_country_index_map <- function() {
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    # setting up the data folder
-#'    setup_config("/home/epitweetr/data")
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'
 #'    # geolocating last tweets
 #'    tasks <- update_geonames()
@@ -544,10 +547,11 @@ update_geonames <- function(tasks) {
 #'
 #' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
 #' @examples 
-#' if(interactive()){
+#' if(FALSE){
 #'    library(epitweetr)
 #'    # setting up the data folder
-#'    setup_config("/home/epitweetr/data")
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
 #'
 #'    # geolocating last tweets
 #'    tasks <- update_languages()
