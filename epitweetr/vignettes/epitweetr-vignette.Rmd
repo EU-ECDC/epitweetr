@@ -52,7 +52,7 @@ The package includes  an interactive web application (Shiny app) with five pages
 <center>Fig 1: Shiny app dashboard figure</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/dashboard.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/dashboard.png")
 ```
 
 
@@ -61,7 +61,7 @@ knitr::include_graphics("img/dashboard.png")
 <center>Fig 2: Shiny app alerts page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/alerts.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/alerts.png")
 ```
 
 
@@ -70,7 +70,7 @@ knitr::include_graphics("img/alerts.png")
 <center>Fig 3: Shiny app geotag evaluation page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/geotag_evaluation.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/geotag_evaluation.png")
 ```
 
 
@@ -79,7 +79,7 @@ knitr::include_graphics("img/geotag_evaluation.png")
 <center>Fig 4: Shiny app configuration page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/config.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/config.png")
 ```
 
 
@@ -88,7 +88,7 @@ knitr::include_graphics("img/config.png")
 <center>Fig 5: Shiny app troubleshoot page</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/troubleshoot.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/troubleshoot.png")
 ```
 
 ## Background
@@ -239,7 +239,7 @@ epitweetr_app("data_dir")
 -   On the configuration page of the Shiny app, in the manual tasks of the "Detection pipeline", click on "Run dependencies", "Run geonames" and "Run languages" (their status will change to “pending”). This allows the detection pipeline to download the elements needed. As long as no languages are added and no updates are available in geonames.org, these tasks have to be run only the first time you install `epitweetr`.
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("img/run_geonames.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/run_geonames.png")
 ```
 
 -   Set up the Twitter authentication using a Twitter account or a Twitter developer app, see section *Collection of tweets>Twitter authentication* for more details
@@ -248,7 +248,7 @@ knitr::include_graphics("img/run_geonames.png")
 
     -   Windows: Click on the “Tweet search” activate button
 ```{r, echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("img/Activate_tweet_search.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/Activate_tweet_search.png")
 ```
 
     -   Other platforms: In a new R session run the following command
@@ -264,7 +264,7 @@ search_loop("data_dir")
 
     -   Windows: Click on the “Detection pipeline” activation button
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("img/Detection_pipeline_activate.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/Detection_pipeline_activate.png")
 ```
     -   Other platforms: In a new R session run the following command
 ```{r, eval=FALSE, echo=TRUE}
@@ -331,7 +331,7 @@ You can authenticate the collection of tweets by using a **Twitter account** (th
         -   With this app you can perform 450 requests every 15 minutes instead of the 180 requests every 15 minutes that a Twitter account allows.  
         
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("img/Twitter_authentication_dev_app.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/Twitter_authentication_dev_app.png")
 ```
 
 #### Topics and tweet collection queries
@@ -343,7 +343,7 @@ A query consists of keywords and operators that are used to match tweet attribut
 `epitweetr` comes with a default list of topics as used by the ECDC Epidemic Intelligence team at the date of package generation (1^st^ of September, 2020). You can view details of the list of topics in the Shiny app configuration page (see screenshot below).
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/topics.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/topics.png")
 ```
 
 On the configuration page, you can also download the list of topics, modify it and upload it to `epitweetr`. The new list of topics will then be used for tweet collection and visible in the Shiny app. The list of topics is an Excel file (\*.xlsx) as it handles user-specific regional settings (e.g. delimiters) and special characters well. You can create your own list of topics and upload it too, noting that the structure should include at least:
@@ -369,7 +369,7 @@ The topics.xlsx file additionally includes the following fields:
 -   "Rank" is the number of queries per topic
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("img/Example_topics_list.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/Example_topics_list.png")
 ```
 
 When uploading your own file, please modify the topic and query fields, but do not modify the column titles.
@@ -388,7 +388,7 @@ All subsequent “search plans” are scheduled intervals that are set up in the
 For example, if the “search plan” begins at 4 am on the 10^th^ of September 2020, `epitweetr` will launch requests for tweets corresponding to its queries for the four-hour period from 4 am to midnight on the 10^th^ of September 2020. `epitweetr` starts by collecting the most recent tweets (the ones from 4 am) and continues backwards. If during the four-hour time period between 4am and midnight the API does not return any more results, the “search plan” for this query is considered completed.
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("img/Schedule_plan_image.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/Schedule_plan_image.png")
 ```
 
 However, if topics are very popular (e.g. COVID-19 in 2020), then the “search plan” for a query in a given four-hour window may not be completed. If this happens, `epitweetr` will move on to the “search plans” for the subsequent four-hour window, and put any previous incomplete “search plans” in a queue to execute when “search plans” for this new four-hour window are completed.
@@ -432,7 +432,7 @@ An example is the COVID-19 pandemic in 2020. In early 2020, there was limited in
 If search plans cannot be finished, several search plans per query may be in a queue:
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("img/Search_plan_queues.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/Search_plan_queues.png")
 ```
 
 ### Geolocation
@@ -468,7 +468,7 @@ A higher score is associated with a greater probability that a match is correct.
 You can select which languages you would like to check for other kinds of words in, by selecting the active language desired within the configuration page of the Shiny app and clicking on the "+" icon:
 
 ```{r echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("img/config_languages.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/config_languages.png")
 ```
 
 In addition, you can unselect languages by selecting the language within the configuration page of the Shiny app and clicking on the "-"  icon:
@@ -479,7 +479,7 @@ A minimum score (the "geolocation threshold") can be globally set in the general
 The threshold is empirically chosen and can be evaluated against a human read of tweets and tweet locations, on the geotag evaluation page.
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("img/geolocation_threshold.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/geolocation_threshold.png")
 ```
 
 #### Geolocation based on user location
@@ -519,19 +519,19 @@ In the geolocated Rds file, the number of tweets or retweets are stored by topic
 
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/geolocated.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/geolocated.png")
 ```
 
 The country\_counts Rds file is used to create the trendline in the Shiny app. This is a smaller Rds file, without the longitude and latitude information, and includes the number of tweets by hour within a day, by country (according to tweet location or user location), topic (see screenshot), and whether a tweet was a retweet or not. The known\_retweets and known\_original fields give the number of tweets or retweets from a list of “important users”. In this file, tweets without geolocation are also included. Including tweets without geolocation information enables you to view all tweets when selecting “world” as a region, regardless if geolocation was successful or not.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/country_counts.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/country_counts.png")
 ```
 
 The aggregation by top words is stored in the topwords.Rds file, and displays the number of tweets or retweets (or both) by topic, top word, date, country of tweet location and whether a tweet was a retweet or not (see screenshot).
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/topwords.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/topwords.png")
 ```
 
 ### Signal detection
@@ -638,7 +638,7 @@ The subscribers can receive real-time alerts (i.e. as soon as the detection loop
 When including more than one topic and/or region in the subscribers list, these should be separated by semi-colon (;) with no spaces (e.g. Ebola;infectious diseases;dengue). The names must match the column “Topics” in the list of topics and the column “Name” in the contry/region list from the configuration page.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/subscribers.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/subscribers.png")
 ```
 
 ###  Folder structure
@@ -675,13 +675,13 @@ In the data folder, the subfolder “tweets” has two further subfolders: **sea
 The *search folder* contains subfolders for each topic listed in the topics list:
 
 ```{r echo=FALSE, fig.cap="", out.width = '40%'}
-knitr::include_graphics("img/search_folder.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/search_folder.png")
 ```
 
 Within each of these topics you have a year (e.g. 2020) and then a compressed json file containing the tweets by day for each year. The dates pertain to the dates the tweet was collected (not tweeted). There may be more than one file for one day if the file exceeds 100 MB.
 
 ```{r echo=FALSE, fig.cap="", out.width = '40%'}
-knitr::include_graphics("img/anthrax.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/anthrax.png")
 ```
 
 The *geolocated folder* contains compressed json files with geolocated information produced by the geolocated algorithm.
@@ -699,7 +699,7 @@ There is a folder for each ISO week of date of collection containing Rds files (
 -   country\_counts\_YYY.MM.DD.Rds contains hourly tweet counts at country level
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("img/series_folder.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/series_folder.png")
 ```
 
 This is the aggregate information as described in the section “How does it work? General architecture of epitweetr > Aggregation”.
@@ -746,7 +746,7 @@ You can select one item from the drop-down list of topics, which is populated by
 **Countries & regions**
 
 ```{r echo=FALSE, fig.cap="", out.width = '40%'}
-knitr::include_graphics("img/topics_countries.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/topics_countries.png")
 ```
 
 If you select **World (all)**, all tweets are displayed regardless of their geolocation. You can select an individual country, you can select regions and subregions, and you can select several items at the same time. You can also start typing in the text field and select the geographical item from the drop-down list.
@@ -754,7 +754,7 @@ If you select **World (all)**, all tweets are displayed regardless of their geol
 **Period**
 
 ```{r echo=FALSE, fig.cap="", out.width = '40%'}
-knitr::include_graphics("img/period.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/period.png")
 ```
 
 You can select from the past 7 (the default), 30, 60 or 180 days. You can also select "custom" and a calendar option to select study period will appear. These periods will be the time period for inclusion in the visualisations. When selecting custom period, please ensure that the first date is at least one day before the second date.
@@ -762,7 +762,7 @@ You can select from the past 7 (the default), 30, 60 or 180 days. You can also s
 **Time unit**
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/time_unit.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/time_unit.png")
 ```
 
 You can display the timeline for the number of tweets with weeks or days as units of time. The default is days.
@@ -770,7 +770,7 @@ You can display the timeline for the number of tweets with weeks or days as unit
 **Include Retweets/quotes**
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/include_retweets.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/include_retweets.png")
 ```
 
 By default, retweets are not included in any of the visualisations. If “include retweets/quotes” is checked, the visualisations display results of tweets and retweets/quotes. Otherwise, the visualisations display only tweets (without retweets/quotes).
@@ -778,7 +778,7 @@ By default, retweets are not included in any of the visualisations. If “includ
 **Location type**
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/location_type.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/location_type.png")
 ```
 
 Tweets are geolocated into regions, subregions and countries. “Location type” indicates what should be used for geolocation:
@@ -792,7 +792,7 @@ Tweets are geolocated into regions, subregions and countries. “Location type�
 **Signal detection false positive rate**
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/signal_detection_fpr.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/signal_detection_fpr.png")
 ```
 
 Using the slider, you can explore the differences in the signals generated when changing the alpha parameter for the false positive rate. Note that this will not change the signal false positive rate for the alert emails. This is just a tool for the user to explore this parameter. The default is 0.025. A higher false positive rate will increase the sensitivity and possibly the number of signals detected, and vice versa.
@@ -800,7 +800,7 @@ Using the slider, you can explore the differences in the signals generated when 
 **Outlier false positive rate and outlier downweight strength**
 
 ```{r echo=FALSE, fig.cap="", out.width = '40%'}
-knitr::include_graphics("img/outlier_dashboard.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/outlier_dashboard.png")
 ```
 
 The outlier false positive rate relates to the false positive rate for determining what an outlier is when downweighting previous outliers/signals. The lower the value, the fewer previous outliers will potentially be included. A higher value will potentially include more previous outliers.
@@ -810,7 +810,7 @@ The outlier downweight strength determines how much an outlier will be downweigh
 **Bonferroni correction**
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/Bonferroni_correction.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/Bonferroni_correction.png")
 ```
 
 The Bonferroni correction is selected by default. It accounts for false positive signal detection through multiple testing. For country-specific signal detection, the alpha is divided by the number of countries. For continent-specific signal detection, the alpha is divided by the number continents.
@@ -820,7 +820,7 @@ If you do not wish to use this correction, you can uncheck it.
 **Days in baseline**
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/days_in_baseline.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/days_in_baseline.png")
 ```
 
 The default days in baseline is 7. The user can explore the effect of having different days in the baseline. This is only for the visualisation, any changes made for the email alerts have to be made in the configuration page.
@@ -828,7 +828,7 @@ The default days in baseline is 7. The user can explore the effect of having dif
 **Same weekday baseline**
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/same_weekday_baseline.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/same_weekday_baseline.png")
 ```
 
 It is possible that there is a "day of the week effect", where more tweets may be tweeted on a given day of the week (e.g. Monday) than on other days. You can also select to calculate the baseline not on consecutive days, but on the past N days that correspond to the same 24 hour window N days back. This way if N = 7, the baseline is calculated using the “days” from -7, -14, -21, -28, -35, -42, -49 and -56 (if the current "day" is zero).
@@ -840,21 +840,21 @@ The timeline graph is a time series, where you can see the number of tweets for 
 
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/timeline.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/timeline.png")
 ```
 
 
 If you hover over the graph, you obtain extra information on country, date, number of tweets and the number of tweets from the list of known users, the ratio of known users to unknown users, whether the number of tweets was associated with a signal and what the threshold and the alpha was.
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/hover_trendline.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/hover_trendline.png")
 ```
 
 
 #### Map
 
 ```{r echo=FALSE, fig.cap="", out.width = '60%'}
-knitr::include_graphics("img/map.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/map.png")
 ```
 
 The map shows a proportional symbol map of the tweets by country and by topic for the study period. The larger the circle, the greater the number of tweets.
@@ -862,7 +862,7 @@ The map shows a proportional symbol map of the tweets by country and by topic fo
 The geographical information for the map is based on the choice in the filters: the country/region/subregion and the location type (tweet, user or both).
 
 ```{r echo=FALSE, fig.cap="", out.width = '60%'}
-knitr::include_graphics("img/hover_map.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/hover_map.png")
 ```
 
 When you hover over the map, you can get information on number of tweets and names of the geographical units underlying the circles on the map.
@@ -872,7 +872,7 @@ When selecting one country, the symbols show the geographical distribution of tw
 #### Most frequent words found in tweets
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("img/top_words.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/top_words.png")
 ```
 
 Tweets are analysed globally to get the top 500 words of each chunk for the same language, day and topic. These 500 words are then subsetted by country.
@@ -886,14 +886,14 @@ Note that, differently to other visualisation figures, the most frequent words f
 The alerts page summarises the signals detected within the specified study period. This summary includes the date, hour, topic and geographical unit of the signal, which top words are included, the number of tweets, the number of tweets from important users and the threshold. It additionally includes many of the settings specified in the configuration page, which were used for detecting signals. This is also the output received in the emails alerts.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/alerts.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/alerts.png")
 ```
 
 ### The geotag evaluation page
 This page supports the user in establishing the geolocation threshold in the configuration page. The user can choose the field of the tweets to test and the number of tweets to sample. This page is for visualization only and no changes in the geolocation detected by `epitweetr` is allowed.  
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/geotag_evaluation.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/geotag_evaluation.png")
 ```
 
 ### The configuration page
@@ -901,7 +901,7 @@ knitr::include_graphics("img/geotag_evaluation.png")
 In the configuration page, you can change settings of the tool, you can check the status of the various processes/pipelines of the tool and you can add, delete and modify topics and their associated requests, languages for geolocation and the list of the “important users” and email alert subscribers. When changing anything in the “Signal detection” or “General” sections, do not forget to click on the “Update Properties” button at the end of the “General” section. The following sections describe the configuration page in more detail.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/config.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/config.png")
 ```
 
 
@@ -910,7 +910,7 @@ knitr::include_graphics("img/config.png")
 The status section enables you to quickly assess the latest time point and/or status of the processes for tweet collection (Tweet Search), and geolocation, aggregation and signal detection (Detection pipeline).
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("img/status.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/status.png")
 ```
 
 In the status section, you can tell if both the search pipeline and the detect pipeline processes are running. If you are running Windows, you can click on “activate” to register these processes as scheduled tasks and run them manually from the Windows task scheduler.
@@ -927,7 +927,7 @@ The detection pipeline gives more information about the status of the processes 
 Geotag, aggregate and alerts dates should be more recent if the search and detection pipelines are active and running. They are scheduled according to the detect span. The status can include running, scheduled, pending, failed or aborted (if it has failed more than three times).
 
 ```{r echo=FALSE, fig.cap="", out.width = '70%'}
-knitr::include_graphics("img/detection_pipeline.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/detection_pipeline.png")
 ```
 
 
@@ -936,7 +936,7 @@ knitr::include_graphics("img/detection_pipeline.png")
 In the signal detection section in the configuration page, you can set the signal false positive rate alpha parameter, which increases (if larger) the the detection interval (more signals are detected), or decreases (if smaller) the detection interval (fewer signals are detected).
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("img/signal_detection_config.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/signal_detection_config.png")
 ```
 
 The outlier false positive rate relates to the false positive rate for determining what an outlier is when downweighting previous outliers/signals. The lower the value, the fewer previous outliers will potentially be included. A higher value will potentially include more previous outliers.
@@ -957,7 +957,7 @@ When changing anything in the “Signal detection” section, do not forget to c
 **General**
 
 ```{r echo=FALSE, fig.cap="", out.width = '40%'}
-knitr::include_graphics("img/general.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/general.png")
 ```
 
 -   In **Data directory** you can view the directory that `epitweetr` uses to store the tweet and associated data collected. This is also the directory that the dashboard uses to obtain the datasets for displaying the visualisations. You need to set this folder when you launch `epitweetr` or set the environment variable 'EPI\_HOME'.
@@ -999,7 +999,7 @@ knitr::include_graphics("img/general.png")
 You have two options for authentication to collect tweets, using a Twitter account (utilising the rtweet package) and using a Twitter developer application. You can select which option you will use in the **Twitter authentication** section. See section *“How does it work? General architecture behind epitweetr > Collection of tweets > Twitter authentication”* for more details on how to do the Twitter authentication.
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
-knitr::include_graphics("img/twitter_authentication.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/twitter_authentication.png")
 ```
 
 **Email authentication (SMTP)**
@@ -1021,7 +1021,7 @@ A query consists of keywords and operators that are used to match on tweet attri
 In the topics section on the configuration page, you can view the topic, the associated query, the query length and how many active search plans are associated with the query. If more than one search plan is active, this means that `epitweetr` did not manage to collect all possible tweets in the last session. Additionally, you can see the progress and the number of requests from the last search plan.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/topics.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/topics.png")
 ```
 
 **Languages**
@@ -1029,14 +1029,14 @@ knitr::include_graphics("img/topics.png")
 In the languages section, you can determine which language models are used to identify text during the geolocation process. The default languages are French, English, Portuguese and Spanish. You can download and upload the language models in the “Available Languages” section and add and delete languages used by `epitweetr` in the “Active Languages” section. Please consider the computational cost of adding too many languages, depending on the capacity of your machine.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/languages.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/languages.png")
 ```
 
 ### The troubleshoot page
 The troubleshoot page has a list of automatic check and hint for using `epitweetr` with all its functionalities. Click on "Run diagnostics" to see the list of checks, whether it passed the check ("true") or not ("false"), and hints in case it did not pass the check. More detailed information can be found in [Annex II](#annexII) of this user documentation.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/troubleshoot.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/troubleshoot.png")
 ```
 
 ### Downloading outputs from the interactive user interface (Shiny app)
@@ -1153,7 +1153,7 @@ Figure 5 below shows the upper limit of the signal detection threshold for `epit
 <center>Fig 5: Upper limit with and without downweighting for the epitweetr Ebola data</center>
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("img/ebola.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/epitweetr/vignettes/img/ebola.png")
 ```
 
 ## Annex II: Troubleshooting and tips {#annexII}
