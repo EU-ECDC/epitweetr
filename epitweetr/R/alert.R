@@ -185,10 +185,10 @@ get_reporting_date_counts <- function(
     , topic
     , start = NA
     , end = NA
+    , last_day = get_aggregated_period("country_counts")$last
   ) {
   `%>%` <- magrittr::`%>%`
   if(nrow(df)>0) {
-    last_day <- max(as.Date(df$created_date))
     # Calculating end day hour which is going to be the last fully collected hour when 
     # requesting the last colleted dates or 23h if it is a fully collected day 
     last_full_hour <- (
@@ -197,7 +197,7 @@ get_reporting_date_counts <- function(
       else
         as.integer(strftime(max(as.POSIXlt(df$created_date) + (as.integer(df$created_hour) - 1) * 3600), "%H"))
     )
-    #Handling going to previous day if lastèfull hour is negative
+    #Handling going to previous day if last full hour is negative
     if(last_full_hour < 0) {
       last_full_hour = 23
       last_day <- last_day - 1  
