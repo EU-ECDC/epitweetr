@@ -4,7 +4,10 @@ conf <- new.env()
 # Get package name
 get_package_name <- function() environmentName(environment(setup_config))
 
-# Get the keyring for the provided backend or a platform dependent default if backend id null
+# Get the keyring for the provided backend or a platform dependent default if backend is null
+# this function is used to save the twitter and smtp credentials on a secure store when saving properties
+# this function uses the keyring R package which provides a common interfas for accessing system dependent keyring
+# backend: backend name to use it will be guess based on user OS uf not defined.
 get_key_ring <- function(backend = NULL) {
   if(!is.null(backend)) {
     Sys.setenv(kr_backend = backend)
@@ -24,6 +27,7 @@ get_key_ring <- function(backend = NULL) {
     kb <- keyring::backend_env$new()
   }
   kr_name <- NULL
+  # creating the file keyring if requested and not existant
   if(keyring == "file" ) {
      kr_name <- Sys.getenv("kr_name") 
      krs <- kb$keyring_list()
@@ -33,8 +37,10 @@ get_key_ring <- function(backend = NULL) {
     kb$keyring_set_default(kr_name)
   }
 
+  # unlocking keyring if unlocked using environment variable to get the password
   if(kb$keyring_is_locked(keyring = kr_name) && Sys.getenv("ecdc_wtitter_tool_kr_password") != "") {
     kb$keyring_unlock(keyring = kr_name, password =  Sys.getenv("ecdc_wtitter_tool_kr_password"))
+  # unlocking keyring if unlocked using password prompt
   } else if(kb$keyring_is_locked(keyring = kr_name)) {
     kb$keyring_unlock(keyring = kr_name)
   }
@@ -57,7 +63,7 @@ get_secret <- function(secret) {
   get_key_ring()$get(service =  Sys.getenv("kr_service"), username = secret)
 }
 
-# get empty config for initialization
+# get empty config for initialization this represents default values for all configuration properties
 get_empty_config <- function(data_dir) {
   ret <- list()
   ret$keyring <- 
@@ -131,7 +137,7 @@ get_empty_config <- function(data_dir) {
 #'
 #' This call will fill (or refresh) a package scoped environment 'conf' that will store the settings. Settings stored in conf are:
 #' \itemize{
-#'   \item{ General properties of the Shiny app (stored in properties.json)}
+#'   \item{General properties of the Shiny app (stored in properties.json)}
 #'   \item{Download plans from the Twitter collection process (stored in topics.json merged with data from the topics.xlsx file}
 #'   \item{Credentials for Twitter API and SMTP stored in the defined keyring}
 #' }
@@ -176,18 +182,28 @@ setup_config <- function(
   , save_first = list()
 ) 
 {
+  #setting the data_dir which is a read only property
   conf$data_dir <- data_dir
+
+  # paths contains two files storing configuration data: 
+  # props which contains properties set on the shuni App is stored on data_dir/propertieds.json
+  # and data_dir/topics.json which stores search progress and is updated by the search loop
   paths <- list(props = get_properties_path(), topics = get_plans_path())
+  
+  #topics paths is the excel file containing the user provided topics ot epitweetr default ones
   topics_path <- get_topics_path(data_dir)
 
+  # savin first may be used by a function which is responsible for a part of the configuration to save changed on its perimeter before refreshing
   if(length(save_first) > 0) {
     save_config(data_dir = data_dir, properties = "props" %in% save_first, "topics" %in% save_first)
   }
-  #Loading last created configuration from json file on temp variable if exists or load default empty conf instead
+  #Loading last created configuration from json file on temp variable if exists or load default empty conf instead, this will ensure new settings are loaded with default values if missing
   temp <- get_empty_config(data_dir)
   
   if(!ignore_properties && exists("props", where = paths)) {
+    # refreshing properties (if requested)
     if(file.exists(paths$props)) {
+      #merging default values with those stored in the propertied.json file
       temp = merge_configs(list(temp, jsonlite::read_json(paths$props, simplifyVector = FALSE, auto_unbox = TRUE)))
     }
     #Setting config  variables filled only from json file  
@@ -228,10 +244,12 @@ setup_config <- function(
     conf$winutils_url <- temp$winutils_url
   }
   if(!ignore_topics && exists("topics", where = paths)){
+    # updating plans and topics if requested 
     if(file.exists(paths$topics)) {
+      # merging initial + properties.json data with plans
       temp = merge_configs(list(temp, jsonlite::read_json(paths$topics, simplifyVector = FALSE, auto_unbox = TRUE)))
     }
-    #Getting topics from excel topics files if it has changed since las load
+    #Getting topics from excel topics files if it has changed since last load this is identified by checking the md5 signature
     #If user has not ovewritten 
     topics <- {
       t <- list()
@@ -375,6 +393,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
   }  
 
   if(properties) {
+    # saving properties on properties.json file
     temp <- list()
     temp$collect_span <- conf$collect_span
     temp$schedule_span <- conf$schedule_span
@@ -411,9 +430,11 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$force_date_format <- conf$force_date_format
     temp$maven_repo <- conf$maven_repo
     temp$winutils_url <- conf$winutils_url
+    # writing the json file
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
   if(topics) {
+    # saving topics on topics.json file 
     temp <- list()
     temp$topics <- conf$topics
     temp$topics_md5 <- conf$topics_md5
@@ -425,6 +446,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
         temp$topics[[i]]$plan[[j]]$since_target = as.character(conf$topics[[i]]$plan[[j]]$since_target)
       }
     }
+    # writing the json file
     write_json_atomic(temp, get_plans_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
 }
@@ -464,7 +486,7 @@ set_twitter_app_auth <- function(app, access_token, access_token_secret, api_key
   }
 }
 
-# Merging two or more configuration files as a list
+# Merging two or more configuration files as a list, lattest takes precedence ovef firsts
 merge_configs <- function(configs) {
   if(length(configs)==0)
     stop("No configurations provided for merge")
