@@ -7,13 +7,13 @@ ratelimit_endpoint <- paste(t_endpoint, "application/rate_limit_status.json", se
 # Twitter endpoint for searching tweets
 search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
 
-# Get twitter token bases on configuration based on configuration settingd (app or user)
+# Get twitter token bases on configuration based on configuration settings (app or user)
 # This function is call when saving properties on shiny app and first time epitweetr performs a twitter get on a session
 # request_new: I
 get_token <- function(request_new = TRUE) {
   if(exists("access_token", where = conf$twitter_auth) && conf$twitter_auth$access_token!="") {  
     # Creating a new app token if app authentication is set
-    # Removing existing rtweet token if existsyy
+    # Removing existing rtweet token if exists
     if(file.exists("~/.rtweet_token.rds")) file.remove("~/.rtweet_token.rds")
     # Using rtweet call to create token
     token <- rtweet::create_token(
@@ -34,14 +34,14 @@ get_token <- function(request_new = TRUE) {
        } else if(request_new){
          stop("Cannot get a token on an non interactive session. Create it from configuration page first")
        } else 
-         stop("Cannot ger a token. Please create it from the configuration page")
+         stop("Cannot get a token. Please create it from the configuration page")
      )
   } 
   return(token)
 }
 
 # Execute a get request on twitter API using the provided URL
-# It wil internally deal with token génération and rate limits
+# It wil internally deal with token generation and rate limits
 # If request fails with an error or warning it will retry with a cuqdratic waiting time
 # Twitter response codes are interpreted as per twitter documention to slow down and wait as requested and to respect rate limits
 # url: URL to try
@@ -50,7 +50,7 @@ get_token <- function(request_new = TRUE) {
 twitter_get <- function(url, i = 0, retries = 20) {
   # Getting token if not set for current session
   if(is.null(conf$token) || !exists("token", where = conf)) conf$token <- get_token()
-  # Tryung to get the response quadratic waiting time is impmemented if the URL fails 
+  # Trying to get the response quadratic waiting time is impmemented if the URL fails 
   res <-  tryCatch({
         httr::GET(
           url

@@ -37,9 +37,11 @@
 generate_alerts <- function(tasks = get_tasks()) {
   tasks <- tryCatch({
     tasks <- update_alerts_task(tasks, "running", "processing", start = TRUE)
+    # detecting alerts for the last aggregated date
     tasks <- do_next_alerts(tasks)
 
     tasks <- update_alerts_task(tasks, "running", "sending emails")
+    # Sending email alerts 
     tasks <- send_alert_emails(tasks)
     # Setting status to succes
     tasks <- update_alerts_task(tasks, "success", "", end = TRUE)
@@ -180,6 +182,8 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
 
 
 # Getting alert daily counts taking in consideration a 24 hour sliding window since last full hour
+# the provided dataset is expected to be an hourly counts by date with the following columns: tweets, known_users, created_date, created_hour
+# a new column reporting date will be added
 get_reporting_date_counts <- function(
     df = get_aggregates("country_counts")
     , topic
@@ -380,7 +384,7 @@ calculate_regions_alerts <- function(
 }
 
 
-# get alert count start depending on the baseline type: any day ort same weekday
+# get alert count start depending on the baseline type: any day or same weekday
 get_alert_count_from <- function(date, baseline_size, same_weekday_baseline) {
   if(!same_weekday_baseline)
     date - (baseline_size + 2)
@@ -559,7 +563,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #' @importFrom utils head
 get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01") {
   `%>%` <- magrittr::`%>%`
-  # preparing filers dealing with possible names collitions with dataframe
+  # preparing filers and renaming variables with names as column on dataframe to avoid conflicts
   regions <- get_country_items()
   t <- topic
   cnames <- ( 
@@ -625,8 +629,10 @@ send_alert_emails <- function(tasks = get_tasks()) {
   if(!exists("sent", tasks$alerts)) tasks$alerts$sent <- list()
   # Getting subscriber users
   subscribers <- get_subscribers()
+  # iterating for each subscriber
   if(nrow(subscribers)>0) {
     for(i in 1:nrow(subscribers)) {
+      # getting values subsriber settings 
       user <- subscribers$User[[i]]
       topics <- if(is.na(subscribers$Topics[[i]])) NA else strsplit(subscribers$Topics[[i]],";")[[1]]
       dest <- if(is.na(subscribers$Email[[i]])) NA else strsplit(subscribers$Email[[i]],";")[[1]]
@@ -683,6 +689,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
         current_minutes <- as.numeric(strftime(Sys.time(), format="%M"))
         current_hour <- as.numeric(strftime(Sys.time(), format="%H")) + current_minutes / 60
         
+        # Getting the current slot
         current_slot <- (
           if(all(is.na(slots))) 
             as.integer(current_hour)
@@ -692,6 +699,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             max(slots[slots <= current_hour])
         )
         
+        # Evaluating if slot alerts should be sent
         send_slot_alerts <- (
           all(is.na(slots)) ||  
           (length(slots[slots <= current_hour])>0 && # After first slot in day AND
@@ -722,6 +730,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             instant_alerts
         )
         
+        # getting slot alerts
         slot_alerts <- user_alerts %>% dplyr::filter(
          ( (all(is.na(realtime_topics)) & all(is.na(realtime_regions))) |
           (
@@ -732,7 +741,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
           & send_slot_alerts 
         )
         
-        # Excluding instant alerts produced before the last alert sent to user
+        # Excluding slot alerts produced before the last alert sent to user
         slot_alerts <- (
           if(exists("date", where = tasks$alerts$sent[[user]]) && 
             exists("hour_slot", where = tasks$alerts$sent[[user]]) &&
@@ -832,6 +841,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
           html <- gsub("@alerts", paste(alert_tables, collapse="\n"), html)
           close(t_con)
 
+          # creating the message to send
           msg <- ( 
             emayili::envelope() %>% 
             emayili::from(conf$smtp_from) %>% 

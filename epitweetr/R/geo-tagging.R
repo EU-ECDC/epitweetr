@@ -578,15 +578,25 @@ update_languages <- function(tasks) {
     }
 
     # executing actions per language
-    for(i in 1:length(tasks$languages$statuses)) {
+    i <- 1
+    while(i < length(tasks$languages$statuses)) {
       # downloading when necessary
       if(tasks$languages$statuses[[i]] %in% c("to add", "to update")) {
-        tasks <- update_languages_task(tasks, "running", paste("downloading", tasks$languages$name[[i]]), lang_code = tasks$languages$code[[i]], lang_start = TRUE)
+        tasks <- update_languages_task(tasks, "running", paste("downloading", tasks$languages$name[[i]]), lang_code = tasks$languages$codes[[i]], lang_start = TRUE)
         temp <- tempfile()
         download.file(tasks$languages$url[[i]],temp,mode="wb")
         file.rename(from = file.path(temp), to = tasks$languages$vectors[[i]])
-        tasks <- update_languages_task(tasks, "running", paste("downloaded", tasks$languages$name[[i]]), lang_code = tasks$languages$code[[i]], lang_done = TRUE)
-      }  
+        tasks <- update_languages_task(tasks, "running", paste("downloaded", tasks$languages$name[[i]]), lang_code = tasks$languages$codes[[i]], lang_done = TRUE)
+        i <- i + 1
+      } else if(tasks$languages$statuses[[i]] %in% c("to remove")) {
+        # requesting to delete language data
+        # deletint language files 
+        if(file.exists(get_lang_vectors_path())) file.remove(get_lang_vectors_path())
+        if(dir.exists(get_lang_model_path())) unlink(get_lang_model_path())
+        if(file.exists(get_lang_stamp_path())) file.remove(get_lang_stamp_path())
+        tasks <- update_languages_task(tasks, "running", paste("deleted", tasks$languages$name[[i]]), lang_code = tasks$languages$codes[[i]], lang_removed = TRUE)
+        # no need to increase i since one langage has been removed
+      }
     }
     # Indexing languages
     tasks <- update_languages_task(tasks, "running", "indexing")

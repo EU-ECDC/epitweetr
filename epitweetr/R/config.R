@@ -186,7 +186,7 @@ setup_config <- function(
   conf$data_dir <- data_dir
 
   # paths contains two files storing configuration data: 
-  # props which contains properties set on the shuni App is stored on data_dir/propertieds.json
+  # props which contains properties set on the shuniy App is stored on data_dir/properties.json
   # and data_dir/topics.json which stores search progress and is updated by the search loop
   paths <- list(props = get_properties_path(), topics = get_plans_path())
   

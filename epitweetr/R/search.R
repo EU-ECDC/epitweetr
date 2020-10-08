@@ -35,9 +35,9 @@ search_loop <-  function(data_dir = NA) {
   # Registering the search runner using current PID and ensuring no other instance of the search is actually running.
   register_search_runner()
   
-  # Infinite loop fir getting tweets if successfully registeres as the search runner
+  # Infinite loop for getting tweets if successfully registeres as the search runner
   while(TRUE) {
-    # On each iteration this loop will collect perform one request for each active plans having the minumum number of requests 
+    # On each iteration this loop will perform one request for each active plans having the minumum number of requests 
     # Creating plans for each topic if collect span is expired and calculating next execution time for each plan.
     for(i in 1:length(conf$topics)) {
       conf$topics[[i]]$plan <- update_plans(plans = conf$topics[[i]]$plan, schedule_span = conf$collect_span)
@@ -50,7 +50,7 @@ search_loop <-  function(data_dir = NA) {
       message(paste(Sys.time(), ": All done! going to sleep for until", Sys.time() + wait_for, "during", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
       Sys.sleep(wait_for)
     }
-    #getting ony the next plan to execute for each topic (it could be a previous unfinished plan)
+    #getting only the next plan to execute for each topic (it could be a previous unfinished plan)
     next_plans <-lapply(1:length(conf$topics), function(i)  next_plan(plans = conf$topics[[i]]$plan))
 
     #calculating the minimum number of requets those plans have already executed
@@ -78,7 +78,7 @@ search_loop <-  function(data_dir = NA) {
 # returns the updated plan afted search
 search_topic <- function(plan, query, topic) {
   message(paste("searching for topic", topic, "from", plan$since_target, "until", if(is.null(plan$since_id)) "(last tweet)" else plan$since_id))
-  # Tweets are stored on the following folder structure data_folder/tweets/searc/topic/year
+  # Tweets are stored on the following folder structure data_folder/tweets/search/topic/year
   # Ensuring that folders for storing tweets are created
   year <- format(Sys.time(), "%Y")
   create_dirs(topic, year) 
@@ -227,7 +227,7 @@ parse_date <- function(str_date) {
 }
 
 # Perform a single page search on twitter API
-# This function will build the twitter search URL for performing a search request on the standard searcj
+# This function will build the twitter search URL for performing a search request on the standard search
 # https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/api-reference/get-search-tweets
 # function called from the search_topic function
 # q: text query
@@ -400,7 +400,7 @@ request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL
     current$start_on = Sys.time()
     current$max_id = bit64::as.integer64(max_id)
   }
-  # settinf the oldest id obtained by thid plan (which shoulg not go before since_target 
+  # setting the oldest id obtained by this plan (which shoulg not go before since_target)
   if(!is.null(since_id)) {
     current$since_id <- bit64::as.integer64(since_id)
   }
@@ -414,7 +414,7 @@ request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL
     #current$progress <- 1.0 
   } else {
     if(Sys.time() < current$expected_end && current$progress > 0.0) {
-      # this property was designed to delay plans that cab quicly finish, but it has finally not being used. 
+      # this property was designed to delay plans that cab quickly finish, but it has finally not being used. 
       progressByRequest <- current$progress / current$requests
       requestsToFinish <- (1.0 - current$progress)/progressByRequest
       current$scheduled_for = Sys.time() + as.integer(difftime(current$expected_end, Sys.time(), units = "secs"))/requestsToFinish 
