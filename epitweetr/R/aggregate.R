@@ -6,7 +6,7 @@ cached <- new.env()
 #' @param series List of series to aggregate, default: list("country_counts", "geolocated", "topwords")
 #' @param tasks Current tasks for reporting purposes, default: get_tasks()
 #' @return the list of tasks updated with aggregate messages
-#' @details This function will launch a SPARK task of aggregating data collected from the Twitter Search API and geolocated from geotag tweets. By doing the following steps:
+#' @details This function will write new aggregated series by launching a SPARK task of aggregating data collected from the Twitter Search API and geolocated from geotag tweets. By doing the following steps:
 #' - Identify the last aggregates date by looking into the series folder
 #' 
 #' - Look for date range of tweets collected since that day by looking at the stat json files produced by the search loop
@@ -56,7 +56,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
     
     # iterating over each serie
     for(i in 1:length(series)) { 
-      # Getting a dataframe with dates to aggregate and associated file names to containing data for that period
+      # Getting a list with dates to aggregate and associated file names to containing data for that period
       # the files are obtained using stats files 
       aggregate_days <- get_aggregate_dates(series[[i]])
     
@@ -77,7 +77,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 
           # Aggregating tweets for the given serie and week
           # Setting the status of the task
-          tasks <- update_aggregate_task(tasks, "running", paste("serie",  series[[i]], "from", created_date))
+          tasks <- update_aggregate_task(tasks, "running", paste("serie",  series[[i]], "for", created_date))
           # obtaining a dataframe with the aggregation for the specified serie, date and files which includes a spark call
           agg_df <- get_aggregated_serie(series[[i]], created_date, files)
           
@@ -104,7 +104,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
     }
  
     #deleting cached datasets
-    rm(list = ls(cached), envir = cached)
+    rm(list = ls(cached), envir = cached) #this only has effect on current session (it would not impact the shuny app, there is a different mechanidm for that)
     message(paste(Sys.time(), "aggregation done!"))
     # Setting status to succès
     tasks <- update_aggregate_task(tasks, "success", "", end = TRUE)
@@ -127,7 +127,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 }
 
 #' @title Getting already aggregated time series produced by \code{\link{detect_loop}}
-#' @description Returns the required aggregated dataset for the selected period and topics defined by the filter.
+#' @description Read and returns the required aggregated dataset for the selected period and topics defined by the filter.
 #' @param dataset A character(1) vector with the name of the series to request, it must be one of 'country_counts', 'geolocated' or 'topwords', default: 'country_counts'
 #' @param cache Whether to use the cache for lookup and storing the returned dataframe, default: TRUE
 #' @param filter A named list defining the filter to apply on the requested series, default: list()
@@ -186,7 +186,8 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
 
   # checking wether we can reuse the cacje
   reuse_filter <- 
-    exists(last_filter_name, where = cached) && #cache entry exists
+    exists(last_filter_name, where = cached) && #cache entry exists for that dataset
+    (exists("last_aggregate", where = cached[[last_filter_name]]) && cached[[last_filter_name]]$last_aggregate == filter$last_aggregate) && # No new aggregation has been finished
     (!exists("topic", cached[[last_filter_name]]) || # all topics are cached or 
       (
         exists("topic", cached[[last_filter_name]]) && # there are some topic cached
@@ -317,6 +318,7 @@ get_aggregate_dates <- function(dataset) {
   #Getting the last day aggregated for this serie
   #if no aggregation exists, aggregation will start on first available geolocation
   last_aggregate <- get_aggregated_period(dataset)$last
+  # particular case where no aggregation has never been done. We start aggregating on first geolocated date
   last_aggregate <- if(!is.na(last_aggregate)) last_aggregate else first_geolocate
 
   #We know that all tweets collected before last_aggregate date have been already aggregated
@@ -324,26 +326,38 @@ get_aggregate_dates <- function(dataset) {
   #Aggregation imcumbes all tweets collected between last_aggregate and last_geolocate
   #We have to find the oldest tweet creation date collected during that period aggregation will start on that day
   stat_files <-  list.files(file.path(conf$data_dir, "stats"), recursive=TRUE, full.names =TRUE)
+  
+  #created from is going to contain the date of the oldest tweet that was collected after the last aggregation 
   created_from <- # looking on all stat files if there is a toipic wich is the oldest tweet collected date
     as.Date(
       min(
         sapply(stat_files, function(f) {
           stats <- jsonlite::read_json(f, simplifyVector = FALSE, auto_unbox = TRUE)
-          min(sapply(stats, function(t) {if(as.Date(t$collected_from) >= last_aggregate && as.Date(t$created_from) < last_aggregate) as.Date(t$created_from) else last_aggregate}))  
+          min(sapply(stats, function(t) {
+            if(as.Date(t$collected_from) >= last_aggregate && as.Date(t$created_from) < last_aggregate) #case of tweets ciollected after last aggreation but for older posted dates
+              as.Date(t$created_from) # We return the minimum tweet posted date for that topic on that tar.gz file
+            else # case of tweets collected after the last aggregate or posted after the last aggregate
+              last_aggregate # we returb last aggregate
+          }))  
         })
       ),
       origin='1970-01-01'
     )
   
+  #created_to is the last date to aggregate which should just be the date of last geolocation (you cannot aggregate if you do no have geolocated)
   created_to <- last_geolocate
+
   ret <- list()
-  # Creating a list for each date on the posted dates periods including all collected dates based on stat file names
+  # Creating a list for each date on the creted_from:created_to dates. which are the dates thar are going to be recalculated
+  # including all collected dates based on stat file names
   if(last_geolocate >= created_to) {
     for(i in 1:length(created_from:created_to)) {
       ret[[i]] <- list(created_date = created_from + (i-1), files = list())
       for(f in stat_files) {
         stats <- jsonlite::read_json(f, simplifyVector = FALSE, auto_unbox = TRUE)
         for(t in stats) {
+           # if the date to recalculate in the loop is within the crated period of the statistics for that topic then we will incude files witèh these names on aggregation
+           # because stat file names matches withe geolocated file names and with collected tweet file named
            if(as.Date(t$created_from) <= ret[[i]]$created_date && as.Date(t$created_to) >= ret[[i]]$created_date) {
              ret[[i]]$files <- unique(c(ret[[i]]$files, substr(tail(strsplit(f, "/")[[1]], n = 1), 1, 10))) 
            }

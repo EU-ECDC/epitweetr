@@ -41,7 +41,7 @@ register_detect_runner_task <- function() {
   register_runner_task("detect")
 }
 
-# Register a task task and schedule the loop to run each hour
+# Register a task on system task scheduler to run each hour
 # This tasks is currently Windows only
 register_runner_task <- function(task_name) {
   # Making sure configuration has been set
@@ -255,6 +255,9 @@ get_tasks <- function(statuses = list()) {
       scheduled_for = NA
     )
   }
+  # The rest of thi function code is to detect changes that has been requested by the shiny app
+  # changes are detected by looking on xxx_updated_on or xxx_requested_on settings on the configuration saved from the shiny_app
+
   # Activating dependencies task if requested by the shiny app
   if(in_pending_status(tasks$dependencies)) {
      tasks$dependencies$maven_repo = conf$maven_repo 
@@ -319,7 +322,7 @@ get_tasks <- function(statuses = list()) {
   
   # updating the language status and showing it as pending if we detected work to do
   tasks$languages$status <- (
-    if((!is.na(tasks$languages$status) && tasks$languages$status != "running") &&  length(to_remove) + length(to_add) + length(to_update) > 0) 
+    if((!is.na(tasks$languages$status) && tasks$languages$status == "success") &&  length(to_remove) + length(to_add) + length(to_update) > 0) 
       "pending"
     else
       tasks$languages$status
@@ -340,13 +343,15 @@ plan_tasks <-function(statuses = list()) {
   now <- Sys.time()
 
   #sorting tasks by normal execution order
-  sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
+  sorted_tasks <- order(sapply(tasks, function(l) l$order))
+  change <- FALSE 
   for(i in sorted_tasks) {
     # Scheduling pending tasks one shot tasks (not recurrent) they will simply be executed in order when pending
     if(tasks[[i]]$task %in% c("dependencies", "geonames", "languages")) {
       if(is.na(tasks[[i]]$status) || tasks[[i]]$status == "pending") {
         tasks[[i]]$status <- "scheduled"
         tasks[[i]]$scheduled_for <- now + (i - 1)/1000 # The (i-1)/1000 is not needed anymore
+        change <- TRUE
         break #Just the first pending task is set to scheduled status
       }
     } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) { 
@@ -355,10 +360,11 @@ plan_tasks <-function(statuses = list()) {
         tasks[[i]]$status <- "scheduled"
         tasks[[i]]$scheduled_for <- now
         tasks[[i]]$failures <- 0
+        change <- TRUE
         break # Just the first requested task is executed
       } else if(is.na(tasks[[i]]$status) || (  # dealing with normal recurrent scheduling. This is the case when status is not set (first time)
         tasks[[i]]$status %in% c("pending", "success", "scheduled") #or if status is pending success or schduled (ready for next execution) 
-        && { # this is the task after the last ended task base or order
+        && { # this is the task ORDER after the last ended task base
           last_ended <- 
             Reduce(
 	            x = list(tasks$geotag, tasks$aggregate, tasks$alerts), 
@@ -371,7 +377,8 @@ plan_tasks <-function(statuses = list()) {
                  else b
               }
             )
-          next_order <- if(last_ended$order +1  <= max(sapply(tasks, `[[`, "order"))) last_ended$order + 1 else 3
+          one_shot_task_count <- 3 #NUMBER OF ONE SHOT TASKS UPDATE IT ON CHANGE
+          next_order <- if(last_ended$order +1  <= max(sapply(tasks, `[[`, "order"))) last_ended$order + 1 else one_shot_task_count 
           tasks[[i]]$order == next_order
 
       })) {
@@ -381,17 +388,19 @@ plan_tasks <-function(statuses = list()) {
           tasks[[i]]$scheduled_for <- now + (i - 1)/1000
         } else if(tasks[[i]]$end_on >= tasks[[i]]$scheduled_for) { #if the task has ended after the last schedule (which should always be the case)
           # the last schedule was already executed a new schedule has to be set
-          day_slots <- get_task_day_slots(tasks[[i]]) #Getting all day slots
+          day_slots <- get_task_day_slots(tasks[[i]]) #Getting all day slots ( times where the detect loop can be executed
           next_slot <- day_slots[day_slots > tasks[[i]]$scheduled_for][[1]] #getting the first execution slot after the last scheduled time
           #if next slot is in future set it. If it is in past, set now
           tasks[[i]]$scheduled_for <- if(next_slot > now) next_slot else now + (i - 1)/1000
         }
+        change <- TRUE
         break # only first task is set to scheduled
       }
     }  
   }
   # saving changes done on taskd
-  save_tasks(tasks)
+  if(change)
+    save_tasks(tasks)
 
   # filtering the returned tasks by requested status
   if(length(statuses)==0)
@@ -401,7 +410,7 @@ plan_tasks <-function(statuses = list()) {
 }
 
 # get detect loop day slots based on start hour
-# detext loop recurrent tasks will only be executed on this times
+# detect loop recurrent tasks will only be executed on this times
 get_task_day_slots <- function(task) {
   span <- conf$schedule_span
   start_hour <- conf$schedule_start_hour
@@ -476,6 +485,7 @@ detect_loop <- function(data_dir = NA) {
     # seeing if there is something to do 
     # either there is an scheduled task
     # or a task is in an inconsistency state (running) or failed (failed or aborted) 
+    # aborted tasks are being taken into consideration since they should stop further taks from being executed 
     if(length(tasks[sapply(tasks, function(t) 
         !is.na(t$status) 
 	        && (
@@ -624,10 +634,11 @@ update_geonames_task <- function(tasks, status, message, start = FALSE, end = FA
 }
 
 # Updating task for reporting progress on languages refresh
-update_languages_task <- function(tasks, status, message, start = FALSE, end = FALSE, lang_code = character(0), lang_start = FALSE, lang_done = FALSE, lang_removed = TRUE) {
+update_languages_task <- function(tasks, status, message, start = FALSE, end = FALSE, lang_code = character(0), lang_start = FALSE, lang_done = FALSE, lang_removed = FALSE) {
   if(start) tasks$languages$started_on = Sys.time() 
   if(end) tasks$languages$end_on = Sys.time()
-  for(i in 1:length(tasks$languages$code)) {
+  i <- 1
+  while(i <= length(tasks$languages$code)) {
     if(tasks$languages$codes[[i]] == lang_code && lang_start) tasks$languages$statuses[[i]] = "running"
     if(tasks$languages$codes[[i]] == lang_code && lang_done) tasks$languages$statuses[[i]] = "done"
     if(tasks$languages$codes[[i]] == lang_code && lang_removed) {
@@ -636,8 +647,11 @@ update_languages_task <- function(tasks, status, message, start = FALSE, end = F
       tasks$languages$urls <- tasks$languages$urls[-i]
       tasks$languages$names <- tasks$languages$names[-i]
       tasks$languages$vectors <- tasks$languages$vectors[-i]
+      i <- i - 1
     }
+    i <- i + 1
   }     
+  
   tasks$languages$status =  status
   tasks$languages$message = message
   save_tasks(tasks)

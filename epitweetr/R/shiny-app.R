@@ -800,7 +800,7 @@ epitweetr_app <- function(data_dir = NA) {
     # Timer for updating task statuses  
     shiny::observe({
       shiny::invalidateLater(10000)
-      refresh_config_data(cd, list("tasks", "topics"))
+      refresh_config_data(cd, list("tasks", "topics", "langs"))
       cd$process_refresh_flag(Sys.time())
     }) 
     output$search_running <- shiny::renderText({
@@ -1316,9 +1316,12 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     langs <- get_available_languages()
     lang_tasks <- get_tasks()$language
     if(!exists("langs_refresh_flag", where = e)) {
-      e$langs_refresh_flag <- shiny::reactiveVal()
-    } else 
-      e$langs_refresh_flag(Sys.time())
+      e$langs_refresh_flag <- shiny::reactiveVal(0)
+    } else if(file.exists(get_tasks_path()) && file.info(get_tasks_path())$mtime > e$langs_refresh_flag()){
+      e$langs_refresh_flag(file.info(get_tasks_path())$mtime)
+    } else if(file.exists(get_properties_path()) && file.info(get_properties_path())$mtime > e$langs_refresh_flag()){
+      e$langs_refresh_flag(file.info(get_properties_path())$mtime)
+    } 
     e$lang_items <- setNames(langs$Code, langs$`Full Label`)
     e$lang_names <- setNames(langs$Label, langs$Code)
     e$langs <- data.frame(
