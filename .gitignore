@@ -11,6 +11,7 @@ scala/project/build.properties
 scala/project/target
 scala/target
 scala/lib_managed
+scala/null
 *.jar
 epitweetr/java/ecdc-twitter-bundle_2.12-1.0-source.zip
 epitweetr_*.pdf
