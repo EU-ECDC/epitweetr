@@ -51,9 +51,10 @@ geotag_tweets <- function(tasks = get_tasks()) {
 
   tasks <- tryCatch({
     tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
+    # calling a spark job: extractLocations that will perform the geolocation
     spark_job(
       paste(
-	"extractLocations"
+	      "extractLocations"
         , "sourcePath", paste("\"", tweet_path, "\"", sep="")
         , "destPath", paste("\"", geolocated_path, "\"", sep = "") 
         ,  conf_languages_as_arg()
@@ -79,7 +80,8 @@ geotag_tweets <- function(tasks = get_tasks()) {
   return(tasks)
 }
 
-# Get the SQL like expression to extract tweet geolocation variables 
+# Get the SQL like expression to extract tweet geolocation variables and applying priorisation 
+# this function is used on aggregate tweets for translating variables names into sql valid columns of geotag tweets
 get_tweet_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
     paste("coalesce("
@@ -97,7 +99,7 @@ get_tweet_location_var <- function(varname) {
     )  
 }
 
-# Get tweet geolocation used cols 
+# Get tweet geolocation used cols this is used for limit columns to extract from json files 
 get_tweet_location_columns <- function(table) {
   if(table == "tweet")
     list(
@@ -108,7 +110,8 @@ get_tweet_location_columns <- function(table) {
       ,"linked_text_loc"
     )
 }
-# Get the SQL like expression to extract user geolocation variables 
+# Get the SQL like expression to extract user geolocation variables and applying priorisation
+# this function is used on aggregate tweets for translating variables names into sql valid columns of geotag tweets
 get_user_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
     paste("coalesce("
@@ -132,7 +135,7 @@ get_user_location_var <- function(varname) {
       , sep = ""
     )  
 }
-# Get user geolocation used cols 
+# Get user geolocation used cols this is used for limit columns to extract from json files 
 get_user_location_columns <- function(table) {
   if(table == "tweet")
     list(
@@ -156,15 +159,24 @@ get_user_location_columns <- function(table) {
       )
 }
 
-# Get all tweets from json files of search api and json file from geolocated tweets obtained by calling (geotag_tweets)
+# Gets a dataframe with geolocated tweets requested varables stored on json files of search api and json file from geolocated tweets produced by geotag_tweets
+# this funtion is the entry point from gettin tweet information produced by SPARK
+# it is generic enough to choose variables, aggregation and filters
+# deals with tweet deduplication at topic level
+# regexp: regexp to limit the geolocaion and search files to read
+# vars: variable to read (evaluated after aggregation if required)
+# sort_by: order to apply to the returned dataframe
+# filter_by: expressions to use for filtering tweets
+# sources_exp: variables to limit the source files to read (setting this will improve reading performance)
+# handler: function that to perform a custom R based transformation on data returned by SPARK
+# perams: definition of custom param files to enable big queries
 get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL, params = NULL) {
  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
  geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
   
- # Geolocating all non located tweets before current hour
- # System call will be performed to execute java based geolocation
+ # Making java call fir gettinf geolocated tweets 
  # json results are piped as dataframe
  df <- spark_df(
     paste(
@@ -232,6 +244,8 @@ get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col =
  # Creating parameters from configuration file as java objects
  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
+
+ # using spark df to use the entry point getSamplesTweets
  spark_df(
    paste(
      "getSampleTweets"
@@ -254,8 +268,9 @@ get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col =
 }
 
 
-# Get raw countries from file
+# Get raw countries dataframe from excel file
 get_raw_countries <- function() {
+  # obtained from https://gist.github.com/AdrianBinDC/621321d6083b176b3a3215c0b75f8146#file-country-bounding-boxes-md but it had been manually updated
   df <- readxl::read_excel(get_countries_path()) 
   names(df)<-make.names(names(df),unique = TRUE)
   df$minLat <- as.numeric(df$minLat)
@@ -269,14 +284,12 @@ get_raw_countries <- function() {
 # Getting a list of regions, sub regions and countries for using as a select
 get_country_items <- function(order = "level") {
   `%>%` <- magrittr::`%>%`
-  
   #If countries are already on cache we return them otherwise we calculate them
   if(exists(paste("country_items", order, sep = ""), where = cached)) {
     return (cached[["country_items", order, sep = ""]])
   }
   else {
-    # Getting country data from package embeded csv, ignoring antartica
-    # obtained from https://gist.github.com/AdrianBinDC/621321d6083b176b3a3215c0b75f8146#file-country-bounding-boxes-md
+    # Getting country data from package embeded excel, ignoring antartica
     countries <- get_raw_countries() %>% dplyr::filter(.data$region != "")
 
     # using intermediate region when available
@@ -297,7 +310,7 @@ get_country_items <- function(order = "level") {
 
     # creating list containing results
     items <- list()
-    # adding world items  
+    # adding hardcodes world items  
     row <- 1
     items[[row]] <- list(name = "World (all)", codes = list(), level = 0, minLat = -90, maxLat = 90, minLong = -180, maxLong = 180 )
     row <- 2
@@ -384,9 +397,11 @@ get_country_items <- function(order = "level") {
       }
 
     }
+    # Items are natively ordered as a hierarchy, but default of this functuion us ordered by level and name
     if(order == "level")
       items <- items[order(sapply(items,function(i) {paste(i$level, i$name)}))]
 
+    # setting the cache
     cached[[paste("country_items", order, sep="_")]] <- items    
     return(items)
   }
@@ -489,7 +504,8 @@ update_geonames <- function(tasks) {
     file.remove(temp)
     file.rename(from = file.path(temp_dir, "allCountries.txt"), to = get_geonames_txt_path())
     
-    # Assembling geonames datasets
+    # Assembling geonames datasets 
+    # using spark job with entry point updateGeonames part 'ASSEMBLE'
     tasks <- update_geonames_task(tasks, "running", "assembling")
     spark_job(
        paste(
@@ -503,6 +519,7 @@ update_geonames <- function(tasks) {
     
     # Indexing geonames datasets
     tasks <- update_geonames_task(tasks, "running", "indexing")
+    # using spark job with entry point updateGeonames part 'INDEX'
     spark_job(
       paste(
         "updateGeonames"
@@ -584,6 +601,7 @@ update_languages <- function(tasks) {
       if(tasks$languages$statuses[[i]] %in% c("to add", "to update")) {
         tasks <- update_languages_task(tasks, "running", paste("downloading", tasks$languages$name[[i]]), lang_code = tasks$languages$codes[[i]], lang_start = TRUE)
         temp <- tempfile()
+        # downloading the file
         download.file(tasks$languages$url[[i]],temp,mode="wb")
         file.rename(from = file.path(temp), to = tasks$languages$vectors[[i]])
         tasks <- update_languages_task(tasks, "running", paste("downloaded", tasks$languages$name[[i]]), lang_code = tasks$languages$codes[[i]], lang_done = TRUE)
@@ -599,7 +617,8 @@ update_languages <- function(tasks) {
       }
       i <- i + 1
     }
-    # Indexing languages
+    # Indexing languages after changes
+    # using the spark job with entry point updateLanguages 
     tasks <- update_languages_task(tasks, "running", "indexing")
     spark_job(
       paste(

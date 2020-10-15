@@ -1,3 +1,5 @@
+# creating package and installing it
+
 set cdir=%cd%
 set OPENBLAS_NUM_THREADS=1
 set SPARK_VERSION=3.0.0

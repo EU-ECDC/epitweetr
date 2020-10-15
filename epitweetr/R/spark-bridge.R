@@ -51,36 +51,37 @@ conf_geonames_as_arg <- function() {
 }
 
 
-# making a spark call via system call
+# making a spark call via system call withouth returnuing any value
 spark_job <- function(args) {
+  # Setting BLAS environmebt variables
   set_blas_env()
   cmd <- paste(
-    if(.Platform$OS.type != "windows") { 
+    if(.Platform$OS.type != "windows") { #Default non windows environment variables within the command 
       "export OPENBLAS_NUM_THREADS=1"
     }
     else {
-      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_winutils_hadoop_home_path())
+      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_winutils_hadoop_home_path()) #Default windows environment variables
       "" 
     }
     ,paste(
-      java_path() 
+      java_path() #java executable
       , paste(
           "-cp \"", 
-          get_app_jar_path(), 
+          get_app_jar_path(), #epitweetr embededd jar path with
           if(.Platform$OS.type != "windows") ":" else ";",
-          get_jars_dest_path(), 
+          get_jars_dest_path(),  #java class path with all dependencies
           "/*\"", 
           sep=""
         )
-      , paste("-Xmx", conf$spark_memory, sep = "")
-      , paste(get_blas_java_opt())
-      , "org.ecdc.twitter.Tweets"
-      , args
+      , paste("-Xmx", conf$spark_memory, sep = "") #memory limits
+      , paste(get_blas_java_opt()) #java blas specific options
+      , "org.ecdc.twitter.Tweets" #java scala main class
+      , args #arguments to the call
     )
     ,sep = if(.Platform$OS.type == "windows") '\r\n' else '\n'
   )
 
-  #message(cmd)
+  #message(cmd) # uncomment this to see the command sent
   res <- system(cmd)
   if(res != 0)
     stop(paste("Error encountered while exeuting: ", cmd))
@@ -89,49 +90,58 @@ spark_job <- function(args) {
 
 # getting a spark data frame by piping a system call
 spark_df <- function(args, handler = NULL) {
+  # Setting BLAS environmebt variables
   set_blas_env()
+  # Setting the memory to the half of allocated since R will use memory for loading the dataframe
   half_mem <- paste(ceiling(as.integer(gsub("[^0-9]*", "", conf$spark_memory))/2), gsub("[0-9]*", "", conf$spark_memory), sep = "")
   cmd <- paste(
-    if(.Platform$OS.type != "windows") 
+    if(.Platform$OS.type != "windows")  #Default non windows environment variables 
       "export OPENBLAS_NUM_THREADS=1"
     else {
-      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_winutils_hadoop_home_path())
+      Sys.setenv(OPENBLAS_NUM_THREADS=1, HADOOP_HOME=get_winutils_hadoop_home_path()) # Setting windowd default environment variables
       "" 
     }
    ,paste(
       paste(
         if(.Platform$OS.type == "windows") "call " else "", 
-        java_path(), 
+        java_path(), # java executable
         sep = ""
        ), 
       paste(
         "-cp \"", 
-        get_app_jar_path(), 
+        get_app_jar_path(),  #epitweetr embededd jar path with
         if(.Platform$OS.type != "windows") ":" else ";",
-        get_jars_dest_path(), 
+        get_jars_dest_path(), #java class path with all dependencies
         "/*\"", 
         sep=""
       ),
-      "-Dfile.encoding=UTF8",
-      paste("-Xmx", half_mem, sep = ""),
+      "-Dfile.encoding=UTF8", #Setting java encoding to UTF-8
+      paste("-Xmx", half_mem, sep = ""), #Setting java memory
       paste(get_blas_java_opt()),
-      "org.ecdc.twitter.Tweets",
+      "org.ecdc.twitter.Tweets", #epitwitter scala main class
       args
     )
     ,sep = '\n'
   )
-  #message(cmd) 
+  #message(cmd) # uncomment this to see the command sent
   con <- if(.Platform$OS.type == "windows") {
+    # on windows we send the results to a temporary files
     t <- tempfile()
     tcmd <- paste(cmd, shQuote(t), sep=" >")
     shell(tcmd)
     file(t, encoding = "UTF-8")
   } else {
+    # on other OS we get the results directly from the command line
     pipe(cmd, encoding = "UTF-8")
   }
+  # here we have a connection ro read returning json lines 
   df <- if(is.null(handler)) {
+    #If no custom transformation will be done on data we pass the json lines to jsonlite to interprete it as an R dataframe
     jsonlite::stream_in(con, pagesize = 10000, verbose = FALSE)
   } else {
+    # If a custom transfotmation is going to be done (a handler function has been set)
+    # this function will be calles on pages of 10k lines using the jsonlite stream_in function
+    # the transformed results will be stored on a temporary file that will be read by stream_in
     tmp_file <- tempfile(pattern = "epitweetr", fileext = ".json")
     #message(tmp_file)
     con_tmp <- file(tmp_file, open = "w", encoding = "UTF-8") 
@@ -183,9 +193,11 @@ spark_df <- function(args, handler = NULL) {
 download_dependencies <- function(tasks = get_tasks()) {
   tasks <- tryCatch({
     tasks <- update_dep_task(tasks, "running", "getting sbt dependencies", start = TRUE)
+    # downloading SPARK, lucene and other scala dependencies from the provided maven repository 
     tasks <- download_sbt_dependencies(tasks)
     if(.Platform$OS.type == "windows") {
       tasks <- update_dep_task(tasks, "running", "getting winutils")
+      # on windows, downloading winutils from the URL set from the shiny app which is a prerequisite of SPARK
       tasks <- download_winutils()
     }
     # Setting status to succes
@@ -210,10 +222,12 @@ download_dependencies <- function(tasks = get_tasks()) {
 # Download SBT dependencies from maven (scala, spark, lucene, netlib (BLAS), httpclient) into package folder
 download_sbt_dependencies <- function(tasks = get_tasks()) {
   if(!exists("maven_repo", where = tasks$dependencies)) stop("Before running detect loop you have to manually update 'Java/Scala dependencies' to set the used repository")
+  # reading the dependencies to download from embeded list
   con <- file(get_sbt_file_dep_path())
   deps <- readLines(con)
   close(con)
   
+  # transforming the dependencies listed into maven URLs there are two possible formats that will be stored on urls and urls2
   parts <- strsplit(deps, "/")
   versions <- sapply(parts, function(p) {l <- nchar(p[[4]]); substr(p[[5]], l + 2, nchar(p[[5]]))})
   versions <- gsub("\\.([^\\.]*)$", "", versions)
@@ -230,16 +244,19 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
     file.remove(existing)
   }
 
+  # destination file
   dest_file <- file.path(get_jars_dest_path(), paste(sapply(parts, `[[`, 3), sapply(parts, `[[`, 4), sapply(parts, `[[`, 5), sep = "_"))
-  #dest_file <- file.path(get_jars_dest_path(), sapply(parts, `[[`, 5))
   
+  # iterating over all files 
   for(i in 1:length(urls)) {
     tryCatch({
       tasks <- update_dep_task(tasks, "running", paste("downloading", urls[[i]]))
+      # downloading files on first format 
       download.file(url = urls[[i]], destfile = dest_file[[i]], mode = "wb")
     }
     ,warning = function(c) {
       tasks <- update_dep_task(tasks, "running", paste("downloading", urls2[[i]]))
+      # downloading files on secong format 
       download.file(url = urls2[[i]], destfile = dest_file[[i]], mode = "wb")
     }
     ,error = function(c) {

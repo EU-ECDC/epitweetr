@@ -1,4 +1,4 @@
-
+# performance tests for disk and cpu
 testDisk <- function(){
 count = 0
 size = 0

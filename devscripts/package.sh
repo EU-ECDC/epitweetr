@@ -1,3 +1,4 @@
+# creating package and installing it
 export cdir=`pwd`
 export OPENBLAS_NUM_THREADS=1
 export SPARK_VERSION=3.0.0

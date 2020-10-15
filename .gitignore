@@ -12,6 +12,11 @@ scala/project/target
 scala/target
 scala/lib_managed
 *.jar
+epitweetr/java/ecdc-twitter-bundle_2.12-1.0-source.zip
+epitweetr_*.pdf
+vignette_*.pdf
+install/
+prerequisites
 
 #Excel locj files
 .~lock*

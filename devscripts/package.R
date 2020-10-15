@@ -1,3 +1,4 @@
+# creating package and installing it
 print(getwd())
 
 if(!("devtools" %in% installed.packages()[,"Package"]))

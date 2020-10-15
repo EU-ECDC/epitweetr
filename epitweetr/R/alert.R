@@ -583,13 +583,13 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
       f <- file(alert_file, "rb")
       df <- jsonlite::stream_in(f, verbose = FALSE)
       close(f)
-      # Adding default valur for same_weekday_baseline if does not exists
+      # Adding default value for same_weekday_baseline if does not exists
       if(!("same_weekday_baseline" %in% colnames(df)))
         df$same_weekday_baseline <- sapply(df$topic, function(t) FALSE)
-      # Adding default valur for alpha_outlier if does not exists
+      # Adding default value for alpha_outlier if does not exists
       if(!("alpha_outlier" %in% colnames(df)))
         df$alpha_outlier <- as.numeric(sapply(df$topic, function(t) NA))
-      # Adding default valur for k_decay if does not exists
+      # Adding default value for k_decay if does not exists
       if(!("k_decay" %in% colnames(df)))
         df$k_decay <- as.numeric(sapply(df$topic, function(t) NA))
 
