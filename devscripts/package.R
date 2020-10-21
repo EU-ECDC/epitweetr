@@ -8,8 +8,8 @@ devtools::document()
 devtools::build(binary=TRUE)
 devtools::build(binary=FALSE)
 
-if(!file.exists("install")){
-  dir.create("install", showWarnings = FALSE)
+if(!file.exists(file.path("..", "install"))){
+  dir.create(file.path("..", "install"), showWarnings = FALSE)
 }
 
 installer_name <- (
