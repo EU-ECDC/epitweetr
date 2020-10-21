@@ -79,7 +79,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::radioButtons("location_type", label = shiny::h4("Location type"), choices = list("Tweet"="tweet", "User"="user","Both"="both" ), selected = "tweet", inline = TRUE),
           shiny::sliderInput("alpha_filter", label = shiny::h4("Signal false positive rate"), min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005),
           shiny::sliderInput("alpha_outlier_filter", label = shiny::h4("Outlier false positive rate"), min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005),
-          shiny::sliderInput("k_decay_filter", label = shiny::h4("Outlier downweight strength"), min = 1, max = 10, value = conf$alert_k_decay, step = 0.5),
+          shiny::sliderInput("k_decay_filter", label = shiny::h4("Outlier downweight strength"), min = 0, max = 10, value = conf$alert_k_decay, step = 0.5),
           shiny::h4("Bonferroni correction"),
 	        shiny::checkboxInput("bonferroni_correction", label = NULL, value = conf$alert_with_bonferroni_correction),
           shiny::numericInput("history_filter", label = shiny::h4("Days in baseline"), value = conf$alert_history),
@@ -194,7 +194,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h3("Signal detection"),
           shiny::fluidRow(shiny::column(3, "Signal false positive rate"), shiny::column(9, shiny::sliderInput("conf_alpha", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha, step = 0.005))),
           shiny::fluidRow(shiny::column(3, "Outlier false positive rate"), shiny::column(9, shiny::sliderInput("conf_alpha_outlier", label = NULL, min = 0, max = 0.3, value = conf$alert_alpha_outlier, step = 0.005))),
-          shiny::fluidRow(shiny::column(3, "Outlier downweight strength"), shiny::column(9, shiny::sliderInput("conf_k_decay", label = NULL, min = 1, max = 10, value = conf$alert_k_decay, step = 0.5))),
+          shiny::fluidRow(shiny::column(3, "Outlier downweight strength"), shiny::column(9, shiny::sliderInput("conf_k_decay", label = NULL, min = 0, max = 10, value = conf$alert_k_decay, step = 0.5))),
           shiny::fluidRow(shiny::column(3, "Days in baseline"), shiny::column(9, shiny::numericInput("conf_history", label = NULL , value = conf$alert_history))),
           shiny::fluidRow(shiny::column(3, "Same weekday baseline"), shiny::column(9, shiny::checkboxInput("conf_same_weekday_baseline", label = NULL , value = conf$alert_same_weekday_baseline))),
           shiny::fluidRow(shiny::column(3, "Include retweets/quotes"), shiny::column(9, shiny::checkboxInput("conf_with_retweets", label = NULL , value = conf$alert_with_retweets))),
@@ -452,7 +452,8 @@ epitweetr_app <- function(data_dir = NA) {
     )
     
   }
-  # Rmarkdown dasboard export
+  # Rmarkdown dasboard export bi writing the dashboard on the provided file$
+  # it uses the markdown template inst/rmarkdown/dashboard.Rmd
   export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, alpha_outlier, k_decay, no_historic, bonferroni_correction, same_weekday_baseline) {
     rmarkdown::render(
       system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
@@ -476,14 +477,16 @@ epitweetr_app <- function(data_dir = NA) {
     ) 
   }
   
-  # Defining server loginc
+  # Defining server logic
   server <- function(input, output, session, ...) {
     `%>%` <- magrittr::`%>%`
     ################################################
     ######### FILTERS LOGIC ########################
     ################################################
+    
     # upadating alpha filter based on selected topic value
     shiny::observe({
+      # reading input$topics will automatically trigger the update on change 
       val <- {
       if(length(input$topics)==0 || input$topics == "") 
         conf$alert_alpha
@@ -495,6 +498,7 @@ epitweetr_app <- function(data_dir = NA) {
     
     # upadating outliers alpha filter based on selected topic value
     shiny::observe({
+      # reading input$topics will automatically trigger the update on change 
       val <- {
       if(length(input$topics)==0 || input$topics == "") 
         conf$alert_alpha_outlier
@@ -506,6 +510,8 @@ epitweetr_app <- function(data_dir = NA) {
 
     # update the date ranges based on type of range selected
     shiny::observe({
+      # reading input$fixed_period will automatically trigger the update on change 
+      # refresh dashboard data is necessary to update active dates
       refresh_dashboard_data(d, input$fixed_period)
       shiny::updateDateRangeInput(session, "period", start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max)
     }) 
@@ -513,8 +519,12 @@ epitweetr_app <- function(data_dir = NA) {
     ################################################
     ######### DASHBOARD LOGIC ######################
     ################################################
+    # rendering line chart
     output$line_chart <- plotly::renderPlotly({
+       # Validate if minimal requirements for rendering are met 
        can_render(input, d)
+
+       # getting the chart
        chart <- line_chart_from_filters(
          input$topics, 
          input$countries, 
@@ -529,10 +539,17 @@ epitweetr_app <- function(data_dir = NA) {
          input$bonferroni_correction,
          input$same_weekday_baseline
          )$chart
+       
+       # Setting size based on container size
        height <- session$clientData$output_line_chart_height
        width <- session$clientData$output_line_chart_width
-	     chart_not_empty(chart)
+	     
+       # returning empty chart if no data is found on chart
+       chart_not_empty(chart)
+       
+       # transforming chart on plotly
        gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = FALSE) 
+       
        # Fixing bad entries on ggplotly chart
        for(i in 1:length(gg$x$data)) {
          if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
@@ -542,13 +559,24 @@ epitweetr_app <- function(data_dir = NA) {
          gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
        }
        gg
-    })  
+    }) 
+     
+    # rendering map chart
     output$map_chart <- plotly::renderPlotly({
+       # Validate if minimal requirements for rendering are met 
        can_render(input, d)
+       
+       # Setting size based on container size
        height <- session$clientData$output_map_chart_height
        width <- session$clientData$output_map_chart_width
+       
+       # getting the chart 
        chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
+       
+       # returning empty chart if no data is found on chart
 	     chart_not_empty(chart)
+       
+       # transforming chart on plotly
        gg <- chart %>%
          plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
 	       plotly::layout(
@@ -576,11 +604,20 @@ epitweetr_app <- function(data_dir = NA) {
     })
 
     output$topword_chart <- plotly::renderPlotly({
+       # Validate if minimal requirements for rendering are met 
        can_render(input, d)
+       
+       # Setting size based on container size
        height <- session$clientData$output_topword_chart_height
        width <- session$clientData$output_topword_chart_width
+       
+       # getting the chart 
        chart <- topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
+       
+       # returning empty chart if no data is found on chart
 	     chart_not_empty(chart)
+
+       # transforming chart on plotly
        chart %>%
          plotly::ggplotly(height = height, width = width) %>% 
 	       plotly::layout(
@@ -596,7 +633,9 @@ epitweetr_app <- function(data_dir = NA) {
              y = -0.4)
          ) %>%
 	       plotly::config(displayModeBar = FALSE)
-    })  
+    })
+    
+    # Saving line chart as png and downloading it from shiny app
     output$export_line <- shiny::downloadHandler(
       filename = function() { 
         paste("line_dataset_", 
@@ -628,6 +667,7 @@ epitweetr_app <- function(data_dir = NA) {
         ggplot2::ggsave(file, plot = chart, device = device) 
       }
     ) 
+    # Saving line chart as CSV and downloading it from shiny app
     output$download_line_data <- shiny::downloadHandler(
       filename = function() { 
         paste("line_dataset_", 
@@ -658,7 +698,9 @@ epitweetr_app <- function(data_dir = NA) {
           file, 
           row.names = FALSE)
       }
-    ) 
+    )
+     
+    # Saving map chart as CSV and downloading it from shiny app
     output$download_map_data <- shiny::downloadHandler(
       filename = function() { 
         paste("map_dataset_", 
@@ -676,7 +718,9 @@ epitweetr_app <- function(data_dir = NA) {
           file, 
           row.names = FALSE)
       }
-    ) 
+    )
+     
+    # Saving map chart as png and downloading it from shiny app
     output$export_map <- shiny::downloadHandler(
       filename = function() { 
         paste("map_dataset_", 
@@ -689,13 +733,14 @@ epitweetr_app <- function(data_dir = NA) {
         )
       },
       content = function(file) { 
-	chart <- 
-	  map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
+	      chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
         
       }
-    ) 
+    )
+     
+    # Saving top chart as CSV and downloading it from shiny app
     output$download_topword_data <- shiny::downloadHandler(
       filename = function() { 
         paste("topword_dataset_", 
@@ -714,6 +759,8 @@ epitweetr_app <- function(data_dir = NA) {
           row.names = FALSE)
       }
     ) 
+    
+    # Saving top chart as png and downloading it from shiny app
     output$export_topword <- shiny::downloadHandler(
       filename = function() { 
         paste("topword_", 
@@ -731,7 +778,9 @@ epitweetr_app <- function(data_dir = NA) {
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
       }
-    ) 
+    )
+    
+    # Saving dashboard as PDF downloading it from shiny app
     output$export_pdf <- shiny::downloadHandler(
       filename = function() { 
         paste("epitweetr_dashboard_", 
@@ -762,6 +811,7 @@ epitweetr_app <- function(data_dir = NA) {
          )
       }
     ) 
+    # Saving dashboard as markdown downloading it from shiny app
     output$export_md <- shiny::downloadHandler(
       filename = function() { 
         paste("epitweetr_dashboard_", 
@@ -797,16 +847,29 @@ epitweetr_app <- function(data_dir = NA) {
     ################################################
     
     ######### STATUS PANEL LOGIC ##################
-    # Timer for updating task statuses  
+    
+    # Timer for updating task statuses 
+    # each ten seconds config data will be reloaded to capture changes from detect loop and search loop
+    # each ten seconds a process refres flag will be invalidated to trigger process status recalculation
     shiny::observe({
+      # Setting the timer
       shiny::invalidateLater(10000)
+      
+      # updating config data
       refresh_config_data(cd, list("tasks", "topics", "langs"))
+      
+      # invalidating the process refresh flag
       cd$process_refresh_flag(Sys.time())
     }) 
+
+    # rendering the search running status
     output$search_running <- shiny::renderText({
-      # Adding a dependency to task refresh
+      # Adding a dependency to task refresh (each time a task has changed by the detect loop)
       cd$tasks_refresh_flag()
+      # Adding a dependency to process update (each 10 seconds)
       cd$process_refresh_flag()
+
+      # updating the label
       paste(
         "<span",
         " style='color:", if(cd$search_running) "#348017'" else "#F75D59'",
@@ -822,10 +885,15 @@ epitweetr_app <- function(data_dir = NA) {
         "</span>"
         ,sep=""
     )})
+
+    # rendering rhe detect running status
     output$detect_running <- shiny::renderText({
-      # Adding a dependency to task refresh
+      # Adding a dependency to task refresh (each time a task has changed by the detect loop)
       cd$tasks_refresh_flag()
+      # Adding a dependency to process update (each 10 seconds)
       cd$process_refresh_flag()
+      
+      # updating the label
       paste(
         "<span",
         " style='color:", if(cd$detect_running) "#348017'" else "#F75D59'",
@@ -835,70 +903,117 @@ epitweetr_app <- function(data_dir = NA) {
         ,sep=""
       )})
 
+    # rendering the slots each time properties are changed
     output$conf_schedule_slots <- shiny::renderText({
       # Adding a dependency to config refresh
       cd$properties_refresh_flag()
+
+      #rendering the label
       paste(head(lapply(get_task_day_slots(get_tasks()$geotag), function(d) strftime(d, format="%H:%M")), -1), collapse=", ")
     })
 
+    # registering the search runner after button is clicked
     shiny::observeEvent(input$activate_search, {
+      # registering the scheduled task
       register_search_runner_task()
+      # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
 
+    # registering the detect runner after button is clicked
     shiny::observeEvent(input$activate_detect, {
+      # Setting values configuration to trigger one shot tasks for the first time
       if(is.na(conf$dep_updated_on)) conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       if(is.na(conf$geonames_updated_on)) conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       if(is.na(conf$lang_updated_on)) conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # Forcing refresh of tasks
       cd$tasks_refresh_flag(Sys.time())
+      # saving properties to ensure the detect loop can see the changes and start running the tasks
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+
+      # registering the scheduled task
       register_detect_runner_task()
+      
+      # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
 
+    # action to activate de dependency download tasks 
     shiny::observeEvent(input$update_dependencies, {
+      # Setting values on the configuration so the detect loop know it has to launch the task
       conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # forcing a task refresh :TODO test if this is still necessary 
       cd$tasks_refresh_flag(Sys.time())
+      # saving configuration so the detect loop will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
     })
-    
+   
+    # action to activate the update geonames task 
     shiny::observeEvent(input$update_geonames, {
+      # Setting values on the configuration so the detect loop know it has to launch the task
       conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
+      # saving configuration so the detect loop will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
     })
 
+    # action to activate the update languages task
     shiny::observeEvent(input$update_languages, {
+      # Setting values on the configuration so the detect loop know it has to launch the task
       conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
+      # saving configuration so the detect loop will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
     })
     
+    # action to activate the geotag task
     shiny::observeEvent(input$request_geotag, {
+      # Setting values on the configuration so the detect loop know it has to launch the task
       conf$geotag_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
+      # saving configuration so the detect loop will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
     })
     
+    # action to activate the aggregate task
     shiny::observeEvent(input$request_aggregate, {
+      # Setting values on the configuration so the detect loop know it has to launch the task
       conf$aggregate_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
+      # saving configuration so the detect loop will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
     })
 
+    # action to activate the alerts task
     shiny::observeEvent(input$request_alerts, {
+      # Setting values on the configuration so the detect loop know it has to launch the task
       conf$alerts_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
+      # saving configuration so the detect loop will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
     })
+
     ######### PROPERTIES LOGIC ##################
+    # action to save properties
     shiny::observeEvent(input$save_properties, {
+      # copying input data to conf
       conf$collect_span <- input$conf_collect_span
       conf$schedule_span <- input$conf_schedule_span
       conf$keyring <- input$conf_keyring
@@ -917,6 +1032,7 @@ epitweetr_app <- function(data_dir = NA) {
       conf$alert_same_weekday_baseline <- input$conf_same_weekday_baseline 
       conf$alert_with_bonferroni_corection <- input$conf_with_bonferroni_correction
       conf$alert_with_retweets <- input$conf_with_retweets
+      # Setting secrets
       if(input$twitter_auth == "app") {
         set_twitter_app_auth(
           app = input$twitter_app, 
@@ -938,13 +1054,16 @@ epitweetr_app <- function(data_dir = NA) {
       conf$smtp_password <- input$smtp_password
       conf$force_date_format <- input$force_date_format
 
+      # Saving properties.json
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
 
+      # Forcing update on properties dependant refresh (e.g. time slots)
       cd$properties_refresh_flag(Sys.time())
     })
 
 
     ######### IMPORTANT USERS LOGIC ###########
+    # downloading current important users file
     output$conf_users_download <- shiny::downloadHandler(
       filename = function() "users.xlsx",
       content = function(file) { 
@@ -952,6 +1071,7 @@ epitweetr_app <- function(data_dir = NA) {
       }
     )
     
+    # downloading default important users file
     output$conf_orig_users_download <- shiny::downloadHandler(
       filename = function() "users.xlsx",
       content = function(file) { 
@@ -959,6 +1079,7 @@ epitweetr_app <- function(data_dir = NA) {
       }
     )
     
+    # uploading new important users
     shiny::observe({
       df <- input$conf_users_upload
       if(!is.null(df) && nrow(df)>0) {
@@ -966,13 +1087,16 @@ epitweetr_app <- function(data_dir = NA) {
         file.copy(uploaded, paste(conf$data_dir, "users.xlsx", sep = "/"), overwrite=TRUE) 
       }
     })
+
     ######### LANGUAGE LOGIC ##################
+    # rendering languages each time a change is registered on languges
     output$config_langs <- DT::renderDataTable({
       # Adding dependency with lang refresh
       cd$langs_refresh_flag()
       DT::datatable(cd$langs)
     })
     
+    # downloading current languages
     output$conf_lang_download <- shiny::downloadHandler(
       filename = function() "languages.xlsx",
       content = function(file) { 
@@ -980,13 +1104,15 @@ epitweetr_app <- function(data_dir = NA) {
       }
     )
     
+    # downloading original languages file
     output$conf_orig_lang_download <- shiny::downloadHandler(
       filename = function() "languages.xlsx",
       content = function(file) { 
         file.copy(get_default_available_languages_path(), file) 
       }
     )
-     
+    
+    # uploading new language file
     shiny::observe({
       df <- input$conf_lang_upload
       if(!is.null(df) && nrow(df)>0) {
@@ -996,18 +1122,21 @@ epitweetr_app <- function(data_dir = NA) {
       }
     })
 
+    # rendering active languages when something has changed on languages
     output$lang_items_0 <- shiny::renderUI({
       # Adding a dependency to lang refresh
       cd$langs_refresh_flag()
       shiny::selectInput("lang_items", label = NULL, multiple = FALSE, choices = cd$lang_items)
     })
 
+    # adding the current language
     shiny::observeEvent(input$conf_lang_add, {
       add_config_language(input$lang_items, cd$lang_names[input$lang_items])
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       refresh_config_data(e = cd, limit = list("langs"))
     })
     
+    #removing a language
     shiny::observeEvent(input$conf_lang_remove, {
       remove_config_language(input$lang_items)
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
@@ -1015,6 +1144,7 @@ epitweetr_app <- function(data_dir = NA) {
     })
     
     ######### TASKS LOGIC ##################
+    # rendering the tasks each time something change on taskd
     output$tasks_df <- DT::renderDataTable({
       # Adding dependency with tasks refresh
       cd$tasks_refresh_flag()
@@ -1023,6 +1153,7 @@ epitweetr_app <- function(data_dir = NA) {
     
      
     ######### TOPICS LOGIC ##################
+    # rendering the topics only on first load update is done on next statement
     output$config_topics <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
        cd$topics_df %>%
@@ -1033,25 +1164,32 @@ epitweetr_app <- function(data_dir = NA) {
         ) %>%
         DT::formatPercentage(columns = c("Progress"))
     })
+    # this is for updating the topics
     shiny::observe({
-      # Adding a dependency to topics refresh
+      # Adding a dependency to topics refresh or plans refresh
       cd$topics_refresh_flag()
       cd$plans_refresh_flag()
       DT::replaceData(DT::dataTableProxy('config_topics'), cd$topics_df)
        
     }) 
+
+    # download the current topics file 
     output$conf_topics_download <- shiny::downloadHandler(
       filename = function() "topics.xlsx",
       content = function(file) { 
         file.copy(get_topics_path(), file) 
       }
     )
+
+    #download the original topics file
     output$conf_orig_topics_download <- shiny::downloadHandler(
       filename = function() "topics.xlsx",
       content = function(file) { 
         file.copy(get_default_topics_path(), file) 
       }
     )
+
+    # uploading a new topics file
     shiny::observe({
       df <- input$conf_topics_upload
       if(!is.null(df) && nrow(df)>0) {
@@ -1060,7 +1198,9 @@ epitweetr_app <- function(data_dir = NA) {
         refresh_config_data(e = cd, limit = list("topics"))
       }
     }) 
+
     ######### SUBSCRIBERS LOGIC ##################
+    # rendering subscribers (first run update on next statement)
     output$config_subscribers <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
       get_subscribers() %>%
@@ -1079,24 +1219,31 @@ epitweetr_app <- function(data_dir = NA) {
           escape = TRUE
         )
     })
+
+    # updating the subscriber table on change of subscribers file
     shiny::observe({
       # Adding a dependency to subscribers refresh
       cd$subscribers_refresh_flag()
       DT::replaceData(DT::dataTableProxy('config_subscribers'), get_subscribers())
     })
      
+    # downloading subscribers default file
     output$conf_orig_subscribers_download <- shiny::downloadHandler(
       filename = function() "subscribers.xlsx",
       content = function(file) { 
         file.copy(get_default_subscribers_path(), file) 
       }
     )
+
+    # downloading subscriber current file
     output$conf_subscribers_download <- shiny::downloadHandler(
       filename = function() "subscribers.xlsx",
       content = function(file) { 
         file.copy(get_subscribers_path(), file) 
       }
     )
+
+    # uploading subscribers file
     shiny::observe({
       df <- input$conf_subscribers_upload
       if(!is.null(df) && nrow(df)>0) {
@@ -1105,7 +1252,10 @@ epitweetr_app <- function(data_dir = NA) {
         cd$subscribers_refresh_flag(Sys.time())
       }
     }) 
+
+
     ######### REGIONS LOGIC ##################
+    # rendering reguions for the first time (update on next statement)
     output$config_regions <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
       get_regions_df() %>%
@@ -1123,12 +1273,15 @@ epitweetr_app <- function(data_dir = NA) {
           escape = TRUE
         )
     })
+
+    # Updating regions when the new file is uploaded
     shiny::observe({
       # Adding a dependency to country refresh
       cd$countries_refresh_flag()
       DT::replaceData(DT::dataTableProxy('config_regions'), get_regions_df())
     })
      
+    # Download the current country file
     output$conf_countries_download <- shiny::downloadHandler(
       filename = function() "countries.xlsx",
       content = function(file) { 
@@ -1136,12 +1289,15 @@ epitweetr_app <- function(data_dir = NA) {
       }
     )
     
+    # Dowload the original country file
     output$conf_orig_countries_download <- shiny::downloadHandler(
       filename = function() "countries.xlsx",
       content = function(file) { 
         file.copy(get_default_countries_path(), file) 
       }
     )
+
+    #Update the new country file
     shiny::observe({
       df <- input$conf_countries_upload
       if(!is.null(df) && nrow(df)>0) {
@@ -1151,6 +1307,8 @@ epitweetr_app <- function(data_dir = NA) {
       }
     }) 
     ######### ALERTS LOGIC ##################
+    # rendering the alerts 
+    # updates are launched automatically whan any input value changes
     output$alerts_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
       alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]])
@@ -1187,7 +1345,9 @@ epitweetr_app <- function(data_dir = NA) {
           escape = TRUE
         )
     })
+
     ######### GEOTEST LOGIC ##################
+    # rendering geotest data, updates are done automatically whenever an input changes
     output$geotest_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
        text_col <- strsplit(input$geotest_fields, ";")[[1]][[1]]
@@ -1217,6 +1377,7 @@ epitweetr_app <- function(data_dir = NA) {
     })
 
     ######## DIAGNOSTIC LOGIC ############
+    # running the diagnostics when the button is clicked
     shiny::observeEvent(input$run_diagnostic, {
       `%>%` <- magrittr::`%>%`
        
@@ -1250,7 +1411,7 @@ epitweetr_app <- function(data_dir = NA) {
   shiny::shinyApp(ui = ui, server = server, options = options(shiny.fullstacktrace = TRUE))
 }
 
-# Get default data for dashoard
+# Get or updates data used for dashboard filters based on configuration values and aggregated period
 refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   e$topics <- {
     codes <- unique(sapply(conf$topics, function(t) t$topic))
@@ -1289,7 +1450,7 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   return(e)
 }
 
-# Get or update default data for config page 
+# Get or update data for config page from configuration, search and detect loop files
 refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks", "geo")) {
   # Refreshing configuration
   setup_config(data_dir = conf$data_dir, ignore_properties = TRUE)
@@ -1360,6 +1521,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     e$search_running <- is_search_running() 
     e$search_diff <- Sys.time() - last_search_time()
 
+    # Detecting if some change has happened since last evaluation
     if(!exists("tasks_refresh_flag", where = e)) {
       e$tasks_refresh_flag <- shiny::reactiveVal()
       update <- TRUE
