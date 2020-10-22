@@ -1,7 +1,7 @@
 
 #' @title Runs the search loop
 #' @description Infinite loop ensuring the permanent collection of tweets 
-#' @param data_dir optional path to the 'data directory' containing application settings, models and collected tweets. If not provided it will resuse the last set on the current session.
+#' @param data_dir optional path to the 'data directory' containing application settings, models and collected tweets. If not provided it will reuse the last set on the current session.
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, Default: NA
 #' @return Nothing
 #' @details The detect loop is a pure R function designed for downloading tweets from the Twitter search API. It can handle several topics ensuring that all of them will be downloaded fairly using a 
@@ -35,16 +35,16 @@ search_loop <-  function(data_dir = NA) {
   # Registering the search runner using current PID and ensuring no other instance of the search is actually running.
   register_search_runner()
   
-  # Infinite loop for getting tweets if successfully registeres as the search runner
+  # Infinite loop for getting tweets if it is successfully registered as the search runner
   while(TRUE) {
-    # On each iteration this loop will perform one request for each active plans having the minumum number of requests 
+    # On each iteration this loop will perform one request for each active plans having the minimum number of requests 
     # Creating plans for each topic if collect span is expired and calculating next execution time for each plan.
     for(i in 1:length(conf$topics)) {
       conf$topics[[i]]$plan <- update_plans(plans = conf$topics[[i]]$plan, schedule_span = conf$collect_span)
     }
      
     # Calculating how the time epitweetr should wait before executing each active plan. If bigger than zero then epitweetr will wait.
-    # If waiting happend here it means that epitweetr is able to colllect all tweets under current twitter rate limits, so it could collect more topics or sooner.
+    # If waiting happens here, it means that epitweetr is able to collect all tweets under current twitter rate limits, so it could collect more topics or sooner.
     wait_for <- min(unlist(lapply(1:length(conf$topics), function(i) can_wait_for(plans = conf$topics[[i]]$plan))) )
     if(wait_for > 0) {
       message(paste(Sys.time(), ": All done! going to sleep for until", Sys.time() + wait_for, "during", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
@@ -53,10 +53,10 @@ search_loop <-  function(data_dir = NA) {
     #getting only the next plan to execute for each topic (it could be a previous unfinished plan)
     next_plans <-lapply(1:length(conf$topics), function(i)  next_plan(plans = conf$topics[[i]]$plan))
 
-    #calculating the minimum number of requets those plans have already executed
+    #calculating the minimum number of requests those plans have already executed
     min_requests <- Reduce(min, lapply(1:length(conf$topics), function(i) if(!is.null(next_plans[[i]])) next_plans[[i]]$request else .Machine$integer.max))
 
-    #performing search only for plans with a minmum number of requests (round robin)
+    #performing search only for plans with a minimum number of requests (round robin)
     for(i in 1:length(conf$topics)) { 
       for(j in 1:length(conf$topics[[i]]$plan)) { 
         plan <- conf$topics[[i]]$plan[[j]]
@@ -73,9 +73,9 @@ search_loop <-  function(data_dir = NA) {
 # getting tweets for a particular plan, query and topic
 # this function is called by the search_loop 
 # plan: contains the id range that is being collected and the last tweet obtained. This will allow epitweetr to target the tweets to obtain on current request
-# query: contains the texr query to be sent to twitter
-# topic: the topic to register the resuls on 
-# returns the updated plan afted search
+# query: contains the text query to be sent to twitter
+# topic: the topic to register the results on 
+# returns the updated plan after search
 search_topic <- function(plan, query, topic) {
   message(paste("searching for topic", topic, "from", plan$since_target, "until", if(is.null(plan$since_id)) "(last tweet)" else plan$since_id))
   # Tweets are stored on the following folder structure data_folder/tweets/search/topic/year
@@ -85,7 +85,7 @@ search_topic <- function(plan, query, topic) {
   
   # Tweets are stored as gzipped files with the following naming: "YYYY.MM.DD.counter.json.gz"
   # Counter starts with 00001 and it is increased after the last file grows over 100M
-  # gettung prefix and regular expression for tweet archive name
+  # getting prefix and regular expression for tweet archive name
   file_prefix <- paste(format(Sys.time(), "%Y.%m.%d"))
   file_pattern <- paste(format(Sys.time(), "%Y\\.%m\\.%d"))
   dir <- paste(conf$data_dir, "tweets", "search", topic, year, sep = "/")
@@ -112,7 +112,7 @@ search_topic <- function(plan, query, topic) {
     } 
   )
 
-  # putting al parts toghether to get current file name
+  # putting all parts together to get current file name
   dest <- paste(conf$data_dir, "tweets", "search", topic, year, file_name, sep = "/")
   
   # ensuring that query is smaller than 400 character (tweetr API limit) 
@@ -130,10 +130,10 @@ search_topic <- function(plan, query, topic) {
     close(gz)
 
     # evaluating if rows are obtained if not rows are obtained it means that the plan is finished 
-    # plan end can be because all tweets were already collected no more tweetd are available because of twitter history limits
+    # plan end can be because all tweets were already collected no more tweets are available because of twitter history limits
     got_rows <- is.data.frame(json$statuses) && nrow(json$statuses) > 0
     
-    # new since_id is the oldest tweet obtained by the request. It is normally provided by the responde metadata, but we calculate it because sometimes id missing
+    # new since_id is the oldest tweet obtained by the request. It is normally provided by the response metadata, but we calculate it because sometimes is missing
     new_since_id = 
       if(!is.data.frame(json$statuses)) {
         bit64::as.integer64(json$search_metadata$since_id_str)  
@@ -389,18 +389,18 @@ request_finished <- function(current, got_rows, max_id, since_id = NULL) {
 # Update a plan after search request is done
 # If first request, started and max will be set
 # If results are non empty result span, since_id and max id are set
-# If results are less than requested the search is supossed to be finished
+# If results are less than requested the search is suppossed to be finished
 # If results are equals to the requested limit, more tweets are expected. In that case if the expected end has not yet arrived and we can estimate the remaining number of requests the next schedule will be set to an estimation of the necessary requests to finish. If we do not know, the current schedule will be left untouched.
 request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL) {
   # increasing the number of requests
   current$requests <- current$requests + 1 
   
-  # setting the start date after first request and max id that will be obtaines by this plan
+  # setting the start date after first request and max id that will be obtained by this plan
   if(is.null(current$start_on)) {
     current$start_on = Sys.time()
     current$max_id = bit64::as.integer64(max_id)
   }
-  # setting the oldest id obtained by this plan (which shoulg not go before since_target)
+  # setting the oldest id obtained by this plan (which should not go before since_target)
   if(!is.null(since_id)) {
     current$since_id <- bit64::as.integer64(since_id)
   }
@@ -423,7 +423,7 @@ request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL
   return(current)
 }
 
-# create topic directories if they do not exists
+# create topic directories if they do not exist
 create_dirs <- function(topic = NA, year = NA) {
   if(!file.exists(paste(conf$data_dir, sep = "/"))){
     dir.create(paste(conf$data_dir, sep = "/"), showWarnings = FALSE)
@@ -445,7 +445,7 @@ create_dirs <- function(topic = NA, year = NA) {
 }
 
 # Get time difference since last request
-# This funtion is used from the shiny app to report when was the last tile that a reqyest saved tweets
+# This function is used from the shiny app to report when was the last tile that a request saved tweets
 # This is done by taking the last modified date of current year tweet files
 last_search_time <- function() {
   topics <- list.files(path=paste(conf$data_dir, "tweets", "search", sep="/"))
