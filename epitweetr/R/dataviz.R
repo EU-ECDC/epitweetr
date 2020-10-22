@@ -289,7 +289,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @param with_retweets Logical value indicating whether to include retweets in the time series, default: FALSE
 #' @param location_type Character(1) vector indicating the location type. Possible values 'tweet', 'user' or 'both', default: 'tweet'
 #' @param caption Character(1) vector indicating a caption to print at the bottom of the chart, default: ""
-#' @param proj Parameter indicating the CRS (Corrdinate Reference System) to use on PROJ4 format \code{\link[sp]{CRS-class}}?
+#' @param proj Parameter indicating the CRS (Coordinate Reference System) to use on PROJ4 format \code{\link[sp]{CRS-class}}?
 #' If null and all countries are selected +proj=robin is used (Robinson projection) otherwise the Lambert azimuthal equal-area projection will be chosen, default: NULL
 #' @param forplotly Logical(1) parameter indicating whether some hacks are activated to improve plotly rendering, default: FALSE
 #' @return A named list containing two elements: 'chart' with the ggplot2 figure and 'data' containing the dataframe that was used to build the map.
@@ -387,7 +387,7 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     )
   )
 
-  # Adding retwets if requested
+  # Adding retweets if requested
   if(with_retweets)
     df$tweets <- ifelse(is.na(df$retweets), 0, df$retweets) + ifelse(is.na(df$tweets), 0, df$tweets)
   
