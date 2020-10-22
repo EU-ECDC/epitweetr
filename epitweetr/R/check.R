@@ -90,7 +90,7 @@ check_java_version <- function() {
       java_min_version(), 
       " and ", 
       java_max_version(), 
-      ". Some users have reported that your version also works, but is is recommended to use previous compatible java versions"
+      ". Some users have reported that your version also works, but it is recommended to use previous compatible java versions"
     ))
     FALSE  
   }
@@ -407,7 +407,7 @@ check_move_from_temp <- function() {
 }
 
 #' @title Run automatic sanity checks
-#' @description run  a set of automated sanity checks for helping the user to troubleqhot issues 
+#' @description It runs a set of automated sanity checks for helping the user to troubleqhot issues 
 #' @return Dataframe containing the statuses of all realized checks
 #' @details This function executes a series of sanity checks, concerninr, java, bitness, task statusn dependencies and Twitter authentication.
 #' @examples 
