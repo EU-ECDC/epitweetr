@@ -1,4 +1,4 @@
-# Twitter base enpoint for direct api calls
+# Twitter base endpoint for direct api calls
 t_endpoint <- "https://api.twitter.com/1.1/"
 
 # Twitter endpoint for getting rate limit status
@@ -8,7 +8,7 @@ ratelimit_endpoint <- paste(t_endpoint, "application/rate_limit_status.json", se
 search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
 
 # Get twitter token bases on configuration based on configuration settings (app or user)
-# This function is call when saving properties on shiny app and first time epitweetr performs a twitter get on a session
+# This function is called when saving properties on shiny app and first time epitweetr performs a twitter search in a session
 # request_new: I
 get_token <- function(request_new = TRUE) {
   if(exists("access_token", where = conf$twitter_auth) && conf$twitter_auth$access_token!="") {  
@@ -25,7 +25,7 @@ get_token <- function(request_new = TRUE) {
     # Removing user context
     token <- rtweet::bearer_token(token)
   } else {
-    # Using delegated authentication otherwise, token will be reused if exists and request new is not set
+    # Using delegated authentication otherwise, token will be reused if it exists and new one will be requested if it is not set
     token <- (
        if(interactive() && request_new)
          rtweet::get_token()
@@ -42,7 +42,7 @@ get_token <- function(request_new = TRUE) {
 
 # Execute a get request on twitter API using the provided URL
 # It wil internally deal with token generation and rate limits
-# If request fails with an error or warning it will retry with a cuqdratic waiting time
+# If request fails with an error or warning it will retry with a cuadratic waiting time
 # Twitter response codes are interpreted as per twitter documention to slow down and wait as requested and to respect rate limits
 # url: URL to try
 # i: Number of tries done already
@@ -50,7 +50,7 @@ get_token <- function(request_new = TRUE) {
 twitter_get <- function(url, i = 0, retries = 20) {
   # Getting token if not set for current session
   if(is.null(conf$token) || !exists("token", where = conf)) conf$token <- get_token()
-  # Trying to get the response quadratic waiting time is impmemented if the URL fails 
+  # Trying to get the response quadratic waiting time is implemented if the URL fails 
   res <-  tryCatch({
         httr::GET(
           url
@@ -81,7 +81,7 @@ twitter_get <- function(url, i = 0, retries = 20) {
       if(exists("x-rate-limit-reset", where = res$headers)) {
         # Sleeping the requsted number of secons 
         towait <- as.integer(floor(as.numeric(difftime(as.POSIXct(as.integer(res$headers[["x-rate-limit-reset"]]),  origin="1970-01-01"),Sys.time(), units = "secs"))))  
-        message(paste("The twitter application enpoint is about to get rate limitted, waiting", towait,"seconds  until", Sys.time() + towait, " as requested by twitter"))
+        message(paste("The Twitter application endpoint is about to reach its rate limit, waiting", towait,"seconds  until", Sys.time() + towait, " as requested by Twitter"))
         if(towait < 1) {
           towait = i * i
         } else {
@@ -93,7 +93,7 @@ twitter_get <- function(url, i = 0, retries = 20) {
         # If no waiting time has been provided (should not happen) waiting 15 minutes which is the default rate limit window
         towait <- 15*60 
         save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
-        message(paste("The twitter application enpoint is about to get rate limited, but no waiting instruction has been detected. Waiting", towait,"seconds until", Sys.time()+towait))
+        message(paste("The Twitter application endpoint is about to reach its rate limit, but no waiting instruction has been detected. Waiting", towait,"seconds until", Sys.time()+towait))
         Sys.sleep(towait)  
       }
     }
@@ -101,7 +101,7 @@ twitter_get <- function(url, i = 0, retries = 20) {
   }
   else if(res$status_code == 420 && i <= retries) {
     # Adding 60 seconds wait if application is being requested to slow down, and retries is less than limit
-    message("The twitter application is being slown down (rate limited) by twitter, waiting 1 minute before continuing")
+    message("The Twitter application is being slown down (rate limited) by Twitter, waiting 1 minute before continuing")
     save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
     Sys.sleep(60)
     conf$token = NULL
@@ -111,7 +111,7 @@ twitter_get <- function(url, i = 0, retries = 20) {
     if(exists("x-rate-limit-reset", where = res$headers)) {
       # Calculating the number of seconds requested to wait  
       towait <- as.integer(floor(as.numeric(difftime(as.POSIXct(as.integer(res$headers[["x-rate-limit-reset"]]),  origin="1970-01-01"),Sys.time(), units = "secs"))))  
-      message(paste("The twitter application enpoint has reached its rate limit, waiting", towait,"seconds  until", Sys.time()+towait, "as requested by twitter"))
+      message(paste("The Twitter application endpoint has reached its rate limit, waiting", towait,"seconds  until", Sys.time()+towait, "as requested by twitter"))
       if(towait < 1) {
         towait = i * i
       } else {
@@ -122,7 +122,7 @@ twitter_get <- function(url, i = 0, retries = 20) {
     } else {
       # Waiting 15 minutes before retry if no waiting instruction is identified
       towait <- 15*60 
-      message(paste("The twitter application enpoint has reached its rate limit, but no waiting instruction has been detected. Waiting", towait,"seconds"))
+      message(paste("The Twitter application endpoint has reached its rate limit, but no waiting instruction has been detected. Waiting", towait,"seconds"))
       save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
       Sys.sleep(towait + 10)  
     }
@@ -136,7 +136,7 @@ twitter_get <- function(url, i = 0, retries = 20) {
     stop(paste("Unauthorized by twitter API"))
   } else if(i <= retries) {
       # Other non expected cases, retrying with a quadratic waiting rule at most (retries - i) more times
-      message(paste("Error status code ",res$status_code,"returned by twitter API waiting for", i*i, "seconds before retry with a new token"))  
+      message(paste("Error status code ",res$status_code,"returned by Twitter API waiting for", i*i, "seconds before retry with a new token"))  
       save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
       Sys.sleep(i * i)
       conf$token = NULL
@@ -144,6 +144,6 @@ twitter_get <- function(url, i = 0, retries = 20) {
   } else {
      #Run out of retries, stopping
      writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
-     stop(paste("Run out of option to call API after",i, "retries. URL tryed:", url ))
+     stop(paste("Run out of options to call API after",i, "retries. URL tryed:", url ))
   }
 }
