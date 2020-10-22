@@ -25,10 +25,10 @@ get_stop_words <- function(language_code) {
 }
 
 # calculate top words for a text dataframe this function is being used for calculating topwords on chunks of tweets
-# the connection is the targer file to write the results into
+# the connection is the target file to write the results into
 pipe_top_words <- function(df, text_col, lang_col, topic_word_to_exclude, max_words = 1000, con_out, page_size) {
   `%>%` <- magrittr::`%>%`
-  # Tokenisation and counting top maw_words popular words
+  # Tokenisation and counting top max_words popular words
   # the count will be done separately for each present group
 
   if(!("tweet_geo_country_code" %in% colnames(df)))
@@ -37,7 +37,7 @@ pipe_top_words <- function(df, text_col, lang_col, topic_word_to_exclude, max_wo
   wc <- if(nrow(df)==0) {
    data.frame(topic = character(), created_date=character(), tweet_geo_country_code=character(), tokens=character(), count=numeric(), original=numeric(), retwets=numeric())
   } else {
-    # making a language by language union using tiditext unnest_tokens function passing languages specific topwords 
+    # making a language by language union using tidytext unnest_tokens function passing languages specific topwords 
     temp <- Reduce( #Using Language based stop words
       x = lapply(conf$languages, function(l) {(
             df %>% 
