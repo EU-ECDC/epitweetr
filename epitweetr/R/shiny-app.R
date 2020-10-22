@@ -484,7 +484,7 @@ epitweetr_app <- function(data_dir = NA) {
     ######### FILTERS LOGIC ########################
     ################################################
     
-    # upadating alpha filter based on selected topic value
+    # updating alpha filter based on selected topic value
     shiny::observe({
       # reading input$topics will automatically trigger the update on change 
       val <- {
@@ -1144,7 +1144,7 @@ epitweetr_app <- function(data_dir = NA) {
     })
     
     ######### TASKS LOGIC ##################
-    # rendering the tasks each time something change on taskd
+    # rendering the tasks each time something changes in the tasks
     output$tasks_df <- DT::renderDataTable({
       # Adding dependency with tasks refresh
       cd$tasks_refresh_flag()
@@ -1308,7 +1308,7 @@ epitweetr_app <- function(data_dir = NA) {
     }) 
     ######### ALERTS LOGIC ##################
     # rendering the alerts 
-    # updates are launched automatically whan any input value changes
+    # updates are launched automatically when any input value changes
     output$alerts_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
       alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]])
@@ -1560,7 +1560,7 @@ can_render <- function(input, d) {
   shiny::validate(
       shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
       , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the detect loop has successfully ran"))
-      , shiny::need(!is.na(input$period[[1]]) && !is.na(input$period[[2]]) && (input$period[[1]] <= input$period[[2]]), 'Please select a start and end period for the report') 
+      , shiny::need(!is.na(input$period[[1]]) && !is.na(input$period[[2]]) && (input$period[[1]] <= input$period[[2]]), 'Please select a start and end period for the report. The start period must be a date earlier than the end period') 
       , shiny::need(input$topics != '', 'Please select a topic')
   )
 }
