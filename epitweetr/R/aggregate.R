@@ -15,7 +15,7 @@ cached <- new.env()
 #' 
 #' - For each series passed as a parameter and for each date to update: 
 #' 
-#'  - a Spark task will be called that will deduplicate tweets for each topic, join them with gelocation information, and aggregate them to the required level and return to the standard output as json lines
+#'  - a Spark task will be called that will deduplicate tweets for each topic, join them with geolocation information, and aggregate them to the required level and return to the standard output as json lines
 #'  
 #'  - the result of this task is parsed using jsonlite and saved into RDS files in the series folder
 #'  
@@ -137,7 +137,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #' If no filter is provided all data series are returned, which can end up with millions of rows depending on the time series. 
 #' To limit by period, the filter list must have an element 'period' containing a date vector or list with two dates representing the start and end of the request.
 #'
-#' To limit by topic, the filter list must have an element 'topic' containing a non empty character vector or list with the names of the topics to return.
+#' To limit by topic, the filter list must have an element 'topic' containing a non-empty character vector or list with the names of the topics to return.
 #' 
 #' The available time series are: 
 #' \itemize{
@@ -178,7 +178,7 @@ aggregate_tweets <- function(series = list("country_counts", "geolocated", "topw
 #' @importFrom utils tail
 get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
   `%>%` <- magrittr::`%>%`
-  # getting the name for cache lookup daraset dependant
+  # getting the name for cache lookup dataset dependant
   last_filter_name <- paste("last_filter", dataset, sep = "_")
 
   # getting the last aggregated end on to check if the cache is outdated
@@ -239,7 +239,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
         ]
       }
 
-      # Exracting data from aggregated files
+      # Extracting data from aggregated files
       dfs <- lapply(files, function (file) {
 	      message(paste("reading", file))
         readRDS(file.path(conf$data_dir, "series", file)) %>% 
@@ -249,7 +249,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
           )
       })
       
-      #Joining data exctractes if any or retunning empty dataser otherwise
+      #Joining data extracts if any or returning empty dataset otherwise
       ret <- 
         if(length(files) > 0)
           jsonlite::rbind_pages(dfs)
@@ -263,11 +263,11 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
 
 # getting last geolocated date by parsing dates on geolocated files
 get_geolocated_period <- function(dataset) {
-  # linsting all geolocated files respecting the naming convention
+  # listing all geolocated files respecting the naming convention
   last_geolocate <- list.dirs(file.path(conf$data_dir, "tweets", "geolocated"), recursive=TRUE)
   last_geolocate <- last_geolocate[grepl(".*\\.json.gz$", last_geolocate)]
   if(length(last_geolocate)==0) stop("To aggregate, or calculate alerts geolocation must have been succesfully executed, but no geolocation files where found")
-  # exracting and parsing dates from file names and getting min and max
+  # extracting and parsing dates from file names and getting min and max
   first_geolocate <- as.Date(min(sapply(last_geolocate, function(f) {as.Date(gsub("\\.", "-", substr(tail(strsplit(f, "/")[[1]], n=1), 1, 10)))})), origin = '1970-01-01')
   last_geolocate <- as.Date(max(sapply(last_geolocate, function(f) {as.Date(gsub("\\.", "-", substr(tail(strsplit(f, "/")[[1]], n=1), 1, 10)))})), origin = '1970-01-01')
   list(first = first_geolocate, last = last_geolocate) 
