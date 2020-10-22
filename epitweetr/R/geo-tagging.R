@@ -2,7 +2,7 @@
 #' @description This function will geolocate all tweets before the current hour that have not been already geolocated
 #' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Geolocates tweets by collection date, and stores the result in the tweets/geolocated folder.
+#' @details It geolocates tweets by collection date, and stores the result in the tweets/geolocated folder.
 #' It starts from the last geolocated date until the last collected tweet. When running on a day that has been partially geolocated,
 #' it will ignore tweets that have already been processed. 
 #'
@@ -80,8 +80,8 @@ geotag_tweets <- function(tasks = get_tasks()) {
   return(tasks)
 }
 
-# Get the SQL like expression to extract tweet geolocation variables and applying priorisation 
-# this function is used on aggregate tweets for translating variables names into sql valid columns of geotag tweets
+# Get the SQL like expression to extract tweet geolocation variables and applying prioritisation 
+# this function is used on aggregate tweets for translating variables names into SQL valid columns of geotag tweets
 get_tweet_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
     paste("coalesce("
@@ -99,7 +99,7 @@ get_tweet_location_var <- function(varname) {
     )  
 }
 
-# Get tweet geolocation used cols this is used for limit columns to extract from json files 
+# It gets used cols for tweet geolocation. This is used for limiting columns to extract from json files 
 get_tweet_location_columns <- function(table) {
   if(table == "tweet")
     list(
@@ -110,8 +110,8 @@ get_tweet_location_columns <- function(table) {
       ,"linked_text_loc"
     )
 }
-# Get the SQL like expression to extract user geolocation variables and applying priorisation
-# this function is used on aggregate tweets for translating variables names into sql valid columns of geotag tweets
+# Get the SQL like expression to extract user geolocation variables and applying prioritisation
+# this function is used on aggregate tweets for translating variables names into SQL valid columns of geotag tweets
 get_user_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
     paste("coalesce("
@@ -135,7 +135,7 @@ get_user_location_var <- function(varname) {
       , sep = ""
     )  
 }
-# Get user geolocation used cols this is used for limit columns to extract from json files 
+# Get used cols for user geolocation. This is used for limiting columns to extract from json files 
 get_user_location_columns <- function(table) {
   if(table == "tweet")
     list(
@@ -163,7 +163,7 @@ get_user_location_columns <- function(table) {
 # this funtion is the entry point from gettin tweet information produced by SPARK
 # it is generic enough to choose variables, aggregation and filters
 # deals with tweet deduplication at topic level
-# regexp: regexp to limit the geolocaion and search files to read
+# regexp: regexp to limit the geolocation and search files to read
 # vars: variable to read (evaluated after aggregation if required)
 # sort_by: order to apply to the returned dataframe
 # filter_by: expressions to use for filtering tweets
@@ -176,7 +176,7 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
  geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
   
- # Making java call fir gettinf geolocated tweets 
+ # Making java call for get inf geolocated tweets 
  # json results are piped as dataframe
  df <- spark_df(
     paste(
@@ -397,7 +397,7 @@ get_country_items <- function(order = "level") {
       }
 
     }
-    # Items are natively ordered as a hierarchy, but default of this functuion us ordered by level and name
+    # Items are natively ordered as a hierarchy, but default of this function is ordered by level and name
     if(order == "level")
       items <- items[order(sapply(items,function(i) {paste(i$level, i$name)}))]
 
