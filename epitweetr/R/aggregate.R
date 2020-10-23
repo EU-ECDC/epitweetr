@@ -243,6 +243,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
       dfs <- lapply(files, function (file) {
 	      message(paste("reading", file))
         readRDS(file.path(conf$data_dir, "series", file)) %>% 
+          dplyr::mutate(topic = stringr::str_replace_all(.data$topic, "%20", " ")) %>% #putting back espaces from %20 to " "
           dplyr::filter(
             (if(exists("topic", where = filter)) .data$topic %in% filter$topic else TRUE) & 
             (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE)
