@@ -338,8 +338,6 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/Twi
 
 After the Twitter authentication, you need to specify a list of topics in `epitweetr` to indicate which tweets to collect. For each topic, you have one or more queries that `epitweetr` uses to collect the relevant tweets (e.g. several queries for a topic using different terminology and/or languages). 
 
-Topics cannot contain spaces (i.e. the column 'Topic' in the topic.xlsx file embedded in epitweetr cannot contain spaces). You can add, for example, underscore to separate a topic with more than one word.
-
 A query consists of keywords and operators that are used to match tweet attributes. Keywords separated by a space indicate an AND clause. You can also use an OR operator. A minus sign before the keyword (with no space between the sign and the keyword) indicates the keyword should not be in the tweet attributes. While queries can be up to 512 characters long, best practice is to limit your query to 10 keywords and operators and limit complexity of the query, meaning that sometimes you need more than one query per topic.
 
 `epitweetr` comes with a default list of topics as used by the ECDC Epidemic Intelligence team at the date of package generation (1^st^ of September, 2020). You can view details of the list of topics in the Shiny app configuration page (see screenshot below).
@@ -1267,9 +1265,6 @@ When counting the total tweets in the dashboard of the Shiny app or in the downl
 
     - In contrast to the other outputs in the dashboard, the most frequent words figure is always based on tweet location regardless of the filter (due to memory capacity). Therefore, if user location or both locations are selected in the location filter, this figure might have a different total then the other two outputs.
     
-### Not seeing data in the dashboard for a topic
-This may happen if you have added a new topic that contains two words in the name. Please ensure not to add new topics that have spaces in the name; you can use, for example, underscore to separate the words.
-
 ### Receiving only real-time alerts
 This relates to users who have selected topics and/or regions for receiving related alerts in real-time or have selected topics and/or regions for receiving related alerts on a scheduled time span. If, in these cases, you only receive real-time alerts with all topics and regions, it may be that no time slots have been included in the subscribers file from the configuration page. These time slots are used for the scheduled alerts and if no slots are included in the file, alerts from all topics and regions are sent as real-time alerts.
 
