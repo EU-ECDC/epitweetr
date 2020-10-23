@@ -22,7 +22,7 @@
 #'    message('Please choose the epitweetr data directory')
 #'    setup_config(file.choose())
 #'
-#'    # calculating alerts for last day tweets and sending emails to subscriptors
+#'    # calculating alerts for last day tweets and sending emails to subscribers
 #'    generate_alerts()
 #' }
 #' @seealso 
@@ -147,7 +147,7 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
       e <- (y_historic - y0bar)
       #Diagonal of hat matrix - analytic
       pii <- rep(1/no_historic, no_historic)
-      # Hat matrix from regression with i'th observation removed is always they same for intercept only model
+      # Hat matrix from regression with i'th observation removed is always the same for intercept only model
       Xi <- matrix(rep(1, n-1))
       #P_noi <- Xi %*% solve( t(Xi) %*% Xi) %*% t(Xi)
       #same for the intercept only model, but probably faster: 
@@ -181,7 +181,7 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
 }
 
 
-# Getting alert daily counts taking in consideration a 24 hour sliding window since last full hour
+# Getting alert daily counts taking in consideration a 24-hour sliding window since last full hour
 # the provided dataset is expected to be an hourly counts by date with the following columns: tweets, known_users, created_date, created_hour
 # a new column reporting date will be added
 get_reporting_date_counts <- function(
@@ -194,7 +194,7 @@ get_reporting_date_counts <- function(
   `%>%` <- magrittr::`%>%`
   if(nrow(df)>0) {
     # Calculating end day hour which is going to be the last fully collected hour when 
-    # requesting the last colleted dates or 23h if it is a fully collected day 
+    # requesting the last collected dates or 23 hours if it is a fully collected day 
     last_full_hour <- (
       if(!is.na(end) && end < last_day) 
         23
@@ -206,7 +206,7 @@ get_reporting_date_counts <- function(
       last_full_hour = 23
       last_day <- last_day - 1  
     }
-    # Setting the reporting date based on the cutoff hour
+    # Setting the reporting date based on the cut-off hour
     df$reporting_date <- ifelse(df$created_hour <= last_full_hour, df$created_date, df$created_date + 1)
 
     # filtering by start date
@@ -392,7 +392,7 @@ get_alert_count_from <- function(date, baseline_size, same_weekday_baseline) {
     date - (7 * baseline_size + 2)
 }
 
-# getting paramerters for current alert generation
+# getting parameters for current alert generation
 # This will be based on last successfully aggregated date and it will only be generated if once each scheduling span
 do_next_alerts <- function(tasks = get_tasks()) {
   `%>%` <- magrittr::`%>%`
@@ -435,7 +435,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
     #  parallel::clusterExport(cl, list("conf", "topics", "regions", "alert_to", "calculate_regions_alerts", "get_country_items", "get_country_items", "calculate_alerts"), envir=environment())
     #  alerts <- parallel::parLapply(cl, topics, function(topic) {
     
-    # calculating aletrts per topic
+    # calculating alerts per topic
     alerts <- lapply(topics, function(topic) {
       m <- paste("Getting alerts for",topic, alert_to) 
       message(m)  
@@ -621,7 +621,7 @@ get_subscribers <-function() {
   df
 }
 
-# Send email alerts to subscribers based on newly geberated alerts and subscribers configuration
+# Send email alerts to subscribers based on newly generated alerts and subscribers' configuration
 send_alert_emails <- function(tasks = get_tasks()) {
   `%>%` <- magrittr::`%>%`
   task <- tasks$alerts 
@@ -657,7 +657,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
           )
         }
       )
-      # Adding users statistics if does not existd already
+      # Adding users' statistics if these do not exist already
       if(!exists(user, where=tasks$alerts$sent)) 
         tasks$alerts$sent[[user]] <- list()
       # Getting last day alerts date period
@@ -710,7 +710,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
           )
         ) 
             
-        # Filtering out alerts that are not instant if  not respect the defined slots
+        # Filtering out alerts that are not instant if these do not respect the defined slots
         instant_alerts <- user_alerts %>% dplyr::filter(
           (!all(is.na(realtime_topics)) | !all(is.na(realtime_regions))) & 
           (
@@ -786,7 +786,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             )
           )
           # Creating email body
-          # Getting an array of countries with alerts sorted on descending ordrt by the total number of tweets
+          # Getting an array of countries with alerts sorted on descending order by the total number of tweets
           topics_with_alerts <- (
             user_alerts %>% 
             dplyr::group_by(.data$topic) %>% 

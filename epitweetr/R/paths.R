@@ -32,7 +32,7 @@ get_known_users_path <- function(data_dir = conf$data_dir) {
 # Get default topics files path
 get_default_topics_path <- function() system.file("extdata", "topics.xlsx", package = get_package_name())
 
-# Get topics file path either from user or package locatio (written by shiny app)
+# Get topics file path either from user or package location (written by shiny app)
 get_topics_path <- function(data_dir = conf$data_dir) {
     topics_path <- paste(data_dir, "topics.xlsx", sep = "/")
     if(!file.exists(topics_path))

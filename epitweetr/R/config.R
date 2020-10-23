@@ -6,7 +6,7 @@ get_package_name <- function() environmentName(environment(setup_config))
 
 # Get the keyring for the provided backend or a platform dependent default if backend is null
 # this function is used to save the twitter and smtp credentials on a secure store when saving properties
-# this function uses the keyring R package which provides a common interfas for accessing system dependent keyring
+# this function uses the keyring R package which provides a common interface for accessing system dependent keyring
 # backend: backend name to use it will be guess based on user OS uf not defined.
 get_key_ring <- function(backend = NULL) {
   if(!is.null(backend)) {
@@ -27,7 +27,7 @@ get_key_ring <- function(backend = NULL) {
     kb <- keyring::backend_env$new()
   }
   kr_name <- NULL
-  # creating the file keyring if requested and not existant
+  # creating the file keyring if requested and not existent
   if(keyring == "file" ) {
      kr_name <- Sys.getenv("kr_name") 
      krs <- kb$keyring_list()
@@ -143,7 +143,7 @@ get_empty_config <- function(data_dir) {
 #' }
 #'
 #' When calling this function and the keyring is locked, a password will be prompted to unlock the keyring.
-#' This behaviour can be changed by setting the enviroment variable 'ecdc_wtitter_tool_kr_password' with the password.
+#' This behaviour can be changed by setting the environment variable 'ecdc_twitter_tool_kr_password' with the password.
 #' 
 #' Changes made to conf can be stored permanently (except for 'data_dir') using:
 #' \itemize{
@@ -186,14 +186,14 @@ setup_config <- function(
   conf$data_dir <- data_dir
 
   # paths contains two files storing configuration data: 
-  # props which contains properties set on the shuniy App is stored on data_dir/properties.json
+  # props which contains properties set on the shiny App is stored on data_dir/properties.json
   # and data_dir/topics.json which stores search progress and is updated by the search loop
   paths <- list(props = get_properties_path(), topics = get_plans_path())
   
-  #topics paths is the excel file containing the user provided topics ot epitweetr default ones
+  #topics_path is the path to the excel file containing the topics provided by the user or epitweetr default ones
   topics_path <- get_topics_path(data_dir)
 
-  # savin first may be used by a function which is responsible for a part of the configuration to save changed on its perimeter before refreshing
+  # save_first may be used by a function which is responsible for a part of the configuration to save changes on its perimeter before refreshing
   if(length(save_first) > 0) {
     save_config(data_dir = data_dir, properties = "props" %in% save_first, "topics" %in% save_first)
   }
