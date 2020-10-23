@@ -154,9 +154,9 @@ The CPU and RAM usage can be configured on the Shiny app configuration page (see
 -
 -   Tex installation (TinyTeX or MiKTeX) (or other TeX installation) for exporting PDFs
 
-    -   (easiest) [*https://yihui.org/tinytex/*] (install from R, logoff/logon required after installation)
+    -   Easiest: [*https://yihui.org/tinytex/*] install from R, logoff/logon required after installation
 
-    -   [*https://miktex.org/download*] (full installation required, logoff/logon required after installation)
+    -   [*https://miktex.org/download*] full installation required, logoff/logon required after installation
 
 -   Machine learning optimisation (only for advanced users)
 
