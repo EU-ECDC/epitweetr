@@ -116,7 +116,7 @@ get_empty_config <- function(data_dir) {
   ret$smtp_insecure <- FALSE
   ret$force_date_format <- ""
   ret$maven_repo <- "https://repo1.maven.org/maven2"
-  ret$winutils_url <- "http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe"
+  ret$winutils_url <- "https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe"
   return(ret)
 }
 

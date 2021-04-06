@@ -47,6 +47,8 @@ The general principle behind `epitweetr` is that it collects tweets and related 
 
 The package includes  an interactive web application (Shiny app) with five pages: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts page, where you can view the current alerts and associated information (Fig 2), the geotag evaluation page, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold (Fig 3), the configuration page, where you can change settings and check the status of the underlying processes (Fig 4), and the troubleshoot page, with automatic checks and hints for using `epitweetr` with all its functionalities (Fig 5). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
 
+More information on the methodology used is available [here](https://doi.org/10.1101/2021.03.25.21254342)
+
 **Shiny app dashboard:**
 
 <center>Fig 1: Shiny app dashboard figure</center>
