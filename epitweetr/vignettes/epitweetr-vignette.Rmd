@@ -190,7 +190,7 @@ If you would like to develop `epitweetr` further, then the following development
 
 - *CRAN JARs*: Transitive dependencies for running Spark, Lucene and embedded scala code. *[https://repo1.maven.org/maven2]*
 
-- *Winutils.exe* (Windows only) This is a Hadoop binary necessary for running SPARK locally on Windows *[http://public-repo-1.hortonworks.com/hdp-win-alpha/winutils.exe]*. 
+- *Winutils.exe* (Windows only) This is a Hadoop binary necessary for running SPARK locally on Windows *[https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe]*. 
 
 ### Installing epitweetr from CRAN
 
