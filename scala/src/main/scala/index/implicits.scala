@@ -1,6 +1,7 @@
 package demy.mllib.index;
 
 import scala.collection.parallel.ForkJoinTaskSupport
+import java.util.concurrent.ForkJoinPool
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.{Column, Dataset, Row}
 import org.apache.spark.sql.types._
@@ -297,7 +298,7 @@ object implicits {
             val rowsIter = Seq.range(0, rowsChunk.size) match {
               case s if indexScanParallelism > 1  => 
                 val parIter = s.par
-                parIter.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(indexScanParallelism))
+                parIter.tasksupport = new ForkJoinTaskSupport(new java.util.concurrent.ForkJoinPool(indexScanParallelism))
                 parIter
               case s =>
                 s
@@ -385,7 +386,7 @@ object implicits {
                 )
                 //,rightOutSchema
               )
-          Row.merge(leftRow, rightRow)
+          Row(leftRow.toSeq ++ rightRow.toSeq)
         })
       .map(resultRdd => ds.sparkSession.createDataFrame(resultRdd, new StructType(leftOutFields ++ rightOutSchema.fields)))
       .get

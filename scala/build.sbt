@@ -1,4 +1,6 @@
 lazy val sparkVersion = if(System.getenv("SPARK_VERSION")==null) "2.3.2" else System.getenv("SPARK_VERSION")
+lazy val akkaVersion = "2.6.8"
+lazy val akkaHttpVersion = "10.2.4"
 lazy val root = (project in file("."))
   .settings(
     name := "ecdc-twitter-bundle",
@@ -15,6 +17,9 @@ lazy val root = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     libraryDependencies += "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
     libraryDependencies += "org.apache.httpcomponents" % "httpmime" % "4.5.6" ,
+    libraryDependencies += "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+    libraryDependencies += "com.typesafe.akka" %% "akka-http" % akkaHttpVersion ,
+    libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
     scalacOptions ++= Seq("-deprecation", "-feature"),
     assemblyMergeStrategy in assembly := {
       case PathList("org","aopalliance", xs @ _*) => MergeStrategy.last
