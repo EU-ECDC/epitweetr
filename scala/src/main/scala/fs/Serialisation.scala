@@ -5,6 +5,7 @@ import spray.json.{JsString, JsNull, JsValue, JsNumber, DefaultJsonProtocol, Jso
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale 
+import scala.util.Try
 
 case class TweetV1(tweet_id:Long, text:String, linked_text:Option[String],user_description:String, linked_user_description:Option[String],
              is_retweet:Boolean, screen_name:String, user_name:String, user_id:Long , user_location:String, linked_user_name:Option[String], linked_screen_name:Option[String], 
@@ -43,7 +44,7 @@ object EpiSerialisation
           "tweet_latitude" -> t.tweet_latitude.map(t => JsNumber(t)).getOrElse(JsNull), 
           "linked_longitude" -> t.linked_longitude.map(t => JsNumber(t)).getOrElse(JsNull),
           "linked_latitude" -> t.linked_latitude.map(t => JsNumber(t)).getOrElse(JsNull), 
-          "place_type" -> place_type.map(t => JsString(t)).getOrElse(JsNull), 
+          "place_type" -> t.place_type.map(t => JsString(t)).getOrElse(JsNull), 
           "place_name" -> t.place_name.map(t => JsString(t)).getOrElse(JsNull), 
           "place_full_name" ->t.place_full_name.map(t => JsString(t)).getOrElse(JsNull), 
           "linked_place_full_name" ->t.linked_place_full_name.map(t => JsString(t)).getOrElse(JsNull), 
@@ -65,30 +66,32 @@ object EpiSerialisation
         def userFields(fields:Map[String, JsValue]) = fields("user").asInstanceOf[JsObject].fields
         def linkedUserFields(fields:Map[String, JsValue]) = linkedFields(fields).map(lf => lf("user").asInstanceOf[JsObject].fields)
         def coordinates(fields:Map[String, JsValue]) = fields("coordinates") match {
-          case JSObject(cf) => cf.get("coordinates").map(c => c.asInstaceOf[JsArray].items)
-          case JSNull => None
+          case JsObject(cf) => cf.get("coordinates").map(c => c.asInstanceOf[JsArray].elements)
+          case JsNull => None
+          case o => throw new Exception(f"Unexpected type for coordinates ${o.getClass.getName}")
         }
         def longitude(fields:Map[String, JsValue]) = coordinates(fields).map(p => p(0).asInstanceOf[JsNumber].value.floatValue)
         def latitude(fields:Map[String, JsValue]) = coordinates(fields).map(p => p(1).asInstanceOf[JsNumber].value.floatValue)
         def placeFields(fields:Map[String, JsValue]) = fields("place") match {
-          case JSObject(cf) => Some(cf)
-          case JSNull => None
+          case JsObject(cf) => Some(cf)
+          case JsNull => None
+          case o => throw new Exception(f"Unexpected type for place ${o.getClass.getName}")
         }        
         def bboxAvg(placeFields:Map[String, JsValue], i:Int) = {
-          baseArray = placeFields("bounding_box").asInstanceOf[JsObject].fields("coordinates").asInstanceOf[JsArray].items(0).asInstanceOf[JsArray].items
+          val baseArray = placeFields("bounding_box").asInstanceOf[JsObject].fields("coordinates").asInstanceOf[JsArray].elements(0).asInstanceOf[JsArray].elements
           (
-          baseArray(0).asInstanceOf[JsArray].items(i).asInstanceOf[JsNumber].value.floatValue
-          + baseArray(1).asInstanceOf[JsArray].items(i).asInstanceOf[JsNumber].value.floatValue
-          + baseArray(2).asInstanceOf[JsArray].items(i).asInstanceOf[JsNumber].value.floatValue
-          + baseArray(3).asInstanceOf[JsArray].items(i).asInstanceOf[JsNumber].value.floatValue
+          baseArray(0).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
+          + baseArray(1).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
+          + baseArray(2).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
+          + baseArray(3).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
           )/4
         }
-        def fullPlace(placeFields:Map[String, JsValue]) {
-          if placeFields("country_code").asInstanceOf[JsString].value== "US"
+        def fullPlace(placeFields:Map[String, JsValue]) = {
+          if(placeFields("country_code").asInstanceOf[JsString].value== "US")
              s"${placeFields("full_name").asInstanceOf[JsString].value}  ${placeFields("country").asInstanceOf[JsString].value}"
           else
              placeFields("full_name").asInstanceOf[JsString].value
-
+        }
         value match {
           case JsObject(fields) =>
             TweetV1(
@@ -98,30 +101,30 @@ object EpiSerialisation
               user_description = userFields(fields)("description").asInstanceOf[JsString].value, 
               linked_user_description= linkedUserFields(fields).map(luf => luf("description").asInstanceOf[JsString].value),
               is_retweet = !fields.get("retweeted_status").isEmpty,
-              screen_name= userFields(fields)("screen_name").get.asInstanceOf[JsString].value,
+              screen_name= userFields(fields)("screen_name").asInstanceOf[JsString].value,
               user_name= userFields(fields)("name").asInstanceOf[JsString].value,
               user_id = userFields(fields)("id_str").asInstanceOf[JsString].value.toLong,
-              user_location= userFields(fields)("location").get.asInstanceOf[JsString].value,
+              user_location= userFields(fields)("location").asInstanceOf[JsString].value,
               linked_user_name= linkedUserFields(fields).map(luf => luf("name").asInstanceOf[JsString].value), 
               linked_screen_name= linkedUserFields(fields).map(luf => luf("screen_name").asInstanceOf[JsString].value), 
               linked_user_location= linkedUserFields(fields).map(luf => luf("location").asInstanceOf[JsString].value), 
-              created_at= Instant.from(twitterDateParser.parse(fields("created_at").asInstanceOf[JsString].value), 
-              lang= fields("lang").asInstanceOf[JsString].value, 
+              created_at= Instant.from(twitterDateParser.parse(fields("created_at").asInstanceOf[JsString].value)), 
+              lang = fields("lang").asInstanceOf[JsString].value, 
               linked_lang= linkedFields(fields).map(lf => lf("lang").asInstanceOf[JsString].value), 
               tweet_longitude= longitude(fields), 
               tweet_latitude= latitude(fields), 
               linked_longitude = linkedFields(fields).map(lf => longitude(lf)).flatten,
               linked_latitude=  linkedFields(fields).map(lf => latitude(lf)).flatten, 
-              place_type= placeFields(fields).map(pf => pf("type").asInstanceOf[JsString].value), 
-              place_name= placeFields(fields).map(pf => pf("name").asInstanceOf[JsString].value, 
-              place_full_name = placeFields(fields).map(pf => getFullPlace(pf)), 
-              linked_place_full_name=  linkedFields.map(lf => placeFields(lf).map(pf => getFullPlace(pf)).flatten, 
+              place_type= Try(placeFields(fields).map(pf => pf("place_type").asInstanceOf[JsString].value)).recover{case e => throw new Exception(s"Cannot get place_type from $fields")}.get, 
+              place_name= placeFields(fields).map(pf => pf("name").asInstanceOf[JsString].value), 
+              place_full_name = placeFields(fields).map(pf => fullPlace(pf)), 
+              linked_place_full_name=  linkedFields(fields).map(lf => placeFields(lf).map(pf => fullPlace(pf))).flatten, 
               place_country_code= placeFields(fields).map(pf => pf("country_code").asInstanceOf[JsString].value), 
-              place_country= placeFields(fields).map(pf => pf("country").asInstanceOf[JsString].value,
+              place_country= placeFields(fields).map(pf => pf("country").asInstanceOf[JsString].value),
               place_longitude= placeFields(fields).map(pf => bboxAvg(pf, 0)), 
-              place_latitude= placeFields(fields).map(pf => bboxAvg(pf, 1)),,
-              linked_place_longitude = linkedFields.map(lf => placeFields(lf)).map(pf => bboxAvg(pf, 0)), 
-              linked_place_latitude = linkedFields.map(lf => placeFields(lf).map(pf => bboxAvg(pf, 1))
+              place_latitude= placeFields(fields).map(pf => bboxAvg(pf, 1)),
+              linked_place_longitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 0))).flatten, 
+              linked_place_latitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 1))).flatten
             )
           case _ =>
             throw new Exception(s"@epi cannot deserialize $value to TweetV1")

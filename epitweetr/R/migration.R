@@ -24,7 +24,7 @@ json2lucene <- function(chunk_size = 1000) {
             "\r", round(100*estimate_read_size/total_size, 2), "%. ", 
             round(estimate_read_size/(1024 * 1024)), "/" , round(total_size /(1024 * 1024)), "MB", 
             " ", round(read_size /(1024*1024*time.taken), 2), "MB/sec",
-            " expecting to finish on ", Sys.time() + (time.taken * (total_size - estimate_read_size))/estimate_read_size,
+            " remaining time ", sec2hms((time.taken * (total_size - estimate_read_size))/estimate_read_size),
             ". Processing '", topics[[i]], "' "
           ))
           lines = readLines(con = con, n = chunk_size)
@@ -43,13 +43,16 @@ get_folder_size <- function(path) {
 }
 
 store_v1_search <- function(lines) {
+  if(F) {
   for(i in 1:length(lines)) {
     migration_log(lines[i])
     post_result <- httr::POST(url="http://localhost:8080/tweets", httr::content_type_json(), body=lines[i], encode = "raw", encoding = "UTF-8")
-    print(post_result)
-    migration_log(httr::content(post_result, "text"))
-    print(substring(httr::content(post_result, "text"), 1, 100))
-    stop()
+    if(httr::status_code(post_result) != 200) {
+      migration_log(httr::content(post_result, "text", encoding = "UTF-8"))
+      print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
+      stop()
+    }
+  }
   }
 }
 
@@ -57,4 +60,9 @@ migration_log <- function(lines) {
   fileConn<-file(file.path(conf$data_dir, "migration.json"), open = "w", encoding = "UTF-8")
   writeLines(lines, fileConn)
   close(fileConn)
+}
+
+sec2hms <- function(seconds) {
+  x <- abs(as.numeric(seconds))
+  sprintf("%d days %02d:%02d:%02ds", x %/% 86400,  x %% 86400 %/% 3600, x %% 3600 %/% 60,  x %% 60 %/% 1)
 }
