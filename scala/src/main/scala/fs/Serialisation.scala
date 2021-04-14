@@ -6,6 +6,8 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale 
 import scala.util.Try
+import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, BinaryPoint, LongPoint, DoublePoint, FloatPoint, Field, StoredField, DoubleDocValuesField}
+import scala.collection.JavaConverters._
 
 case class TweetV1(tweet_id:Long, text:String, linked_text:Option[String],user_description:String, linked_user_description:Option[String],
              is_retweet:Boolean, screen_name:String, user_name:String, user_id:Long , user_location:String, linked_user_name:Option[String], linked_screen_name:Option[String], 
@@ -15,12 +17,14 @@ case class TweetV1(tweet_id:Long, text:String, linked_text:Option[String],user_d
              place_longitude:Option[Float], place_latitude:Option[Float],linked_place_longitude:Option[Float], linked_place_latitude:Option[Float])
 
 case class TweetsV1(items:Seq[TweetV1])
+case class TopicTweetsV1(topic:String, tweets:TweetsV1)
 
 object EpiSerialisation
   extends SprayJsonSupport
     with DefaultJsonProtocol {
     implicit val luceneSuccessFormat = jsonFormat1(LuceneActor.Success.apply)
     implicit val luceneFailureFormat = jsonFormat1(LuceneActor.Failure.apply)
+    implicit val commitRequestFormat = jsonFormat0(LuceneActor.CommitRequest.apply)
     implicit object tweetV1Format extends RootJsonFormat[TweetV1] {
       def write(t: TweetV1) =
         JsObject(Map(
@@ -142,6 +146,31 @@ object EpiSerialisation
           }
         case _ => throw new Exception(s"@epi cannot deserialize $value to TweetsV1")
       }
+    }
+    implicit val topicTweetsFormat = jsonFormat2(TopicTweetsV1.apply)
+    implicit object luceneDocFormat extends RootJsonFormat[Document] {
+      def write(doc: Document) = 
+        JsObject(Map(
+          doc.getFields.asScala.map{f =>
+            if(f.numericValue != null)
+              (f.name, f.numericValue match {
+                case v:java.lang.Integer => JsNumber(v)
+                case v:java.lang.Float => JsNumber(v)
+                case v:java.lang.Double => JsNumber(v)
+                case v:java.lang.Long => JsNumber(v)
+                case v:java.math.BigDecimal => JsNumber(BigDecimal(v.toString))
+                case _ => throw new NotImplementedError("I do not know how convert ${v.getClass.getName} into JsNumber")
+              })
+            else if(f.stringValue != null)
+              (f.name, JsString(f.stringValue))
+            else if(f.binaryValue != null && f.binaryValue.length == 1)
+              (f.name, JsBoolean(f.binaryValue.bytes(0) == 1.toByte))
+            else 
+              throw new NotImplementedError(f"Serializing lucene field is only supported for number and string so far and got $f")
+          }:_*
+        ))
+
+      def read(value: JsValue) = throw new NotImplementedError("Serializing to lucene document")
     }
 }
 

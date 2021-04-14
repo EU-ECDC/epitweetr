@@ -61,11 +61,7 @@ case class SparkLuceneReader(indexPartition:String, reuseSnapShot:Boolean = fals
             }
           //}
         }
-        val index = 
-         if(true || System.getProperty("os.name").toLowerCase.contains("windows"))
-           new MMapDirectory(Paths.get(this.indexNode.path), org.apache.lucene.store.NoLockFactory.INSTANCE)
-         else  
-           new NIOFSDirectory(Paths.get(this.indexNode.path), org.apache.lucene.store.NoLockFactory.INSTANCE)
+        val index = new MMapDirectory(Paths.get(this.indexNode.path), org.apache.lucene.store.NoLockFactory.INSTANCE)
         val reader = DirectoryReader.open(index)
         val searcher = new IndexSearcher(reader);
         //StandardStrategy(searcher = searcher, indexDirectory=indexNode.asInstanceOf[LocalNode], reader = reader, usePopularity = usePopularity);

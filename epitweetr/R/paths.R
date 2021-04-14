@@ -1,5 +1,9 @@
+
 # Get path of search files (written by search loop)
 get_search_path <- function() file.path(conf$data_dir, "tweets", "search")
+
+# Get path of search files (written by search loop)
+get_search_archive_path <- function() file.path(conf$data_dir, "tweets", "search_archive")
 
 # Get path of properties files (written by shiny app)
 get_properties_path <- function() file.path(conf$data_dir, "properties.json")

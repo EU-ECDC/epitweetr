@@ -29,32 +29,51 @@ object API {
     val route =
       extractUri { uri =>
         path("tweets") { // checks if path/url starts with model
-          post {
-            entity(as[JsValue]) { json  =>
-              Try(tweetsV1Format.read(json)) match {
-                case Success(tweets) =>
-                   val fut = (luceneRunner ? tweets)
-                     .map{
-                        case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
-                        case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
-                        case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
-                      }
-                   complete(fut) 
-                 case Failure(e) =>
-                   println(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e, ${e.getStackTrace.mkString("\n")}") 
-                   complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e")) 
-              } 
-            } ~ 
-              entity(as[String]) { value  => 
-              logThis(value)
-              complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+          get {
+            parameters("q") { q => 
+              //val resp = luceneRunner ? LuceneActor.SearchRequest(q) 
+              complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot")) 
             }
+          }
+          post {
+            parameters("topic") { (topic) =>
+              entity(as[JsValue]) { json  =>
+                Try(tweetsV1Format.read(json)) match {
+                  case Success(tweets) =>
+                     val fut = (luceneRunner ? TopicTweetsV1(topic, tweets))
+                       .map{
+                          case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
+                          case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
+                          case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
+                        }
+                     complete(fut) 
+                   case Failure(e) =>
+                     println(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e, ${e.getStackTrace.mkString("\n")}") 
+                     complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e")) 
+                } 
+              } ~ 
+                entity(as[String]) { value  => 
+                logThis(value)
+                complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+              }
+            } ~ {
+              complete(StatusCodes.NotImplemented, LuceneActor.Failure(s"Missing expected parameter topic")) 
+            }
+          }
+        } ~ path("commit") { // commit the tweets sent
+          post {
+            val fut =  (luceneRunner ? LuceneActor.CommitRequest())
+              .map{
+                 case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
+                 case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
+                 case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
+               }
+             complete(fut) 
           }
         } ~ {
           complete(LuceneActor.Failure(s"Cannot find a route for uri $uri")) 
         }
     }
-
 
     Http().newServerAt("localhost", 8080).bind(route)
   }
@@ -78,6 +97,8 @@ object API {
     HttpResponse(StatusCodes.InternalServerError, entity = message)
   }
   def stop() {
+    println("Closing the index")
+    LuceneActor.getIndex.close()
     actorSystemPointer.map(as => as.terminate)
     actorSystemPointer = None
   }
