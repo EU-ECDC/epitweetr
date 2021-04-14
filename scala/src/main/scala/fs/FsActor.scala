@@ -5,6 +5,9 @@ import scala.concurrent.Future
 import akka.actor.{ActorSystem, Actor, ActorLogging, Props}
 import akka.pattern.ask
 import akka.stream.scaladsl.{Source}
+import akka.actor.ActorRef
+import akka.Done
+import akka.util.ByteString
 
 
 class LuceneActor() extends Actor with ActorLogging {
@@ -29,11 +32,27 @@ class LuceneActor() extends Actor with ActorLogging {
         LuceneActor.Success(s"$c Commit done processed")
       }
       .pipeTo(sender())
-    //case LuceneActor.SearchRequest(query) => 
-    //  val index = LuceneActor.getIndex
-    //  val it = 
-    //  Source.fromIterator(() => index.searchAll(query)).pipeTo(sender())
-    //  
+    case LuceneActor.SearchRequest(query, jsonnl, caller) => 
+      val index = LuceneActor.getIndex
+      val it = 
+      Future {
+        if(!jsonnl) 
+          caller !  ByteString("[", ByteString.UTF_8)
+        var first = true
+        index.searchAll(query)
+          .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
+          .foreach{line => 
+            caller ! ByteString(
+              s"${if(!jsonnl && !first) "\n," else if(jsonnl && !first) "\n" else "" }${line.toString}", 
+              ByteString.UTF_8
+            )
+            first = false
+          }
+        if(!jsonnl) 
+          caller !  ByteString("]", ByteString.UTF_8)
+        caller ! Done
+      }
+      
     case b => 
       Future(LuceneActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
   }
@@ -44,7 +63,7 @@ object LuceneActor {
   case class Success(msg:String)
   case class Failure(msg:String)
   case class CommitRequest()
-  case class SearchRequest(query:String)
+  case class SearchRequest(query:String, jsonnl:Boolean, caller:ActorRef)
   val lock = "lock"
   var _index:Option[TweetIndex]=None
 

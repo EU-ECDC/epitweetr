@@ -13,6 +13,13 @@ import spray.json.{JsValue}
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
 
+import akka.actor.ActorRef
+import akka.Done
+import akka.actor.ActorRef
+import akka.stream.OverflowStrategy
+import akka.stream.CompletionStrategy
+import akka.stream.scaladsl._
+import akka.http.scaladsl.model.HttpEntity.{Chunked, Strict}
 
 object API {
   var actorSystemPointer:Option[ActorSystem] = None
@@ -30,11 +37,18 @@ object API {
       extractUri { uri =>
         path("tweets") { // checks if path/url starts with model
           get {
-            parameters("q") { q => 
-              //val resp = luceneRunner ? LuceneActor.SearchRequest(q) 
-              complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot")) 
+            parameters("q", "jsonnl".as[Boolean]?false) { (q, jsonnl) => 
+              val source: Source[akka.util.ByteString, ActorRef] = Source.actorRef(
+                completionMatcher = {case Done => CompletionStrategy.immediately}
+                , failureMatcher = PartialFunction.empty
+                , bufferSize = 100
+                , overflowStrategy = OverflowStrategy.fail
+              )
+              val (actorRef, matSource) = source.preMaterialize()
+              luceneRunner ! LuceneActor.SearchRequest(q, jsonnl, actorRef) 
+              complete(Chunked.fromData(ContentTypes.`application/json`, matSource))
             }
-          }
+          } ~
           post {
             parameters("topic") { (topic) =>
               entity(as[JsValue]) { json  =>
