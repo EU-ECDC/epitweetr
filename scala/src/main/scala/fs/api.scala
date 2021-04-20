@@ -74,6 +74,28 @@ object API {
               complete(StatusCodes.NotImplemented, LuceneActor.Failure(s"Missing expected parameter topic")) 
             }
           }
+        } ~ path("geolocated") { // checks if path/url starts with model
+          post {
+            entity(as[JsValue]) { json  =>
+              Try(geolocatedsFormat.read(json)) match {
+                case Success(geolocateds) =>
+                   val fut = (luceneRunner ? geolocateds)
+                     .map{
+                        case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
+                        case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
+                        case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
+                      }
+                   complete(fut) 
+                 case Failure(e) =>
+                   println(s"Cannot interpret the provided body as geolocated array:\n $e, ${e.getStackTrace.mkString("\n")}") 
+                   complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a gelocated array:\n $e")) 
+              } 
+            } ~ 
+              entity(as[String]) { value  => 
+              logThis(value)
+              complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+            }
+          }
         } ~ path("commit") { // commit the tweets sent
           post {
             val fut =  (luceneRunner ? LuceneActor.CommitRequest())
@@ -112,7 +134,7 @@ object API {
   }
   def stop() {
     println("Closing the index")
-    LuceneActor.getIndex.close()
+    LuceneActor.close()
     actorSystemPointer.map(as => as.terminate)
     actorSystemPointer = None
   }

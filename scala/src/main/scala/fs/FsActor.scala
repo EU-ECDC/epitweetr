@@ -16,17 +16,27 @@ class LuceneActor() extends Actor with ActorLogging {
     case TopicTweetsV1(topic, ts) =>
       Future{
         val index = LuceneActor.getIndex
-        ts.items.map(t => index.indexTweet(t, topic))
+        ts.items.foreach(t => index.indexTweet(t, topic))
         ts.items.size
       }
       .map{c =>
         LuceneActor.Success(s"$c tweets properly processed")
       }
       .pipeTo(sender())
+    case Geolocateds(items) =>
+      Future{
+        val index = LuceneActor.getIndex
+        items.foreach(g => index.indexGeolocated(g))
+        items.size
+      }
+      .map{c =>
+        LuceneActor.Success(s"$c geolocated properly processed")
+      }
+      .pipeTo(sender())
     case ts:LuceneActor.CommitRequest =>
       Future{
         val index = LuceneActor.getIndex
-        LuceneActor.getIndex.commit()
+        LuceneActor.commit()
       }
       .map{c =>
         LuceneActor.Success(s"$c Commit done processed")
@@ -67,6 +77,20 @@ object LuceneActor {
   val lock = "lock"
   var _index:Option[TweetIndex]=None
 
+  def commit() = {
+    close()
+  }
+  def close() = {
+    lock.synchronized {
+      _index.foreach{i =>
+        print("commiting")
+        i.writer.commit()
+        i.writer.close()
+        i.index.close()
+      } 
+    }
+    _index.get
+  }
   def getIndex = {
     lock.synchronized {
       if(_index.isEmpty || !_index.get.writer.isOpen) {

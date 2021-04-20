@@ -2,6 +2,9 @@
 # Get path of search files (written by search loop)
 get_search_path <- function() file.path(conf$data_dir, "tweets", "search")
 
+# Get âth of geolocated files (written by detect loop)
+get_geo_path <- function() file.path(conf$data_dir, "tweets", "geolocated")
+
 # Get path of search files (written by search loop)
 get_search_archive_path <- function() file.path(conf$data_dir, "tweets", "search_archive")
 
