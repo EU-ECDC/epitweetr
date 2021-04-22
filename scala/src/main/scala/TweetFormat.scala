@@ -534,6 +534,21 @@ object schemas {
         , StructField("user_location_loc", geoLocationSchema,true)
         ))
     }
+    val geoLocatedTweetSchema = {
+      StructType(Seq(
+        StructField("topic",StringType,true)
+        , StructField("id",LongType,true)
+        , StructField("created_date",StringType,true)
+        , StructField("is_geo_located",BooleanType,true)
+        , StructField("lang",StringType,true)
+        , StructField("linked_place_full_name_loc", geoLocationSchema,true)
+        , StructField("linked_text_loc", geoLocationSchema,true)
+        , StructField("place_full_name_loc", geoLocationSchema,true)
+        , StructField("text_loc", geoLocationSchema,true)
+        , StructField("user_description_loc", geoLocationSchema,true)
+        , StructField("user_location_loc", geoLocationSchema,true)
+        ))
+    }
     val toIgnoreSchema = {
       StructType(Seq(
         StructField("file",StringType,true)

@@ -28,7 +28,7 @@ json2lucene <- function(chunk_size = 400) {
         read_time <- 0
         lines <- readLines(con = con, n =  if(files[[j]]$type == "geo") 100 *  chunk_size else chunk_size)
         file_lines <- 0
-        count <- 1
+        last_commit <- Sys.time()
         while(length(lines) > 0) {
           post_time <- Sys.time()
           if(files[[j]]$type == "search")
@@ -40,7 +40,7 @@ json2lucene <- function(chunk_size = 400) {
           file_lines <- file_lines + length(lines)
           estimate_read_size <- read_size + file_lines * line_size   
           time.taken <-  as.numeric(difftime(Sys.time(), start.time, units='secs'))
-          cat(paste0(
+          print(paste0(
             "\r", round(100*estimate_read_size/total_size, 2), "%. ", 
             round(estimate_read_size/(1024 * 1024)), "/" , round(total_size /(1024 * 1024)), "MB", 
             " ", round(read_size /(1024*1024*time.taken), 2), "MB/sec",
@@ -54,9 +54,10 @@ json2lucene <- function(chunk_size = 400) {
           lines <- readLines(con = con, n =  if(files[[j]]$type == "geo") 100 *  chunk_size else chunk_size)
           read_time <-  as.numeric(difftime(Sys.time(), read_time, units='secs'))
           # commiting each 10 requests
-          if(count %% 10 == 0) 
+          if(as.numeric(difftime(Sys.time(), last_commit, unit = "secs")) > 60) { 
             commit_tweets()
-          count <- count + 1
+            last_commit <- Sys.time()
+          }
         }
         close(con)
         #Commiting file tweets

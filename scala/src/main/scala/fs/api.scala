@@ -79,6 +79,27 @@ object API {
               complete(StatusCodes.NotImplemented, LuceneActor.Failure(s"Missing expected parameter topic")) 
             }
           }
+        } ~ path("aggregate") { // checks if path/url starts with model
+          get {
+            withRequestTimeout(600.seconds) {
+              parameters("q", "jsonnl".as[Boolean]?false) { (q, jsonnl) => 
+                implicit val timeout: Timeout = 600.seconds //For ask property
+                val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                  ackMessage = ByteString("ok")
+                  , completionMatcher = {case Done => CompletionStrategy.immediately}
+                  , failureMatcher = PartialFunction.empty
+                )
+                val (actorRef, matSource) = source.preMaterialize()
+                luceneRunner ! LuceneActor.AggregateRequest(q, jsonnl, actorRef) 
+                complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                  if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                    throw new Exception(m.decodeString("UTF-8"))
+                  else 
+                    m
+                }))
+              }
+            }
+          }
         } ~ path("geolocated") { // checks if path/url starts with model
           post {
             entity(as[JsValue]) { json  =>
@@ -103,13 +124,16 @@ object API {
           }
         } ~ path("commit") { // commit the tweets sent
           post {
+            withRequestTimeout(600.seconds) {
+            implicit val timeout: Timeout = 600.seconds //For ask property
             val fut =  (luceneRunner ? LuceneActor.CommitRequest())
               .map{
                  case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
                  case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
                  case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
                }
-             complete(fut) 
+             complete(fut)
+            }
           }
         } ~ {
           complete(LuceneActor.Failure(s"Cannot find a route for uri $uri")) 
@@ -138,7 +162,6 @@ object API {
     HttpResponse(StatusCodes.InternalServerError, entity = message)
   }
   def stop() {
-    println("Closing the index")
     LuceneActor.close()
     actorSystemPointer.map(as => as.terminate)
     actorSystemPointer = None

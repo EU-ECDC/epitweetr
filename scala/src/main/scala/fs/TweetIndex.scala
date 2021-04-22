@@ -18,12 +18,9 @@ object TweetIndex {
     val index = new MMapDirectory(indexDir, org.apache.lucene.store.SimpleFSLockFactory.INSTANCE)
     val config = new IndexWriterConfig(analyzer);
     config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND)
-    println(s"Opening the index")
     val writer = new IndexWriter(index, config)
     //make the index near real time
     val reader = DirectoryReader.open(writer,true, true)
-    println(s"Index opened = ${writer.isOpen}")
-
     TweetIndex(reader = reader, writer = writer, index = index)
   }
 }
