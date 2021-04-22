@@ -20,6 +20,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.CompletionStrategy
 import akka.stream.scaladsl._
 import akka.http.scaladsl.model.HttpEntity.{Chunked, Strict}
+import akka.util.ByteString
 
 object API {
   var actorSystemPointer:Option[ActorSystem] = None
@@ -38,15 +39,19 @@ object API {
         path("tweets") { // checks if path/url starts with model
           get {
             parameters("q", "jsonnl".as[Boolean]?false) { (q, jsonnl) => 
-              val source: Source[akka.util.ByteString, ActorRef] = Source.actorRef(
-                completionMatcher = {case Done => CompletionStrategy.immediately}
+              val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                ackMessage = ByteString("ok")
+                , completionMatcher = {case Done => CompletionStrategy.immediately}
                 , failureMatcher = PartialFunction.empty
-                , bufferSize = 100
-                , overflowStrategy = OverflowStrategy.fail
               )
               val (actorRef, matSource) = source.preMaterialize()
               luceneRunner ! LuceneActor.SearchRequest(q, jsonnl, actorRef) 
-              complete(Chunked.fromData(ContentTypes.`application/json`, matSource))
+              complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                  throw new Exception(m.decodeString("UTF-8"))
+                else 
+                  m
+              }))
             }
           } ~
           post {

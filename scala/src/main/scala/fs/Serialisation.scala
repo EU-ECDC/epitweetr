@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale 
 import scala.util.Try
 import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, BinaryPoint, LongPoint, DoublePoint, FloatPoint, Field, StoredField, DoubleDocValuesField}
+import org.apache.lucene.index.IndexableField
 import scala.collection.JavaConverters._
 import java.net.URLDecoder
 
@@ -150,7 +151,7 @@ object EpiSerialisation
               )
             else // Object comming from serialized json
               TweetV1(
-                tweet_id= fields("tweet_id").asInstanceOf[JsString].value.toLong, 
+                tweet_id= fields("tweet_id").asInstanceOf[JsNumber].value.toLong, 
                 text= fields("text").asInstanceOf[JsString].value, 
                 linked_text=  fields.get("linked_text").map(f=> f.asInstanceOf[JsString].value),
                 user_description = fields("user_description").asInstanceOf[JsString].value, 
@@ -200,11 +201,32 @@ object EpiSerialisation
     }
     implicit val topicTweetsFormat = jsonFormat2(TopicTweetsV1.apply)
     implicit object luceneDocFormat extends RootJsonFormat[Document] {
-      def write(doc: Document) = 
+      def write(doc: Document) = writeField(fields = doc.getFields.asScala.toSeq)
+      def writeField(fields:Seq[IndexableField], path:Option[String] = None):JsValue = {
+        val (baseFields, childrenNames) = path match {
+          case Some(p) => (
+            fields.filter(f => f.name.startsWith(p) && !f.name.substring(p.size).contains(".")), 
+            fields
+              .map(_.name)
+              .filter(n => n.startsWith(p) && n.substring(p.size).contains("."))
+              .map(n => n.substring(p.size).split("\\.")(0))
+              .distinct
+          ) 
+          case None => (
+            fields.filter(f => !f.name.contains(".")), 
+            fields
+              .map(_.name)
+              .filter(n => n.contains("."))
+              .map(n => n.split("\\.")(0))
+              .distinct
+
+          )
+        }
         JsObject(Map(
-          doc.getFields.asScala.map{f =>
+          (baseFields.map{f =>
+            val fname = f.name.substring(path.getOrElse("").size)
             if(f.numericValue != null)
-              (f.name, f.numericValue match {
+              (fname, f.numericValue match {
                 case v:java.lang.Integer => JsNumber(v)
                 case v:java.lang.Float => JsNumber(v)
                 case v:java.lang.Double => JsNumber(v)
@@ -213,14 +235,16 @@ object EpiSerialisation
                 case _ => throw new NotImplementedError("I do not know how convert ${v.getClass.getName} into JsNumber")
               })
             else if(f.stringValue != null)
-              (f.name, JsString(f.stringValue))
+              (fname, JsString(f.stringValue))
             else if(f.binaryValue != null && f.binaryValue.length == 1)
-              (f.name, JsBoolean(f.binaryValue.bytes(0) == 1.toByte))
+              (fname, JsBoolean(f.binaryValue.bytes(0) == 1.toByte))
             else 
-              throw new NotImplementedError(f"Serializing lucene field is only supported for number and string so far and got $f")
-          }:_*
+              throw new NotImplementedError(f"Serializing lucene field is only supported for boolean, number and string so far and got $f")
+          } ++
+            childrenNames.map(c => (c, writeField(fields = fields, path = Some(f"${path.map(p => p+".").getOrElse("")}$c."))))
+          ):_*
         ))
-
+      }
       def read(value: JsValue) = throw new NotImplementedError("Serializing to lucene document")
     }
     implicit object geolocatedsFormat extends RootJsonFormat[Geolocateds] {
