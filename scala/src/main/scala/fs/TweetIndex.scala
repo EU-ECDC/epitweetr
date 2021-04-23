@@ -31,6 +31,7 @@ case class TweetIndex(var reader:IndexReader, writer:IndexWriter, index:FSDirect
       val doc = new Document()
       doc.add(new StringField("topic", s"${topic}", Field.Store.YES))  
       doc.add(new StringField("topic_tweet_id", s"${topic.toLowerCase}_${tweet.tweet_id}", Field.Store.YES))  
+      doc.add(new StringField("hash", s"${Math.abs(tweet.tweet_id.toString.hashCode)}", Field.Store.YES))  
       doc.add(new LongPoint("tweet_id", tweet.user_id))
       doc.add(new StoredField("tweet_id", tweet.user_id))
       doc.add(new TextField("text", tweet.text, Field.Store.YES))  
@@ -156,5 +157,4 @@ case class TweetIndex(var reader:IndexReader, writer:IndexWriter, index:FSDirect
       new StringField(s"$field.geo_type", loc.geo_type, Field.Store.YES)
     )
   }
-
 }

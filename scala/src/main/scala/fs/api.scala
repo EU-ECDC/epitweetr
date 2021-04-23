@@ -12,7 +12,7 @@ import akka.util.{Timeout}
 import spray.json.{JsValue}
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
-
+import org.ecdc.twitter.Settings
 import akka.actor.ActorRef
 import akka.Done
 import akka.actor.ActorRef
@@ -24,15 +24,15 @@ import akka.util.ByteString
 
 object API {
   var actorSystemPointer:Option[ActorSystem] = None
-  def run(port:Int) {
-
+  def run(port:Int, epiHome:String) {
     import EpiSerialisation._
     implicit val actorSystem = ActorSystem("epitweetr")
     actorSystemPointer = Some(actorSystem)
     implicit val timeout: Timeout = 30.seconds //For ask property
     implicit val executionContext = actorSystem.dispatcher
-    val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor]))
-
+    val conf = Settings(epiHome)
+    val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor]), conf)
+    
 
     val route =
       extractUri { uri =>
