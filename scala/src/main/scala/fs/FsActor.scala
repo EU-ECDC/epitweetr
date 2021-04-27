@@ -1,6 +1,7 @@
 package org.ecdc.epitweetr.fs
 
-import org.ecdc.twitter.JavaBridge
+import org.ecdc.twitter.{JavaBridge,  schemas}
+import org.ecdc.epitweetr.{Settings}
 import akka.pattern.{ask, pipe}
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
@@ -13,7 +14,6 @@ import akka.util.ByteString
 import akka.util.{Timeout}
 import org.apache.spark.sql.{SparkSession, Column, Dataset, Row, DataFrame}
 import java.time.LocalDateTime
-import org.ecdc.twitter.{Settings, schemas}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
 import java.time.temporal.{IsoFields, ChronoUnit}
@@ -26,8 +26,11 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
   def receive = {
     case TopicTweetsV1(topic, ts) =>
       Future{
-        val index = LuceneActor.getIndex
-        ts.items.foreach(t => index.indexTweet(t, topic))
+        
+        ts.items.foreach{t => 
+          val index = LuceneActor.getIndex(t.created_at)
+          index.indexTweet(t, topic)
+        }
         ts.items.size
       }
       .map{c =>
@@ -36,9 +39,10 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       .pipeTo(sender())
     case Geolocateds(items) =>
       Future{
-        val index = LuceneActor.getIndex
-        items.foreach(g => index.indexGeolocated(g))
-        items.size
+        //val index = LuceneActor.getIndex
+        //items.foreach(g => index.indexGeolocated(g))
+        //items.size
+        9
       }
       .map{c =>
         LuceneActor.Success(s"$c geolocated properly processed")
@@ -46,7 +50,6 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       .pipeTo(sender())
     case ts:LuceneActor.CommitRequest =>
       Future{
-        val index = LuceneActor.getIndex
         LuceneActor.commit()
       }
       .map{c =>
@@ -55,12 +58,14 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       .pipeTo(sender())
     case LuceneActor.SearchRequest(query, from, to, jsonnl, caller) => 
       Future {
-        val index = LuceneActor.getIndex
+        val indexes = LuceneActor.getReadIndexes(from, to)
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
         var first = true
-        index.searchAll(query)
+        assert(indexes.isInstanceOf[Iterator[_]])
+        indexes
+          .flatMap(i => i.searchAll(query))
           .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
           .foreach{line => 
             Await.result(caller ? ByteString(
@@ -83,8 +88,8 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       Future {
         val keys = LuceneActor.getReadKeys(from, to)
         var first = true
-        val rdd = sc.parallelize(keys)
-          .repartition(conf.sparkCores)
+        val rdd = sc.parallelize(keys.toSeq)
+          .repartition(conf.sparkCores.get)
           .mapPartitions{iter => 
             var lastKey = ""
             var index:TweetIndex=null 
@@ -124,7 +129,6 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
     case b => 
       Future(LuceneActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
   }
-  def
 }
 
 
@@ -156,6 +160,7 @@ object LuceneActor {
       var now:Option[Long] = None 
       _dirs.foreach{ case (key, path) =>
           now = now.orElse(Some(System.nanoTime))
+          val i = _indexes(key)
           if(i.writer.isOpen) {
             i.writer.commit()
             i.writer.close()
@@ -174,16 +179,14 @@ object LuceneActor {
       }
     }
   }
-  /*def getIndex(forInstant:Instant)(implicit conf:Settings):TweetIndex = {
-    val utc = LocalDateTime.ofInstant(forInstant, ZoneOffset.UTC)
-    val key = Some(s"${utc.get(IsoFields.WEEK_BASED_YEAR)*100 + utc.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}").map(s => s"${s.take(4)}.${s.substring(4)}")
-    getIndex(key)
-  }*/
+  def getIndex(forInstant:Instant)(implicit conf:Settings):TweetIndex = {
+    getIndex(getIndexKey(forInstant))
+  }
   def getIndex(key:String)(implicit conf:Settings):TweetIndex = {
     _dirs.synchronized {
       if(!_dirs.contains(key)) {
-        conf.open()
-        _dirs(key) = Paths.get(conf.epiHomie, "fs", key).toString()
+        conf.load()
+        _dirs(key) = Paths.get(conf.epiHome, "fs", key).toString()
       }
     }
     _dirs(key).synchronized {
@@ -196,18 +199,28 @@ object LuceneActor {
 
   def getSparkSession()(implicit conf:Settings) = {
     _dirs.synchronized {
-      conf.open()
+      conf.load()
       if(_spark.isEmpty) {
-        _spark =  Some(JavaBridge.getSparkSession(conf.sparkCores.gesOrEsle(0))) 
+        _spark =  Some(JavaBridge.getSparkSession(conf.sparkCores.getOrElse(0))) 
       }
     }
     _spark.get
   }
-  def getReadKeys(from:Instant, to:Instant, conf:Settings) = 
+  def getIndexKey(forInstant:Instant) = {
+    Some(LocalDateTime.ofInstant(forInstant, ZoneOffset.UTC))
+      .map(utc => s"${utc.get(IsoFields.WEEK_BASED_YEAR)*100 + utc.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}")
+      .map(s => s"${s.take(4)}.${s.substring(4)}")
+      .get
+  }
+
+  def getReadKeys(from:Instant, to:Instant)(implicit conf:Settings) = 
      Range(0, ChronoUnit.DAYS.between(from, to).toInt)
        .map(i => from.plus(i,  ChronoUnit.DAYS))
-       .map(i => LocalDateTime.ofInstant(i, ZoneOffset.UTC))
-       .map(utc => s"${utc.get(IsoFields.WEEK_BASED_YEAR)*100 + utc.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}")
+       .map(i => getIndexKey(i))
        .distinct
-       .map(s => s"${s.take(4)}.${s.substring(4)}")
-       .filter(key => Paths.get(conf.epiHome, "fs", key).exists())
+       .filter(key => Paths.get(conf.epiHome, "fs", key).toFile.exists())
+       .iterator
+  
+  def getReadIndexes(from:Instant, to:Instant)(implicit conf:Settings) = 
+    getReadKeys(from, to).map(key => getIndex(key))
+}

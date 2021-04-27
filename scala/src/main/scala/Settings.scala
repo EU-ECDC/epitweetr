@@ -1,12 +1,15 @@
+package org.ecdc.epitweetr
+
 import spray.json._
-import java.io.Paths
+import java.nio.file.Paths
+import org.ecdc.twitter.Language
 
 case class Settings(epiHome:String) {
-  var _properties:Option[JsonObject] = None
+  var _properties:Option[JsObject] = None
   def load() = {
-    val psource = scala.io.Source.fromFile(Paths.get(epiHome, "properties.json"))
-    val plines = try psource.mkString finally source.close() 
-    _properties = Some(plines.parseJson.asJsonObject)
+    val psource = scala.io.Source.fromFile(Paths.get(epiHome, "properties.json").toString)
+    val plines = try psource.mkString finally psource.close() 
+    _properties = Some(plines.parseJson.asJsObject)
     this
   }
 

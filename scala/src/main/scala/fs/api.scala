@@ -12,7 +12,7 @@ import akka.util.{Timeout}
 import spray.json.{JsValue}
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
-import org.ecdc.twitter.Settings
+import org.ecdc.epitweetr.Settings
 import akka.actor.ActorRef
 import akka.Done
 import akka.actor.ActorRef
@@ -21,6 +21,7 @@ import akka.stream.CompletionStrategy
 import akka.stream.scaladsl._
 import akka.http.scaladsl.model.HttpEntity.{Chunked, Strict}
 import akka.util.ByteString
+import java.time.Instant
 
 object API {
   var actorSystemPointer:Option[ActorSystem] = None
@@ -31,21 +32,24 @@ object API {
     implicit val timeout: Timeout = 30.seconds //For ask property
     implicit val executionContext = actorSystem.dispatcher
     val conf = Settings(epiHome)
-    val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor]), conf)
+    val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor], conf))
     
 
     val route =
       extractUri { uri =>
         path("tweets") { // checks if path/url starts with model
           get {
-            parameters("q", "jsonnl".as[Boolean]?false) { (q, jsonnl) => 
+            parameters("q", "from", "to", "jsonnl".as[Boolean]?false) { (query, fromStr, toStr, jsonnl) => 
+              val mask = "YYYY-MM-DDT00:00:00.000Z"
+              val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
+              val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
               val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
                 ackMessage = ByteString("ok")
                 , completionMatcher = {case Done => CompletionStrategy.immediately}
                 , failureMatcher = PartialFunction.empty
               )
               val (actorRef, matSource) = source.preMaterialize()
-              luceneRunner ! LuceneActor.SearchRequest(q, jsonnl, actorRef) 
+              luceneRunner ! LuceneActor.SearchRequest(query, from, to, jsonnl, actorRef) 
               complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
                 if(m.startsWith(ByteString(s"[Stream--error]:"))) 
                   throw new Exception(m.decodeString("UTF-8"))
@@ -82,7 +86,11 @@ object API {
         } ~ path("aggregate") { // checks if path/url starts with model
           get {
             withRequestTimeout(600.seconds) {
-              parameters("q", "jsonnl".as[Boolean]?false) { (q, jsonnl) => 
+              parameters("q", "jsonnl".as[Boolean]?false, "from", "to", "columns".as[String].*, "groupBy".as[String].*, "filterBy".as[String].*, "sortBy".as[String].*, "sourceExpression".as[String].*) { 
+              (q, jsonnl, fromStr, toStr, columns, groupBy, filterBy, sortBy, sourceExpressions) => 
+                val mask = "YYYY-MM-DDT00:00:00.000Z"
+                val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
+                val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
                 implicit val timeout: Timeout = 600.seconds //For ask property
                 val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
                   ackMessage = ByteString("ok")
@@ -90,7 +98,32 @@ object API {
                   , failureMatcher = PartialFunction.empty
                 )
                 val (actorRef, matSource) = source.preMaterialize()
-                luceneRunner ! LuceneActor.AggregateRequest(q, jsonnl, actorRef) 
+                luceneRunner ! LuceneActor.AggregateRequest(
+                  q, 
+                  from, 
+                  to, 
+                  columns.toSeq, 
+                  groupBy.toSeq, 
+                  filterBy.toSeq, 
+                  sortBy.toSeq,
+                  sourceExpressions
+                    .toSeq 
+                    .map(tLine => 
+                      Some(
+                        tLine
+                          .split("\\|\\|")
+                          .toSeq
+                          .map(_.trim)
+                          .filter(_.size > 0)
+                          //TODO: add file support.map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
+                        )
+                        .map(s => (s(0), s.drop(1)))
+                        .get
+                     )
+                    .toMap,
+                  jsonnl, 
+                  actorRef
+                ) 
                 complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
                   if(m.startsWith(ByteString(s"[Stream--error]:"))) 
                     throw new Exception(m.decodeString("UTF-8"))
