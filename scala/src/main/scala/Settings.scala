@@ -2,7 +2,7 @@ package org.ecdc.epitweetr
 
 import spray.json._
 import java.nio.file.Paths
-import org.ecdc.twitter.Language
+import org.ecdc.twitter.{Geonames, Language}
 
 case class Settings(epiHome:String) {
   var _properties:Option[JsObject] = None
@@ -41,6 +41,13 @@ case class Settings(epiHome:String) {
     case true => Some(Paths.get(this.epiHome, "hadoop").toString)
     case fakse => None
   }
-
-
+  def langIndexPath =  Paths.get(epiHome, "geo","lang_vectors.index").toString 
+  def geolocationThreshold = properties.fields.get("geolocation_threshold").map(v => v.asInstanceOf[JsString].value.toInt)
+  def geolocationStrategy = Some("demy.mllib.index.PredictStrategy")
+  def geonames = 
+    Geonames(
+      Paths.get(epiHome, "geo", "allCountries.txt").toString,  
+      Paths.get(epiHome, "geo").toString,  
+      properties.fields.get("geonames_simplify").map(v => v.asInstanceOf[JsBoolean].value).get
+    )
 }

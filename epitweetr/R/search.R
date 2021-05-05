@@ -89,32 +89,33 @@ search_topic <- function(plan, query, topic) {
   file_prefix <- paste(format(Sys.time(), "%Y.%m.%d"))
   file_pattern <- paste(format(Sys.time(), "%Y\\.%m\\.%d"))
   dir <- paste(conf$data_dir, "tweets", "search", topic, year, sep = "/")
- 
+  
   # files will contain all files matching the naming pattern the last alphabetically is going to be measured to evaluate if a new file has to be started
   files <- sort(list.files(path = dir, pattern = file_prefix))
-
+  
   # file_name will contain the name of the gz file to add
   file_name <- (
     if(length(files) == 0) paste(file_prefix, formatC(1, width = 5, format = "d", flag = "0"),"json.gz",  sep = ".") # default case for first file
     else {
-      #If last file matching pattern is smaller than 100MB we keep adding to the same file else a new incremented file is created
-      last <- files[[length(files)]]
-      if(file.info(paste(dir, last, sep="/"))$size / (1024*1024) < 100)
-        last
-      else {
-        #Try to get current index after date as integer and increasing it by one, if not possible a 00001 index will be added
-        parts <- strsplit(gsub(".json.gz", "", last),split="\\.")[[1]]
-        if(length(parts)<=3 || is.na(as.integer(parts[[length(parts)]]))) 
-          paste(c(parts, formatC(1, width = 5, format = "d", flag = "0"), "json.gz"), collapse = ".")
-        else  
-          paste(c(parts[1:length(parts)-1], formatC(as.integer(parts[[length(parts)]])+1, width = 5, format = "d", flag = "0"), "json.gz"), collapse = ".")
-      }
-    } 
-  )
-
+        #If last file matching pattern is smaller than 100MB we keep adding to the same file else a new incremented file is created
+        last <- files[[length(files)]]
+        if(file.info(paste(dir, last, sep="/"))$size / (1024*1024) < 100)
+          last
+        else {
+           #Try to get current index after date as integer and increasing it by one, if not possible a 00001 index will be added
+           parts <- strsplit(gsub(".json.gz", "", last),split="\\.")[[1]]
+           if(length(parts)<=3 || is.na(as.integer(parts[[length(parts)]]))) 
+             paste(c(parts, formatC(1, width = 5, format = "d", flag = "0"), "json.gz"), collapse = ".")
+           else  
+             paste(c(parts[1:length(parts)-1], formatC(as.integer(parts[[length(parts)]])+1, width = 5, format = "d", flag = "0"), "json.gz"), collapse = ".")
+         }
+       } 
+     )
+  
   # putting all parts together to get current file name
   dest <- paste(conf$data_dir, "tweets", "search", topic, year, file_name, sep = "/")
-  
+
+
   # ensuring that query is smaller than 400 character (tweetr API limit) 
   if(nchar(query)< 400) {
     # doing the tweet search and storing the response object to obtain details on resp
@@ -125,9 +126,11 @@ search_topic <- function(plan, query, topic) {
     # interpreting is necesssary know the number of obtained tweets and the id of the oldest tweet found and to keep tweet collecting stats
     # Saving uninterpreted content as a gzip archive
     json <- jsonlite::fromJSON(content)
-    gz <- gzfile(dest, "a")
-    write(content, gz, append=TRUE)
-    close(gz)
+    post_result <- httr::POST(url=paste0("http://localhost:8080/tweets?topic=", curl::curl_escape(topic), "&geolocate=true"), httr::content_type_json(), body=content, encode = "raw", encoding = "UTF-8")
+    if(httr::status_code(post_result) != 200) {
+      print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
+      stop()
+    }
 
     # evaluating if rows are obtained if not rows are obtained it means that the plan is finished 
     # plan end can be because all tweets were already collected no more tweets are available because of twitter history limits
@@ -141,6 +144,7 @@ search_topic <- function(plan, query, topic) {
         Reduce(function(x, y) if(x < y) x else y, lapply(json$statuses$id_str, function(x) bit64::as.integer64(x) -1 ))
       }
     if(got_rows) {
+      year <- format(Sys.time(), "%Y")
       # If rows were obtained we update the stat file that will stored the posted date period of each gz archive. 
       # This is used to improve aggregating performance, by targeting only the files containing tweets for a particular date
       update_file_stats(

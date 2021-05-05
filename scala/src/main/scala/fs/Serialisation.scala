@@ -40,6 +40,7 @@ object EpiSerialisation
     with DefaultJsonProtocol {
     implicit val luceneSuccessFormat = jsonFormat1(LuceneActor.Success.apply)
     implicit val luceneFailureFormat = jsonFormat1(LuceneActor.Failure.apply)
+    implicit val datesProcessedFormat = jsonFormat2(LuceneActor.DatesProcessed.apply)
     implicit val commitRequestFormat = jsonFormat0(LuceneActor.CommitRequest.apply)
     implicit val locationRequestFormat = jsonFormat7(Location.apply)
     implicit val geolocatedFormat = jsonFormat10(Geolocated.apply)
@@ -259,5 +260,6 @@ object EpiSerialisation
         case _ => throw new Exception(s"@epi cannot deserialize $value to TweetsV1")
       }
     }
+    //implicit val geolocatedCreatedFormat = jsonFormat10(Geolocated.apply)
 }
 

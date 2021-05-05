@@ -350,7 +350,7 @@ object implicits {
                          maxLevDistance=maxLevDistance, minScore=minScore, boostAcronyms=boostAcronyms,
                          usePopularity = iReader.usePopularity, termWeights=searchWeights,
                          caseInsensitive = caseInsensitive)
-                     val endTime = System.nanoTime
+                     //val endTime = System.nanoTime
                      //if(termWeightsArray(i)(j) != null && termWeightsArray(i)(j).map(s => s.size).getOrElse(0)>0)
                      //  l.msg(s"long in ${(endTime - startTime)/1e6d} for $iRow in $iPart ${(endTime - startTime)/1e6d} mili seconds for ${if(tokens != null) tokens.size else "null"}")
 
@@ -386,9 +386,11 @@ object implicits {
                 )
                 //,rightOutSchema
               )
-          Row(leftRow.toSeq ++ rightRow.toSeq)
+          Row.fromSeq(leftRow.toSeq ++ rightRow.toSeq)
         })
-      .map(resultRdd => ds.sparkSession.createDataFrame(resultRdd, new StructType(leftOutFields ++ rightOutSchema.fields)))
+      .map{resultRdd => 
+        ds.sparkSession.createDataFrame(resultRdd, new StructType(leftOutFields ++ rightOutSchema.fields))
+      }
       .get
     }
   }

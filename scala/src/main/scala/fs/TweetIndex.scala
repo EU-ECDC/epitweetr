@@ -11,22 +11,35 @@ import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, LongPoint, DoublePoint, FloatPoint, Field, StoredField, DoubleDocValuesField}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.TopDocs
+import scala.util.{Try,Success,Failure}
+import scala.collection.JavaConverters._
+import org.ecdc.twitter.Geonames.Geolocate
+
 object TweetIndex {
-  def apply(indexPath:String):TweetIndex = {
+  def apply(indexPath:String, writeEnabled:Boolean=false):TweetIndex = {
     val analyzer = new StandardAnalyzer()
     val indexDir = Files.createDirectories(Paths.get(s"${indexPath}"))
     val index = new MMapDirectory(indexDir, org.apache.lucene.store.SimpleFSLockFactory.INSTANCE)
     val config = new IndexWriterConfig(analyzer);
     config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND)
-    val writer = new IndexWriter(index, config)
+    val writer = 
+      if(writeEnabled)
+        Some(new IndexWriter(index, config))
+      else
+        None
     //make the index near real time
-    val reader = DirectoryReader.open(writer,true, true)
-    TweetIndex(reader = reader, writer = writer, index = index)
+    val reader = 
+      if(writeEnabled)
+        DirectoryReader.open(writer.get,true, true)
+      else {
+        DirectoryReader.open(index)
+      }
+    TweetIndex(reader = reader, writer = writer, index = index, writeEnabled)
   }
 }
 
 
-case class TweetIndex(var reader:IndexReader, writer:IndexWriter, index:FSDirectory){
+case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], index:FSDirectory, writeEnabled:Boolean){
   def tweetDoc(tweet:TweetV1, topic:String) = { 
       val doc = new Document()
       doc.add(new StringField("topic", s"${topic}", Field.Store.YES))  
@@ -70,15 +83,17 @@ case class TweetIndex(var reader:IndexReader, writer:IndexWriter, index:FSDirect
       doc
   }
   def indexTweet(tweet:TweetV1, topic:String) {
-      val doc = tweetDoc(tweet, topic)
-      // we call uptadedocuent do tweet is only updated if existing already for the particular topic
-      this.writer.updateDocument(new Term("topic_tweet_id", s"${topic.toLowerCase}_${tweet.tweet_id}"), doc)
+    val doc = tweetDoc(tweet, topic)
+    // we call uptadedocuent do tweet is only updated if existing already for the particular topic
+    if(!writeEnabled)
+      throw new Exception("Cannot index  on a read only index")
+    this.writer.get.updateDocument(new Term("topic_tweet_id", s"${topic.toLowerCase}_${tweet.tweet_id}"), doc)
   }
 
 
   def searchTweetV1(id:Long, topic:String) = {
     val searcher = new IndexSearcher(this.reader)
-    val res = querySearch(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
+    val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
     val doc = if(res.scoreDocs.size == 0) {
         None
     } else {
@@ -89,7 +104,7 @@ case class TweetIndex(var reader:IndexReader, writer:IndexWriter, index:FSDirect
       .map{case (json, t) => (EpiSerialisation.tweetV1Format.read(json), t)
     }
   }
-  def indexGeolocated(geo:Geolocated) {
+  def indexGeolocated(geo:Geolocated) = {
     searchTweetV1(geo.id, geo.topic).orElse({geo.topic = geo.topic.toLowerCase;searchTweetV1(geo.id, geo.topic)}) match {
       case Some((tweet, t))  => 
         val doc = tweetDoc(tweet, t)
@@ -105,27 +120,67 @@ case class TweetIndex(var reader:IndexReader, writer:IndexWriter, index:FSDirect
             geo.user_location_loc.map(l => getLocationFields(field = "user_location_loc", loc = l)).getOrElse(Seq[Field]())
        
           fields.foreach(f => doc.add(f))
-          this.writer.updateDocument(new Term("topic_tweet_id", s"${geo.topic.toLowerCase}_${geo.id}"), doc)
+          /*println(">>>------------------------------------------")
+          println(s"1.....$geo")
+          println(s"2.....$tweet")
+          println(s"3.....$doc")
+          println(">>------------------------------------------")*/
+          if(!writeEnabled)
+            throw new Exception("Cannot index on a read only index")
+          this.writer.get.updateDocument(new Term("topic_tweet_id", s"${geo.topic.toLowerCase}_${geo.id}"), doc)
+          true
       case _ =>
-        println(s"Cannot find tweet ${geo.topic}_${geo.id} for update it")
+        println(s"Cannot find tweet ${geo.topic}_${geo.id}")
+        false
     }     
   }
-
-  def refreshReader() {
+  def isOpen = {
+    if(writeEnabled)
+      this.writer.get.isOpen
+    else
+      true
+  }
+  def refreshReader()  = {
     //TODO: confirm that this refreshing is working
-    println("refreshing")
     val oldReader = this.reader
-    this.reader = DirectoryReader.open(this.writer,true, true)
+    val newReader = 
+      if(writeEnabled)
+        DirectoryReader.open(this.writer.get,true, true)
+      else {
+        DirectoryReader.open(this.index)
+      }
+    this.reader = newReader
     oldReader.close()
+    this
   }
 
-  def search(query:String, maxHits:Int = 100, after:Option[ScoreDoc] = None) = {
+  def parseQuery(query:String) = {
     val analyzer = new StandardAnalyzer()
     val parser = new QueryParser("text", analyzer)
-    val q = parser.parse(query)
-    querySearch(q, maxHits, after) 
+    parser.parse(query)
   }
-  def querySearch(query:Query, maxHits:Int = 100, after:Option[ScoreDoc] = None) = {
+  def search(query:String):TopDocs  = {
+    search(query, 100, None) 
+  }
+  def search(query:String, maxHits:Int):TopDocs  = {
+    search(query, maxHits, None) 
+  }
+  def search(query:String, after:Option[ScoreDoc]):TopDocs  = {
+    search(query, 100, after) 
+  }
+  def search(query:String, maxHits:Int, after:Option[ScoreDoc]):TopDocs  = {
+    search(parseQuery(query), maxHits, after) 
+  }
+  def search(query:Query):TopDocs  = {
+    search(query, 100, None) 
+  }
+  def search(query:Query, maxHits:Int):TopDocs  = {
+    search(query, maxHits, None) 
+  }
+  def search(query:Query, after:Option[ScoreDoc]):TopDocs  = {
+    search(query, 100, after) 
+  }
+  def search(query:Query, maxHits:Int, after:Option[ScoreDoc]):TopDocs  = {
     val searcher = new IndexSearcher(this.reader)
     val docs = after match {
       case Some(last) => searcher.searchAfter(last, query, maxHits)
@@ -133,7 +188,10 @@ case class TweetIndex(var reader:IndexReader, writer:IndexWriter, index:FSDirect
     }
     docs
   } 
-  def searchAll(query:String)  = {
+  def searchAll(query:String):Iterator[Document]  = {
+    searchAll(parseQuery(query))
+  }
+  def searchAll(query:Query):Iterator[Document]  = {
     var after:Option[ScoreDoc] = None
     Iterator.continually{
       val res = search(query = query, after = after)

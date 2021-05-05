@@ -21,6 +21,7 @@ object JavaBridge {
     Logger.getLogger("org.apache.spark").setLevel(Level.ERROR)
     Logger.getLogger("org.apache.hadoop").setLevel(Level.ERROR)
     Logger.getLogger("akka").setLevel(Level.ERROR)
+
     val spark = 
       SparkSession.builder()
         .master(s"local[${if(cores == 0) "*" else cores.toString}]")

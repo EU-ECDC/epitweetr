@@ -25,21 +25,28 @@ import java.time.Instant
 
 object API {
   var actorSystemPointer:Option[ActorSystem] = None
+  var oLuceneRunner:Option[ActorRef] = None
   def run(port:Int, epiHome:String) {
     import EpiSerialisation._
     implicit val actorSystem = ActorSystem("epitweetr")
     actorSystemPointer = Some(actorSystem)
-    implicit val timeout: Timeout = 30.seconds //For ask property
     implicit val executionContext = actorSystem.dispatcher
     val conf = Settings(epiHome)
     val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor], conf))
-    
+    oLuceneRunner = Some(luceneRunner)
 
     val route =
       extractUri { uri =>
         path("tweets") { // checks if path/url starts with model
           get {
-            parameters("q", "from", "to", "jsonnl".as[Boolean]?false) { (query, fromStr, toStr, jsonnl) => 
+            parameters("q".?, 
+              "topic",
+              "from"?(Instant.now.toString().take(10)), 
+              "to"?(Instant.now.toString().take(10)), 
+              "jsonnl".as[Boolean]?false, 
+              "max".as[Int]?100
+            ) { (query, topic, fromStr, toStr, jsonnl, max) => 
+              implicit val timeout: Timeout = 30.seconds //For ask property
               val mask = "YYYY-MM-DDT00:00:00.000Z"
               val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
               val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
@@ -49,7 +56,7 @@ object API {
                 , failureMatcher = PartialFunction.empty
               )
               val (actorRef, matSource) = source.preMaterialize()
-              luceneRunner ! LuceneActor.SearchRequest(query, from, to, jsonnl, actorRef) 
+              luceneRunner ! LuceneActor.SearchRequest(query, topic, from, to, max, jsonnl, actorRef) 
               complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
                 if(m.startsWith(ByteString(s"[Stream--error]:"))) 
                   throw new Exception(m.decodeString("UTF-8"))
@@ -59,100 +66,117 @@ object API {
             }
           } ~
           post {
-            parameters("topic") { (topic) =>
-              entity(as[JsValue]) { json  =>
-                Try(tweetsV1Format.read(json)) match {
-                  case Success(tweets) =>
-                     val fut = (luceneRunner ? TopicTweetsV1(topic, tweets))
-                       .map{
-                          case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
-                          case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
-                          case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
-                        }
-                     complete(fut) 
-                   case Failure(e) =>
-                     println(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e, ${e.getStackTrace.mkString("\n")}") 
-                     complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e")) 
-                } 
-              } ~ 
-                entity(as[String]) { value  => 
-                logThis(value)
-                complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+            withRequestTimeout(3000.seconds) {
+              parameters("topic", "geolocate".as[Boolean]?true) { (topic, geolocate) =>
+                entity(as[JsValue]) { json  =>
+                  implicit val timeout: Timeout = 3000.seconds //For ask property
+                  Try(tweetsV1Format.read(json)) match {
+                    case Success(tweets) =>
+                       val fut = (luceneRunner ? TopicTweetsV1(topic, tweets))
+                         .map{
+                            case LuceneActor.DatesProcessed(m, dates) => 
+                              if(geolocate) luceneRunner ! LuceneActor.GeolocateRequest(TopicTweetsV1(topic, tweets))
+                              (StatusCodes.OK, LuceneActor.DatesProcessed(m, dates))
+                            case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.DatesProcessed(m))
+                            case o => (StatusCodes.InternalServerError, LuceneActor.DatesProcessed(s"Cannot interpret $o as a message"))
+                          }
+                       complete(fut) 
+                     case Failure(e) =>
+                       println(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e, ${e.getStackTrace.mkString("\n")}") 
+                       complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e")) 
+                  } 
+                } ~ 
+                  entity(as[String]) { value  => 
+                  logThis(value)
+                  complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+                }
+              } ~ {
+                complete(StatusCodes.NotImplemented, LuceneActor.Failure(s"Missing expected parameter topic")) 
               }
-            } ~ {
-              complete(StatusCodes.NotImplemented, LuceneActor.Failure(s"Missing expected parameter topic")) 
             }
           }
         } ~ path("aggregate") { // checks if path/url starts with model
-          get {
-            withRequestTimeout(600.seconds) {
-              parameters("q", "jsonnl".as[Boolean]?false, "from", "to", "columns".as[String].*, "groupBy".as[String].*, "filterBy".as[String].*, "sortBy".as[String].*, "sourceExpression".as[String].*) { 
-              (q, jsonnl, fromStr, toStr, columns, groupBy, filterBy, sortBy, sourceExpressions) => 
-                val mask = "YYYY-MM-DDT00:00:00.000Z"
-                val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
-                val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
-                implicit val timeout: Timeout = 600.seconds //For ask property
-                val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
-                  ackMessage = ByteString("ok")
-                  , completionMatcher = {case Done => CompletionStrategy.immediately}
-                  , failureMatcher = PartialFunction.empty
-                )
-                val (actorRef, matSource) = source.preMaterialize()
-                luceneRunner ! LuceneActor.AggregateRequest(
-                  q, 
-                  from, 
-                  to, 
-                  columns.toSeq, 
-                  groupBy.toSeq, 
-                  filterBy.toSeq, 
-                  sortBy.toSeq,
-                  sourceExpressions
-                    .toSeq 
-                    .map(tLine => 
-                      Some(
-                        tLine
-                          .split("\\|\\|")
-                          .toSeq
-                          .map(_.trim)
-                          .filter(_.size > 0)
-                          //TODO: add file support.map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
-                        )
-                        .map(s => (s(0), s.drop(1)))
-                        .get
-                     )
-                    .toMap,
-                  jsonnl, 
-                  actorRef
-                ) 
-                complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
-                  if(m.startsWith(ByteString(s"[Stream--error]:"))) 
-                    throw new Exception(m.decodeString("UTF-8"))
-                  else 
-                    m
-                }))
+          post {
+            entity(as[String]) { sourceExpressions  =>
+              withRequestTimeout(600.seconds) {
+                parameters("q", "jsonnl".as[Boolean]?false, "from", "to", "columns".as[String].*, "groupBy".as[String].*, "filterBy".as[String].*, "sortBy".as[String].*) { 
+                (q, jsonnl, fromStr, toStr, columns, groupBy, filterBy, sortBy) =>
+                   
+                  val mask = "YYYY-MM-DDT00:00:00.000Z"
+                  val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
+                  val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
+                  implicit val timeout: Timeout = 600.seconds //For ask property
+                  val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                    ackMessage = ByteString("ok")
+                    , completionMatcher = {case Done => CompletionStrategy.immediately}
+                    , failureMatcher = PartialFunction.empty
+                  ).backpressureTimeout(FiniteDuration(600, "seconds"))
+                  .idleTimeout(FiniteDuration(600, "seconds"))
+                  val (actorRef, matSource) = source.preMaterialize()
+                  luceneRunner ! LuceneActor.AggregateRequest(
+                    q, 
+                    from, 
+                    to, 
+                    columns.toSeq, 
+                    groupBy.toSeq, 
+                    filterBy.toSeq, 
+                    sortBy.toSeq,
+                    Seq(sourceExpressions)
+                      .toSeq 
+                      .map(tLine => 
+                        Some(
+                          tLine
+                            .split("\\|\\|")
+                            .toSeq
+                            .map(_.trim)
+                            .filter(_.size > 0)
+                            //TODO: add file support.map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
+                          )
+                          .map(s => (s(0), s.drop(1)))
+                          .get
+                       )
+                      .toMap,
+                    jsonnl, 
+                    actorRef
+                  ) 
+                  complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                    if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                      throw new Exception(m.decodeString("UTF-8"))
+                    else 
+                      m
+                  }))
+                }
               }
             }
           }
         } ~ path("geolocated") { // checks if path/url starts with model
           post {
-            entity(as[JsValue]) { json  =>
-              Try(geolocatedsFormat.read(json)) match {
-                case Success(geolocateds) =>
-                   val fut = (luceneRunner ? geolocateds)
-                     .map{
-                        case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
-                        case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
-                        case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
-                      }
-                   complete(fut) 
-                 case Failure(e) =>
-                   println(s"Cannot interpret the provided body as geolocated array:\n $e, ${e.getStackTrace.mkString("\n")}") 
-                   complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a gelocated array:\n $e")) 
-              } 
-            } ~ 
-              entity(as[String]) { value  => 
-              logThis(value)
-              complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+            parameters("created".as[String].*) { createdStr => 
+              val mask = "YYYY-MM-DDT00:00:00.000Z"
+              val dates =  createdStr.map(d => Instant.parse(s"$d${mask.substring(d.size)}"))
+              if(createdStr.size > 0) {
+                entity(as[JsValue]) { json  =>
+                  implicit val timeout: Timeout = 3000.seconds //For ask property
+                  Try(geolocatedsFormat.read(json)) match {
+                    case Success(geolocateds) =>
+                       val fut = (luceneRunner ? LuceneActor.GeolocatedsCreated(geolocateds, dates.toSeq))
+                         .map{
+                            case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
+                            case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
+                            case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
+                          }
+                       complete(fut) 
+                     case Failure(e) =>
+                       println(s"Cannot interpret the provided body as geolocated array:\n $e, ${e.getStackTrace.mkString("\n")}") 
+                       complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a gelocated array:\n $e")) 
+                  } 
+                } ~ entity(as[String]) { value  => 
+                  logThis(value)
+                  complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+                }
+              } else {
+                complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Missing parameter created with reference dates of geolocated tweets")) 
+              }
             }
           }
         } ~ path("commit") { // commit the tweets sent
@@ -195,8 +219,15 @@ object API {
     HttpResponse(StatusCodes.InternalServerError, entity = message)
   }
   def stop() {
-    LuceneActor.close()
-    actorSystemPointer.map(as => as.terminate)
-    actorSystemPointer = None
+    oLuceneRunner.map{lr =>
+      implicit val timeout: Timeout = 30.seconds //For ask property
+      implicit val executionContext = actorSystemPointer.get.dispatcher
+      (lr ? LuceneActor.CloseRequest)
+        .onComplete{_ => 
+          actorSystemPointer.map(as => as.terminate)
+          actorSystemPointer = None
+          oLuceneRunner = None
+      }
+    }
   }
 }

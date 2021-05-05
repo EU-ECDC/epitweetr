@@ -541,6 +541,7 @@ object schemas {
         , StructField("created_date",StringType,true)
         , StructField("is_geo_located",BooleanType,true)
         , StructField("lang",StringType,true)
+        , StructField("user_name",StringType,true)
         , StructField("linked_place_full_name_loc", geoLocationSchema,true)
         , StructField("linked_text_loc", geoLocationSchema,true)
         , StructField("place_full_name_loc", geoLocationSchema,true)

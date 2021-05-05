@@ -7,7 +7,7 @@ json2lucene <- function(chunk_size = 400) {
   total_lines <- 0
   line_size = 70000 #Empiric observation set as initial value in bytes. It will be fixed later
   start.time <- Sys.time()
-  
+  message("Scanning dates to migrate")  
   dates <- sort(unique(c(
     get_file_names(get_search_path(), pattern = "[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9].*\\.json\\.gz$"),
     get_file_names(get_geo_path(), pattern = "[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9].*\\.json\\.gz$")
@@ -15,13 +15,15 @@ json2lucene <- function(chunk_size = 400) {
   for(i in 1:length(dates)) {
     search_files <- list.files(get_search_path(), recursive=T, full.names=T, pattern = paste0(gsub("\\.", "\\\\.", dates[[i]]), "$"))
     geo_dirs <- list.files(get_geo_path(), recursive=T, full.names=T, pattern = paste0(gsub("\\.", "\\\\.", dates[[i]]), "$"), include.dirs = T) 
-    geo_files <- list.files(geo_dirs, recursive=T, full.names=T) 
+    geo_files <- list()#list.files(geo_dirs, recursive=T, full.names=T) 
+    message(paste("Scanning files for ", dates[[i]])) 
     files <- c(
       lapply(search_files, function(f) list(type="search", path=f, topic = tail(strsplit(f, "/")[[1]], n=3)[[1]]))
       ,lapply(geo_files, function(d) list(type="geo", path=d))
     )
-
+    created_dates = c()
     if(length(files) > 0) {
+      message(paste("Iterating over ", length(files), "files ")) 
       for(j in 1:length(files)) {
         file_size <- file.size(files[[j]]$path)
         con <- gzfile(files[[j]]$path, open = "rb")
@@ -32,9 +34,9 @@ json2lucene <- function(chunk_size = 400) {
         while(length(lines) > 0) {
           post_time <- Sys.time()
           if(files[[j]]$type == "search")
-            store_v1_search(lines, files[[j]]$topic)
+            created_dates = unique(c(created_dates, store_v1_search(lines, files[[j]]$topic)))
           if(files[[j]]$type == "geo")
-            store_geo(lines, chunk_size = chunk_size )
+            store_geo(lines, created_dates, chunk_size = chunk_size )
           post_time <- as.numeric(difftime(Sys.time(), post_time, units='secs'))
           total_lines <- total_lines + length(lines)
           file_lines <- file_lines + length(lines)
@@ -62,12 +64,14 @@ json2lucene <- function(chunk_size = 400) {
         close(con)
         #Commiting file tweets
         commit_tweets()
-        #After commit we can safely move the file to the archive folder
-        archive_search_geo_file(files[[j]])
 
         read_size <- read_size + file_size
         line_size <- read_size / total_lines  
       }
+
+      #After processing all tweets and geolocation for the particular date name we can safely move the file to the archive folder
+      print(paste("Archiving files for ", dates[[i]]))
+      #lapply(files, archive_search_geo_file)
     }
   }
 }
@@ -83,23 +87,37 @@ get_folder_size <- function(path) {
 }
 
 archive_search_geo_file <- function(file) {
-  from <- file$path
   if(file$type == "search")
     to <- sub("search", 'search_archive', from) 
   else if (file$type == "geo")
     to <- sub("geolocated", 'geo_archive', from)
   else 
     stop("The provided file to archive must be a named list with propeerties type (geo or search) and path")
-
-todir <- dirname(to)
-  if (!isTRUE(file.info(todir)$isdir)) dir.create(todir, recursive=TRUE)
-  if(file.exists(to)) {
-    to <-gsub(".json.gz", paste0(floor(runif(1, min=1, max=500)),".json.gz"), to)
+  
+  x <- file$path
+  froms <- c(x, file.path(dirname(x), paste0(".", basename(x), ".crc")),  file.path(dirname(x), paste0("._SUCCESS.crc")), file.path(dirname(x), paste0("._SUCCESS.crc")))
+  # renaming if destination files exists already
+  for(from in froms) { 
+    todir <- dirname(to)
+    if (!isTRUE(file.info(todir)$isdir)) dir.create(todir, recursive=TRUE)
+    if(file.exists(to)) {
+      to <-gsub(".json.gz", paste0(floor(runif(1, min=1, max=500)),".json.gz"), to)
+    }
+    file.rename(from = from,  to = to)
   }
-  file.rename(from = from,  to = to)
+
+  #removing empty folders
+  fromdir <- dirname(from)
+  while(grepl(paste0('^', get_geo_path()), fromdir) || grepl(paste0('^', get_search_path()), fromdir)) {
+    if(dir.exists(fromdir) && length(list.files(fromdir, include.dirs=T)) ==0) {
+      message(paste("removing", fromdir))
+      unlink(fromdir, recursive = T, force = F)
+    }
+    fromdir <- dirname(fromdir)
+  }
 }
 
-store_geo <- function(lines, async = T, chunk_size = 100) {
+store_geo <- function(lines, created_dates, async = T, chunk_size = 100) {
   valid_index <- unlist(lapply(lines, function(l) jsonlite::validate(l)))
   bad_lines <- lines[!valid_index]
   if(length(bad_lines)>0)
@@ -112,7 +130,7 @@ store_geo <- function(lines, async = T, chunk_size = 100) {
   if(length(chunks) > 0) {
     if(async) {
       requests <-lapply(chunks, function(line) { 
-        request <- crul::HttpRequest$new(url = "http://localhost:8080/geolocated", headers = list(`Content-Type`= "application/json", charset="utf-8"))
+        request <- crul::HttpRequest$new(url = paste0("http://localhost:8080/geolocated?", paste0("created=", created_dates, collapse = '&')), headers = list(`Content-Type`= "application/json", charset="utf-8"))
         request$post(body = line, encode = "raw")
         request
       })
@@ -148,7 +166,7 @@ store_v1_search <- function(lines, topic, async = T) {
   if(length(lines) > 0) {
     if(async) {
       requests <-lapply(lines, function(line) {
-        request <- crul::HttpRequest$new(url = paste0("http://localhost:8080/tweets?topic=", curl::curl_escape(topic)), headers = list(`Content-Type`= "application/json", charset="utf-8"))
+        request <- crul::HttpRequest$new(url = paste0("http://localhost:8080/tweets?topic=", curl::curl_escape(topic), "&geolocate=false"), headers = list(`Content-Type`= "application/json", charset="utf-8"))
         request$post(body = line, encode = "raw")
         request
       })
@@ -160,7 +178,8 @@ store_v1_search <- function(lines, topic, async = T) {
 
       if(length(status[status != 200 & status != 406])>0)
         stop(async$parse()[status != 200 & status != 406])
-
+      dates <- unique(unlist(lapply(async$parse()[status == 200], function(l) jsonlite::parse_json(l)$dates), recursive = T))
+      return(dates)
     } else {
       #migration_log(lines[i])
       for( i in 1:length(lines)) {
@@ -171,6 +190,7 @@ store_v1_search <- function(lines, topic, async = T) {
           stop()
         }
       }
+      stop("dealing with dates is not yet implemented")
     }
   }
 }
