@@ -40,7 +40,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       Future{
         val dateMap = ts.items.groupBy(t => t.created_at.toString.take(10))
         dateMap.foreach{case (date, tweets) =>
-          val index = LuceneActor.getIndex(tweets(0).created_at)
+          val index = LuceneActor.getIndex("tweets", tweets(0).created_at)
           tweets.foreach{t => index.indexTweet(t, topic)}
         }
         dateMap.keys.toSeq
@@ -62,7 +62,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
     case LuceneActor.GeolocatedsCreated(Geolocateds(items), dates) =>
       implicit val holder = LuceneActor.writeHolder
       Future{
-        val indexes = dates.flatMap(d => LuceneActor.getReadIndexes(d, d))
+        val indexes = dates.flatMap(d => LuceneActor.getReadIndexes("tweets", d, d))
         items.foreach{g =>
           var found = false 
           for(index <- indexes if !found) {
@@ -95,10 +95,10 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       }
       .pipeTo(sender())
     case LuceneActor.SearchRequest(query, topic, from, to, max, jsonnl, caller) => 
-      implicit val timeout: Timeout = 600.seconds //For ask property
+      implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
       implicit val holder = LuceneActor.readHolder
       Future {
-        val indexes = LuceneActor.getReadIndexes(from, to).iterator
+        val indexes = LuceneActor.getReadIndexes("tweets", from, to).iterator
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
@@ -132,12 +132,13 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           caller ! ByteString(s"[Stream--error]: ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }
     case LuceneActor.AggregateRequest(query, from, to, columns, groupBy, filterBy, sortBy, sourceExpressions, jsonnl, caller) =>
-      implicit val timeout: Timeout = 600.seconds //For ask property
+      implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
       implicit val holder = LuceneActor.readHolder
       val spark = LuceneActor.getSparkSession()
+      import spark.implicits._
       val sc = spark.sparkContext
       Future {
-        val keys = LuceneActor.getReadKeys(from, to).toSeq
+        val keys = LuceneActor.getReadKeys("tweets", from, to).toSeq
         var first = true
 
         //adding internal partition until we reach the expected level of parallelism
@@ -150,20 +151,22 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           Range(0, max).map(i => (i % nParts, i)).groupBy(_._1).values.toSeq.map(s => (keys, s.map(i => Some(s"%0${prefixLength}d".format(i._2)))))
         }
         println(s"keys $from, $to : ${keys.toArray.mkString(",")}")
-        //val epiHome = conf.epiHome
+        val epiHome = conf.epiHome
         val rdd = sc.parallelize(indexHashes.toSeq)
           .repartition(conf.sparkCores.get)
           .mapPartitions{iter => 
             implicit val holder = LuceneActor.readHolder
-            //implicit val cnf = Settings(epiHome)
+            implicit val cnf = Settings(epiHome)
             cnf.load()
             var lastKey = ""
             var index:TweetIndex=null 
             (for((keys, hashes) <- iter; key <- keys) yield {  
               if(lastKey != key)
-                index = LuceneActor.getIndex(key)
+                index = LuceneActor.getIndex("tweets", key)
               val qb = new BooleanQuery.Builder()
-              qb.add(index.parseQuery(query), Occur.MUST)
+              query.map{q => 
+                qb.add(index.parseQuery(q), Occur.MUST)
+              }
               qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
               if(!hashes.flatMap(o => o).isEmpty) {
                 val hQuery = new BooleanQuery.Builder()
@@ -181,12 +184,17 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         }
 
         Some(spark.read.schema(schemas.geoLocatedTweetSchema).json(rdd))
+          .map(df => df.where(col("lang").isin(conf.languages.get.map(_.code):_*)))
+          .map{
+            case df if(sourceExpressions.size > 0) => 
+              df.select(sourceExpressions.map(s => expr(s) ):_*)
+            case df => df
+          }
           .map{
             case df if(filterBy.size > 0) => 
               df.where(filterBy.map(w => expr(w)).reduce(_ && _))
             case df => df
           }
-          .map(df => df.where(col("lang").isin(conf.languages.get.map(_.code):_*)))
           .map{
             case df if(groupBy.size == 0) => 
               df.select(columns.map(c => expr(c)):_*) 
@@ -200,17 +208,37 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             case df =>
               df.orderBy(sortBy.map(ob => expr(ob)):_*)
           }
-          .get
-          .toJSON
+          .map{df =>
+            df.mapPartitions{iter => 
+              implicit val holder = LuceneActor.writeHolder
+              implicit val cnf = Settings(epiHome)
+              cnf.load()
+              var lastKey = ""
+              var index:TweetIndex=null 
+              (for(row <- iter) yield {
+                val pks = Seq("topic", "created_date", "created_hour")
+                val collection = "country_counts"
+                val key =  Instant.parse(s"${row.getAs[String]("created_date")}T00:00:00.000Z")
+                if(lastKey != key)
+                  index = LuceneActor.getIndex(collection, key)
+                index.indexSparkRow(row = row, pk = Some(pks))
+                1
+              })
+            }.as[Int].reduce(_ + _)
+          }
+          .map(v => 
+            Await.result(caller ? ByteString(v.toString, ByteString.UTF_8), Duration.Inf)
+          ) 
+          /*.toJSON
           .toLocalIterator
           .asScala
           .foreach{line => 
             Await.result(caller ? ByteString(
-              s"${if(!jsonnl && !first) "\n," else if(jsonnl && !first) "\n" else "" }${line}", 
+              s"${if(!jsonnl && !first) "\n," else "" }${line}${if(jsonnl) "\n" else ""}", 
               ByteString.UTF_8
             ), Duration.Inf)
             first = false
-          }
+          }*/
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
         }
@@ -245,14 +273,14 @@ object LuceneActor {
   case class CloseRequest()
   case class SearchRequest(query:Option[String], topic:String, from:Instant, to:Instant, max:Int, jsonnl:Boolean, caller:ActorRef)
   case class AggregateRequest(
-    query:String, 
+    query:Option[String], 
     from:Instant, 
     to:Instant, 
     columns:Seq[String], 
     groupBy:Seq[String], 
     filterBy:Seq[String], 
     sortBy:Seq[String], 
-    sourceExpressions:Map[String, Seq[String]], 
+    sourceExpressions:Seq[String], 
     jsonnl:Boolean, 
     caller:ActorRef 
   )
@@ -299,40 +327,52 @@ object LuceneActor {
     holder.spark.get
   }
   def getSparkStorage = Storage.getSparkStorage
-  def getIndex(forInstant:Instant)(implicit conf:Settings, holder:IndexHolder):TweetIndex = {
-    getIndex(getIndexKey(forInstant))
+  def getIndex(collection:String, forInstant:Instant)(implicit conf:Settings, holder:IndexHolder):TweetIndex = {
+    getIndex(collection, getIndexKey(collection, forInstant))
   }
-  def getIndex(key:String)(implicit conf:Settings, holder:IndexHolder):TweetIndex = {
+  def getIndex(collection:String, key:String)(implicit conf:Settings, holder:IndexHolder):TweetIndex = {
+    val path = s"$collection.$key"
     holder.dirs.synchronized {
-      if(!holder.dirs.contains(key)) {
+      if(!holder.dirs.contains(path)) {
         conf.load()
-        holder.dirs(key) = Paths.get(conf.epiHome, "tweets", "fs", key).toString()
+        holder.dirs(path) = Paths.get(conf.epiHome, "fs", collection,  key).toString()
       }
     }
-    holder.dirs(key).synchronized {
-      if(holder.indexes.get(key).isEmpty || !holder.indexes(key).isOpen) {
-        holder.indexes(key) = TweetIndex(holder.dirs(key), holder.writeEnabled)
+    holder.dirs(path).synchronized {
+      if(holder.indexes.get(path).isEmpty || !holder.indexes(path).isOpen) {
+        holder.indexes(path) = TweetIndex(holder.dirs(path), holder.writeEnabled)
       }
     }
-    holder.indexes(key)
+    holder.indexes(path)
   }
 
-  def getIndexKey(forInstant:Instant) = {
-    Some(LocalDateTime.ofInstant(forInstant, ZoneOffset.UTC))
-      .map(utc => s"${utc.get(IsoFields.WEEK_BASED_YEAR)*100 + utc.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}")
-      .map(s => s"${s.take(4)}.${s.substring(4)}")
-      .get
-  }
+  def getIndexKey(collection:String, forInstant:Instant) = {
+    val timing = collection match {
+      case "tweets" => "week"
+      case "country_counts" => "week"
+      case "topwords" => "week"
+      case "geolocated" => "week"
+      case _ => throw new Exception(s"unknown collection $collection")
+    }
+    timing match {
+      case "week" =>
+        Some(LocalDateTime.ofInstant(forInstant, ZoneOffset.UTC))
+          .map(utc => s"${utc.get(IsoFields.WEEK_BASED_YEAR)*100 + utc.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}")
+          .map(s => s"${s.take(4)}.${s.substring(4)}")
+          .get
+      case _ => throw new Exception(s"Unknon grouping for collection $collection")
+    }
+  }    
 
-  def getReadKeys(from:Instant, to:Instant)(implicit conf:Settings, holder:IndexHolder) = 
+  def getReadKeys(collection:String, from:Instant, to:Instant)(implicit conf:Settings, holder:IndexHolder) = 
      Range(0, ChronoUnit.DAYS.between(from, to.plus(1, ChronoUnit.DAYS)).toInt)
        .map(i => from.plus(i,  ChronoUnit.DAYS))
-       .map(i => getIndexKey(i))
+       .map(i => getIndexKey(collection, i))
        .distinct
-       .filter(key => Paths.get(conf.epiHome, "tweets", "fs", key).toFile.exists())
+       .filter(key => Paths.get(conf.epiHome, "fs", collection ,key).toFile.exists())
   
-  def getReadIndexes(from:Instant, to:Instant)(implicit conf:Settings, holder:IndexHolder) = 
-    getReadKeys(from, to).map(key => getIndex(key))
+  def getReadIndexes(collection:String, from:Instant, to:Instant)(implicit conf:Settings, holder:IndexHolder) = 
+    getReadKeys(collection, from, to).map(key => getIndex(collection, key))
 
   def add2Geolocate(tweets:TopicTweetsV1)(implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = {
     val toGeo = holder.toGeolocate.synchronized { 
@@ -435,10 +475,10 @@ object LuceneActor {
           .mapPartitions{iter =>
             val indexes = HashMap[String, TweetIndex]()
             iter.map{case (geo, createdAt) =>
-              val iKey = LuceneActor.getIndexKey(createdAt)
+              val iKey = LuceneActor.getIndexKey("tweets", createdAt)
               implicit val holder = LuceneActor.writeHolder
               if(!indexes.contains(iKey)) {
-                indexes(iKey) = LuceneActor.getIndex(iKey)
+                indexes(iKey) = LuceneActor.getIndex("tweets", iKey)
                 indexes(iKey).refreshReader()
               }
               indexes(iKey).indexGeolocated(geo)

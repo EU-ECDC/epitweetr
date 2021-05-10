@@ -159,52 +159,6 @@ get_user_location_columns <- function(table) {
       )
 }
 
-# Gets a dataframe with geolocated tweets requested varables stored on json files of search api and json file from geolocated tweets produced by geotag_tweets
-# this funtion is the entry point from gettin tweet information produced by SPARK
-# it is generic enough to choose variables, aggregation and filters
-# deals with tweet deduplication at topic level
-# regexp: regexp to limit the geolocation and search files to read
-# vars: variable to read (evaluated after aggregation if required)
-# sort_by: order to apply to the returned dataframe
-# filter_by: expressions to use for filtering tweets
-# sources_exp: variables to limit the source files to read (setting this will improve reading performance)
-# handler: function that to perform a custom R based transformation on data returned by SPARK
-# perams: definition of custom param files to enable big queries
-get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL, params = NULL) {
- stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
- # Creating parameters from configuration file as java objects
- tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
- geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
-  
- # Making java call for get inf geolocated tweets 
- # json results are piped as dataframe
- df <- spark_df(
-    paste(
-       "getTweets"
-       ,"tweetPath", paste("\"", tweet_path, "\"", sep="")
-       ,"geoPath", paste("\"", geolocated_path, "\"", sep = "") 
-       ,"pathFilter", shQuote(paste(regexp, collapse = ",")) 
-       ,"columns", paste("\"", paste(vars, collapse = "||") ,"\"",sep="") 
-       ,"groupBy", paste("\"", paste(group_by, collapse = "||") ,"\"",sep="") 
-       ,"sortBy", paste("\"", paste(sort_by, collapse = "||") ,"\"",sep="") 
-       ,"filterBy", paste("\"", paste(filter_by, collapse = "||") ,"\"",sep="") 
-       ,"sourceExpressions", paste(
-          "\""
-          , paste("tweet", paste(sources_exp$tweet, collapse = "||"), sep = "||")
-          , "|||"
-          , paste("geo", paste(sources_exp$geo, collapse = "||"), sep = "||") 
-          , "\""
-          , sep=""
-        ) 
-       ,conf_languages_as_arg()
-       ,"parallelism", conf$spark_cores 
-       ,if(!is.null(params)) paste("params", shQuote(params)) else ""
-     )
-    , handler
- )
- return(df)
-}
-
 
 #' @title Get a sample of latest tweet geolocations
 #' @description Get a sample of today's tweets for evaluation of geolocation threshold

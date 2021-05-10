@@ -42,6 +42,7 @@ case class Settings(epiHome:String) {
     case fakse => None
   }
   def langIndexPath =  Paths.get(epiHome, "geo","lang_vectors.index").toString 
+  def collectionPath =  Paths.get(epiHome, "collections").toString 
   def geolocationThreshold = properties.fields.get("geolocation_threshold").map(v => v.asInstanceOf[JsString].value.toInt)
   def geolocationStrategy = Some("demy.mllib.index.PredictStrategy")
   def geonames = 
@@ -50,4 +51,7 @@ case class Settings(epiHome:String) {
       Paths.get(epiHome, "geo").toString,  
       properties.fields.get("geonames_simplify").map(v => v.asInstanceOf[JsBoolean].value).get
     )
+
+  def fsBatchTimeout = properties.fields.get("fs.batch.timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60*60)
+  def fsQueryTimeout = properties.fields.get("fs.query.timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60)
 }

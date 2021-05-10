@@ -371,24 +371,24 @@ get_aggregate_dates <- function(dataset) {
 
 
 # perform the aggregation of a particular serie applying the 'created_date' filter on files matching thr 'files' pattern
-get_aggregated_serie <- function(serie_name, created_date, files) {
-  `%>%` <- magrittr::`%>%`
-  message(paste("Aggregating series", serie_name, "(", created_date, ") by looking on tweets collected between (", paste(files ,collapse=", "), ")"))
- 
-  # Calculating the aggregated regex to mach json files to aggregate
-  agg_regex <-lapply(files, function(s) paste(".*", gsub("\\.", "\\\\\\.", s),".*", sep= "")) 
+get_aggregated_serie <- function(serie_name, created_date) {
+}
 
-  if(serie_name == "geolocated") {
-    get_geotagged_tweets(regexp = agg_regex
-       , sources_exp = list(
-           tweet = c(
-             list("date_format(created_at, 'yyyy-MM-dd') as created_date", "is_retweet")
-             , get_user_location_columns("tweet")
-           )
-           ,geo = c(
-             get_tweet_location_columns("geo") 
-             , get_user_location_columns("geo") 
-             ) 
+register_series <- function() {
+  `%>%` <- magrittr::`%>%`
+ 
+  #geolocated"
+    set_aggregated_tweets(
+       name = "geolocated"
+       , dateCol = "created_date"
+       , pks = list("created_date", "topic", "user_geo_country_code", "tweet_geo_country_code", "user_geo_code", "tweet_geo_code", "user_geo_name", "tweet_geo_name")
+       , aggr = list(tweet_longitude = "avg", tweet_latitude = "avg", user_longitude = "avg", user_latitude = "avg", retweets = "sum", tweets = "sum") 
+       , sources_exp = c(
+           "topic"
+            , list("date_format(created_at, 'yyyy-MM-dd') as created_date", "is_retweet")
+            , get_user_location_columns("tweet")
+            , get_tweet_location_columns("geo") 
+            , get_user_location_columns("geo") 
        )
        , vars = list(
            paste("avg(", get_tweet_location_var("longitude"), ") as tweet_longitude") 
@@ -398,9 +398,6 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
            , "cast(sum(case when is_retweet then 1 else 0 end) as Integer) as retweets"
            , "cast(sum(case when is_retweet then 0 else 1 end) as Integer) as tweets"
        )
-       , filter_by = list(
-         paste("date_format(created_at, 'yyyy-MM-dd') = '", strftime(created_date, "%Y-%m-%d"), "'", sep = "")
-       )  
        , group_by = list(
          "topic"
          , "created_date" 
@@ -412,63 +409,65 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
          , paste(get_tweet_location_var("geo_name"), "as tweet_geo_name")
        )
      )
-  } else if(serie_name == "topwords") {
-    # Getting topic words to exclude 
-    topic_word_to_exclude <- unlist(sapply(1:length(conf$topics), 
-      function(i) {
-        terms <- strsplit(conf$topics[[i]]$query, " |OR|\"|AND|,|\\.| |'")[[1]]
-        terms <- terms[terms != ""]
-        paste(conf$topics[[i]]$topic, "_", terms, sep = "")
-      })) 
-    
-    # Getting top word aggregation by using an streaming aggregation
-    # Query is not aggregated by spark but by an R function wich is called each 500 lines
-    top_chunk <- get_geotagged_tweets(regexp = agg_regex
-      , sources_exp = list(
-          tweet = list(
-            "date_format(created_at, 'yyyy-MM-dd') as created_date"
-	          , "is_retweet"
-            , "date_format(created_at, 'yyyy-MM-dd HH:mm:ss') as created_at" 
-            , "lang"
-            , "text"
-           )
-          ,geo = get_user_location_columns("geo") 
-        )
-      , sort_by = list(
-        "topic"
-        , "tweet_geo_country_code" 
-        , "created_at" 
-      )
-      , filter_by = list(
-         paste("date_format(created_at, 'yyyy-MM-dd') = '", strftime(created_date, "%Y-%m-%d"), "'", sep = "")
-      )  
-      , vars = list(
-        "topic"
-        , "created_date" 
-        , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
-        , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
-        , "lang"
-        , "text"
-	      , "is_retweet"
-      )
-      , handler = function(df, con_tmp) {
-          pipe_top_words(df = df, text_col = "text", lang_col = "lang", max_words = 500, topic_word_to_exclude = topic_word_to_exclude, con_out = con_tmp, page_size = 500)
-      }
-    )
-   if(nrow(top_chunk)==0) {
-     data.frame(topic = character(), created_date=character(), tweet_geo_country_code=character(), tokens=character(), frequency=numeric(), original=numeric(), retwets=numeric())
-    } else {
-      if(!("tweet_geo_country_code" %in% colnames(top_chunk))) top_chunk$tweet_geo_country_code <- NA
+  #topwords
+ #   # Getting topic words to exclude 
+ #   topic_word_to_exclude <- unlist(sapply(1:length(conf$topics), 
+ #     function(i) {
+ #       terms <- strsplit(conf$topics[[i]]$query, " |OR|\"|AND|,|\\.| |'")[[1]]
+ #       terms <- terms[terms != ""]
+ #       paste(conf$topics[[i]]$topic, "_", terms, sep = "")
+ #     })) 
+ #   
+ #   # Getting top word aggregation by using an streaming aggregation
+ #   # Query is not aggregated by spark but by an R function wich is called each 500 lines
+ #   top_chunk <- get_aggregated_tweets(from = created_date, to = created_date
 
-      top_chunk %>% 
-        dplyr::group_by(.data$tokens, .data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
-        dplyr::summarize(frequency = sum(.data$count), original = sum(.data$original), retweets = sum(.data$retweets))  %>%
-        dplyr::ungroup()  %>%
-        dplyr::group_by(.data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
-        dplyr::top_n(n = 200, wt = .data$frequency) %>%
-        dplyr::ungroup() 
-    }
-  } else if(serie_name == "country_counts") {
+ #     , sources_exp = c(
+ #         list(
+ #           "topic"
+ #           ,"date_format(created_at, 'yyyy-MM-dd') as created_date"
+ #           , "is_retweet"
+ #           , "date_format(created_at, 'yyyy-MM-dd HH:mm:ss') as created_at" 
+ #           , "lang"
+ #           , "text"
+ #          )
+ #         , get_user_location_columns("geo") 
+ #       )
+ #     , sort_by = list(
+ #       "topic"
+ #       , "tweet_geo_country_code" 
+ #       , "created_at" 
+ #     )
+ #     , filter_by = list(
+ #        paste("date_format(created_at, 'yyyy-MM-dd') = '", strftime(created_date, "%Y-%m-%d"), "'", sep = "")
+ #     )  
+ #     , vars = list(
+ #       "topic"
+ #       , "created_date" 
+ #       , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+ #       , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
+ #       , "lang"
+ #       , "text"
+ #       , "is_retweet"
+ #     )
+ #     , handler = function(df, con_tmp) {
+ #         pipe_top_words(df = df, text_col = "text", lang_col = "lang", max_words = 500, topic_word_to_exclude = topic_word_to_exclude, con_out = con_tmp, page_size = 500)
+ #     }
+ #   )
+ #  if(nrow(top_chunk)==0) {
+ #    data.frame(topic = character(), created_date=character(), tweet_geo_country_code=character(), tokens=character(), frequency=numeric(), original=numeric(), retwets=numeric())
+ #   } else {
+ #     if(!("tweet_geo_country_code" %in% colnames(top_chunk))) top_chunk$tweet_geo_country_code <- NA
+
+ #     top_chunk %>% 
+ #       dplyr::group_by(.data$tokens, .data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
+ #       dplyr::summarize(frequency = sum(.data$count), original = sum(.data$original), retweets = sum(.data$retweets))  %>%
+ #       dplyr::ungroup()  %>%
+ #       dplyr::group_by(.data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
+ #       dplyr::top_n(n = 200, wt = .data$frequency) %>%
+ #       dplyr::ungroup() 
+ #   }
+ #country_counts
     # Getting the expression for known users and writing it as a file so it can be read and applied by spark on query
     known_user <- 
       paste("screen_name in ('"
@@ -478,25 +477,23 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
 	      , "') "
 	      , sep = ""
       )
-    replacementfile <- tempfile(pattern = "repl", fileext = ".txt")
-    f <-file(replacementfile)
-    writeLines(c(
-      paste("@known_retweets:cast(sum(case when is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_retweets")
-      , paste("@known_original:cast(sum(case when not is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_original")
-      ), f)
-    close(f) 
+    params <- list(
+      known_retweets = paste("cast(sum(case when is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_retweets")
+      , known_original = paste("cast(sum(case when not is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_original")
+    )
+    
     # Aggregation by country level
-    get_geotagged_tweets(regexp = agg_regex
-       , sources_exp = list(
-           tweet = c(
-             list("created_at", "is_retweet", "screen_name", "linked_screen_name")
-             , get_user_location_columns("tweet")
-           )
-           ,geo = c(
-             get_tweet_location_columns("geo") 
-             , get_user_location_columns("geo") 
-             ) 
-       )
+     set_aggregated_tweets(
+       name = "country_counts"
+       , dateCol = "created_date"
+       , pks = list("created_date", "topic", "created_hour", "tweet_geo_country_code", "user_geo_country_code")
+       , aggr = list(retweets = "sum", tweets = "sum", know_retweets = "sum", know_original = "sum") 
+       , sources_exp = c(
+           list("topic", "created_at", "is_retweet", "screen_name", "linked_screen_name")
+           , get_user_location_columns("tweet")
+           , get_tweet_location_columns("geo") 
+           , get_user_location_columns("geo") 
+      )
       , group_by = list(
         "topic"
         , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
@@ -510,10 +507,7 @@ get_aggregated_serie <- function(serie_name, created_date, files) {
         , "@known_retweets"
         , "@known_original"
        )
-      , filter_by = list(
-         paste("date_format(created_at, 'yyyy-MM-dd') = '", strftime(created_date, "%Y-%m-%d"), "'", sep = "")
-      )
-      , params = replacementfile
+      , params = params
     )
   }
 }

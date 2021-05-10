@@ -1,3 +1,112 @@
+
+# Gets a dataframe with geolocated tweets requested varables stored on json files of search api and json file from geolocated tweets produced by geotag_tweets
+# this funtion is the entry point from gettin tweet information produced by SPARK
+# it is generic enough to choose variables, aggregation and filters
+# deals with tweet deduplication at topic level
+# regexp: regexp to limit the geolocation and search files to read
+# vars: variable to read (evaluated after aggregation if required)
+# sort_by: order to apply to the returned dataframe
+# filter_by: expressions to use for filtering tweets
+# sources_exp: variables to limit the source files to read (setting this will improve reading performance)
+# handler: function that to perform a custom R based transformation on data returned by SPARK
+# perams: definition of custom param files to enable big queries
+set_aggregated_tweets <- function(from, to, vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), params = list(), handler = NULL) {
+ stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
+  
+ # Making call to aggregat api
+ # json results are piped as dataframe
+ df <- stream_post(
+    url <- paste0("http://localhost:8080/aggregate?from=",from,"&to=",to,"&jsonnl=true"),
+    query <- list(
+      columns = vars,  
+      groupBy = group_by, 
+      sortBy = sort_by, 
+      filterBy = filter_by, 
+      sourceExpressions = sources_exp,
+      params = params
+    ),
+    handler
+  )
+ return(df)
+}
+
+
+stream_post <- function(url, query, handler = NULL) { 
+  cum <- new.env()
+  cum$tail <- c()
+  cum$dfs <- list()
+
+  
+  if(!is.null(handler)) {
+    # If a custom transfotmation is going to be done (a handler function has been set)
+    # this function will be calles on pages of 10k lines using the jsonlite stream_in function
+    # the transformed results will be stored on a temporary file that will be read by stream_in
+    tmp_file <- tempfile(pattern = "epitweetr", fileext = ".json")
+    #message(tmp_file)
+    con_tmp <- file(tmp_file, open = "w", encoding = "UTF-8") 
+  }
+
+  pipeconnection <- function(x, handler = handler) {
+    cuts <- which(x == 0x0a)
+	  if(length(cuts) == 0)
+	    cum$tail <- c(cum$tail, x) 
+	  else {
+	    if( tail(cuts, n = 1) != length(x)) {
+		    bytes <- c(cum$tail, x[1:tail(cuts, n = 1)])
+	      cum$tail <- x[(tail(cuts, n = 1)+1):length(x)]
+      } else {
+		    bytes <- c(cum$tail, x)
+		    cum$tail <- c()
+		  }
+	    con <- rawConnection(bytes, "rb")
+      if(is.null(handler))
+	      cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, verbose = F)
+	    else
+  	    jsonlite::stream_in(con, function(df) handler(df, con_tmp), verbose = F)
+	    close(con)
+	  }
+  }
+  # Doing the post request
+  post_result <- httr::POST(
+    url=url, httr::write_stream(function(x) {pipeconnection(x, handler)}), 
+    body = jsonlite::toJSON(query, simplify_vector = T ,auto_unbox = T),
+    httr::content_type_json(),
+    encode = "raw", 
+    encoding = "UTF-8"
+  )
+  print(httr::status_code(post_result))
+  if(httr::status_code(post_result) != 200) {
+    print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
+    stop()
+  }
+	
+  #Applying last line if necessary
+  if(length(cum$tail)>0) {
+    if(cum$tail[[length(cum$tail)]] != 0x0a)
+      cum$tail[[length(cum$tail) + 1]] <- as.raw(0x0a)
+    con <- rawConnection(cum$tail, "rb")
+	  if(is.null(handler))
+	    cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, verbose = F)
+	  else
+  	  cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, function(df) handler(df, con_tmp), verbose = F)
+	  close(con)
+	}
+  #TRansforming single lines responses in dataframes
+	lapply(cum$dfs, function(l) if(typeof(l) == "list") data.frame(lapply(l, function(x) t(data.frame(x)))) else l)
+  #joining response
+  if(is.null(handler)) {
+    jsonlite::rbind_pages(cum$dfs)
+  } else {
+    close(con_tmp)
+    con_tmp <- file(tmp_file, open = "r", encoding = "UTF-8") 
+    ret <- jsonlite::stream_in(con_tmp, pagesize = 10000, verbose = FALSE)
+    close(con_tmp)
+    unlink(tmp_file)
+    ret
+  }
+}
+
+
 # get the java path using JAVA_HOME if set
 java_path <-  function() {
   if(Sys.getenv("JAVA_HOME")=="") 

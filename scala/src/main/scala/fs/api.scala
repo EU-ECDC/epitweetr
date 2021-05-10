@@ -22,16 +22,21 @@ import akka.stream.scaladsl._
 import akka.http.scaladsl.model.HttpEntity.{Chunked, Strict}
 import akka.util.ByteString
 import java.time.Instant
+import java.nio.file.{Paths, Files}
+import java.nio.charset.StandardCharsets
 
 object API {
   var actorSystemPointer:Option[ActorSystem] = None
   var oLuceneRunner:Option[ActorRef] = None
+  var oConf:Option[Settings] = None
   def run(port:Int, epiHome:String) {
     import EpiSerialisation._
     implicit val actorSystem = ActorSystem("epitweetr")
     actorSystemPointer = Some(actorSystem)
     implicit val executionContext = actorSystem.dispatcher
     val conf = Settings(epiHome)
+    conf.load
+    oConf = Some(conf)
     val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor], conf))
     oLuceneRunner = Some(luceneRunner)
 
@@ -46,7 +51,7 @@ object API {
               "jsonnl".as[Boolean]?false, 
               "max".as[Int]?100
             ) { (query, topic, fromStr, toStr, jsonnl, max) => 
-              implicit val timeout: Timeout = 30.seconds //For ask property
+              implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
               val mask = "YYYY-MM-DDT00:00:00.000Z"
               val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
               val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
@@ -66,10 +71,10 @@ object API {
             }
           } ~
           post {
-            withRequestTimeout(3000.seconds) {
+            withRequestTimeout(conf.fsQueryTimeout.seconds) {
               parameters("topic", "geolocate".as[Boolean]?true) { (topic, geolocate) =>
                 entity(as[JsValue]) { json  =>
-                  implicit val timeout: Timeout = 3000.seconds //For ask property
+                  implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
                   Try(tweetsV1Format.read(json)) match {
                     case Success(tweets) =>
                        val fut = (luceneRunner ? TopicTweetsV1(topic, tweets))
@@ -95,68 +100,80 @@ object API {
               }
             }
           }
-        } ~ path("aggregate") { // checks if path/url starts with model
+        } ~ path("aggregation") { // checks if path/url starts with model
           post {
-            entity(as[String]) { sourceExpressions  =>
-              withRequestTimeout(600.seconds) {
-                parameters("q", "jsonnl".as[Boolean]?false, "from", "to", "columns".as[String].*, "groupBy".as[String].*, "filterBy".as[String].*, "sortBy".as[String].*) { 
-                (q, jsonnl, fromStr, toStr, columns, groupBy, filterBy, sortBy) =>
-                   
-                  val mask = "YYYY-MM-DDT00:00:00.000Z"
-                  val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
-                  val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
-                  implicit val timeout: Timeout = 600.seconds //For ask property
-                  val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
-                    ackMessage = ByteString("ok")
-                    , completionMatcher = {case Done => CompletionStrategy.immediately}
-                    , failureMatcher = PartialFunction.empty
-                  ).backpressureTimeout(FiniteDuration(600, "seconds"))
-                  .idleTimeout(FiniteDuration(600, "seconds"))
-                  val (actorRef, matSource) = source.preMaterialize()
-                  luceneRunner ! LuceneActor.AggregateRequest(
-                    q, 
-                    from, 
-                    to, 
-                    columns.toSeq, 
-                    groupBy.toSeq, 
-                    filterBy.toSeq, 
-                    sortBy.toSeq,
-                    Seq(sourceExpressions)
-                      .toSeq 
-                      .map(tLine => 
-                        Some(
-                          tLine
-                            .split("\\|\\|")
-                            .toSeq
-                            .map(_.trim)
-                            .filter(_.size > 0)
-                            //TODO: add file support.map(v => qParams.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(iter._1, iter._2))).getOrElse(v))
-                          )
-                          .map(s => (s(0), s.drop(1)))
-                          .get
-                       )
-                      .toMap,
-                    jsonnl, 
-                    actorRef
-                  ) 
-                  complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
-                    if(m.startsWith(ByteString(s"[Stream--error]:"))) 
-                      throw new Exception(m.decodeString("UTF-8"))
-                    else 
-                      m
-                  }))
-                }
+            entity(as[String]) { json  =>
+              Try(collectionFormat.read(json)) match {
+                case Success(collection) =>
+                  val path = Files.createDirectories(conf.collectionPath)
+                  Files.write(Paths.get(path, s"${collection.name}.json"), json.getBytes(StandardCharsets.UTF_8)) 
+                case Failure(e) =>
+                  println(s"Cannot interpret the provided body as an aggregation request:\n $e, ${e.getStackTrace.mkString("\n")}\n${json}") 
+                  complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided JSON body as an aggregate request:\n $e ${json}")) 
               }
+            } ~  entity(as[String]) { value  => 
+               complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+            }
+          } ~ get {
+            entity(as[JsValue]) { json  =>
+              Try(aggregationFormat.read(json)) match {
+                case Success(aggr) =>
+                  withRequestTimeout(conf.fsBatchTimeout.seconds) {
+                    parameters("q".?, "jsonnl".as[Boolean]?false, "from", "to") { 
+                    (q, jsonnl, fromStr, toStr) =>
+                       
+                      val mask = "YYYY-MM-DDT00:00:00.000Z"
+                      val from =  Instant.parse(s"${fromStr}${mask.substring(fromStr.size)}")
+                      val to =  Instant.parse(s"${toStr}${mask.substring(toStr.size)}")
+                      implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
+                      val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                        ackMessage = ByteString("ok")
+                        , completionMatcher = {case Done => CompletionStrategy.immediately}
+                        , failureMatcher = PartialFunction.empty
+                      ).backpressureTimeout(FiniteDuration(conf.fsBatchTimeout, "seconds"))
+                      .idleTimeout(FiniteDuration(conf.fsBatchTimeout, "seconds"))
+                      val (actorRef, matSource) = source.preMaterialize()
+                      luceneRunner ! LuceneActor.AggregateRequest(
+                        q, 
+                        from, 
+                        to, 
+                        aggr.columns 
+                           .map(v => aggr.params.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(s"@${iter._1}", iter._2))).getOrElse(v)),
+                        aggr.groupBy.getOrElse(Seq[String]()) 
+                           .map(v => aggr.params.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(s"@${iter._1}", iter._2))).getOrElse(v)),
+                        aggr.filterBy.getOrElse(Seq[String]()) 
+                           .map(v => aggr.params.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(s"@${iter._1}", iter._2))).getOrElse(v)),
+                        aggr.sortBy.getOrElse(Seq[String]())
+                           .map(v => aggr.params.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(s"@${iter._1}", iter._2))).getOrElse(v)),
+                        aggr.sourceExpressions.getOrElse(Seq[String]())
+                           .map(v => aggr.params.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(s"@${iter._1}", iter._2))).getOrElse(v)),
+                        jsonnl, 
+                        actorRef
+                      ) 
+                      complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                        if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                          throw new Exception(m.decodeString("UTF-8"))
+                        else 
+                          m
+                      }))
+                    }
+                  }
+                case Failure(e) =>
+                  println(s"Cannot interpret the provided body as an aggregation request:\n $e, ${e.getStackTrace.mkString("\n")}\n${json}") 
+                  complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided JSON body as an aggregate request:\n $e ${json}")) 
+              }
+            } ~  entity(as[String]) { value  => 
+               complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
             }
           }
-        } ~ path("geolocated") { // checks if path/url starts with model
+        } ~ path("geolocated") { 
           post {
             parameters("created".as[String].*) { createdStr => 
               val mask = "YYYY-MM-DDT00:00:00.000Z"
               val dates =  createdStr.map(d => Instant.parse(s"$d${mask.substring(d.size)}"))
               if(createdStr.size > 0) {
                 entity(as[JsValue]) { json  =>
-                  implicit val timeout: Timeout = 3000.seconds //For ask property
+                  implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
                   Try(geolocatedsFormat.read(json)) match {
                     case Success(geolocateds) =>
                        val fut = (luceneRunner ? LuceneActor.GeolocatedsCreated(geolocateds, dates.toSeq))
@@ -181,8 +198,8 @@ object API {
           }
         } ~ path("commit") { // commit the tweets sent
           post {
-            withRequestTimeout(600.seconds) {
-            implicit val timeout: Timeout = 600.seconds //For ask property
+            withRequestTimeout(conf.fsBatchTimeout.seconds) {
+            implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
             val fut =  (luceneRunner ? LuceneActor.CommitRequest())
               .map{
                  case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
@@ -193,15 +210,13 @@ object API {
             }
           }
         } ~ {
-          complete(LuceneActor.Failure(s"Cannot find a route for uri $uri")) 
+          complete(StatusCodes.NotAcceptable,  LuceneActor.Failure(s"Cannot find a route for uri $uri")) 
         }
     }
 
     Http().newServerAt("localhost", 8080).bind(route)
   }
   def logThis(log:String) = {
-    import java.nio.file.{Paths, Files}
-    import java.nio.charset.StandardCharsets
     import java.nio.file.StandardOpenOption
     Files.write(Paths.get(s"${System.getProperty("user.home")}/akka-epi.json"), log.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE)
   }
@@ -220,7 +235,7 @@ object API {
   }
   def stop() {
     oLuceneRunner.map{lr =>
-      implicit val timeout: Timeout = 30.seconds //For ask property
+      implicit val timeout: Timeout =oConf.get.fsQueryTimeout.seconds //For ask property
       implicit val executionContext = actorSystemPointer.get.dispatcher
       (lr ? LuceneActor.CloseRequest)
         .onComplete{_ => 

@@ -30,6 +30,22 @@ case class Geolocated(var topic:String, id:Long, is_geo_located:Boolean, lang:St
   }
 }
 
+case class Collection(
+  name:String
+  dateCol:String,
+  pks:Seq[String],
+  aggregation:Aggregation 
+)
+
+case class Aggregation(
+  columns:Seq[String], 
+  groupBy:Option[Seq[String]], 
+  filterBy:Option[Seq[String]], 
+  sortBy:Option[Seq[String]], 
+  sourceExpressions:Option[Seq[String]], 
+  params:Option[Map[String, String]],
+)
+
 case class Geolocateds(items:Seq[Geolocated])
 
 case class TweetsV1(items:Seq[TweetV1])
@@ -44,6 +60,8 @@ object EpiSerialisation
     implicit val commitRequestFormat = jsonFormat0(LuceneActor.CommitRequest.apply)
     implicit val locationRequestFormat = jsonFormat7(Location.apply)
     implicit val geolocatedFormat = jsonFormat10(Geolocated.apply)
+    implicit val aggregationFormat = jsonFormat6(Aggregation.apply)
+    implicit val collectionFormat = jsonFormat4(Aggregation.apply)
     implicit object tweetV1Format extends RootJsonFormat[TweetV1] {
       def write(t: TweetV1) =
         JsObject(Map(
@@ -246,7 +264,9 @@ object EpiSerialisation
           ):_*
         ))
       }
-      def read(value: JsValue) = throw new NotImplementedError("Serializing to lucene document")
+      def read(value: JsValue) = {
+        throw new NotImplementedError(f"Deserializing lucene documebts is not supported") 
+      }
     }
     implicit object geolocatedsFormat extends RootJsonFormat[Geolocateds] {
       def write(t: Geolocateds) = JsArray(t.items.map(c => geolocatedFormat.write(c)):_*)

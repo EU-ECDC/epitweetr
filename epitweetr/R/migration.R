@@ -15,7 +15,7 @@ json2lucene <- function(chunk_size = 400) {
   for(i in 1:length(dates)) {
     search_files <- list.files(get_search_path(), recursive=T, full.names=T, pattern = paste0(gsub("\\.", "\\\\.", dates[[i]]), "$"))
     geo_dirs <- list.files(get_geo_path(), recursive=T, full.names=T, pattern = paste0(gsub("\\.", "\\\\.", dates[[i]]), "$"), include.dirs = T) 
-    geo_files <- list()#list.files(geo_dirs, recursive=T, full.names=T) 
+    geo_files <- list.files(geo_dirs, recursive=T, full.names=T) 
     message(paste("Scanning files for ", dates[[i]])) 
     files <- c(
       lapply(search_files, function(f) list(type="search", path=f, topic = tail(strsplit(f, "/")[[1]], n=3)[[1]]))
@@ -55,7 +55,7 @@ json2lucene <- function(chunk_size = 400) {
           read_time <- Sys.time()
           lines <- readLines(con = con, n =  if(files[[j]]$type == "geo") 100 *  chunk_size else chunk_size)
           read_time <-  as.numeric(difftime(Sys.time(), read_time, units='secs'))
-          # commiting each 10 requests
+          # commiting each 60 secs
           if(as.numeric(difftime(Sys.time(), last_commit, unit = "secs")) > 60) { 
             commit_tweets()
             last_commit <- Sys.time()
@@ -183,7 +183,7 @@ store_v1_search <- function(lines, topic, async = T) {
     } else {
       #migration_log(lines[i])
       for( i in 1:length(lines)) {
-        post_result <- httr::POST(url=paste0("http://localhost:8080/tweets?topic=", curl::curl_escape(topic)), httr::content_type_json(), body=lines[i], encode = "raw", encoding = "UTF-8")
+        post_result <- httr::POST(url=paste0("http://localhost:8080/tweets?topic=", curl::curl_escape(topic), "&geolocate=false"), httr::content_type_json(), body=lines[i], encode = "raw", encoding = "UTF-8")
         if(httr::status_code(post_result) != 200) {
           migration_log(httr::content(post_result, "text", encoding = "UTF-8"))
           print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
