@@ -10,24 +10,37 @@
 # sources_exp: variables to limit the source files to read (setting this will improve reading performance)
 # handler: function that to perform a custom R based transformation on data returned by SPARK
 # perams: definition of custom param files to enable big queries
-set_aggregated_tweets <- function(from, to, vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), params = list(), handler = NULL) {
- stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
-  
- # Making call to aggregat api
- # json results are piped as dataframe
- df <- stream_post(
-    url <- paste0("http://localhost:8080/aggregate?from=",from,"&to=",to,"&jsonnl=true"),
-    query <- list(
-      columns = vars,  
-      groupBy = group_by, 
-      sortBy = sort_by, 
-      filterBy = filter_by, 
-      sourceExpressions = sources_exp,
-      params = params
-    ),
-    handler
+set_aggregated_tweets <- function(name, dateCol, pks, aggr, vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), params = list()) {
+  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
+  post_result <- httr::POST(
+    url="http://localhost:8080/aggregate", 
+    httr::content_type_json(), 
+    body= jsonlite::toJSON(
+      list(
+        name = name,
+        dateCol = dateCol,
+        pks = pks,
+        aggr = aggr,
+        aggregation = list(
+          columns = vars,  
+          groupBy = group_by, 
+          sortBy = sort_by, 
+          filterBy = filter_by, 
+          sourceExpressions = sources_exp,
+          params = if(length(params) == 0) list(fake_param_epi = "") else params
+        )
+      ), 
+      simplify_vector = T ,
+      auto_unbox = T
+    ), 
+    encode = "raw", 
+    encoding = "UTF-8"
   )
- return(df)
+  if(httr::status_code(post_result) != 200) {
+    migration_log(httr::content(post_result, "text", encoding = "UTF-8"))
+    print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
+    stop()
+  }
 }
 
 
@@ -69,7 +82,7 @@ stream_post <- function(url, query, handler = NULL) {
   # Doing the post request
   post_result <- httr::POST(
     url=url, httr::write_stream(function(x) {pipeconnection(x, handler)}), 
-    body = jsonlite::toJSON(query, simplify_vector = T ,auto_unbox = T),
+    body =,
     httr::content_type_json(),
     encode = "raw", 
     encoding = "UTF-8"

@@ -37,6 +37,7 @@ object TweetIndex {
       else {
         DirectoryReader.open(index)
       }
+    println(s"${reader.getRefCount} I0")
     val searcher = new IndexSearcher(reader)
     TweetIndex(reader = reader, writer = writer, searcher = searcher, index = index, writeEnabled)
   }
@@ -51,16 +52,24 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       true
   }
   def refreshReader()  = {
-    val oldReader = this.reader
-    val newReader = 
-      if(writeEnabled)
-        DirectoryReader.open(this.writer.get,true, true)
-      else {
-        DirectoryReader.open(this.index)
+    this.synchronized {
+      val oldReader = this.reader
+      try{
+        val newReader = 
+          if(writeEnabled){
+            DirectoryReader.open(this.writer.get,true, true)
+          } else {
+            DirectoryReader.open(this.index)
+          }
+        println(s"${newReader.getRefCount} I0 -- new")
+        this.reader = newReader
+        this.searcher = new IndexSearcher(this.reader)
+      } 
+      finally {
+        println(s"${oldReader.getRefCount} D1 - old")
+        oldReader.decRef()
       }
-    this.reader = newReader
-    this.searcher = new IndexSearcher(this.reader)
-    oldReader.close()
+    }
     this
   }
 
@@ -69,8 +78,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       doc.add(new StringField("topic", s"${topic}", Field.Store.YES))  
       doc.add(new StringField("topic_tweet_id", s"${topic.toLowerCase}_${tweet.tweet_id}", Field.Store.YES))  
       doc.add(new StringField("hash", s"${Math.abs(tweet.tweet_id.toString.hashCode)}", Field.Store.YES))  
-      doc.add(new LongPoint("tweet_id", tweet.user_id))
-      doc.add(new StoredField("tweet_id", tweet.user_id))
+      doc.add(new LongPoint("tweet_id", tweet.tweet_id))
+      doc.add(new StoredField("tweet_id", tweet.tweet_id))
       doc.add(new TextField("text", tweet.text, Field.Store.YES))  
       tweet.linked_text.map(text => doc.add(new TextField("linked_text", text, Field.Store.YES)))  
       doc.add(new StoredField("user_description", tweet.user_description))  
@@ -106,35 +115,35 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       tweet.linked_place_latitude.map(value => doc.add(new StoredField("linked_place_latitude", value)))
       doc
   }
-  def sparkRowDoc(row:Row, pk:Option[Seq[String]]=None, textFields:Set[String]=Set[String]()) = {
+  def sparkRowDoc(row:Row, pk:Option[Seq[String]]=None, textFields:Set[String]=Set[String](), oldDoc:Option[Document], aggr:Map[String, String]) = {
     val doc = new Document()
     val pkVal = HashMap[String, String]()
     row.schema.fields.zipWithIndex.foreach{case (StructField(name, dataType, nullable, metadata), i) =>
       pk.map{pkFields =>
         if(pkFields.contains(name)) {
-          if(row.isNullAt(i)) throw new Exception("cannot search a row on a null PK value")
-          pkVal += ((name, row.get(i).toString))
+          if(!row.isNullAt(i))
+            pkVal += ((name, row.get(i).toString))
         }
       }
       if(!row.isNullAt(i)) {
         dataType match {
-          case StringType if !textFields.contains(name) =>  doc.add(new StringField(name, row.getAs[String](name), Field.Store.YES))
-          case StringType if textFields.contains(name) =>  doc.add(new TextField(name, row.getAs[String](name), Field.Store.YES))
+          case StringType if !textFields.contains(name) =>  doc.add(new StringField(name, row.getAs[String](i), Field.Store.YES))
+          case StringType if textFields.contains(name) =>  doc.add(new TextField(name, row.getAs[String](i), Field.Store.YES))
           case IntegerType => 
-            doc.add(new IntPoint(name, row.getAs[Int](i)))
-            doc.add(new StoredField(name, row.getAs[Int](i)))
+            doc.add(new IntPoint(name, applyIntAggregation(row.getAs[Int](i), name, aggr, oldDoc)))
+            doc.add(new StoredField(name, applyIntAggregation(row.getAs[Int](i), name, aggr, oldDoc)))
           case BooleanType => 
             doc.add(new StringField(name, if(row.getAs[Boolean](i)) "true" else "false", Field.Store.NO)) 
             doc.add(new StoredField(name, Array(if(row.getAs[Boolean](i)) 1.toByte else 0.toByte )))  
           case LongType =>   
-            doc.add(new LongPoint(name, row.getAs[Long](i)))
-            doc.add(new StoredField(name, row.getAs[Long](i)))
+            doc.add(new LongPoint(name, applyLongAggregation(row.getAs[Long](i), name, aggr, oldDoc)))
+            doc.add(new StoredField(name, applyLongAggregation(row.getAs[Long](i), name, aggr, oldDoc)))
           case DoubleType => 
-            doc.add(new DoublePoint(name, row.getAs[Double](i)))
-            doc.add(new StoredField(name, row.getAs[Double](i)))
+            doc.add(new DoublePoint(name, applyDoubleAggregation(row.getAs[Double](i), name, aggr, oldDoc)))
+            doc.add(new StoredField(name, applyDoubleAggregation(row.getAs[Double](i), name, aggr, oldDoc)))
           case FloatType =>
-            doc.add(new FloatPoint(name, row.getAs[Float](i)))
-            doc.add(new StoredField(name, row.getAs[Float](i)))
+            doc.add(new FloatPoint(name, applyFloatAggregation(row.getAs[Float](i), name, aggr, oldDoc)))
+            doc.add(new StoredField(name, applyFloatAggregation(row.getAs[Float](i), name, aggr, oldDoc)))
           case _ =>
             throw new NotImplementedError(f"Indexing automatic index of datatype $dataType is not supported")
            
@@ -142,18 +151,49 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       }
     }
     pk.map{pkFields =>
-      if(pkFields.size == pkVal.size) {
-        doc.add(new StringField(
-          pkFields.mkString("_"), 
-          pkFields.map(k => pkVal(k)).mkString("_"), 
-          Field.Store.YES)
-        )
-      }
-      else {
-        throw new Exception("cannot find all pkValues")
-      }
+      doc.add(new StringField(
+        pkFields.mkString("_"), 
+        pkFields.map(k => pkVal.get(k).getOrElse(null)).mkString("_"), 
+        Field.Store.YES
+      ))
     }
     doc
+  }
+  def applyIntAggregation(value:Int, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
+    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName).numericValue() == null)
+      value
+    else if(aggr.get(fieldName) == Some("sum"))
+      value + oldDoc.get.getField(fieldName).numericValue.intValue()
+    else if(aggr.get(fieldName) == Some("avg"))  
+      (value + oldDoc.get.getField(fieldName).numericValue.intValue())/2
+    else value
+  }
+  def applyLongAggregation(value:Long, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
+    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName).numericValue() == null)
+      value
+    else if(aggr.get(fieldName) == Some("sum"))
+      value + oldDoc.get.getField(fieldName).numericValue.longValue()
+    else if(aggr.get(fieldName) == Some("avg")) 
+      (value + oldDoc.get.getField(fieldName).numericValue.longValue())/2
+    else value
+  }
+  def applyDoubleAggregation(value:Double, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
+    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName).numericValue() == null)
+      value
+    else if(aggr.get(fieldName) == Some("sum"))
+      value + oldDoc.get.getField(fieldName).numericValue.doubleValue()
+    else if(aggr.get(fieldName) == Some("avg")) 
+      (value + oldDoc.get.getField(fieldName).numericValue.doubleValue())/2
+    else value
+  }
+  def applyFloatAggregation(value:Float, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
+    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName).numericValue() == null)
+      value
+    else if(aggr.get(fieldName) == Some("sum"))
+      value + oldDoc.get.getField(fieldName).numericValue.floatValue()
+    else if(aggr.get(fieldName) == Some("avg")) 
+      (value + oldDoc.get.getField(fieldName).numericValue.floatValue())/2
+    else value
   }
   def indexTweet(tweet:TweetV1, topic:String) {
     val doc = tweetDoc(tweet, topic)
@@ -162,73 +202,110 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       throw new Exception("Cannot index  on a read only index")
     this.writer.get.updateDocument(new Term("topic_tweet_id", s"${topic.toLowerCase}_${tweet.tweet_id}"), doc)
   }
-  def indexSparkRow(row:Row, pk:Option[Seq[String]]=None, textFields:Set[String]=Set[String]()) = {
-    /*searchRow(row, pk) match {
-      case Some(doc, t)  => 
-        val fields = Seq(  
-            new StringField("is_geo_located", if(geo.is_geo_located) "true" else "false", Field.Store.NO), 
-            new StoredField("is_geo_located", Array(if(geo.is_geo_located) 1.toByte else 0.toByte )) 
-          ) ++  
-            geo.linked_place_full_name_loc.map(l => getLocationFields(field = "linked_place_full_name_loc", loc = l)).getOrElse(Seq[Field]()) ++ 
-            geo.linked_text_loc.map(l => getLocationFields(field = "linked_text_loc", loc = l)).getOrElse(Seq[Field]()) ++
-            geo.place_full_name_loc.map(l => getLocationFields(field = "place_full_name_loc", loc = l)).getOrElse(Seq[Field]()) ++
-            geo.text_loc.map(l => getLocationFields(field = "text_loc", loc = l)).getOrElse(Seq[Field]()) ++
-            geo.user_description_loc.map(l => getLocationFields(field = "user_description_loc", loc = l)).getOrElse(Seq[Field]()) ++
-            geo.user_location_loc.map(l => getLocationFields(field = "user_location_loc", loc = l)).getOrElse(Seq[Field]())
-       
-          fields.foreach(f => doc.add(f))*/
-      if(!writeEnabled)
-         throw new Exception("Cannot index on a read only index")
-      val doc = this.sparkRowDoc(row = row, pk = pk, textFields = textFields)
-      if(pk.isEmpty)
-        throw new Exception(s"Indexing spark rows without primary key definition is not supported")
-      
-      val pkTerm = new Term(pk.get.mkString("_"), pk.get.map(k => doc.getField(k).stringValue).mkString("_"))
-      this.writer.get.updateDocument(pkTerm, doc)
-      /*case _ =>
-        println(s"Cannot find tweet ${geo.topic}_${geo.id}")
-        false
-    }*/
+  def indexSparkRow(row:Row, pk:Seq[String], textFields:Set[String]=Set[String](), aggr:Map[String, String] =Map[String, String]() ) = {
+    val oldDoc = searchRow(row, pk)
+    val doc = this.sparkRowDoc(row = row, pk = Some(pk), textFields = textFields, oldDoc = oldDoc, aggr = aggr)
+    if(!writeEnabled)
+       throw new Exception("Cannot index on a read only index")
+    if(pk.isEmpty)
+      throw new Exception(s"Indexing spark rows without primary key definition is not supported")
+    
+    val pkTerm = new Term(pk.mkString("_"), pk.map(k => if(doc.getField(k) == null) null else doc.getField(k).stringValue).mkString("_"))
+    this.writer.get.updateDocument(pkTerm, doc)
   }
 
   def searchTweetV1(id:Long, topic:String) = {
-    val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
-    val doc = if(res.scoreDocs.size == 0) {
+    implicit val searcher = this.searcher
+    val reader = searcher.getIndexReader()
+    println(s"${reader.getRefCount} I1")
+    reader.incRef()
+    Try{
+      val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
+      val doc = if(res.scoreDocs.size == 0) {
         None
-    } else {
-       Some(this.reader.document(res.scoreDocs(0).doc))
-    }
-    doc.map(d => (d, d.getField("topic").stringValue))
-      .map{case (d, t) => (EpiSerialisation.luceneDocFormat.write(d), t)}
-      .map{case (json, t) => (EpiSerialisation.tweetV1Format.read(json), t)
+      } else {
+         Some(this.reader.document(res.scoreDocs(0).doc))
+      }
+      doc.map(d => (d, d.getField("topic").stringValue))
+        .map{case (d, t) => (EpiSerialisation.luceneDocFormat.write(d), t)}
+        .map{case (json, t) => (EpiSerialisation.tweetV1Format.read(json), t)}
+    } match {
+      case Success(r) =>
+        println(s"${reader.getRefCount}D2")
+        reader.decRef()
+        r
+      case Failure(e) =>
+        println(s"${reader.getRefCount}D2")
+        reader.decRef()
+        throw e
     }
   }
 
-  def searchRow(row:Row, pk:Set[String]) = {
-    assert(pk.size > 0)
-    val qb = new BooleanQuery.Builder()
-    row.schema.fields.zipWithIndex
-      .filter{case (StructField(name, dataType, nullable, metadata), i) => pk.contains(name)}
-      .foreach{case (StructField(name, dataType, nullable, metadata), i) =>
-      if(row.isNullAt(i)) throw new Exception("cannot search a row on a null PK value")
-      dataType match {
-        case StringType => qb.add(new TermQuery(new Term(name, row.getAs[String](i))), Occur.MUST)
-        case IntegerType => qb.add(IntPoint.newExactQuery(name, row.getAs[Int](i)), Occur.MUST)
-        case BooleanType => qb.add(BinaryPoint.newExactQuery(name, Array(row.getAs[Boolean](i) match {case true => 1.toByte case _ => 0.toByte})), Occur.MUST)
-        case LongType => qb.add(LongPoint.newExactQuery(name, row.getAs[Long](i)), Occur.MUST)
-        case FloatType => qb.add(FloatPoint.newExactQuery(name, row.getAs[Float](i)), Occur.MUST)
-        case DoubleType => qb.add(DoublePoint.newExactQuery(name, row.getAs[Double](i)), Occur.MUST)
-        case dt => throw new Exception(s"Spark type {$dt.typeName} cannot be used as a filter since it has not been indexed")
-       }
-    }
-
-    val res = search(qb.build, maxHits = 1)
-    val doc = if(res.scoreDocs.size == 0) {
+  def searchTweet(id:Long, topic:String) = {
+    implicit val searcher = this.searcher
+    val reader = searcher.getIndexReader()
+    println(s"${reader.getRefCount} I2")
+    reader.incRef()
+    Try{
+      val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
+      val doc = if(res.scoreDocs.size == 0) {
+        searchTweetV1(id, topic)
         None
-    } else {
-       Some(this.reader.document(res.scoreDocs(0).doc))
+      } else {
+         Some(reader.document(res.scoreDocs(0).doc))
+      }
+      doc.map(d => EpiSerialisation.luceneDocFormat.write(d).toString)
+    } match {
+      case Success(r) =>
+        println(s"${reader.getRefCount}D3")
+        reader.decRef()
+        r
+      case Failure(e) =>
+        println(s"${reader.getRefCount}D3")
+        reader.decRef()
+        throw e
     }
-    doc.map(d => EpiSerialisation.luceneDocFormat.write(d))
+  }
+  def searchRow(row:Row, pk:Seq[String]) = {
+    assert(pk.size > 0)
+    implicit val searcher = this.searcher
+    val reader = searcher.getIndexReader()
+    println(s"${reader.getRefCount} I3")
+    reader.incRef()
+    Try{
+      val qb = new BooleanQuery.Builder()
+      row.schema.fields.zipWithIndex
+        .filter{case (StructField(name, dataType, nullable, metadata), i) => pk.contains(name)}
+        .foreach{case (StructField(name, dataType, nullable, metadata), i) =>
+        if(!row.isNullAt(i)) {//throw new Exception("cannot search a row on a null PK value")
+        dataType match {
+          case StringType => qb.add(new TermQuery(new Term(name, row.getAs[String](i))), Occur.MUST)
+          case IntegerType => qb.add(IntPoint.newExactQuery(name, row.getAs[Int](i)), Occur.MUST)
+          case BooleanType => qb.add(BinaryPoint.newExactQuery(name, Array(row.getAs[Boolean](i) match {case true => 1.toByte case _ => 0.toByte})), Occur.MUST)
+          case LongType => qb.add(LongPoint.newExactQuery(name, row.getAs[Long](i)), Occur.MUST)
+          case FloatType => qb.add(FloatPoint.newExactQuery(name, row.getAs[Float](i)), Occur.MUST)
+          case DoubleType => qb.add(DoublePoint.newExactQuery(name, row.getAs[Double](i)), Occur.MUST)
+          case dt => throw new Exception(s"Spark type {$dt.typeName} cannot be used as a filter since it has not been indexed")
+         }
+        }
+      }
+
+      val res = search(qb.build, maxHits = 1)
+      if(res.scoreDocs.size == 0) {
+          None
+      } else {
+         Some(reader.document(res.scoreDocs(0).doc))
+      }
+    } match {
+      case Success(r) =>
+        println(s"${reader.getRefCount}D4")
+        reader.decRef()
+        r
+      case Failure(e) =>
+        println(s"${reader.getRefCount}D4")
+        reader.decRef()
+        throw e
+    }
   }
 
   def indexGeolocated(geo:Geolocated) = {
@@ -247,11 +324,6 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
             geo.user_location_loc.map(l => getLocationFields(field = "user_location_loc", loc = l)).getOrElse(Seq[Field]())
        
           fields.foreach(f => doc.add(f))
-          /*println(">>>------------------------------------------")
-          println(s"1.....$geo")
-          println(s"2.....$tweet")
-          println(s"3.....$doc")
-          println(">>------------------------------------------")*/
           if(!writeEnabled)
             throw new Exception("Cannot index on a read only index")
           this.writer.get.updateDocument(new Term("topic_tweet_id", s"${geo.topic.toLowerCase}_${geo.id}"), doc)
@@ -267,39 +339,40 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     val parser = new QueryParser("text", analyzer)
     parser.parse(query)
   }
-  def search(query:String):TopDocs  = {
+  def search(query:String)(implicit searcher:IndexSearcher):TopDocs  = {
     search(query, 100, None) 
   }
-  def search(query:String, maxHits:Int):TopDocs  = {
+  def search(query:String, maxHits:Int)(implicit searcher:IndexSearcher):TopDocs  = {
     search(query, maxHits, None) 
   }
-  def search(query:String, after:Option[ScoreDoc]):TopDocs  = {
+  def search(query:String, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
     search(query, 100, after) 
   }
-  def search(query:String, maxHits:Int, after:Option[ScoreDoc]):TopDocs  = {
+  def search(query:String, maxHits:Int, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
     search(parseQuery(query), maxHits, after) 
   }
-  def search(query:Query):TopDocs  = {
+  def search(query:Query)(implicit searcher:IndexSearcher):TopDocs  = {
     search(query, 100, None) 
   }
-  def search(query:Query, maxHits:Int):TopDocs  = {
+  def search(query:Query, maxHits:Int)(implicit searcher:IndexSearcher):TopDocs  = {
     search(query, maxHits, None) 
   }
-  def search(query:Query, after:Option[ScoreDoc]):TopDocs  = {
+  def search(query:Query, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
     search(query, 100, after) 
   }
-  def search(query:Query, maxHits:Int, after:Option[ScoreDoc]):TopDocs  = {
+  def search(query:Query, maxHits:Int, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
     val docs = after match {
-      case Some(last) => this.searcher.searchAfter(last, query, maxHits)
-      case None => this.searcher.search(query, maxHits)
+      case Some(last) => searcher.searchAfter(last, query, maxHits)
+      case None => searcher.search(query, maxHits)
     }
     docs
   } 
-  def searchAll(query:String):Iterator[Document]  = {
+  def searchAll(query:String)(implicit searcher:IndexSearcher):Iterator[Document]  = {
     searchAll(parseQuery(query))
   }
-  def searchAll(query:Query):Iterator[Document]  = {
+  def searchAll(query:Query)(implicit searcher:IndexSearcher):Iterator[Document]  = {
     var after:Option[ScoreDoc] = None
+    val reader = searcher.getIndexReader
     Iterator.continually{
       val res = search(query = query, after = after)
       if(res.scoreDocs.size > 0)
@@ -307,7 +380,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       res.scoreDocs
     }.takeWhile(_.size > 0)
       .flatMap(docs => docs)
-      .map(doc => this.reader.document(doc.doc))
+      .map(doc => reader.document(doc.doc))
   }
 
   def getLocationFields(field:String, loc:Location) = {
@@ -321,5 +394,10 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       new StringField(s"$field.geo_name", loc.geo_name, Field.Store.YES),
       new StringField(s"$field.geo_type", loc.geo_type, Field.Store.YES)
     )
+  }
+  def getReader() {
+    this.synchonized {
+      
+    }
   }
 }

@@ -30,10 +30,12 @@ case class Geolocated(var topic:String, id:Long, is_geo_located:Boolean, lang:St
   }
 }
 
+
 case class Collection(
-  name:String
+  name:String,
   dateCol:String,
   pks:Seq[String],
+  aggr:Map[String, String],
   aggregation:Aggregation 
 )
 
@@ -61,7 +63,7 @@ object EpiSerialisation
     implicit val locationRequestFormat = jsonFormat7(Location.apply)
     implicit val geolocatedFormat = jsonFormat10(Geolocated.apply)
     implicit val aggregationFormat = jsonFormat6(Aggregation.apply)
-    implicit val collectionFormat = jsonFormat4(Aggregation.apply)
+    implicit val collectionFormat = jsonFormat5(Collection.apply)
     implicit object tweetV1Format extends RootJsonFormat[TweetV1] {
       def write(t: TweetV1) =
         JsObject(Map(

@@ -12,6 +12,7 @@ import akka.util.{Timeout}
 import spray.json.{JsValue}
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
+import scala.collection.JavaConverters._
 import org.ecdc.epitweetr.Settings
 import akka.actor.ActorRef
 import akka.Done
@@ -24,6 +25,7 @@ import akka.util.ByteString
 import java.time.Instant
 import java.nio.file.{Paths, Files}
 import java.nio.charset.StandardCharsets
+import spray.json.JsonParser
 
 object API {
   var actorSystemPointer:Option[ActorSystem] = None
@@ -34,12 +36,12 @@ object API {
     implicit val actorSystem = ActorSystem("epitweetr")
     actorSystemPointer = Some(actorSystem)
     implicit val executionContext = actorSystem.dispatcher
-    val conf = Settings(epiHome)
+    implicit val conf = Settings(epiHome)
     conf.load
     oConf = Some(conf)
     val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor], conf))
     oLuceneRunner = Some(luceneRunner)
-
+    removeLockFiles()
     val route =
       extractUri { uri =>
         path("tweets") { // checks if path/url starts with model
@@ -80,7 +82,9 @@ object API {
                        val fut = (luceneRunner ? TopicTweetsV1(topic, tweets))
                          .map{
                             case LuceneActor.DatesProcessed(m, dates) => 
-                              if(geolocate) luceneRunner ! LuceneActor.GeolocateRequest(TopicTweetsV1(topic, tweets))
+                              if(geolocate) {
+                                luceneRunner ! LuceneActor.GeolocateRequest(TopicTweetsV1(topic, tweets))
+                              }
                               (StatusCodes.OK, LuceneActor.DatesProcessed(m, dates))
                             case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.DatesProcessed(m))
                             case o => (StatusCodes.InternalServerError, LuceneActor.DatesProcessed(s"Cannot interpret $o as a message"))
@@ -100,13 +104,40 @@ object API {
               }
             }
           }
-        } ~ path("aggregation") { // checks if path/url starts with model
-          post {
+        } ~ path("aggregate") { // checks if path/url starts with model
+          get {
+            parameters("serie", 
+              "topic",
+              "from"?(Instant.now.toString().take(10)), 
+              "to"?(Instant.now.toString().take(10)), 
+              "jsonnl".as[Boolean]?false 
+            ) { (collection, topic, fromStr, toStr, jsonnl) => 
+              implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
+              val mask = "YYYY-MM-DDT00:00:00.000Z"
+              val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
+              val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
+              val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                ackMessage = ByteString("ok")
+                , completionMatcher = {case Done => CompletionStrategy.immediately}
+                , failureMatcher = PartialFunction.empty
+              )
+              val (actorRef, matSource) = source.preMaterialize()
+              luceneRunner ! LuceneActor.AggregatedRequest(collection, topic, from, to, jsonnl, actorRef) 
+              complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                  throw new Exception(m.decodeString("UTF-8"))
+                else 
+                  m
+              }))
+            }
+          } ~ post {
             entity(as[String]) { json  =>
-              Try(collectionFormat.read(json)) match {
+              Try(collectionFormat.read(JsonParser(json))) match {
                 case Success(collection) =>
-                  val path = Files.createDirectories(conf.collectionPath)
-                  Files.write(Paths.get(path, s"${collection.name}.json"), json.getBytes(StandardCharsets.UTF_8)) 
+                  val path = Paths.get(conf.collectionPath)
+                  Files.createDirectories(path)
+                  Files.write(Paths.get(path.toString, s"${collection.name}.json"), json.getBytes(StandardCharsets.UTF_8)) 
+                  complete(StatusCodes.OK, LuceneActor.Success("OK"))
                 case Failure(e) =>
                   println(s"Cannot interpret the provided body as an aggregation request:\n $e, ${e.getStackTrace.mkString("\n")}\n${json}") 
                   complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided JSON body as an aggregate request:\n $e ${json}")) 
@@ -114,7 +145,7 @@ object API {
             } ~  entity(as[String]) { value  => 
                complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
             }
-          } ~ get {
+          }/* ~ get {
             entity(as[JsValue]) { json  =>
               Try(aggregationFormat.read(json)) match {
                 case Success(aggr) =>
@@ -165,7 +196,7 @@ object API {
             } ~  entity(as[String]) { value  => 
                complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
             }
-          }
+          }*/
         } ~ path("geolocated") { 
           post {
             parameters("created".as[String].*) { createdStr => 
@@ -245,4 +276,11 @@ object API {
       }
     }
   }
-}
+  def removeLockFiles()(implicit conf:Settings) { 
+    Files.walk(Paths.get(conf.fsRoot))
+      .iterator.asScala.foreach{p =>
+        if(p.endsWith("write.lock"))
+          Files.delete(p)
+      }
+  }
+} 
