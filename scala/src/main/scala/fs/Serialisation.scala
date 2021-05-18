@@ -11,6 +11,8 @@ import org.apache.lucene.index.IndexableField
 import scala.collection.JavaConverters._
 import java.net.URLDecoder
 
+case class TweetsV1(items:Seq[TweetV1])
+case class TopicTweetsV1(topic:String, tweets:TweetsV1)
 case class TweetV1(tweet_id:Long, text:String, linked_text:Option[String],user_description:String, linked_user_description:Option[String],
              is_retweet:Boolean, screen_name:String, user_name:String, user_id:Long , user_location:String, linked_user_name:Option[String], linked_screen_name:Option[String], 
              linked_user_location:Option[String], created_at:Instant, lang:String, linked_lang:Option[String], tweet_longitude:Option[Float], tweet_latitude:Option[Float], 
@@ -18,9 +20,71 @@ case class TweetV1(tweet_id:Long, text:String, linked_text:Option[String],user_d
              linked_place_full_name:Option[String], place_country_code:Option[String], place_country:Option[String], 
              place_longitude:Option[Float], place_latitude:Option[Float],linked_place_longitude:Option[Float], linked_place_latitude:Option[Float])
 
+case class TweetsV2(data:Option[Seq[TweetV2]], includes:Option[IncludesV2], meta:MetaV2) {
+  def toV1 = TweetsV1(items = data.map(tts => tts.map(t => t.toV1()(includes.get))).getOrElse(Seq[TweetV1]()))
+}
 
+case class TweetV2(id:String, lang:String, author_id:String, text:String, possibly_sensitive:Boolean, created_at:String, referenced_tweets:Option[Seq[TweetRefV2]], geo:Option[PlaceRefV2]) {
+  def toV1()(implicit includes:IncludesV2) = 
+   TweetV1(
+     tweet_id = this.id.toLong, 
+     text = this.text, 
+     linked_text = this.getLinkedTweet().map(t => t.text),
+     user_description = this.getAuthor().description.getOrElse(""), 
+     linked_user_description = this.getLinkedAuthor().map(u => u.description.getOrElse("")),
+     is_retweet = this.referenced_tweets.map(rts => rts.size > 0).getOrElse(false), 
+     screen_name = this.getAuthor().name, 
+     user_name = this.getAuthor().username, 
+     user_id = this.getAuthor().id.toLong , 
+     user_location = this.getAuthor().location.getOrElse(""), 
+     linked_user_name = this.getLinkedAuthor().map(u => u.username), 
+     linked_screen_name = this.getLinkedAuthor().map(u => u.name), 
+     linked_user_location = this.getLinkedAuthor().map(u => u.location.getOrElse("")), 
+     created_at = Instant.parse(this.created_at), 
+     lang = this.lang, 
+     linked_lang = this.getLinkedTweet().map(t => t.lang), 
+     tweet_longitude = this.getLong(), 
+     tweet_latitude =   this.getLat(), 
+     linked_longitude =  this.getLinkedTweet.flatMap(t => t.getLong()), 
+     linked_latitude =  this.getLinkedTweet.flatMap(t => t.getLat()), 
+     place_type = this.getPlace().map(p => p.place_type), 
+     place_name = this.getPlace().map(p => p.name), 
+     place_full_name = this.getPlace().map(p => p.full_name), 
+     linked_place_full_name = this.getLinkedTweet().flatMap(t => t.getPlace().map(p => p.full_name)), 
+     place_country_code = this.getPlace().map(p => p.country_code), 
+     place_country = this.getPlace().map(p => p.country), 
+     place_longitude = this.getPlace().flatMap(p => p.geo.map(g => g.getAvgLong)), 
+     place_latitude = this.getPlace().flatMap(p => p.geo.map(g => g.getAvgLat)),
+     linked_place_longitude = this.getLinkedTweet().flatMap(t => t.getPlace().flatMap(p => p.geo.map(g => g.getAvgLong))), 
+     linked_place_latitude =  this.getLinkedTweet().flatMap(t => t.getPlace().flatMap(p => p.geo.map(g => g.getAvgLat)))
+   )
+   def getAuthor()(implicit includes:IncludesV2) = includes.userMap(this.author_id)
+   def getLinkedTweet()(implicit includes:IncludesV2) = this.referenced_tweets.flatMap(rfd => includes.tweetMap.get(rfd.head.id))
+   def getLinkedAuthor()(implicit includes:IncludesV2) = getLinkedTweet().map(lt => includes.userMap(lt.author_id))
+   def getLat()(implicit includes:IncludesV2) =  this.geo.flatMap(g => g.coordinates.flatMap(coords => coords.coordinates).flatMap{case Seq(lat, long) => Some(long) case _ => None})
+   def getLong()(implicit includes:IncludesV2) =  this.geo.flatMap(g => g.coordinates.flatMap(coords => coords.coordinates).flatMap{case Seq(lat, long) => Some(lat) case _ => None})
+   def getPlace()(implicit includes:IncludesV2) = this.geo.flatMap(g => includes.placeMap.get(g.place_id))
+}
+
+case class IncludesV2(users:Option[Seq[UserV2]], tweets:Option[Seq[TweetV2]], places:Option[Seq[PlaceV2]]) {
+  def userMap = this.users.map(uss => uss.map(u => (u.id, u)).toMap).getOrElse(Map[String, UserV2]())
+  def tweetMap = this.tweets.map(tts => tts.map(t => (t.id, t)).toMap).getOrElse(Map[String, TweetV2]())
+  def placeMap = this.places.map(pss => pss.map(p => (p.id, p)).toMap).getOrElse(Map[String, PlaceV2]())
+}
+case class TweetRefV2(`type`:String, id:String)
+case class PlaceRefV2(place_id:String, coordinates:Option[CoordinatesV2])
+case class CoordinatesV2(`type`:String, coordinates:Option[Seq[Float]])
+case class PlaceV2(full_name:String, id:String, contained_within:Option[Array[String]], country:String, country_code:String, geo:Option[GeoJson], name:String, place_type:String)
+case class GeoJson(`type`:String, bbox:Seq[Float]) {
+  def getAvgLong = (bbox(0) + bbox(2))/2 
+  def getAvgLat = (bbox(1) + bbox(3))/2 
+}
+case class MetaV2(result_count:Int, newest_id:Option[String], oldest_id:Option[String])
+case class UserV2(id:String, name:String, username:String, description:Option[String], location:Option[String])
+
+
+case class Geolocateds(items:Seq[Geolocated])
 case class Location(geo_code:String, geo_country_code:String,geo_id:Long, geo_latitude:Double, geo_longitude:Double, geo_name:String, geo_type:String)
-
 case class Geolocated(var topic:String, id:Long, is_geo_located:Boolean, lang:String, linked_place_full_name_loc:Option[Location], linked_text_loc:Option[Location], 
     place_full_name_loc:Option[Location], text_loc:Option[Location], user_description_loc:Option[Location], user_location_loc:Option[Location]) {
   def fixTopic = {
@@ -48,10 +112,6 @@ case class Aggregation(
   params:Option[Map[String, String]],
 )
 
-case class Geolocateds(items:Seq[Geolocated])
-
-case class TweetsV1(items:Seq[TweetV1])
-case class TopicTweetsV1(topic:String, tweets:TweetsV1)
 
 object EpiSerialisation
   extends SprayJsonSupport
@@ -59,11 +119,24 @@ object EpiSerialisation
     implicit val luceneSuccessFormat = jsonFormat1(LuceneActor.Success.apply)
     implicit val luceneFailureFormat = jsonFormat1(LuceneActor.Failure.apply)
     implicit val datesProcessedFormat = jsonFormat2(LuceneActor.DatesProcessed.apply)
+    implicit val periodResponseFormat = jsonFormat2(LuceneActor.PeriodResponse.apply)
     implicit val commitRequestFormat = jsonFormat0(LuceneActor.CommitRequest.apply)
     implicit val locationRequestFormat = jsonFormat7(Location.apply)
     implicit val geolocatedFormat = jsonFormat10(Geolocated.apply)
     implicit val aggregationFormat = jsonFormat6(Aggregation.apply)
     implicit val collectionFormat = jsonFormat5(Collection.apply)
+    implicit val userV2Format = jsonFormat5(UserV2.apply)
+    implicit val metaV2Format = jsonFormat3(MetaV2.apply)
+    implicit val geoJsonV2Format = jsonFormat2(GeoJson.apply)
+    implicit val placeV2Format = jsonFormat8(PlaceV2.apply)
+    implicit val coordinatesV2Format = jsonFormat2(CoordinatesV2.apply)
+    implicit val placeRefV2Format = jsonFormat2(PlaceRefV2.apply)
+    implicit val tweetRefV2Format = jsonFormat2(TweetRefV2.apply)
+    implicit val tweetV2Format = jsonFormat8(TweetV2.apply)
+    implicit val includesV2Format = jsonFormat3(IncludesV2.apply)
+    implicit val tweetsV2Format = jsonFormat3(TweetsV2.apply)
+
+
     implicit object tweetV1Format extends RootJsonFormat[TweetV1] {
       def write(t: TweetV1) =
         JsObject(Map(
@@ -121,13 +194,20 @@ object EpiSerialisation
           case o => throw new Exception(f"Unexpected type for place ${o.getClass.getName}")
         }        
         def bboxAvg(placeFields:Map[String, JsValue], i:Int) = {
-          val baseArray = placeFields("bounding_box").asInstanceOf[JsObject].fields("coordinates").asInstanceOf[JsArray].elements(0).asInstanceOf[JsArray].elements
-          (
-          baseArray(0).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
-          + baseArray(1).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
-          + baseArray(2).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
-          + baseArray(3).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
-          )/4
+          placeFields("bounding_box") match {
+            case JsObject(bb) => 
+              val baseArray = bb("coordinates").asInstanceOf[JsArray].elements(0).asInstanceOf[JsArray].elements
+              Some(
+                (
+                baseArray(0).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
+                + baseArray(1).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
+                + baseArray(2).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
+                + baseArray(3).asInstanceOf[JsArray].elements(i).asInstanceOf[JsNumber].value.floatValue
+                )/4
+              )
+            case JsNull => None
+            case o => throw new Exception(f"Unexpected type for place ${o.getClass.getName}")
+          }
         }
         def fullPlace(placeFields:Map[String, JsValue]) = {
           if(placeFields("country_code").asInstanceOf[JsString].value== "US")
@@ -165,10 +245,10 @@ object EpiSerialisation
                 linked_place_full_name=  linkedFields(fields).map(lf => placeFields(lf).map(pf => fullPlace(pf))).flatten, 
                 place_country_code= placeFields(fields).map(pf => pf("country_code").asInstanceOf[JsString].value), 
                 place_country= placeFields(fields).map(pf => pf("country").asInstanceOf[JsString].value),
-                place_longitude= placeFields(fields).map(pf => bboxAvg(pf, 0)), 
-                place_latitude= placeFields(fields).map(pf => bboxAvg(pf, 1)),
-                linked_place_longitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 0))).flatten, 
-                linked_place_latitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 1))).flatten
+                place_longitude= placeFields(fields).map(pf => bboxAvg(pf, 0)).flatten, 
+                place_latitude= placeFields(fields).map(pf => bboxAvg(pf, 1)).flatten,
+                linked_place_longitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 0)).flatten).flatten, 
+                linked_place_latitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 1)).flatten).flatten
               )
             else // Object comming from serialized json
               TweetV1(
@@ -213,8 +293,10 @@ object EpiSerialisation
       def read(value: JsValue) = value match {
         case JsArray(items) => TweetsV1(items = items.map(t => tweetV1Format.read(t)).toSeq)
         case JsObject(fields) =>
-          fields.get("statuses") match {
-            case Some(JsArray(items)) => TweetsV1(items = items.map(t => tweetV1Format.read(t)).toSeq)
+          (fields.get("statuses"), fields.get("data"), fields.get("meta")) match {
+            case (Some(JsArray(items)), _, _) => TweetsV1(items = items.map(t => tweetV1Format.read(t)).toSeq)
+            case (None, Some(JsArray(tweets)), _)  => tweetsV2Format.read(value).toV1
+            case (None, None, Some(_))  =>  TweetsV1(items = Seq[TweetV1]()) 
             case _ => throw new Exception("@epi cannot find expected statuses array on search Json result")
           }
         case _ => throw new Exception(s"@epi cannot deserialize $value to TweetsV1")
@@ -282,6 +364,5 @@ object EpiSerialisation
         case _ => throw new Exception(s"@epi cannot deserialize $value to TweetsV1")
       }
     }
-    //implicit val geolocatedCreatedFormat = jsonFormat10(Geolocated.apply)
 }
 

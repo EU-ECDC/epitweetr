@@ -54,4 +54,5 @@ case class Settings(epiHome:String) {
   def fsRoot = Paths.get(epiHome, "fs").toString
   def fsBatchTimeout = properties.fields.get("fs.batch.timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60*60)
   def fsQueryTimeout = properties.fields.get("fs.query.timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60)
+  def fsPort = properties.fields.get("fs.port").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(8080)
 }

@@ -53,6 +53,29 @@ cached <- new.env()
 #' @importFrom jsonlite rbind_pages
 #' @importFrom utils tail
 get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
+  # getting the aggregated dataframe from the storage system
+  q_url <- paste0("http://localhost:8080/aggregate?jsonnl=true&serie=", URLencode(dataset, reserved = T))
+  for(field in names(filter)) {
+    if(field == "topic") q_url <- paste0(q_url, "&topic=", URLencode(filter$topic, reserved = T)) 
+    else if(field == "period") 
+      q_url <- paste0(
+        q_url, 
+        "&from=", 
+        URLencode(strftime(filter$period[[1]], format = "%Y-%m-%d"), reserved = T), 
+        "&to=", 
+        URLencode(strftime(filter$period[[2]], format = "%Y-%m-%d"), reserved = T) 
+      ) 
+    else q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(filter[[field]], reserved = T))
+  }
+  agg_df = jsonlite::stream_in(url(q_url))
+  # Calculating the created week
+  agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
+  agg_df$created_weeknum <- as.integer(strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G%V"))
+  agg_df$created_date <- as.Date(agg_df$created_date, format = "%Y-%m-%d")
+  agg_df
+}
+
+get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
   `%>%` <- magrittr::`%>%`
   # getting the name for cache lookup dataset dependant
   last_filter_name <- paste("last_filter", dataset, sep = "_")
@@ -274,4 +297,11 @@ register_series <- function() {
       , params = params
     )
   #}
+}
+
+get_aggregated_period <- function(serie) {
+  ret <- jsonlite::fromJSON(url("http://localhost:8080/period?serie=country_counts"), simplifyVector = T)
+  ret$first <- strptime(ret$first, format = "%Y-%m-%d")
+  ret$last <- strptime(ret$last, format = "%Y-%m-%d")
+  ret
 }

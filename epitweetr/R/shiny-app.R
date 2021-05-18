@@ -188,6 +188,11 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(4, shiny::htmlOutput("detect_running")),
             shiny::column(4, shiny::actionButton("activate_detect", "activate"))
           ),
+          shiny::fluidRow(
+            shiny::column(4, "epitweetr database"), 
+            shiny::column(4, shiny::htmlOutput("fs_running")),
+            shiny::column(4, shiny::actionButton("activate_fs", "activate"))
+          ),
           ################################################
           ######### GENERAL PROPERTIES ###################
           ################################################
@@ -221,7 +226,11 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Simplified GeoNames"), shiny::column(9, shiny::checkboxInput("conf_geonames_simplify", label = NULL, value = conf$geonames_simplify))),
           shiny::fluidRow(shiny::column(3, "Maven repository"), shiny::column(9,  shiny::textInput("conf_maven_repo", label = NULL, value = conf$maven_repo))),
           shiny::conditionalPanel(
-            condition = ".Platform$OS.type == 'windows'",
+            condition = "false",
+            shiny::textInput("os_type", value = .Platform$OS.type, label = NULL)
+          ),
+          shiny::conditionalPanel(
+            condition = "input.os_type == 'windows'",
             shiny::fluidRow(shiny::column(3, "Winutils URL"), shiny::column(9,  shiny::textInput("conf_winutils_url", label = NULL, value = conf$winutils_url)))
           ),
           shiny::fluidRow(shiny::column(3, "Region disclaimer"), shiny::column(9, shiny::textAreaInput("conf_regions_disclaimer", label = NULL, value = conf$regions_disclaimer))),
@@ -230,14 +239,16 @@ epitweetr_app <- function(data_dir = NA) {
             , shiny::radioButtons(
               "twitter_auth"
               , label = NULL
-              , choices = list("Twitter account" = "delegated", "Twitter developer app" = "app")
+              , choices = list("User account" = "delegated", "App" = "app")
               , selected = if(cd$app_auth) "app" else "delegated" 
               ))
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'delegated'",
             shiny::fluidRow(shiny::column(12, "When choosing 'Twitter account' authentication you will have to use your Twitter credentials to authorize the Twitter application for the rtweet package (https://rtweet.info/) to access Twitter on your behalf (full rights provided).")), 
-            shiny::fluidRow(shiny::column(12, "DISCLAIMER: rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs."))
+            shiny::fluidRow(shiny::renderText("&nbsp;")), 
+            shiny::fluidRow(shiny::column(12, "DISCLAIMER: rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs.")),
+            shiny::fluidRow(shiny::renderText("&nbsp;")) 
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'app'",
@@ -251,6 +262,28 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
             )
           ), 
+          shiny::conditionalPanel(
+            condition = "input.twitter_auth == 'delegated'",
+            shiny::fluidRow(
+              shiny::column(3, "Twitter API version"), 
+              shiny::column(9, "Only v1.1 is supported for user authentication")
+            )
+          ),
+          shiny::conditionalPanel(
+            condition = "input.twitter_auth == 'app'",
+            shiny::fluidRow(
+              shiny::column(3, "Twitter API version"), 
+              shiny::column(9, 
+                shiny::checkboxGroupInput(
+                  "conf_api_version"
+                  , label = NULL
+                  , choices = list("v1.1" = "1.1", "V2" = "2")
+                  , selected = conf$api_version
+                  , inline = T 
+                )
+              )
+            )
+          ),
           shiny::h2("Email authentication (SMTP)"),
           shiny::fluidRow(shiny::column(3, "Server"), shiny::column(9, shiny::textInput("smtp_host", label = NULL, value = conf$smtp_host))), 
           shiny::fluidRow(shiny::column(3, "Port"), shiny::column(9, shiny::numericInput("smtp_port", label = NULL, value = conf$smtp_port))), 
@@ -886,6 +919,23 @@ epitweetr_app <- function(data_dir = NA) {
         ,sep=""
     )})
 
+    # rendering the fs running status
+    output$fs_running <- shiny::renderText({
+      # Adding a dependency to task refresh (each time a task has changed by the detect loop)
+      cd$tasks_refresh_flag()
+      # Adding a dependency to process update (each 10 seconds)
+      cd$process_refresh_flag()
+
+      # updating the label
+      paste(
+        "<span",
+        " style='color:", if(cd$fs_running) "#348017'" else "#F75D59'",
+        ">",
+        if(cd$fs_running) "Running" else "Stopped",
+        "</span>"
+        ,sep=""
+    )})
+
     # rendering the detect running status
     output$detect_running <- shiny::renderText({
       # Adding a dependency to task refresh (each time a task has changed by the detect loop)
@@ -916,6 +966,14 @@ epitweetr_app <- function(data_dir = NA) {
     shiny::observeEvent(input$activate_search, {
       # registering the scheduled task
       register_search_runner_task()
+      # refresh task data to check if tasks are to be updated
+      refresh_config_data(cd, list("tasks"))
+    })
+
+    # registering the fs runner after button is clicked
+    shiny::observeEvent(input$activate_fs, {
+      # registering the scheduled task
+      register_fs_runner_task()
       # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
@@ -1023,6 +1081,7 @@ epitweetr_app <- function(data_dir = NA) {
       conf$geonames_url <- input$conf_geonames_url 
       conf$maven_repo <- input$conf_maven_repo 
       conf$winutils_url <- input$conf_winutils_url 
+      conf$api_version <- input$conf_api_version
       conf$geonames_simplify <- input$conf_geonames_simplify 
       conf$regions_disclaimer <- input$conf_regions_disclaimer 
       conf$alert_alpha <- input$conf_alpha 
@@ -1518,6 +1577,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     # Updating the reactive value tasks_refresh to force dependencies invalidation
     update <- FALSE
     e$detect_running <- is_detect_running() 
+    e$fs_running <- is_fs_running() 
     e$search_running <- is_search_running() 
     e$search_diff <- Sys.time() - last_search_time()
 
@@ -1534,6 +1594,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
       sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
       e$tasks <- tasks[sorted_tasks] 
       e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
+      e$api_version <- conf$api_version
       e$tasks_df <- data.frame(
         Task = sapply(e$tasks, function(t) t$task), 
         Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "pending" else t$status), 

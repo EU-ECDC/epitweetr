@@ -65,6 +65,8 @@ search_loop <-  function(data_dir = NA) {
         }
       }
     }
+     
+    commit_tweets()
     #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config)
     setup_config(data_dir = conf$data_dir, save_first = list("topics"))
   }
@@ -131,17 +133,29 @@ search_topic <- function(plan, query, topic) {
       print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
       stop()
     }
-
     # evaluating if rows are obtained if not rows are obtained it means that the plan is finished 
     # plan end can be because all tweets were already collected no more tweets are available because of twitter history limits
-    got_rows <- is.data.frame(json$statuses) && nrow(json$statuses) > 0
+    got_rows <- (
+      (exists("statuses", json) && is.data.frame(json$statuses) && nrow(json$statuses) > 0) ||
+      (exists("data", json) &&  is.data.frame(json$data) && nrow(json$data) > 0)
+    )
     
     # new since_id is the oldest tweet obtained by the request. It is normally provided by the response metadata, but we calculate it because sometimes is missing
     new_since_id = 
-      if(!is.data.frame(json$statuses)) {
-        bit64::as.integer64(json$search_metadata$since_id_str)  
-      } else {
+      if(!got_rows) {
+        plan$since_target
+      } else if (exists("statuses", json)){
         Reduce(function(x, y) if(x < y) x else y, lapply(json$statuses$id_str, function(x) bit64::as.integer64(x) -1 ))
+      } else {
+        Reduce(function(x, y) if(x < y) x else y, lapply(json$data$id, function(x) bit64::as.integer64(x) -1 ))
+      }
+    max_id = 
+      if(!got_rows) {
+        plan$since_target
+      } else if (exists("statuses", json)){
+        Reduce(function(x, y) if(x > y) x else y, lapply(json$statuses$id_str, function(x) bit64::as.integer64(x)))
+      } else {
+        Reduce(function(x, y) if(x > y) x else y, lapply(json$data$id, function(x) bit64::as.integer64(x)))
       }
     if(got_rows) {
       year <- format(Sys.time(), "%Y")
@@ -151,12 +165,12 @@ search_topic <- function(plan, query, topic) {
         filename = gsub(".gz", "", file_name), 
         topic = topic,
         year = year,
-        first_date = min(parse_date(json$statuses$created_at)), 
-        last_date = max(parse_date(json$statuses$created_at)) 
+        first_date = min(if(exists("statuses", json)) parse_date(json$statuses$created_at) else strptime(json$data$created_at, format = "%Y-%m-%dT%H:%M:%OS", tz="UTC")), 
+        last_date =  max(if(exists("statuses", json)) parse_date(json$statuses$created_at) else strptime(json$data$created_at, format = "%Y-%m-%dT%H:%M:%OS", tz="UTC")) 
       )
     }
     # updating the plan data (new since_id, progress, number of collected tweets, etc. 
-    request_finished(plan, got_rows = got_rows, max_id = json$search_metadata$max_id_str, since_id = new_since_id) 
+    request_finished(plan, got_rows = got_rows, max_id = max_id, since_id = new_since_id) 
   } else {
     # Managing the case when the query is too long
     warning(paste("Query too long for API for topic", topic), immediate. = TRUE) 
@@ -239,11 +253,11 @@ parse_date <- function(str_date) {
 # max_id: id of the newest targereted tweet
 # result_type: sort criteria for tweets (recent, popular and mix) 
 twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "recent", count = 100) {
-  search_url <- 
+  search_url <- if(T) {
     paste(
-      search_endopoint
+      search_endpoint[["1.1"]]
       , "?q="
-      , gsub("\\(", "%28", gsub("\\)", "%29", gsub("!", "%21", gsub("\\*", "%2A", gsub("'", "%27", xml2::url_escape(q)))))) #escaping url taking un consideration some unmanaged cases
+      , URLencode(q, reserved=T)
       , if(!is.null(since_id)) "&since_id=" else ""
       , if(!is.null(since_id)) since_id else ""
       , if(!is.null(max_id)) "&max_id=" else  ""
@@ -255,6 +269,25 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
       , "&include_entities=true"
       , sep = ""
     )
+  } else {
+    paste(
+      search_endpoint[["2"]]
+      , "?query="
+      , URLencode(gsub(" AND ", " ", q), reserved=T)
+      , if(!is.null(since_id)) "&since_id=" else ""
+      , if(!is.null(since_id)) since_id - 1 else ""
+      , if(!is.null(max_id)) "&until_id=" else  ""
+      , if(!is.null(max_id)) max_id + 1 else  ""
+      , "&max_results="
+      , count
+      , "&expansions=author_id,geo.place_id,referenced_tweets.id,referenced_tweets.id.author_id"
+      , "&place.fields=country,country_code,full_name,name,place_type"
+      , "&tweet.fields=author_id,context_annotations,created_at,geo,id,in_reply_to_user_id,lang,possibly_sensitive,referenced_tweets,source,text" #,geo.coordinates
+      , "&user.fields=description,id,location,name,username"
+      , sep = ""
+    )
+
+  }
   res <- twitter_get(search_url)
   return(res)
 }
@@ -452,21 +485,9 @@ create_dirs <- function(topic = NA, year = NA) {
 # This function is used from the shiny app to report when was the last tile that a request saved tweets
 # This is done by taking the last modified date of current year tweet files
 last_search_time <- function() {
-  topics <- list.files(path=paste(conf$data_dir, "tweets", "search", sep="/"))
-  current_year <- lapply(topics, function(t) list.files(path=paste(conf$data_dir, "tweets", "search", t, sep="/"), pattern = strftime(Sys.time(), format = "%y$"), full.names=TRUE))
-  current_year <- current_year[lapply(current_year,length)>0]
-  if(length(current_year)>0) {
-    last_child <- sapply(current_year, function(y) {
-        children <- list.files(path = y, pattern = "*.gz", full.names=TRUE)
-        if(length(children)>0)
-          sort(children, decreasing=TRUE)[[1]]
-        else 
-          NA
-      })
-    last_child <- last_child[!is.na(last_child)]
-    if(length(last_child)>0)
-      sort(file.mtime(last_child), decreasing=TRUE)[[1]]
-    else
-      NA
-  } else NA
+  files <- list.files(path=paste(conf$data_dir, "fs", "tweets", sep="/"), full.names=T)
+  if(length(files)>0)
+    max(file.mtime(files))
+  else
+    NA
 }

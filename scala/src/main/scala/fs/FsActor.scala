@@ -25,6 +25,7 @@ import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, B
 import org.apache.lucene.search.{Query, TermQuery, BooleanQuery, PrefixQuery, TermRangeQuery}
 import org.apache.lucene.search.BooleanClause.Occur
 import org.apache.lucene.index.Term
+import org.apache.lucene.search.spell.LuceneDictionary
 import demy.storage.{Storage, FSNode}
 import scala.concurrent.ExecutionContext
 import org.ecdc.twitter.Geonames.Geolocate
@@ -98,37 +99,30 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
     case LuceneActor.SearchRequest(query, topic, from, to, max, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
       implicit val holder = LuceneActor.readHolder
-      val indexes = LuceneActor.getReadIndexes("tweets", from, to).map{i => 
-          var s = i.searcher
-          println(s"${s.getIndexReader.getRefCount}I.Z1 - old")
-          s.getIndexReader.incRef()
-          (i, s)
-        }.toSeq
+      val indexes = LuceneActor.getReadIndexes("tweets", from, to).toSeq
       Future {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
-        var first = true
         assert(indexes.isInstanceOf[Iterator[_]])
         indexes
           .iterator
-          .flatMap{case (i, s) => 
+          .flatMap{case i => 
             val qb = new BooleanQuery.Builder()
             query.map{q => 
               qb.add(i.parseQuery(q), Occur.MUST)
             }
             qb.add(new TermQuery(new Term("topic", topic)), Occur.MUST) 
             qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
-            i.searchAll(qb.build)(s)
+            i.searchAll(qb.build)
           }
           .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
           .take(max)
           .foreach{line => 
             Await.result(caller ? ByteString(
-              s"${if(!jsonnl && !first) "\n," else if(jsonnl && !first) "\n" else "" }${line.toString}", 
+              s"${line.toString}\n", 
               ByteString.UTF_8
             ), Duration.Inf)
-            first = false
           }
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
@@ -138,40 +132,30 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         case e: Exception => 
           caller ! ByteString(s"[Stream--error]: ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
-        indexes.foreach{case (i, s) => 
-          println(s"${s.getIndexReader.getRefCount}D.Z1")
-          s.getIndexReader.decRef()
-        }  
       }
-    case LuceneActor.AggregatedRequest(collection, topic, from, to, jsonnl, caller) => 
+    case LuceneActor.AggregatedRequest(collection, topic, from, to, filters, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
       implicit val holder = LuceneActor.readHolder
-      val indexes = LuceneActor.getReadIndexes(collection, from, to).map{i => 
-          var s = i.searcher
-          println(s"${s.getIndexReader.getRefCount}I.Z2")
-          s.getIndexReader.incRef()
-          (i, s)
-        }.toSeq
+      val indexes = LuceneActor.getReadIndexes(collection, from, to).toSeq
       Future {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
-        var first = true
         indexes
           .iterator
-          .flatMap{case (i, s) => 
+          .flatMap{case i => 
             val qb = new BooleanQuery.Builder()
             qb.add(new TermQuery(new Term("topic", topic)), Occur.MUST) 
             qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
-            i.searchAll(qb.build)(s)
+            filters.foreach{case(field, value) => qb.add(new TermQuery(new Term(field, value)), Occur.MUST)}
+            i.searchAll(qb.build)
           }
           .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
           .foreach{line => 
             Await.result(caller ? ByteString(
-              s"${if(!jsonnl && !first) "\n," else if(jsonnl && !first) "\n" else "" }${line.toString}", 
+              s"${line.toString}\n", 
               ByteString.UTF_8
             ), Duration.Inf)
-            first = false
           }
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
@@ -181,10 +165,6 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         case e: Exception => 
           caller ! ByteString(s"[Stream--error]: ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
-        indexes.foreach{case (i, s) =>
-          println(s"${s.getIndexReader.getRefCount}D.Z2")
-          s.getIndexReader.decRef()
-        }
       }
     /*case LuceneActor.AggregationRequest(query, from, to, columns, groupBy, filterBy, sortBy, sourceExpressions, jsonnl, caller) =>
       implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
@@ -194,7 +174,6 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       val sc = spark.sparkContext
       Future {
         val keys = LuceneActor.getReadKeys("tweets", from, to).toSeq
-        var first = true
 
         //adding internal partition until we reach the expected level of parallelism
         val nParts = conf.sparkCores.get * 2
@@ -292,6 +271,36 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         case e: Exception => 
           caller ! ByteString(s"[Stream--error]: ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }*/
+    case LuceneActor.PeriodRequest(collection) =>
+      implicit val holder = LuceneActor.readHolder
+      Future{
+        val sPath = Paths.get(conf.fsRoot, collection)
+        if(!Files.exists(sPath))
+          LuceneActor.PeriodResponse(null, null)
+        else {
+          val keys = Files.list(sPath).iterator.asScala.toSeq.map(p => p.getFileName.toString)
+          val dates = Seq(keys.min, keys.max)
+            .distinct
+            .map(key => LuceneActor.getIndex(collection, key))
+            .flatMap{index =>
+              val aDates = ArrayBuffer[String]()
+              val searcher = index.useSearcher()
+              val dateIter =  new LuceneDictionary(searcher.getIndexReader, "created_date").getEntryIterator()
+              var date = dateIter.next
+              while(date != null) {
+                aDates += date.utf8ToString 
+                date = dateIter.next
+              }
+              index.releaseSearcher(searcher)
+              aDates
+            }
+          if(dates.size> 0)
+            LuceneActor.PeriodResponse(dates.min, dates.max)
+          else
+            LuceneActor.PeriodResponse(null, null)
+        }
+      }
+      .pipeTo(sender())
     case b => 
       Future(LuceneActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
   }
@@ -320,7 +329,7 @@ object LuceneActor {
   case class CloseRequest()
   case class SearchRequest(query:Option[String], topic:String, from:Instant, to:Instant, max:Int, jsonnl:Boolean, caller:ActorRef)
   case class AggregateRequest(items:TopicTweetsV1)
-  case class AggregatedRequest(collection:String, topic:String, from:Instant, to:Instant, jsonnl:Boolean, caller:ActorRef)
+  case class AggregatedRequest(collection:String, topic:String, from:Instant, to:Instant, filters:Seq[(String, String)], jsonnl:Boolean, caller:ActorRef)
   case class AggregationRequest(
     query:Option[String], 
     from:Instant, 
@@ -333,13 +342,14 @@ object LuceneActor {
     jsonnl:Boolean, 
     caller:ActorRef 
   )
+  case class PeriodRequest(collection:String)
+  case class PeriodResponse(first:String, last:String)
   def getHolder(writeEnabled:Boolean) = IndexHolder(writeEnabled = writeEnabled)
   def commit()(implicit holder:IndexHolder)  {
     commit(closeDirectory = true)
   }
   def commit(closeDirectory:Boolean= true)(implicit holder:IndexHolder)  {
     holder.dirs.synchronized {
-      println("COOOOOOOOOOOOOOOOOOOOOMITING!!!")
       var now:Option[Long] = None 
       holder.dirs.foreach{ case (key, path) =>
           now = now.orElse(Some(System.nanoTime))
@@ -574,7 +584,8 @@ object LuceneActor {
               1
             }
           }
-          .reduce(_ + _)
+          .collect
+          .sum //TODO: Find a way to avoid collect and manage 0 rows (reduce will throw an error on that case
 
        val endTime = System.nanoTime
        println(s"${(endTime - midTime)/1e9d} secs for geolocating ${numGeo} tweets")
@@ -645,6 +656,7 @@ object LuceneActor {
           df.orderBy(sortBy.map(ob => expr(ob)):_*)
       }
       .map{df =>
+        //println(df.collect.size)
         df.mapPartitions{iter => 
           implicit val holder = LuceneActor.writeHolder
           implicit val conf = Settings(epiHome)

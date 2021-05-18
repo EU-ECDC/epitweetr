@@ -37,7 +37,6 @@ object TweetIndex {
       else {
         DirectoryReader.open(index)
       }
-    println(s"${reader.getRefCount} I0")
     val searcher = new IndexSearcher(reader)
     TweetIndex(reader = reader, writer = writer, searcher = searcher, index = index, writeEnabled)
   }
@@ -61,12 +60,10 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
           } else {
             DirectoryReader.open(this.index)
           }
-        println(s"${newReader.getRefCount} I0 -- new")
         this.reader = newReader
         this.searcher = new IndexSearcher(this.reader)
       } 
       finally {
-        println(s"${oldReader.getRefCount} D1 - old")
         oldReader.decRef()
       }
     }
@@ -160,7 +157,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     doc
   }
   def applyIntAggregation(value:Int, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
-    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName).numericValue() == null)
+    if(oldDoc.isEmpty  || oldDoc.get.getField(fieldName) == null || oldDoc.get.getField(fieldName).numericValue() == null)
       value
     else if(aggr.get(fieldName) == Some("sum"))
       value + oldDoc.get.getField(fieldName).numericValue.intValue()
@@ -169,7 +166,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     else value
   }
   def applyLongAggregation(value:Long, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
-    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName).numericValue() == null)
+    if(oldDoc.isEmpty  || oldDoc.get.getField(fieldName) == null || oldDoc.get.getField(fieldName).numericValue() == null)
       value
     else if(aggr.get(fieldName) == Some("sum"))
       value + oldDoc.get.getField(fieldName).numericValue.longValue()
@@ -178,7 +175,10 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     else value
   }
   def applyDoubleAggregation(value:Double, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
-    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName).numericValue() == null)
+    if(!oldDoc.isEmpty && oldDoc.get.getField(fieldName) == null)
+      println(s"$fieldName is not in >>>>>>>>>>>>>>>>>>>>>>${oldDoc}")
+
+    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName) == null || oldDoc.get.getField(fieldName).numericValue() == null)
       value
     else if(aggr.get(fieldName) == Some("sum"))
       value + oldDoc.get.getField(fieldName).numericValue.doubleValue()
@@ -187,7 +187,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     else value
   }
   def applyFloatAggregation(value:Float, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
-    if(oldDoc.isEmpty || oldDoc.get.getField(fieldName).numericValue() == null)
+    if(oldDoc.isEmpty  || oldDoc.get.getField(fieldName) == null || oldDoc.get.getField(fieldName).numericValue() == null)
       value
     else if(aggr.get(fieldName) == Some("sum"))
       value + oldDoc.get.getField(fieldName).numericValue.floatValue()
@@ -215,63 +215,50 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   }
 
   def searchTweetV1(id:Long, topic:String) = {
-    implicit val searcher = this.searcher
-    val reader = searcher.getIndexReader()
-    println(s"${reader.getRefCount} I1")
-    reader.incRef()
+    implicit val searcher = this.useSearcher()
     Try{
       val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
       val doc = if(res.scoreDocs.size == 0) {
         None
       } else {
-         Some(this.reader.document(res.scoreDocs(0).doc))
+         Some(searcher.getIndexReader.document(res.scoreDocs(0).doc))
       }
       doc.map(d => (d, d.getField("topic").stringValue))
         .map{case (d, t) => (EpiSerialisation.luceneDocFormat.write(d), t)}
         .map{case (json, t) => (EpiSerialisation.tweetV1Format.read(json), t)}
     } match {
       case Success(r) =>
-        println(s"${reader.getRefCount}D2")
-        reader.decRef()
+        this.releaseSearcher(searcher)
         r
       case Failure(e) =>
-        println(s"${reader.getRefCount}D2")
-        reader.decRef()
+        this.releaseSearcher(searcher)
         throw e
     }
   }
 
   def searchTweet(id:Long, topic:String) = {
-    implicit val searcher = this.searcher
-    val reader = searcher.getIndexReader()
-    println(s"${reader.getRefCount} I2")
-    reader.incRef()
+    implicit val searcher = this.useSearcher()
     Try{
       val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
       val doc = if(res.scoreDocs.size == 0) {
         searchTweetV1(id, topic)
         None
       } else {
-         Some(reader.document(res.scoreDocs(0).doc))
+         Some(searcher.getIndexReader.document(res.scoreDocs(0).doc))
       }
       doc.map(d => EpiSerialisation.luceneDocFormat.write(d).toString)
     } match {
       case Success(r) =>
-        println(s"${reader.getRefCount}D3")
-        reader.decRef()
+        this.releaseSearcher(searcher)
         r
       case Failure(e) =>
-        println(s"${reader.getRefCount}D3")
-        reader.decRef()
+        this.releaseSearcher(searcher)
         throw e
     }
   }
   def searchRow(row:Row, pk:Seq[String]) = {
     assert(pk.size > 0)
-    implicit val searcher = this.searcher
-    val reader = searcher.getIndexReader()
-    println(s"${reader.getRefCount} I3")
-    reader.incRef()
+    implicit val searcher = this.useSearcher()
     Try{
       val qb = new BooleanQuery.Builder()
       row.schema.fields.zipWithIndex
@@ -294,16 +281,14 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       if(res.scoreDocs.size == 0) {
           None
       } else {
-         Some(reader.document(res.scoreDocs(0).doc))
+         Some(searcher.getIndexReader.document(res.scoreDocs(0).doc))
       }
     } match {
       case Success(r) =>
-        println(s"${reader.getRefCount}D4")
-        reader.decRef()
+        this.releaseSearcher(searcher)
         r
       case Failure(e) =>
-        println(s"${reader.getRefCount}D4")
-        reader.decRef()
+        this.releaseSearcher(searcher)
         throw e
     }
   }
@@ -329,7 +314,6 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
           this.writer.get.updateDocument(new Term("topic_tweet_id", s"${geo.topic.toLowerCase}_${geo.id}"), doc)
           true
       case _ =>
-        println(s"Cannot find tweet ${geo.topic}_${geo.id}")
         false
     }     
   }
@@ -367,20 +351,28 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     }
     docs
   } 
-  def searchAll(query:String)(implicit searcher:IndexSearcher):Iterator[Document]  = {
+  def searchAll(query:String):Iterator[Document]  = {
     searchAll(parseQuery(query))
   }
-  def searchAll(query:Query)(implicit searcher:IndexSearcher):Iterator[Document]  = {
+  def searchAll(query:Query):Iterator[Document]  = {
     var after:Option[ScoreDoc] = None
-    val reader = searcher.getIndexReader
+    var first = true
+    var searcher:Option[IndexSearcher]=None
     Iterator.continually{
-      val res = search(query = query, after = after)
+      if(first) {
+        searcher = Some(this.useSearcher()) 
+        first = false
+      }
+      val res = search(query = query, after = after)(searcher.get)
+      val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
       if(res.scoreDocs.size > 0)
         after = Some(res.scoreDocs.last)
-      res.scoreDocs
+      else {
+        this.releaseSearcher(searcher.get)
+      }
+      ret
     }.takeWhile(_.size > 0)
       .flatMap(docs => docs)
-      .map(doc => reader.document(doc.doc))
   }
 
   def getLocationFields(field:String, loc:Location) = {
@@ -395,9 +387,18 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       new StringField(s"$field.geo_type", loc.geo_type, Field.Store.YES)
     )
   }
-  def getReader() {
-    this.synchonized {
-      
+  def useSearcher() = {
+    this.synchronized {
+      val searcher = this.searcher
+      val reader = searcher.getIndexReader
+      reader.incRef
+      searcher
+    }
+  }
+
+  def releaseSearcher(searcher:IndexSearcher) {
+    this.synchronized {
+      searcher.getIndexReader.decRef()
     }
   }
 }

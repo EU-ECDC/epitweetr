@@ -13,6 +13,13 @@ register_detect_runner <- function() {
   register_runner("detect")
 }
 
+# Registers the detect runner (by writing detect.PID file) for the current process 
+# or stops if no configuration has been set or if it is already running
+register_fs_runner <- function() {
+  stop_if_no_config(paste("Cannot check running status for fs without configuration setup")) 
+  register_runner("fs")
+}
+
 # Registers the a task runner (by writing "name".PID file) for the current process 
 # or stops if no configuration has been set or if it is already running
 register_runner <- function(name) {
@@ -42,6 +49,12 @@ register_detect_runner_task <- function() {
 }
 
 # Register a task on system task scheduler to run each hour
+# Register fd runner task and schedule the loop to run each hour
+# This tasks is currently Windows only
+register_fs_runner_task <- function() {
+  register_runner_task("fs")
+}
+
 # This tasks is currently Windows only
 register_runner_task <- function(task_name) {
   # Making sure configuration has been set
@@ -92,6 +105,12 @@ register_runner_task <- function(task_name) {
 is_search_running <- function() {
   stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
   get_running_task_pid("search")>=0
+}
+
+# Get search runner execution status
+is_fs_running <- function() {
+  stop_if_no_config(paste("Cannot check running status for fs without configuration setup")) 
+  get_running_task_pid("fs")>=0
 }
 
 # Get search runner execution status

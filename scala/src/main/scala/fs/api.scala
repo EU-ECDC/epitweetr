@@ -31,7 +31,7 @@ object API {
   var actorSystemPointer:Option[ActorSystem] = None
   var oLuceneRunner:Option[ActorRef] = None
   var oConf:Option[Settings] = None
-  def run(port:Int, epiHome:String) {
+  def run(epiHome:String) {
     import EpiSerialisation._
     implicit val actorSystem = ActorSystem("epitweetr")
     actorSystemPointer = Some(actorSystem)
@@ -109,20 +109,22 @@ object API {
             parameters("serie", 
               "topic",
               "from"?(Instant.now.toString().take(10)), 
-              "to"?(Instant.now.toString().take(10)), 
+              "to"?(Instant.now.toString().take(10)),
+              "filters".as[String].*, 
               "jsonnl".as[Boolean]?false 
-            ) { (collection, topic, fromStr, toStr, jsonnl) => 
+            ) { (collection, topic, fromStr, toStr, filtersStr, jsonnl) => 
               implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
               val mask = "YYYY-MM-DDT00:00:00.000Z"
               val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
               val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
+              val filters = filtersStr.toSeq.map(fv => Some(fv).map(v => v.split(":")).map{case Array(v1, v2) => (v1, v2) case _ => throw new Exception(s"cannot parse $fv as column:value")}.get)
               val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
                 ackMessage = ByteString("ok")
                 , completionMatcher = {case Done => CompletionStrategy.immediately}
                 , failureMatcher = PartialFunction.empty
               )
               val (actorRef, matSource) = source.preMaterialize()
-              luceneRunner ! LuceneActor.AggregatedRequest(collection, topic, from, to, jsonnl, actorRef) 
+              luceneRunner ! LuceneActor.AggregatedRequest(collection, topic, from, to, filters, jsonnl, actorRef) 
               complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
                 if(m.startsWith(ByteString(s"[Stream--error]:"))) 
                   throw new Exception(m.decodeString("UTF-8"))
@@ -197,6 +199,18 @@ object API {
                complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
             }
           }*/
+        } ~ path("period") { // checks if path/url starts with model
+          get {
+            parameters("serie") { (collection) => 
+              implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
+              val fut = (luceneRunner ? LuceneActor.PeriodRequest(collection))
+                .map{
+                   case LuceneActor.PeriodResponse(min, max) => (StatusCodes.OK, LuceneActor.PeriodResponse(min, max))
+                   case o => (StatusCodes.InternalServerError, LuceneActor.PeriodResponse(null, null))
+                 }
+              complete(fut) 
+            }
+          }
         } ~ path("geolocated") { 
           post {
             parameters("created".as[String].*) { createdStr => 
@@ -245,7 +259,7 @@ object API {
         }
     }
 
-    Http().newServerAt("localhost", 8080).bind(route)
+    Http().newServerAt("localhost", conf.fsPort).bind(route)
   }
   def logThis(log:String) = {
     import java.nio.file.StandardOpenOption

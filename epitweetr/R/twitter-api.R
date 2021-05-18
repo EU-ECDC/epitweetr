@@ -1,11 +1,17 @@
 # Twitter base endpoint for direct api calls
-t_endpoint <- "https://api.twitter.com/1.1/"
+t_endpoint <- list(
+  `1.1` = "https://api.twitter.com/1.1/",
+  `2`  = "https://api.twitter.com/2/"
+)
 
 # Twitter endpoint for getting rate limit status
-ratelimit_endpoint <- paste(t_endpoint, "application/rate_limit_status.json", sep = "")
+ratelimit_endpoint <- paste(t_endpoint[["1.1"]], "application/rate_limit_status.json", sep = "")
 
 # Twitter endpoint for searching tweets
-search_endopoint <-  paste(t_endpoint, "search/tweets.json", sep = "")
+search_endpoint <-  list(
+  `1.1` = paste(t_endpoint[["1.1"]], "search/tweets.json", sep = ""),
+  `2` =  paste(t_endpoint[["2"]], "tweets/search/recent", sep = "")
+)
 
 # Get twitter token bases on configuration based on configuration settings (app or user)
 # This function is called when saving properties on shiny app and first time epitweetr performs a twitter search in a session
@@ -130,13 +136,15 @@ twitter_get <- function(url, i = 0, retries = 20) {
     #Liogging the obtained error
     writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
     return(twitter_get(url, i = i + 1, retries = retries))
-  } else if(res$status_code <= 401 || res$status_code <= 403) {
+  } else if(res$status_code >= 401 && res$status_code <= 403) {
     # Stopping if non authorized by twitter
     writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
+    message(res$status_code)
     stop(paste("Unauthorized by twitter API"))
   } else if(i <= retries) {
       # Other non expected cases, retrying with a quadratic waiting rule at most (retries - i) more times
       message(paste("Error status code ",res$status_code,"returned by Twitter API waiting for", i*i, "seconds before retry with a new token"))  
+      message(httr::content(res,as="text"))
       save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
       Sys.sleep(i * i)
       conf$token = NULL

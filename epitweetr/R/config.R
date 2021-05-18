@@ -117,6 +117,7 @@ get_empty_config <- function(data_dir) {
   ret$force_date_format <- ""
   ret$maven_repo <- "https://repo1.maven.org/maven2"
   ret$winutils_url <- "https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe"
+  ret$api_version <- "1.1"
   return(ret)
 }
 
@@ -242,6 +243,7 @@ setup_config <- function(
     conf$force_date_format <- temp$force_date_format
     conf$maven_repo <- temp$maven_repo
     conf$winutils_url <- temp$winutils_url
+    conf$api_version <- temp$api_version
   }
   if(!ignore_topics && exists("topics", where = paths)){
     # updating plans and topics if requested 
@@ -430,6 +432,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$force_date_format <- conf$force_date_format
     temp$maven_repo <- conf$maven_repo
     temp$winutils_url <- conf$winutils_url
+    temp$api_version <- conf$api_version
     # writing the json file
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
