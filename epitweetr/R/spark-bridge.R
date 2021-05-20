@@ -322,6 +322,20 @@ download_dependencies <- function(tasks = get_tasks()) {
       # on windows, downloading winutils from the URL set from the shiny app which is a prerequisite of SPARK
       tasks <- download_winutils()
     }
+    # ensuring that storage system is running
+    while(!is_fs_running()) {
+      tasks <- update_dep_task(tasks, "running", paste(
+        "Embeded database is not running. On Windows, you can activate it by clicking on the 'activate' database service button on the config page ",
+        "You can also manually run the fs service by executing the following command on a separate R session. epitweetr::fs_loop('",
+        conf$data_dir,
+        "')"
+      ))
+      Sys.sleep(5)
+    } 
+    # running migration if necessary 
+    tasks <- update_dep_task(tasks, "running", "migrating any old json files to embeded database")
+    tasks <- json2lucene(tasks)
+
     # Setting status to succes
     tasks <- update_dep_task(tasks, "success", "", end = TRUE)
     tasks

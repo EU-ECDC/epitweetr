@@ -179,6 +179,11 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Status"),
           shiny::fluidRow(
+            shiny::column(4, "epitweetr database"), 
+            shiny::column(4, shiny::htmlOutput("fs_running")),
+            shiny::column(4, shiny::actionButton("activate_fs", "activate"))
+          ),
+          shiny::fluidRow(
             shiny::column(4, "Tweet search"), 
             shiny::column(4, shiny::htmlOutput("search_running")),
             shiny::column(4, shiny::actionButton("activate_search", "activate"))
@@ -187,11 +192,6 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(4, "Detection pipeline"), 
             shiny::column(4, shiny::htmlOutput("detect_running")),
             shiny::column(4, shiny::actionButton("activate_detect", "activate"))
-          ),
-          shiny::fluidRow(
-            shiny::column(4, "epitweetr database"), 
-            shiny::column(4, shiny::htmlOutput("fs_running")),
-            shiny::column(4, shiny::actionButton("activate_fs", "activate"))
           ),
           ################################################
           ######### GENERAL PROPERTIES ###################
@@ -302,12 +302,10 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::h3("Detection pipeline"),
           shiny::h5("Manual tasks"),
           shiny::fluidRow(
-            shiny::column(2, shiny::actionButton("update_dependencies", "Run dependencies")),
-            shiny::column(2, shiny::actionButton("update_geonames", "Run GeoNames")),
-            shiny::column(2, shiny::actionButton("update_languages", "Run languages")),
-            shiny::column(2, shiny::actionButton("request_geotag", "Run geotag")),
-            shiny::column(2, shiny::actionButton("request_aggregate", "Run aggregate")),
-            shiny::column(2, shiny::actionButton("request_alerts", "Run alerts"))
+            shiny::column(3, shiny::actionButton("update_dependencies", "Run dependencies")),
+            shiny::column(3, shiny::actionButton("update_geonames", "Run GeoNames")),
+            shiny::column(3, shiny::actionButton("update_languages", "Run languages")),
+            shiny::column(3, shiny::actionButton("request_alerts", "Run alerts"))
           ),
           DT::dataTableOutput("tasks_df"),
           ################################################
@@ -959,7 +957,7 @@ epitweetr_app <- function(data_dir = NA) {
       cd$properties_refresh_flag()
 
       #rendering the label
-      paste(head(lapply(get_task_day_slots(get_tasks()$geotag), function(d) strftime(d, format="%H:%M")), -1), collapse=", ")
+      paste(head(lapply(get_task_day_slots(get_tasks()$alerts), function(d) strftime(d, format="%H:%M")), -1), collapse=", ")
     })
 
     # registering the search runner after button is clicked
@@ -1032,30 +1030,6 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(cd, list("tasks"))
     })
     
-    # action to activate the geotag task
-    shiny::observeEvent(input$request_geotag, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
-      conf$geotag_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
-      # forcing a task refresh 
-      cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
-      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
-      # refreshing the tasks data
-      refresh_config_data(cd, list("tasks"))
-    })
-    
-    # action to activate the aggregate task
-    shiny::observeEvent(input$request_aggregate, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
-      conf$aggregate_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
-      # forcing a task refresh 
-      cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
-      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
-      # refreshing the tasks data
-      refresh_config_data(cd, list("tasks"))
-    })
-
     # action to activate the alerts task
     shiny::observeEvent(input$request_alerts, {
       # Setting values on the configuration so the detect loop know it has to launch the task
@@ -1619,7 +1593,8 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
 # validate that dashboard can be rendered
 can_render <- function(input, d) {
   shiny::validate(
-      shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
+      shiny::need(is_fs_running(), 'Embedded database service is not running, please make sure you have avtivated it (running update dependencies is necessary after upgrade from version 1 tp a 2+ version)')
+      , shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
       , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the detect loop has successfully ran"))
       , shiny::need(!is.na(input$period[[1]]) && !is.na(input$period[[2]]) && (input$period[[1]] <= input$period[[2]]), 'Please select a start and end period for the report. The start period must be a date earlier than the end period') 
       , shiny::need(input$topics != '', 'Please select a topic')

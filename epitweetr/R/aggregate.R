@@ -53,29 +53,6 @@ cached <- new.env()
 #' @importFrom jsonlite rbind_pages
 #' @importFrom utils tail
 get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
-  # getting the aggregated dataframe from the storage system
-  q_url <- paste0("http://localhost:8080/aggregate?jsonnl=true&serie=", URLencode(dataset, reserved = T))
-  for(field in names(filter)) {
-    if(field == "topic") q_url <- paste0(q_url, "&topic=", URLencode(filter$topic, reserved = T)) 
-    else if(field == "period") 
-      q_url <- paste0(
-        q_url, 
-        "&from=", 
-        URLencode(strftime(filter$period[[1]], format = "%Y-%m-%d"), reserved = T), 
-        "&to=", 
-        URLencode(strftime(filter$period[[2]], format = "%Y-%m-%d"), reserved = T) 
-      ) 
-    else q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(filter[[field]], reserved = T))
-  }
-  agg_df = jsonlite::stream_in(url(q_url))
-  # Calculating the created week
-  agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
-  agg_df$created_weeknum <- as.integer(strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G%V"))
-  agg_df$created_date <- as.Date(agg_df$created_date, format = "%Y-%m-%d")
-  agg_df
-}
-
-get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
   `%>%` <- magrittr::`%>%`
   # getting the name for cache lookup dataset dependant
   last_filter_name <- paste("last_filter", dataset, sep = "_")
@@ -115,55 +92,78 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
     )
   }
   else {
-    # No cache hit getting from aggregated files
-    # starting by listing all series files
-    files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".*\\.Rds", sep=""))
-    if(length(files) == 0) {
-      warning(paste("Dataset ", dataset, " not found in any week folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
-      return (data.frame(created_date=as.Date(character()),topic=character()))
+    # getting the aggregated dataframe from the storage system
+    q_url <- paste0("http://localhost:8080/aggregate?jsonnl=true&serie=", URLencode(dataset, reserved = T))
+    for(field in names(filter)) {
+      if(field == "topic") q_url <- paste0(q_url, "&topic=", URLencode(filter$topic, reserved = T)) 
+      else if(field == "period") 
+        q_url <- paste0(
+          q_url, 
+          "&from=", 
+          URLencode(strftime(filter$period[[1]], format = "%Y-%m-%d"), reserved = T), 
+          "&to=", 
+          URLencode(strftime(filter$period[[2]], format = "%Y-%m-%d"), reserved = T) 
+        ) 
+      else q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(filter[[field]], reserved = T))
     }
-    else {
-      # Limiting files by the selected period based on week name and file names if filtering for date
-      if(exists("period", where = filter)) {
-        from <- filter$period[[1]]
-        until <- filter$period[[2]]
-        files <- files[
-          sapply(files, function(f) {
-            weekstr <- strsplit(f, "/")[[1]][[1]]
-            day <- as.Date(tail(strsplit(gsub(".Rds", "", f), "_")[[1]], n = 1), "%Y.%m.%d")
-            strftime(from, "%G.%V")<=weekstr && 
-              strftime(until, "%G.%V") >= weekstr && 
-              (is.na(day) || from <= day && until >= day)
-          })
-        ]
-      }
-
-      # Extracting data from aggregated files
-      dfs <- lapply(files, function (file) {
-	      message(paste("reading", file))
-        readRDS(file.path(conf$data_dir, "series", file)) %>% 
-          dplyr::mutate(topic = stringr::str_replace_all(.data$topic, "%20", " ")) %>% #putting back espaces from %20 to " "
-          dplyr::filter(
-            (if(exists("topic", where = filter)) .data$topic %in% filter$topic else TRUE) & 
-            (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE)
-          )
-      })
-      
-      #Joining data extracts if any or returning empty dataset otherwise
-      ret <- 
-        if(length(files) > 0)
-          jsonlite::rbind_pages(dfs)
-        else 
-          readRDS(tail(list.files(file.path(conf$data_dir, "series"), full.names=TRUE, recursive=TRUE, pattern="*.Rds"), 1)) %>% dplyr::filter(1 == 0)
-      if(cache) cached[[dataset]] <- ret
-      return(ret)
-    }
+    agg_df = jsonlite::stream_in(url(q_url))
+    # Calculating the created week
+    agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
+    agg_df$created_weeknum <- as.integer(strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G%V"))
+    agg_df$created_date <- as.Date(agg_df$created_date, format = "%Y-%m-%d")
+    rbind(get_aggregates_rds(dataset, cache = cache, filter = filter), agg_df)
   }
+}
+
+get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
+  # No cache hit getting from aggregated files
+  # starting by listing all series files
+  files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".*\\.Rds", sep=""))
+  if(length(files) == 0) {
+    warning(paste("Dataset ", dataset, " not found in any week folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
+    return (data.frame(created_date=as.Date(character()),topic=character()))
+  }
+  else {
+    # Limiting files by the selected period based on week name and file names if filtering for date
+    if(exists("period", where = filter)) {
+      from <- filter$period[[1]]
+      until <- filter$period[[2]]
+      files <- files[
+        sapply(files, function(f) {
+          weekstr <- strsplit(f, "/")[[1]][[1]]
+          day <- as.Date(tail(strsplit(gsub(".Rds", "", f), "_")[[1]], n = 1), "%Y.%m.%d")
+          strftime(from, "%G.%V")<=weekstr && 
+            strftime(until, "%G.%V") >= weekstr && 
+            (is.na(day) || from <= day && until >= day)
+        })
+      ]
+    }
+
+    # Extracting data from aggregated files
+    dfs <- lapply(files, function (file) {
+      message(paste("reading", file))
+      readRDS(file.path(conf$data_dir, "series", file)) %>% 
+        dplyr::mutate(topic = stringr::str_replace_all(.data$topic, "%20", " ")) %>% #putting back espaces from %20 to " "
+        dplyr::filter(
+          (if(exists("topic", where = filter)) .data$topic %in% filter$topic else TRUE) & 
+          (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE)
+        )
+    })
+    
+    #Joining data extracts if any or returning empty dataset otherwise
+    ret <- 
+      if(length(files) > 0)
+        jsonlite::rbind_pages(dfs)
+      else 
+        readRDS(tail(list.files(file.path(conf$data_dir, "series"), full.names=TRUE, recursive=TRUE, pattern="*.Rds"), 1)) %>% dplyr::filter(1 == 0)
+    if(cache) cached[[dataset]] <- ret
+    return(ret)
+  }
+
 } 
 
 register_series <- function() {
   `%>%` <- magrittr::`%>%`
- 
   #geolocated"
     set_aggregated_tweets(
        name = "geolocated"
@@ -299,9 +299,51 @@ register_series <- function() {
   #}
 }
 
-get_aggregated_period <- function(serie) {
-  ret <- jsonlite::fromJSON(url("http://localhost:8080/period?serie=country_counts"), simplifyVector = T)
-  ret$first <- strptime(ret$first, format = "%Y-%m-%d")
-  ret$last <- strptime(ret$last, format = "%Y-%m-%d")
-  ret
+# getting last aggregation date or NA if first
+# date is obtained by sorting and reading first and last file
+get_aggregated_period_rds <- function(dataset) {
+  # listing all aggregated files for given dataset 
+  agg_files <- list.files(file.path(conf$data_dir, "series"), recursive=TRUE, full.names =TRUE)
+  agg_files <- agg_files[grepl(paste(".*", dataset, ".*\\.Rds", sep = ""), agg_files)] 
+  # sorting them alphabetically. This makes them sorted by date too because of namind convention
+  agg_files <- sort(agg_files)
+  if(length(agg_files) > 0) { 
+   # getting date information from firt and last aggregated file
+   first_file <- agg_files[[1]]
+   first_df <- readRDS(first_file)
+   last_file <- agg_files[[length(agg_files)]]
+   last_df <- readRDS(last_file)
+   last_hour <- 
+     if(dataset == "country_counts") 
+       max(strptime(paste(strftime(last_df$created_date, format = "%Y-%m-%d"), " ", last_df$created_hour, ":00:00", sep=""), format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+     else
+       max(strptime(paste(strftime(last_df$created_date, format = "%Y-%m-%d"), " ", "00:00:00", sep=""), format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+   list(
+     first = min(first_df$created_date), 
+     last = as.Date(last_hour),
+     last_hour= as.integer(strftime(last_hour, format = "%H"))
+   )   
+  } else 
+   list(first = NA, last = NA, last_hour = NA)
+}
+
+get_aggregated_period <- function(dataset) {
+  #TODO: add last hour!!
+  rds_period <- get_aggregated_period_rds(dataset)
+  fs_period <- tryCatch({
+     ret <- jsonlite::fromJSON(url("http://localhost:8080/period?serie=country_counts"), simplifyVector = T)
+     ret$first <- as.Date(strptime(ret$first, format = "%Y-%m-%d"))
+     ret$last <- as.Date(strptime(ret$last, format = "%Y-%m-%d"))
+     ret
+  }, warning = function(w) {
+     list(first= NA, last = NA)
+  }, error = function(e) {
+     list(first = NA, last = NA)
+  })
+
+  list(
+    first = min(c(rds_period$first, fs_period$first), na.rm = T), 
+    last = max(c(rds_period$last, fs_period$last), na.rm = T),
+    last_hour = 23
+  )
 }

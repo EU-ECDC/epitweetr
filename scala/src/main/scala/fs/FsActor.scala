@@ -276,7 +276,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       Future{
         val sPath = Paths.get(conf.fsRoot, collection)
         if(!Files.exists(sPath))
-          LuceneActor.PeriodResponse(null, null)
+          LuceneActor.PeriodResponse(None, None)
         else {
           val keys = Files.list(sPath).iterator.asScala.toSeq.map(p => p.getFileName.toString)
           val dates = Seq(keys.min, keys.max)
@@ -295,9 +295,9 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               aDates
             }
           if(dates.size> 0)
-            LuceneActor.PeriodResponse(dates.min, dates.max)
+            LuceneActor.PeriodResponse(Some(dates.min), Some(dates.max))
           else
-            LuceneActor.PeriodResponse(null, null)
+            LuceneActor.PeriodResponse(None, None)
         }
       }
       .pipeTo(sender())
@@ -343,7 +343,7 @@ object LuceneActor {
     caller:ActorRef 
   )
   case class PeriodRequest(collection:String)
-  case class PeriodResponse(first:String, last:String)
+  case class PeriodResponse(first:Option[String], last:Option[String])
   def getHolder(writeEnabled:Boolean) = IndexHolder(writeEnabled = writeEnabled)
   def commit()(implicit holder:IndexHolder)  {
     commit(closeDirectory = true)

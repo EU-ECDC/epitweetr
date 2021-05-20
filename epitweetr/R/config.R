@@ -511,8 +511,8 @@ get_topics_df <- function() {
     Query = sapply(conf$topics, function(t) t$query), 
     QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
     ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
-    Progress = sapply(conf$topics, function(t) {if(length(t$plan)>0) mean(unlist(lapply(t$plan, function(p) p$progress))) else 0}), 
-    Requests = sapply(conf$topics, function(t) {if(length(t$plan)>0) sum(unlist(lapply(t$plan, function(p) p$requests))) else 0}),
+    Progress = sapply(conf$topics, function(t) {if(length(t$plan)>0) mean(unlist(lapply(t$plan, function(p) as.numeric(p$progress)))) else 0}), 
+    Requests = sapply(conf$topics, function(t) {if(length(t$plan)>0) sum(unlist(lapply(t$plan, function(p) as.numeric(p$requests)))) else 0}),
     Alpha = sapply(conf$topics, function(t) t$alpha),
     OutliersAlpha = sapply(conf$topics, function(t) t$alpha_outlier),
     stringsAsFactors=FALSE

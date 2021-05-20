@@ -55,6 +55,9 @@ search_loop <-  function(data_dir = NA) {
 
     #calculating the minimum number of requests those plans have already executed
     min_requests <- Reduce(min, lapply(1:length(conf$topics), function(i) if(!is.null(next_plans[[i]])) next_plans[[i]]$request else .Machine$integer.max))
+    
+    #updating series to aggregate
+    register_series() 
 
     #performing search only for plans with a minimum number of requests (round robin)
     for(i in 1:length(conf$topics)) { 
@@ -65,7 +68,6 @@ search_loop <-  function(data_dir = NA) {
         }
       }
     }
-     
     commit_tweets()
     #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config)
     setup_config(data_dir = conf$data_dir, save_first = list("topics"))
@@ -253,8 +255,10 @@ parse_date <- function(str_date) {
 # max_id: id of the newest targereted tweet
 # result_type: sort criteria for tweets (recent, popular and mix) 
 twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "recent", count = 100) {
-  search_url <- if(T) {
-    paste(
+  search_url = list()
+  #usont v1 endpoint when delegated authentication if user set to use it
+  if(!is_secret_set("app") || "1.1" %in% conf$api_version) {
+    search_url[["1.1"]] <- paste(
       search_endpoint[["1.1"]]
       , "?q="
       , URLencode(q, reserved=T)
@@ -269,8 +273,9 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
       , "&include_entities=true"
       , sep = ""
     )
-  } else {
-    paste(
+  }
+  if(is_secret_set("app") && "2" %in% conf$api_version) {
+    search_url[["2"]] <- paste(
       search_endpoint[["2"]]
       , "?query="
       , URLencode(gsub(" AND ", " ", q), reserved=T)

@@ -417,17 +417,17 @@ do_next_alerts <- function(tasks = get_tasks()) {
     # Getting region details
     regions <- get_country_items()
     # Caching counts for all topics for the selected period the period to consider on cache will depend on  alert_same_weekday_baseline
-    cc <- get_aggregates(
-      dataset = "country_counts", 
-      filter = list(
-        period = list(
-          get_alert_count_from(date = alert_to, baseline_size = conf$alert_history, same_weekday_baseline = conf$alert_same_weekday_baseline), 
-          alert_to
-        )
-      )
-    )
+    #cc <- get_aggregates(
+    #  dataset = "country_counts", 
+    #  filter = list(
+    #    period = list(
+    #      get_alert_count_from(date = alert_to, baseline_size = conf$alert_history, same_weekday_baseline = conf$alert_same_weekday_baseline), 
+    #      alert_to
+    #    )
+    #  )
+    #)
     # reassigning NULL to cc for allow garbage collecting
-    cc <- NULL
+    #cc <- NULL
     #TODO: Using parallel package to calculate alerts on all available cores
     #  cl <- parallel::makePSOCKcluster(as.numeric(conf$spark_cores), outfile="")
     #  conf <- conf

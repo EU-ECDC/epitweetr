@@ -4,6 +4,7 @@ print(getwd())
 if(!("devtools" %in% installed.packages()[,"Package"]))
   install.packages("devtools")
 
+devtools::install_deps()
 devtools::document()
 devtools::build(binary=TRUE)
 devtools::build(binary=FALSE)

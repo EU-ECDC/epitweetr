@@ -1,86 +1,4 @@
-#' @title Launches the geo-tagging loop
-#' @description This function will geolocate all tweets before the current hour that have not been already geolocated
-#' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
-#' @return The list of tasks updated with produced messages
-#' @details It geolocates tweets by collection date, and stores the result in the tweets/geolocated folder.
-#' It starts from the last geolocated date until the last collected tweet. When running on a day that has been partially geolocated,
-#' it will ignore tweets that have already been processed. 
-#'
-#' The geolocation is applied to several fields of tweets: text, original text (if retweet or quote), user description, user declared location, user biography, API location. For each field it will perform the following steps:
-#' \itemize{
-#'   \item{Evaluate the part of the text which is more likely to be a location using an unsupervised machine learning and language dependent model trained during \code{\link{update_languages}}}
-#'   \item{Match the selected text against a Lucene index of GeoNames database built during \code{\link{update_geonames}}}
-#'   \item{Return the location with the highest matching score. For more information about the scoring process please refer to the epitweetr vignette}
-#' }
-#'
-#' This algorithm has mainly been developed in Spark. 
-#'
-#' A prerequisite to this function is that the \code{\link{search_loop}} must already have stored collected tweets in the search folder and that the tasks \code{\link{download_dependencies}}, 
-#' \code{\link{update_geonames}} and \code{\link{update_languages}} have successfully been run.
-#' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
-#' @examples 
-#' if(FALSE){
-#'    library(epitweetr)
-#'    # setting up the data folder
-#'    message('Please choose the epitweetr data directory')
-#'    setup_config(file.choose())
-#'
-#'    # geolocating last tweets
-#'    tasks <- geotag_tweets()
-#' }
-#' @rdname geotag_tweets
-#' @seealso
-#'  \code{\link{download_dependencies}}
-#'
-#'  \code{\link{update_geonames}}
-#'
-#'  \code{\link{update_languages}}
-#'
-#'  \code{\link{detect_loop}}
-#'  
-#'  \code{\link{aggregate_tweets}}
-#'
-#'  \code{\link{get_tasks}}
-#' @export 
-geotag_tweets <- function(tasks = get_tasks()) {
-  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
-  # Creating parameters from configuration file as java objects
-  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
-  geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
-  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
-
-  tasks <- tryCatch({
-    tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
-    # calling a spark job: extractLocations that will perform the geolocation
-    spark_job(
-      paste(
-	      "extractLocations"
-        , "sourcePath", paste("\"", tweet_path, "\"", sep="")
-        , "destPath", paste("\"", geolocated_path, "\"", sep = "") 
-        ,  conf_languages_as_arg()
-        ,  conf_geonames_as_arg()
-        , "langIndexPath", paste("\"", index_path, "\"", sep = "")
-        , "minScore" , conf$geolocation_threshold
-        , "parallelism", conf$spark_cores 
-      )
-    )
-    
-    # Setting status to succès
-    tasks <- update_geotag_task(tasks, "success", "", end = TRUE)
-    tasks
-  }, warning = function(error_condition) {
-    # Setting status to failed
-    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," ", error_condition))
-    tasks
-  }, error = function(error_condition) {
-    # Setting status to failed
-    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," ", error_condition))
-    tasks
-  })
-  return(tasks)
-}
-
-# Get the SQL like expression to extract tweet geolocation variables and applying prioritisation 
+# Get the SQL like expression to extract tweet geolocation variables and applying prioritisation
 # this function is used on aggregate tweets for translating variables names into SQL valid columns of geotag tweets
 get_tweet_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
@@ -89,22 +7,22 @@ get_tweet_location_var <- function(varname) {
       , ", linked_text_loc.geo_", varname
       , ")"
       , sep = ""
-    )  
-  else 
+    )
+  else
     paste("coalesce("
       , "text_loc.", varname
       , ", linked_text_loc.", varname
       , ")"
       , sep = ""
-    )  
+    )
 }
 
-# It gets used cols for tweet geolocation. This is used for limiting columns to extract from json files 
+# It gets used cols for tweet geolocation. This is used for limiting columns to extract from json files
 get_tweet_location_columns <- function(table) {
   if(table == "tweet")
     list(
     )
-  else 
+  else
     list(
       "text_loc"
       ,"linked_text_loc"
@@ -124,18 +42,19 @@ get_user_location_var <- function(varname) {
       , ", user_description_loc.geo_", varname
       , ")"
       , sep = ""
-    )  
-  else 
+    )
+  else
     paste("coalesce("
       , "place_full_name_loc.",varname
       , ", linked_place_full_name_loc.",varname
       , ", user_location_loc.", varname
       , ", user_description_loc.", varname
-      , ")" 
+      , ")"
       , sep = ""
-    )  
+    )
 }
-# Get used cols for user geolocation. This is used for limiting columns to extract from json files 
+
+# Get used cols for user geolocation. This is used for limiting columns to extract from json files
 get_user_location_columns <- function(table) {
   if(table == "tweet")
     list(
@@ -146,7 +65,7 @@ get_user_location_columns <- function(table) {
       , "linked_place_longitude"
       , "linked_place_latitude"
     )
-  else 
+  else
     list(
       "user_location_loc"
       , "user_description_loc"
@@ -158,7 +77,6 @@ get_user_location_columns <- function(table) {
       , "linked_place_full_name_loc"
       )
 }
-
 
 #' @title Get a sample of latest tweet geolocations
 #' @description Get a sample of today's tweets for evaluation of geolocation threshold
@@ -194,31 +112,7 @@ get_user_location_columns <- function(table) {
 #' @export 
 get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col = "lang") {
  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
-
- # Creating parameters from configuration file as java objects
- tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
- index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
-
- # using spark df to use the entry point getSamplesTweets
- spark_df(
-   paste(
-     "getSampleTweets"
-     , "tweetPath", paste("\"", tweet_path, "\"", sep="")
-     , "pathFilter", paste("\"", strftime(Sys.time(), format = ".*%Y\\.%m\\.%d.*") ,"\"",sep="") 
-     ,  conf_languages_as_arg()
-     ,  conf_geonames_as_arg()
-     , "langIndexPath", paste("\"", index_path, "\"", sep = "")
-     , "limit" , limit
-     , "parallelism" , conf$spark_cores
-     , paste(
-         "textCol "
-         , text_col
-         , if(is.na(lang_col)) "" else " langCol "
-         , if(is.na(lang_col)) "" else lang_col
-         , sep = ""
-       )
-   )
- )
+ stop("Not implemented")
 }
 
 

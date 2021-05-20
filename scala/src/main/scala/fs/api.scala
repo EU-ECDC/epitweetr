@@ -206,7 +206,7 @@ object API {
               val fut = (luceneRunner ? LuceneActor.PeriodRequest(collection))
                 .map{
                    case LuceneActor.PeriodResponse(min, max) => (StatusCodes.OK, LuceneActor.PeriodResponse(min, max))
-                   case o => (StatusCodes.InternalServerError, LuceneActor.PeriodResponse(null, null))
+                   case o => (StatusCodes.InternalServerError, LuceneActor.PeriodResponse(None, None))
                  }
               complete(fut) 
             }
@@ -291,10 +291,11 @@ object API {
     }
   }
   def removeLockFiles()(implicit conf:Settings) { 
-    Files.walk(Paths.get(conf.fsRoot))
-      .iterator.asScala.foreach{p =>
-        if(p.endsWith("write.lock"))
-          Files.delete(p)
-      }
+    if(Files.exists(Paths.get(conf.fsRoot)))
+      Files.walk(Paths.get(conf.fsRoot))
+        .iterator.asScala.foreach{p =>
+          if(p.endsWith("write.lock"))
+            Files.delete(p)
+        }
   }
 } 

@@ -348,6 +348,21 @@ check_detect_running <- function() {
   }
 }
 
+# check detect is running
+check_fs_running <- function() {
+  if(is_fs_running())
+    TRUE
+  else {
+    warning(paste0(
+      "Embaded database is not running. On Windows, you can activate it by clicking on the 'activate' database service button on the config page ",
+      "You can also manually run the fs service by executing the following command on a separate R session. epitweetr::fs_loop('",
+      conf$data_dir,
+      "')"
+    ))
+    FALSE
+  }
+}
+
 # check Twitter authentication
 check_twitter_auth <- function() {
   ok <- tryCatch({
@@ -434,6 +449,7 @@ check_all <- function() {
     winmsvc = check_winmsvcr100, 
     detect_activation = check_manual_task_request,
     detection_running = check_detect_running,
+    database_running = check_fs_running,
     winutils = check_winutils, 
     java_deps = check_java_deps, 
     move_from_temp = check_move_from_temp, 
