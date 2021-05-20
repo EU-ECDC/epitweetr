@@ -1,3 +1,4 @@
+#' @export 
 fs_loop <-  function(data_dir = NA) {
   # Setting or reusing the data directory
   if(is.na(data_dir) )

@@ -123,9 +123,7 @@ search_topic <- function(plan, query, topic) {
   # ensuring that query is smaller than 400 character (tweetr API limit) 
   if(nchar(query)< 400) {
     # doing the tweet search and storing the response object to obtain details on resp
-    resp <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target)
-    # Getting the response content as a character vector on content
-    content = httr::content(resp,as="text")
+    content <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target) 
     # Interpreting the content as JSON and storing the results on json (nested list with dataframes)
     # interpreting is necesssary know the number of obtained tweets and the id of the oldest tweet found and to keep tweet collecting stats
     # Saving uninterpreted content as a gzip archive

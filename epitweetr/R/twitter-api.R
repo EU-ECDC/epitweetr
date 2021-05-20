@@ -65,7 +65,6 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
   } else {
     urls[[1]]
   }
-  print(url)
   # Getting token if not set for current session
   if(is.null(conf$token) || !exists("token", where = conf)) conf$token <- get_token()
   # Trying to get the response quadratic waiting time is implemented if the URL fails 
@@ -121,7 +120,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
         Sys.sleep(towait)  
       }
     }
-    return(res)
+    return(httr::content(res,as="text"))
   }
   else if(res$status_code == 420 && i <= retries) {
     # Adding 60 seconds wait if application is being requested to slow down, and retries is less than limit
@@ -168,7 +167,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
     #Special error on API 2 when query is too old
     message("Error interpreted as too old query on V2 API. Assuming empty result set")
     message(mess)
-    return(jsonlite::fromJSON('{"meta":{"result_count":0}}'))
+    return('{"meta":{"result_count":0}}')
   } else if(i <= retries) {
       # Other non expected cases, retrying with a quadratic waiting rule at most (retries - i) more times
       message(paste("Error status code ",res$status_code,"returned by Twitter API waiting for", i*i, "seconds before retry with a new token"))  
