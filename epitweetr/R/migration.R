@@ -112,7 +112,8 @@ archive_search_geo_file <- function(file) {
     if(file.exists(to)) {
       to <-gsub(".json.gz", paste0(floor(runif(1, min=1, max=500)),".json.gz"), to)
     }
-    file.rename(from = from,  to = to)
+    if(file.exists(from))
+      file.rename(from = from,  to = to)
   }
 
   #removing empty folders

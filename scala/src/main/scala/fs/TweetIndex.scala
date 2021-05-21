@@ -176,7 +176,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   }
   def applyDoubleAggregation(value:Double, fieldName:String, aggr:Map[String, String], oldDoc:Option[Document]) = {
     if(!oldDoc.isEmpty && oldDoc.get.getField(fieldName) == null)
-      println(s"$fieldName is not in >>>>>>>>>>>>>>>>>>>>>>${oldDoc}")
+      println(s"INFO: $fieldName is not in >>>>>>>>>>>>>>>>>>>>>>${oldDoc}")
 
     if(oldDoc.isEmpty || oldDoc.get.getField(fieldName) == null || oldDoc.get.getField(fieldName).numericValue() == null)
       value

@@ -316,6 +316,12 @@ download_dependencies <- function(tasks = get_tasks()) {
   tasks <- tryCatch({
     tasks <- update_dep_task(tasks, "running", "getting sbt dependencies", start = TRUE)
     # downloading SPARK, lucene and other scala dependencies from the provided maven repository 
+    while(is_fs_running()) {
+      tasks <- update_dep_task(tasks, "running", paste(
+        "Embeded database is running, please turn it OFF in order to download dependencies. You can do this on the task scheduler on windows or manually kill the process on other platforms."
+      ))
+      Sys.sleep(5)
+    } 
     tasks <- download_sbt_dependencies(tasks)
     if(.Platform$OS.type == "windows") {
       tasks <- update_dep_task(tasks, "running", "getting winutils")
@@ -325,7 +331,7 @@ download_dependencies <- function(tasks = get_tasks()) {
     # ensuring that storage system is running
     while(!is_fs_running()) {
       tasks <- update_dep_task(tasks, "running", paste(
-        "Embeded database is not running. On Windows, you can activate it by clicking on the 'activate' database service button on the config page ",
+        "Embeded database is NOT running. On Windows, you can activate it by clicking on the 'activate' database service button on the config page ",
         "You can also manually run the fs service by executing the following command on a separate R session. epitweetr::fs_loop('",
         conf$data_dir,
         "')"
@@ -348,7 +354,7 @@ download_dependencies <- function(tasks = get_tasks()) {
   }, warning = function(error_condition) {
     # Setting status to failed
     message("Failed...")
-    message(paste("failed while", tasks$alerts$message," ", error_condition))
+    message(paste("failed while", tasks$dependencies$message," ", error_condition))
     tasks <- update_dep_task(tasks, "failed", paste("failed while", tasks$dependencies$message," getting dependencies ", error_condition))
     tasks
   })
@@ -377,7 +383,13 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
   else {
     #Deleting existing files
     existing <- list.files(get_jars_dest_path(), full.names=TRUE)
-    file.remove(existing)
+    tryCatch({
+      file.remove(existing)
+    }, warning = function(c) {
+      warning(paste("Warning during removing JAR files in ", get_jars_dest_path(), c))
+    }, error = function(c) {
+      stop(paste("EPitweetr cannot remove JAR fils files in ", get_jars_dest_path(), " please remove the files manually.", c))
+    })
   }
 
   # destination file

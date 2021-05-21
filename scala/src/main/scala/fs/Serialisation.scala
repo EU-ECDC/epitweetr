@@ -63,7 +63,7 @@ case class TweetV2(id:String, lang:String, author_id:String, text:String, possib
    def getLinkedAuthor()(implicit includes:IncludesV2) = getLinkedTweet().map(lt => includes.userMap(lt.author_id))
    def getLat()(implicit includes:IncludesV2) =  this.geo.flatMap(g => g.coordinates.flatMap(coords => coords.coordinates).flatMap{case Seq(lat, long) => Some(long) case _ => None})
    def getLong()(implicit includes:IncludesV2) =  this.geo.flatMap(g => g.coordinates.flatMap(coords => coords.coordinates).flatMap{case Seq(lat, long) => Some(lat) case _ => None})
-   def getPlace()(implicit includes:IncludesV2) = this.geo.flatMap(g => includes.placeMap.get(g.place_id))
+   def getPlace()(implicit includes:IncludesV2) = this.geo.flatMap(g => g.place_id.flatMap(place_id => includes.placeMap.get(place_id)))
 }
 
 case class IncludesV2(users:Option[Seq[UserV2]], tweets:Option[Seq[TweetV2]], places:Option[Seq[PlaceV2]]) {
@@ -72,7 +72,7 @@ case class IncludesV2(users:Option[Seq[UserV2]], tweets:Option[Seq[TweetV2]], pl
   def placeMap = this.places.map(pss => pss.map(p => (p.id, p)).toMap).getOrElse(Map[String, PlaceV2]())
 }
 case class TweetRefV2(`type`:String, id:String)
-case class PlaceRefV2(place_id:String, coordinates:Option[CoordinatesV2])
+case class PlaceRefV2(place_id:Option[String], coordinates:Option[CoordinatesV2])
 case class CoordinatesV2(`type`:String, coordinates:Option[Seq[Float]])
 case class PlaceV2(full_name:String, id:String, contained_within:Option[Array[String]], country:String, country_code:String, geo:Option[GeoJson], name:String, place_type:String)
 case class GeoJson(`type`:String, bbox:Seq[Float]) {
