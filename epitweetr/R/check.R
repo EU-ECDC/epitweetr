@@ -13,11 +13,11 @@ check_java_present <- function() {
 # check if java is installed
 is_java_present <- function() {
   programs <- "java"
-  # If java home is not set cheking if the system can found java on the path
+  # If java home is not set checking if the system can found java on the path
   if(Sys.getenv("JAVA_HOME") == "" || is.null(Sys.getenv("JAVA_HOME"))) {
     length(grep(programs, Sys.which(programs))) == length(programs)  
   } else {
-    #checking if java binary can be foung from java_home
+    #checking if java binary can be found from java_home
     if(.Platform$OS.type == "windows")
       file.exists(file.path(Sys.getenv("JAVA_HOME"), "bin", "java.exe"))
     else
@@ -176,7 +176,7 @@ check_java_deps <- function() {
 #check geonames is downloaded and indexed
 check_geonames <- function() {
   if(!file.exists(get_geonames_txt_path())) {
-    warning("epitweetr needs geonames to be downloaded and unziped for geolocating tweets. Please run the geonames task of the detection pipeline")
+    warning("epitweetr needs geonames to be downloaded and unziped for geolocating tweets. Please run the geonames task of the requirements and alert pipeline")
     FALSE
   } else {
     dir <- get_geonames_index_path()
@@ -263,7 +263,7 @@ check_tweets_present <- function() {
   if(length(last_file) > 0) {
     TRUE
   } else {
-    warning("No tweet files found. Please execute the search loop")
+    warning("No tweet files found. Please execute the Data collection & processing pipeline")
     FALSE
   }
 }
@@ -324,8 +324,8 @@ check_search_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Search loop is not running. On Windows, you can activate it by clicking on the 'activate' Tweet search button on the config page ",
-      "You can also manually run the search loop by executing the following command on a separate R session. epitweetr::search_loop('",
+      "Data collection & processing pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Data collection & processing button on the config page ",
+      "You can also manually run the Data collection & processing pipeline by executing the following command on a separate R session. epitweetr::search_loop('",
       conf$data_dir,
       "')"
     ))
@@ -339,8 +339,8 @@ check_detect_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Detection pipeline is not running. On Windows, you can activate it by clicking on the 'activate' detection pipeline button on the config page ",
-      "You can also manually run the detection loop by executing the following command on a separate R session. epitweetr::detect_loop('",
+      "Requirements & alerts pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Requirements & alerts button on the config page ",
+      "You can also manually run the Requirements & alerts pipeline by executing the following command on a separate R session. epitweetr::detect_loop('",
       conf$data_dir,
       "')"
     ))
@@ -388,7 +388,7 @@ check_manual_task_request <- function() {
     || is.na(conf$geonames_updated_on)
     || is.na(conf$lang_updated_on)
   ) {
-    warning("Before running the detect loop, you have to click on 'activate' detection pipeline button on configuration page")
+    warning("Before running the Requirements & alerts pipeline, you have to click on 'activate' Requirements & alerts pipeline button on configuration page")
     FALSE  
   } else 
     TRUE

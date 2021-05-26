@@ -1,6 +1,6 @@
 
 #' @title Run the epitweetr Shiny app
-#' @description Open the epitweetr Shiny app, used to setup the search loop, the detect loop and to visualise the outputs. 
+#' @description Open the epitweetr Shiny app, used to setup the Data collection & processing pipeline, the Requirements & alerts pipeline and to visualise the outputs. 
 #' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
 #' @return The Shiny server object containing the launched application
@@ -184,12 +184,12 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(4, shiny::actionButton("activate_fs", "activate"))
           ),
           shiny::fluidRow(
-            shiny::column(4, "Tweet search"), 
+            shiny::column(4, "Data collection & processing"), 
             shiny::column(4, shiny::htmlOutput("search_running")),
             shiny::column(4, shiny::actionButton("activate_search", "activate"))
           ),
           shiny::fluidRow(
-            shiny::column(4, "Detection pipeline"), 
+            shiny::column(4, "Requirements & alerts"), 
             shiny::column(4, shiny::htmlOutput("detect_running")),
             shiny::column(4, shiny::actionButton("activate_detect", "activate"))
           ),
@@ -209,8 +209,8 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           shiny::h3("General"),
           shiny::fluidRow(shiny::column(3, "Data dir"), shiny::column(9, shiny::span(conf$data_dir))),
-          shiny::fluidRow(shiny::column(3, "Search span (min)"), shiny::column(9, shiny::numericInput("conf_collect_span", label = NULL, value = conf$collect_span))), 
-          shiny::fluidRow(shiny::column(3, "Detect span (min)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
+          shiny::fluidRow(shiny::column(3, "Data collection & processing span (min)"), shiny::column(9, shiny::numericInput("conf_collect_span", label = NULL, value = conf$collect_span))), 
+          shiny::fluidRow(shiny::column(3, "Requirements & alerts span (min)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
           shiny::fluidRow(shiny::column(3, "Launch slots"), shiny::column(9, shiny::htmlOutput("conf_schedule_slots"))), 
           shiny::fluidRow(shiny::column(3, "Password store"), shiny::column(9, 
             shiny::selectInput(
@@ -297,9 +297,9 @@ epitweetr_app <- function(data_dir = NA) {
         ), 
         shiny::column(8,
           ################################################
-          ######### DETECTION PANEL ######################
+          ######### Requirements & alerts PANEL ######################
           ################################################
-          shiny::h3("Detection pipeline"),
+          shiny::h3("Requirements & alerts pipeline"),
           shiny::h5("Manual tasks"),
           shiny::fluidRow(
             shiny::column(3, shiny::actionButton("update_dependencies", "Run dependencies")),
@@ -880,7 +880,7 @@ epitweetr_app <- function(data_dir = NA) {
     ######### STATUS PANEL LOGIC ##################
     
     # Timer for updating task statuses 
-    # each ten seconds config data will be reloaded to capture changes from detect loop and search loop
+    # each ten seconds config data will be reloaded to capture changes from data collection & processing and requirements & alerts pipelines
     # each ten seconds a process refresh flag will be invalidated to trigger process status recalculation
     shiny::observe({
       # Setting the timer
@@ -893,9 +893,9 @@ epitweetr_app <- function(data_dir = NA) {
       cd$process_refresh_flag(Sys.time())
     }) 
 
-    # rendering the search running status
+    # rendering the Data collection & processing running status
     output$search_running <- shiny::renderText({
-      # Adding a dependency to task refresh (each time a task has changed by the detect loop)
+      # Adding a dependency to task refresh (each time a task has changed by the Requirements & alerts pipeline)
       cd$tasks_refresh_flag()
       # Adding a dependency to process update (each 10 seconds)
       cd$process_refresh_flag()
@@ -919,7 +919,7 @@ epitweetr_app <- function(data_dir = NA) {
 
     # rendering the fs running status
     output$fs_running <- shiny::renderText({
-      # Adding a dependency to task refresh (each time a task has changed by the detect loop)
+      # Adding a dependency to task refresh (each time a task has changed by the Requirements & alerts pipeline)
       cd$tasks_refresh_flag()
       # Adding a dependency to process update (each 10 seconds)
       cd$process_refresh_flag()
@@ -934,9 +934,9 @@ epitweetr_app <- function(data_dir = NA) {
         ,sep=""
     )})
 
-    # rendering the detect running status
+    # rendering the Requirements & alerts running status
     output$detect_running <- shiny::renderText({
-      # Adding a dependency to task refresh (each time a task has changed by the detect loop)
+      # Adding a dependency to task refresh (each time a task has changed by the Requirements & alerts pipeline)
       cd$tasks_refresh_flag()
       # Adding a dependency to process update (each 10 seconds)
       cd$process_refresh_flag()
@@ -960,7 +960,7 @@ epitweetr_app <- function(data_dir = NA) {
       paste(head(lapply(get_task_day_slots(get_tasks()$alerts), function(d) strftime(d, format="%H:%M")), -1), collapse=", ")
     })
 
-    # registering the search runner after button is clicked
+    # registering the Data collection & processing runner after button is clicked
     shiny::observeEvent(input$activate_search, {
       # registering the scheduled task
       register_search_runner_task()
@@ -976,7 +976,7 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(cd, list("tasks"))
     })
 
-    # registering the detect runner after button is clicked
+    # registering the Requirements & alerts runner after button is clicked
     shiny::observeEvent(input$activate_detect, {
       # Setting values configuration to trigger one shot tasks for the first time
       if(is.na(conf$dep_updated_on)) conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
@@ -984,7 +984,7 @@ epitweetr_app <- function(data_dir = NA) {
       if(is.na(conf$lang_updated_on)) conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # Forcing refresh of tasks
       cd$tasks_refresh_flag(Sys.time())
-      # saving properties to ensure the detect loop can see the changes and start running the tasks
+      # saving properties to ensure the Requirements & alerts pipeline can see the changes and start running the tasks
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
 
       # registering the scheduled task
@@ -996,11 +996,11 @@ epitweetr_app <- function(data_dir = NA) {
 
     # action to activate de dependency download tasks 
     shiny::observeEvent(input$update_dependencies, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
+      # Setting values on the configuration so the Requirements & alerts pipeline know it has to launch the task
       conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # forcing a task refresh :TODO test if this is still necessary 
       cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
+      # saving configuration so the Requirements & alerts pipeline will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
@@ -1008,11 +1008,11 @@ epitweetr_app <- function(data_dir = NA) {
    
     # action to activate the update geonames task 
     shiny::observeEvent(input$update_geonames, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
+      # Setting values on the configuration so the Requirements & alerts pipeline know it has to launch the task
       conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
+      # saving configuration so the Requirements & alerts pipeline will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
@@ -1020,11 +1020,11 @@ epitweetr_app <- function(data_dir = NA) {
 
     # action to activate the update languages task
     shiny::observeEvent(input$update_languages, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
+      # Setting values on the configuration so the Requirements & alerts pipeline know it has to launch the task
       conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
+      # saving configuration so the Requirements & alerts pipeline will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
@@ -1032,11 +1032,11 @@ epitweetr_app <- function(data_dir = NA) {
     
     # action to activate the alerts task
     shiny::observeEvent(input$request_alerts, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
+      # Setting values on the configuration so the Requirements & alerts pipeline know it has to launch the task
       conf$alerts_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
+      # saving configuration so the Requirements & alerts pipeline will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
@@ -1483,7 +1483,7 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   return(e)
 }
 
-# Get or update data for config page from configuration, search and detect loop files
+# Get or update data for config page from configuration, Data collection & processing and Requirements & alerts pipeline files
 refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks", "geo")) {
   # Refreshing configuration
   setup_config(data_dir = conf$data_dir, ignore_properties = TRUE)
@@ -1593,9 +1593,9 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
 # validate that dashboard can be rendered
 can_render <- function(input, d) {
   shiny::validate(
-      shiny::need(is_fs_running(), 'Embedded database service is not running, please make sure you have avtivated it (running update dependencies is necessary after upgrade from version 1 tp a 2+ version)')
+      shiny::need(is_fs_running(), 'Embedded database service is not running, please make sure you have activated it (running update dependencies is necessary after upgrade from epitweetr version 0.1+ to epitweetr 1.0+)')
       , shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
-      , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the detect loop has successfully ran"))
+      , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the Requirements & alerts pipeline has successfully ran"))
       , shiny::need(!is.na(input$period[[1]]) && !is.na(input$period[[2]]) && (input$period[[1]] <= input$period[[2]]), 'Please select a start and end period for the report. The start period must be a date earlier than the end period') 
       , shiny::need(input$topics != '', 'Please select a topic')
   )
