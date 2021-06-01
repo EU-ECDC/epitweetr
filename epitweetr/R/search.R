@@ -250,7 +250,7 @@ parse_date <- function(str_date) {
 # function called from the search_topic function
 # q: text query
 # since_id: id of the oldest targeted tweet
-# max_id: id of the newest targereted tweet
+# max_id: id of the newest targeted tweet
 # result_type: sort criteria for tweets (recent, popular and mix) 
 twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "recent", count = 100) {
   search_url = list()
