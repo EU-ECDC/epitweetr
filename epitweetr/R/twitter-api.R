@@ -54,11 +54,11 @@ last_get <- new.env()
 # i: Number of tries done already
 # This files to file.path(conf$data_dir, "lasterror.log") the last encountered error produced if any
 twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
-  # Getting the roght url to try based on version
+  # Getting the right url to try based on version
   url <- if(length(urls) > 1) {
-    toTry = names(urls)[!names(urls) %in% tryed]
+    toTry = order(names(urls)[!names(urls) %in% tryed], decreasing=T)
     if(exists("api_ver", last_get))
-      toTry <- toTry[order(sapply(toTry, function(v) if(v == last_get$api_ver) paste0("000", v) else v))]
+      toTry <- toTry[order(sapply(toTry, function(v) if(v == last_get$api_ver) paste0("zzz", v) else v), decreasing=T)]
     toTry <- toTry[[1]]
     last_get$api_ver = toTry
     urls[[toTry]]
@@ -133,9 +133,8 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
     # If application is rate limited, waiting and retrying
     if(length(tryed) < length(url)) {
       # there is still another endpoint to test
-      message(paste("The Twitter application endpoint ",last_get$api_ver ,"has reach reach its rate limit, changing endpoint to another available version"))
+      message(paste("The Twitter application endpoint ",last_get$api_ver ,"has reached its rate limit, changing endpoint to another available version"))
       tryed <- c(tryed, last_get$api_ver)
-      return(twitter_get(urls, i = i + 1, retries = retries, tryed = tryed))
     } else if(exists("x-rate-limit-reset", where = res$headers)) {
       # Calculating the number of seconds requested to wait  
       towait <- as.integer(floor(as.numeric(difftime(as.POSIXct(as.integer(res$headers[["x-rate-limit-reset"]]),  origin="1970-01-01"),Sys.time(), units = "secs"))))  
@@ -145,6 +144,10 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
       } else {
         towait = towait + 5  
       }
+      #resetting tries and last_get to start all over again
+      tryed <- list()
+      rm("api_ver", envir = last_get)
+
       save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
       Sys.sleep(towait)  
     } else {
@@ -167,7 +170,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
     #Special error on API 2 when query is too old
     message("Error interpreted as too old query on V2 API. Assuming empty result set")
     message(mess)
-    return('{"meta":{"result_count":0}}')
+    stop("too-old")
   } else if(i <= retries) {
       # Other non expected cases, retrying with a quadratic waiting rule at most (retries - i) more times
       message(paste("Error status code ",res$status_code,"returned by Twitter API waiting for", i*i, "seconds before retry with a new token"))  

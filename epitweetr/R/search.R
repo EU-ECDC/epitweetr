@@ -36,6 +36,7 @@ search_loop <-  function(data_dir = NA) {
   register_search_runner()
   
   # Infinite loop for getting tweets if it is successfully registered as the search runner
+  req2Commit <- 0
   while(TRUE) {
     # On each iteration this loop will perform one request for each active plans having the minimum number of requests 
     # Creating plans for each topic if collect span is expired and calculating next execution time for each plan.
@@ -58,17 +59,34 @@ search_loop <-  function(data_dir = NA) {
     
     #updating series to aggregate
     register_series() 
-
+    
     #performing search only for plans with a minimum number of requests (round robin)
     for(i in 1:length(conf$topics)) { 
       for(j in 1:length(conf$topics[[i]]$plan)) { 
         plan <- conf$topics[[i]]$plan[[j]]
         if(plan$requests == min_requests && is.null(plan$end_on)) {
-            conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
+            #if search is performed on the first plan and we get an too old error, we will retry without time limit
+            tryCatch({
+                conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
+              }
+              , error = function(e) {
+                if(j == 1 && e$message == "too-old") {
+                  message("Recovering from too-old request")
+                  plan$since_id <- NULL
+                  plan$since_target <- NULL
+                  conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
+                }
+              }
+            )
+          req2Commit <- req2Commit + 1
+          if(req2Commit > 100) {
+            Sys.sleep(5) #TODO:Implement a better way to wait until all aggregations are done
+            commit_tweets()
+            req2Commit <- 0
+          }
         }
       }
     }
-    commit_tweets()
     #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config)
     setup_config(data_dir = conf$data_dir, save_first = list("topics"))
   }

@@ -100,11 +100,11 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
       implicit val holder = LuceneActor.readHolder
       val indexes = LuceneActor.getReadIndexes("tweets", from, to).toSeq
+      var sep = ""
       Future {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
-        assert(indexes.isInstanceOf[Iterator[_]])
         indexes
           .iterator
           .flatMap{case i => 
@@ -120,9 +120,10 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           .take(max)
           .foreach{line => 
             Await.result(caller ? ByteString(
-              s"${line.toString}\n", 
+              s"${sep}${line.toString}\n", 
               ByteString.UTF_8
             ), Duration.Inf)
+            if(!jsonnl) sep = ","
           }
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
@@ -130,13 +131,14 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         caller ! Done
       }.recover {
         case e: Exception => 
-          caller ! ByteString(s"[Stream--error]: ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
+          caller ! ByteString(s"[Stream--error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
       }
     case LuceneActor.AggregatedRequest(collection, topic, from, to, filters, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
       implicit val holder = LuceneActor.readHolder
       val indexes = LuceneActor.getReadIndexes(collection, from, to).toSeq
+      var sep = ""
       Future {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
@@ -153,9 +155,10 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
           .foreach{line => 
             Await.result(caller ? ByteString(
-              s"${line.toString}\n", 
+              s"${sep}${line.toString}\n", 
               ByteString.UTF_8
             ), Duration.Inf)
+            if(!jsonnl) sep = ","
           }
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
