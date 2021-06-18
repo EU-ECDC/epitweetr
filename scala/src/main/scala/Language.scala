@@ -121,7 +121,7 @@ object Language {
             (model, method)
           }
 
-        iter.map{row => 
+        iter.map{row =>
            Some(
              vectorsColNames.zip(langCodeColNames)
                .map{case (vectorsCol, langCodeCol) =>

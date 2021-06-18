@@ -1,5 +1,6 @@
 package org.ecdc.epitweetr.fs
 
+import org.ecdc.epitweetr.EpitweetrActor
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json.{JsString, JsNull, JsValue, JsNumber, DefaultJsonProtocol, JsonFormat, RootJsonFormat, JsObject, JsArray, JsBoolean}
 import java.time.Instant
@@ -10,6 +11,9 @@ import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, B
 import org.apache.lucene.index.IndexableField
 import scala.collection.JavaConverters._
 import java.net.URLDecoder
+
+case class TextsToGeo(items:Seq[TextToGeo])
+case class TextToGeo(id:String, text:String, lang:Option[String])
 
 case class TweetsV1(items:Seq[TweetV1])
 case class TopicTweetsV1(topic:String, tweets:TweetsV1)
@@ -83,9 +87,9 @@ case class MetaV2(result_count:Int, newest_id:Option[String], oldest_id:Option[S
 case class UserV2(id:String, name:String, username:String, description:Option[String], location:Option[String])
 
 
-case class Geolocateds(items:Seq[Geolocated])
+case class GeolocatedTweets(items:Seq[GeolocatedTweet])
 case class Location(geo_code:String, geo_country_code:String,geo_id:Long, geo_latitude:Double, geo_longitude:Double, geo_name:String, geo_type:String)
-case class Geolocated(var topic:String, id:Long, is_geo_located:Boolean, lang:String, linked_place_full_name_loc:Option[Location], linked_text_loc:Option[Location], 
+case class GeolocatedTweet(var topic:String, id:Long, is_geo_located:Boolean, lang:String, linked_place_full_name_loc:Option[Location], linked_text_loc:Option[Location], 
     place_full_name_loc:Option[Location], text_loc:Option[Location], user_description_loc:Option[Location], user_location_loc:Option[Location]) {
   def fixTopic = {
     this.topic = URLDecoder.decode(this.topic, "UTF-8")
@@ -116,13 +120,13 @@ case class Aggregation(
 object EpiSerialisation
   extends SprayJsonSupport
     with DefaultJsonProtocol {
-    implicit val luceneSuccessFormat = jsonFormat1(LuceneActor.Success.apply)
-    implicit val luceneFailureFormat = jsonFormat1(LuceneActor.Failure.apply)
+    implicit val luceneSuccessFormat = jsonFormat1(EpitweetrActor.Success.apply)
+    implicit val luceneFailureFormat = jsonFormat1(EpitweetrActor.Failure.apply)
     implicit val datesProcessedFormat = jsonFormat2(LuceneActor.DatesProcessed.apply)
     implicit val periodResponseFormat = jsonFormat2(LuceneActor.PeriodResponse.apply)
     implicit val commitRequestFormat = jsonFormat0(LuceneActor.CommitRequest.apply)
     implicit val locationRequestFormat = jsonFormat7(Location.apply)
-    implicit val geolocatedFormat = jsonFormat10(Geolocated.apply)
+    implicit val geolocatedTweetFormat = jsonFormat10(GeolocatedTweet.apply)
     implicit val aggregationFormat = jsonFormat6(Aggregation.apply)
     implicit val collectionFormat = jsonFormat5(Collection.apply)
     implicit val userV2Format = jsonFormat5(UserV2.apply)
@@ -135,6 +139,7 @@ object EpiSerialisation
     implicit val tweetV2Format = jsonFormat8(TweetV2.apply)
     implicit val includesV2Format = jsonFormat3(IncludesV2.apply)
     implicit val tweetsV2Format = jsonFormat3(TweetsV2.apply)
+    implicit val textToGeoFormat = jsonFormat3(TextToGeo.apply)
 
 
     implicit object tweetV1Format extends RootJsonFormat[TweetV1] {
@@ -288,6 +293,18 @@ object EpiSerialisation
         }
       }
     }
+    implicit object textsToGeoFormat extends RootJsonFormat[TextsToGeo] {
+      def write(t: TextsToGeo) = JsArray(t.items.map(c => textToGeoFormat.write(c)):_*)
+      def read(value: JsValue) = value match {
+        case JsArray(items) => TextsToGeo(items = items.map(t => textToGeoFormat.read(t)).toSeq)
+        case JsObject(fields) =>
+          fields.get("items") match {
+            case Some(JsArray(items)) => TextsToGeo(items = items.map(t => textToGeoFormat.read(t)).toSeq)
+            case _ => throw new Exception("@epi cannot find expected items field to get to geos")
+          }
+        case _ => throw new Exception(s"@epi cannot deserialize $value to ToGeos")
+      }
+    }
     implicit object tweetsV1Format extends RootJsonFormat[TweetsV1] {
       def write(t: TweetsV1) = JsArray(t.items.map(c => tweetV1Format.write(c)):_*)
       def read(value: JsValue) = value match {
@@ -305,7 +322,8 @@ object EpiSerialisation
     implicit val topicTweetsFormat = jsonFormat2(TopicTweetsV1.apply)
     implicit object luceneDocFormat extends RootJsonFormat[Document] {
       def write(doc: Document) = writeField(fields = doc.getFields.asScala.toSeq)
-      def writeField(fields:Seq[IndexableField], path:Option[String] = None):JsValue = {
+      def customWrite(doc: Document, forceString:Set[String]=Set[String]()) = writeField(fields = doc.getFields.asScala.toSeq, forceString=forceString)
+      def writeField(fields:Seq[IndexableField], forceString:Set[String] = Set[String](), path:Option[String] = None):JsValue = {
         val (baseFields, childrenNames) = path match {
           case Some(p) => (
             fields.filter(f => f.name.startsWith(p) && !f.name.substring(p.size).contains(".")), 
@@ -328,7 +346,9 @@ object EpiSerialisation
         JsObject(Map(
           (baseFields.map{f =>
             val fname = f.name.substring(path.getOrElse("").size)
-            if(f.numericValue != null)
+            if(forceString.contains(f.name) && f.stringValue != null)
+              (fname, JsString(f.stringValue))
+            else if(f.numericValue != null && !forceString.contains(f.name))
               (fname, f.numericValue match {
                 case v:java.lang.Integer => JsNumber(v)
                 case v:java.lang.Float => JsNumber(v)
@@ -352,13 +372,13 @@ object EpiSerialisation
         throw new NotImplementedError(f"Deserializing lucene documebts is not supported") 
       }
     }
-    implicit object geolocatedsFormat extends RootJsonFormat[Geolocateds] {
-      def write(t: Geolocateds) = JsArray(t.items.map(c => geolocatedFormat.write(c)):_*)
+    implicit object geolocatedTweetsFormat extends RootJsonFormat[GeolocatedTweets] {
+      def write(t: GeolocatedTweets) = JsArray(t.items.map(c => geolocatedTweetFormat.write(c)):_*)
       def read(value: JsValue) = value match {
-        case JsArray(items) => Geolocateds(items = items.map(t => geolocatedFormat.read(t)).map(g => g.fixTopic).toSeq)
+        case JsArray(items) => GeolocatedTweets(items = items.map(t => geolocatedTweetFormat.read(t)).map(g => g.fixTopic).toSeq)
         case JsObject(fields) =>
           fields.get("items") match {
-            case Some(JsArray(items)) => Geolocateds(items = items.map(t => geolocatedFormat.read(t)).map(g => g.fixTopic).toSeq)
+            case Some(JsArray(items)) => GeolocatedTweets(items = items.map(t => geolocatedTweetFormat.read(t)).map(g => g.fixTopic).toSeq)
             case _ => throw new Exception("@epi cannot find expected itmes array on search Json result")
           }
         case _ => throw new Exception(s"@epi cannot deserialize $value to TweetsV1")

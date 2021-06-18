@@ -67,6 +67,7 @@ Imports:
     plotly,
     rtweet,
     readxl,
+    openxlsx,
     rgeos,
     rgdal,
     rmarkdown,

@@ -28,6 +28,11 @@ case class SparkLuceneReader(indexPartition:String, reuseSnapShot:Boolean = fals
   def open() = {
     //Intra JVM lock
     SparkLuceneReader.readLock.synchronized {
+      if(SparkLuceneReader.readerCount.get(this.indexNode.path).getOrElse(0)>0 
+        && SparkLuceneReader.readers(this.indexNode.path).getClass.getName != indexStrategy) {
+        l.msg(s"Changing the index strategy... from ${SparkLuceneReader.readers(this.indexNode.path).getClass.getName} to ${indexStrategy} closing the index")
+        close()
+      }
       if(SparkLuceneReader.readerCount.get(this.indexNode.path).getOrElse(0)>0) {
          SparkLuceneReader.readerCount(this.indexNode.path) = SparkLuceneReader.readerCount(this.indexNode.path) + 1
       } else {
@@ -82,13 +87,23 @@ case class SparkLuceneReader(indexPartition:String, reuseSnapShot:Boolean = fals
         val classType = classSymbol.toType;
         val baseStrategy = classInstance.newInstance(/*Array(searcher, indexNode.asInstanceOf[LocalNode], reader)*/).asInstanceOf[IndexStrategy]
           .set(searcher = searcher, indexDirectory=indexNode.asInstanceOf[LocalNode], reader = reader)
-        //l.msg(s"using strategy $baseStrategy")
+        //l.msg(s"using strategy $indexStrategy as $baseStrategy")
         val ret = strategyParams.toSeq.foldLeft(baseStrategy)((current, prop)=> current.setProperty(prop._1, prop._2))
         SparkLuceneReader.readerCount(this.indexNode.path) = 1
         SparkLuceneReader.readers(this.indexNode.path) = ret
       }
     }
     SparkLuceneReader.readers(this.indexNode.path)
+  }
+
+  def close() {
+    SparkLuceneReader.readLock.synchronized {
+      if(SparkLuceneReader.readerCount.get(this.indexNode.path).getOrElse(0)>0) {
+         SparkLuceneReader.readerCount(this.indexNode.path) = 0
+         SparkLuceneReader.readers(this.indexNode.path).reader.directory.close()
+         SparkLuceneReader.readers.remove(this.indexNode.path)
+      }
+    }
   }
 
   def mergeWith(that:SparkLuceneReader) = {
@@ -112,4 +127,5 @@ object SparkLuceneReader {
   val readLock = new Object()
   val readers = HashMap[String, IndexStrategy]()
   val readerCount = HashMap[String, Int]()
+  def closeAll() = readers.values.foreach(is => is.close()) //TODO:Manage to have a way to keep the directory open and have multiple readers with different strategies
 }

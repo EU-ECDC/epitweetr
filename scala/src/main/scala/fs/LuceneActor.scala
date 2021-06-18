@@ -1,5 +1,6 @@
 package org.ecdc.epitweetr.fs
 
+import org.ecdc.epitweetr.EpitweetrActor
 import org.ecdc.twitter.{JavaBridge,  schemas}
 import org.ecdc.epitweetr.{Settings}
 import akka.pattern.{ask, pipe}
@@ -51,7 +52,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         LuceneActor.DatesProcessed("ok", dates)
       }
       .pipeTo(sender())
-    case LuceneActor.GeolocateRequest(TopicTweetsV1(topic, ts)) =>
+    case LuceneActor.GeolocateTweetsRequest(TopicTweetsV1(topic, ts)) =>
       implicit val holder = LuceneActor.writeHolder
       Future{
         implicit val spark = LuceneActor.getSparkSession()
@@ -61,10 +62,10 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         case Success(_) =>
         case Failure(t) => println("Error during geolocalisation: " + t.getMessage)
       }
-    case LuceneActor.GeolocatedsCreated(Geolocateds(items), dates) =>
+    case LuceneActor.GeolocatedTweetsCreated(GeolocatedTweets(items), dates) =>
       implicit val holder = LuceneActor.writeHolder
       Future{
-        val indexes = dates.flatMap(d => LuceneActor.getReadIndexes("tweets", d, d))
+        val indexes = dates.flatMap(d => LuceneActor.getReadIndexes("tweets", Some(d), Some(d)))
         items.foreach{g =>
           var found = false 
           for(index <- indexes if !found) {
@@ -74,7 +75,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         items.size
       }
       .map{c =>
-        LuceneActor.Success(s"$c geolocated properly processed")
+        EpitweetrActor.Success(s"$c geolocated properly processed")
       }
       .pipeTo(sender())
     case ts:LuceneActor.CommitRequest =>
@@ -83,7 +84,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         LuceneActor.commit()
       }
       .map{c =>
-        LuceneActor.Success(s"$c Commit done processed")
+        EpitweetrActor.Success(s"$c Commit done processed")
       }
       .pipeTo(sender())
     case LuceneActor.CloseRequest =>
@@ -93,7 +94,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         LuceneActor.closeSparkSession()
       }
       .map{c =>
-        LuceneActor.Success(s"$c Commit done processed")
+        EpitweetrActor.Success(s"$c Commit done processed")
       }
       .pipeTo(sender())
     case LuceneActor.SearchRequest(query, topic, from, to, max, jsonnl, caller) => 
@@ -105,18 +106,27 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
+        var left = max
         indexes
           .iterator
           .flatMap{case i => 
+            i.refreshReader()
             val qb = new BooleanQuery.Builder()
             query.map{q => 
               qb.add(i.parseQuery(q), Occur.MUST)
             }
-            qb.add(new TermQuery(new Term("topic", topic)), Occur.MUST) 
-            qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
-            i.searchAll(qb.build)
+            topic.map{t =>
+              qb.add(new TermQuery(new Term("topic", t)), Occur.MUST) 
+            }
+            qb.add(TermRangeQuery.newStringRange("created_date", from.map(d => d.toString.take(10)).getOrElse("0"), to.map(d => d.toString.take(10)).getOrElse("9"), true, true), Occur.MUST) 
+            val tweets = i.searchTweets(qb.build, Some(left)).toSeq
+            left = left - tweets.size
+            if(left < 0)
+              tweets.take(tweets.size + left)
+            else 
+              tweets
           }
-          .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
+          .map(doc => EpiSerialisation.luceneDocFormat.customWrite(doc, forceString=Set("tweet_id", "user_id")))
           .take(max)
           .foreach{line => 
             Await.result(caller ? ByteString(
@@ -137,7 +147,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
     case LuceneActor.AggregatedRequest(collection, topic, from, to, filters, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
       implicit val holder = LuceneActor.readHolder
-      val indexes = LuceneActor.getReadIndexes(collection, from, to).toSeq
+      val indexes = LuceneActor.getReadIndexes(collection, Some(from), Some(to)).toSeq
       var sep = ""
       Future {
         if(!jsonnl) { 
@@ -150,7 +160,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             qb.add(new TermQuery(new Term("topic", topic)), Occur.MUST) 
             qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
             filters.foreach{case(field, value) => qb.add(new TermQuery(new Term(field, value)), Occur.MUST)}
-            i.searchAll(qb.build)
+            i.searchTweets(qb.build)
           }
           .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
           .foreach{line => 
@@ -210,7 +220,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
                 hashes.flatMap(o => o).foreach(hash => hQuery.add(new PrefixQuery(new Term("hash", hash)), Occur.SHOULD))
                 qb.add(hQuery.build, Occur.MUST)
               }
-              index.searchAll(qb.build)
+              index.searchTweets(qb.build)
                 .map(doc => EpiSerialisation.luceneDocFormat.write(doc).toString)
             }).flatMap(docs => docs)
 
@@ -305,7 +315,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       }
       .pipeTo(sender())
     case b => 
-      Future(LuceneActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
+      Future(EpitweetrActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
   }
 }
 
@@ -323,14 +333,12 @@ case class IndexHolder(
 object LuceneActor {
   lazy val readHolder = LuceneActor.getHolder(writeEnabled = false)
   lazy val writeHolder = LuceneActor.getHolder(writeEnabled = true)
-  case class Success(msg:String)
   case class DatesProcessed(msg:String, dates:Seq[String] = Seq[String]())
-  case class GeolocatedsCreated (geolocated:Geolocateds, dates:Seq[Instant])
-  case class GeolocateRequest(items:TopicTweetsV1)
-  case class Failure(msg:String)
+  case class GeolocatedTweetsCreated (geolocated:GeolocatedTweets, dates:Seq[Instant])
+  case class GeolocateTweetsRequest(items:TopicTweetsV1)
   case class CommitRequest()
   case class CloseRequest()
-  case class SearchRequest(query:Option[String], topic:String, from:Instant, to:Instant, max:Int, jsonnl:Boolean, caller:ActorRef)
+  case class SearchRequest(query:Option[String], topic:Option[String], from:Option[Instant], to:Option[Instant], max:Int, jsonnl:Boolean, caller:ActorRef)
   case class AggregateRequest(items:TopicTweetsV1)
   case class AggregatedRequest(collection:String, topic:String, from:Instant, to:Instant, filters:Seq[(String, String)], jsonnl:Boolean, caller:ActorRef)
   case class AggregationRequest(
@@ -427,14 +435,32 @@ object LuceneActor {
     }
   }    
 
-  def getReadKeys(collection:String, from:Instant, to:Instant)(implicit conf:Settings, holder:IndexHolder) = 
-     Range(0, ChronoUnit.DAYS.between(from, to.plus(1, ChronoUnit.DAYS)).toInt)
-       .map(i => from.plus(i,  ChronoUnit.DAYS))
-       .map(i => getIndexKey(collection, i))
-       .distinct
-       .filter(key => Paths.get(conf.epiHome, "fs", collection ,key).toFile.exists())
+  def getReadKeys(collection:String, from:Option[Instant], to:Option[Instant])(implicit conf:Settings, holder:IndexHolder) = 
+     (from, to) match {
+       case(Some(f), Some(t)) => 
+         Range(0, ChronoUnit.DAYS.between(f, t.plus(1, ChronoUnit.DAYS)).toInt)
+           .map(i => f.plus(i,  ChronoUnit.DAYS))
+           .map(i => getIndexKey(collection, i))
+           .distinct
+           .filter(key => Paths.get(conf.epiHome, "fs", collection ,key).toFile.exists())
+           .sortWith(_ > _)
+        case _ =>
+          val sPath = Paths.get(conf.fsRoot, collection)
+          if(!Files.exists(sPath))
+            Seq[String]()
+          else 
+            Files.list(sPath)
+              .iterator
+              .asScala
+              .toSeq.map(p => p.getFileName.toString)
+              .takeWhile{p =>
+                (from.isEmpty || p >= getIndexKey(collection, from.get)) &&
+                (to.isEmpty || p <= getIndexKey(collection, to.get))
+              }
+              .sortWith(_ > _)
+     }
   
-  def getReadIndexes(collection:String, from:Instant, to:Instant)(implicit conf:Settings, holder:IndexHolder) = 
+  def getReadIndexes(collection:String, from:Option[Instant], to:Option[Instant])(implicit conf:Settings, holder:IndexHolder) = 
     getReadKeys(collection, from, to).map(key => getIndex(collection, key))
 
   def add2Geolocate(tweets:TopicTweetsV1)(implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = {
@@ -573,7 +599,7 @@ object LuceneActor {
             ).as("geo"), 
             col("created_at")
           )
-          .as[(Geolocated, Instant)]
+          .as[(GeolocatedTweet, Instant)]
           .mapPartitions{iter =>
             val indexes = HashMap[String, TweetIndex]()
             iter.map{case (geo, createdAt) =>

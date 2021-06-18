@@ -1,5 +1,7 @@
-package org.ecdc.epitweetr.fs
+package org.ecdc.epitweetr
 
+import org.ecdc.epitweetr.fs.{LuceneActor, TopicTweetsV1}
+import org.ecdc.epitweetr.geo.{GeonamesActor}
 import akka.actor.{ActorSystem, Actor, Props}
 import akka.stream.ActorMaterializer
 import akka.pattern.{ask, pipe}
@@ -13,7 +15,6 @@ import spray.json.{JsValue}
 import scala.concurrent.duration._
 import scala.util.{Try, Success, Failure}
 import scala.collection.JavaConverters._
-import org.ecdc.epitweetr.Settings
 import akka.actor.ActorRef
 import akka.Done
 import akka.actor.ActorRef
@@ -27,12 +28,17 @@ import java.nio.file.{Paths, Files}
 import java.nio.charset.StandardCharsets
 import spray.json.JsonParser
 
+object EpitweetrActor {
+  case class Failure(msg:String)
+  case class Success(msg:String)
+}
 object API {
+
   var actorSystemPointer:Option[ActorSystem] = None
   var oLuceneRunner:Option[ActorRef] = None
   var oConf:Option[Settings] = None
   def run(epiHome:String) {
-    import EpiSerialisation._
+    import fs.EpiSerialisation._
     implicit val actorSystem = ActorSystem("epitweetr")
     actorSystemPointer = Some(actorSystem)
     implicit val executionContext = actorSystem.dispatcher
@@ -40,6 +46,7 @@ object API {
     conf.load
     oConf = Some(conf)
     val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor], conf))
+    val geonamesRunner = actorSystem.actorOf(Props(classOf[GeonamesActor], conf))
     oLuceneRunner = Some(luceneRunner)
     removeLockFiles()
     val route =
@@ -47,16 +54,16 @@ object API {
         path("tweets") { // checks if path/url starts with model
           get {
             parameters("q".?, 
-              "topic",
-              "from"?(Instant.now.toString().take(10)), 
-              "to"?(Instant.now.toString().take(10)), 
+              "topic".?,
+              "from".?, 
+              "to".?, 
               "jsonnl".as[Boolean]?false, 
               "max".as[Int]?100
-            ) { (query, topic, fromStr, toStr, jsonnl, max) => 
+            ) { (query, topic, oFromStr, oToStr, jsonnl, max) => 
               implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
               val mask = "YYYY-MM-DDT00:00:00.000Z"
-              val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
-              val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
+              val from = oFromStr.map(fromStr => Instant.parse(s"$fromStr${mask.substring(fromStr.size)}"))
+              val to =  oToStr.map(toStr => Instant.parse(s"$toStr${mask.substring(toStr.size)}"))
               val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
                 ackMessage = ByteString("ok")
                 , completionMatcher = {case Done => CompletionStrategy.immediately}
@@ -83,24 +90,24 @@ object API {
                          .map{
                             case LuceneActor.DatesProcessed(m, dates) => 
                               if(geolocate) {
-                                luceneRunner ! LuceneActor.GeolocateRequest(TopicTweetsV1(topic, tweets))
+                                luceneRunner ! LuceneActor.GeolocateTweetsRequest(TopicTweetsV1(topic, tweets))
                               }
                               (StatusCodes.OK, LuceneActor.DatesProcessed(m, dates))
-                            case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.DatesProcessed(m))
+                            case EpitweetrActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.DatesProcessed(m))
                             case o => (StatusCodes.InternalServerError, LuceneActor.DatesProcessed(s"Cannot interpret $o as a message"))
                           }
                        complete(fut) 
                      case Failure(e) =>
                        println(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e, ${e.getStackTrace.mkString("\n")}") 
-                       complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e")) 
+                       complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a respose of the Tweet Search API v1.1:\n $e")) 
                   } 
                 } ~ 
                   entity(as[String]) { value  => 
                   logThis(value)
-                  complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+                  complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
                 }
               } ~ {
-                complete(StatusCodes.NotImplemented, LuceneActor.Failure(s"Missing expected parameter topic")) 
+                complete(StatusCodes.NotImplemented, EpitweetrActor.Failure(s"Missing expected parameter topic")) 
               }
             }
           }
@@ -109,13 +116,13 @@ object API {
             parameters("serie", 
               "topic",
               "from"?(Instant.now.toString().take(10)), 
-              "to"?(Instant.now.toString().take(10)),
+              "to"?(Instant.now.toString().take(10)), 
               "filters".as[String].*, 
               "jsonnl".as[Boolean]?false 
             ) { (collection, topic, fromStr, toStr, filtersStr, jsonnl) => 
               implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
               val mask = "YYYY-MM-DDT00:00:00.000Z"
-              val from =  Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
+              val from = Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
               val to =  Instant.parse(s"$toStr${mask.substring(toStr.size)}")
               val filters = filtersStr.toSeq.map(fv => Some(fv).map(v => v.split(":")).map{case Array(v1, v2) => (v1, v2) case _ => throw new Exception(s"cannot parse $fv as column:value")}.get)
               val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
@@ -139,13 +146,13 @@ object API {
                   val path = Paths.get(conf.collectionPath)
                   Files.createDirectories(path)
                   Files.write(Paths.get(path.toString, s"${collection.name}.json"), json.getBytes(StandardCharsets.UTF_8)) 
-                  complete(StatusCodes.OK, LuceneActor.Success("OK"))
+                  complete(StatusCodes.OK, EpitweetrActor.Success("OK"))
                 case Failure(e) =>
                   println(s"Cannot interpret the provided body as an aggregation request:\n $e, ${e.getStackTrace.mkString("\n")}\n${json}") 
-                  complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided JSON body as an aggregate request:\n $e ${json}")) 
+                  complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided JSON body as an aggregate request:\n $e ${json}")) 
               }
             } ~  entity(as[String]) { value  => 
-               complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+               complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
             }
           }/* ~ get {
             entity(as[JsValue]) { json  =>
@@ -193,10 +200,10 @@ object API {
                   }
                 case Failure(e) =>
                   println(s"Cannot interpret the provided body as an aggregation request:\n $e, ${e.getStackTrace.mkString("\n")}\n${json}") 
-                  complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided JSON body as an aggregate request:\n $e ${json}")) 
+                  complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided JSON body as an aggregate request:\n $e ${json}")) 
               }
             } ~  entity(as[String]) { value  => 
-               complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+               complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
             }
           }*/
         } ~ path("period") { // checks if path/url starts with model
@@ -211,7 +218,7 @@ object API {
               complete(fut) 
             }
           }
-        } ~ path("geolocated") { 
+        } ~ path("geolocated-tweets") { 
           post {
             parameters("created".as[String].*) { createdStr => 
               val mask = "YYYY-MM-DDT00:00:00.000Z"
@@ -219,25 +226,25 @@ object API {
               if(createdStr.size > 0) {
                 entity(as[JsValue]) { json  =>
                   implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
-                  Try(geolocatedsFormat.read(json)) match {
+                  Try(geolocatedTweetsFormat.read(json)) match {
                     case Success(geolocateds) =>
-                       val fut = (luceneRunner ? LuceneActor.GeolocatedsCreated(geolocateds, dates.toSeq))
+                       val fut = (luceneRunner ? LuceneActor.GeolocatedTweetsCreated(geolocateds, dates.toSeq))
                          .map{
-                            case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
-                            case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
-                            case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
+                            case EpitweetrActor.Success(m) => (StatusCodes.OK, EpitweetrActor.Success(m))
+                            case EpitweetrActor.Failure(m) => (StatusCodes.NotAcceptable, EpitweetrActor.Success(m))
+                            case o => (StatusCodes.InternalServerError, EpitweetrActor.Success(s"Cannot interpret $o as a message"))
                           }
                        complete(fut) 
                      case Failure(e) =>
                        println(s"Cannot interpret the provided body as geolocated array:\n $e, ${e.getStackTrace.mkString("\n")}") 
-                       complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Cannot interpret the provided body as a gelocated array:\n $e")) 
+                       complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a gelocated array:\n $e")) 
                   } 
                 } ~ entity(as[String]) { value  => 
                   logThis(value)
-                  complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+                  complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
                 }
               } else {
-                complete(StatusCodes.NotAcceptable, LuceneActor.Failure(s"Missing parameter created with reference dates of geolocated tweets")) 
+                complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Missing parameter created with reference dates of geolocated tweets")) 
               }
             }
           }
@@ -247,17 +254,68 @@ object API {
             implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
             val fut =  (luceneRunner ? LuceneActor.CommitRequest())
               .map{
-                 case LuceneActor.Success(m) => (StatusCodes.OK, LuceneActor.Success(m))
-                 case LuceneActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.Success(m))
-                 case o => (StatusCodes.InternalServerError, LuceneActor.Success(s"Cannot interpret $o as a message"))
+                 case EpitweetrActor.Success(m) => (StatusCodes.OK, EpitweetrActor.Success(m))
+                 case EpitweetrActor.Failure(m) => (StatusCodes.NotAcceptable, EpitweetrActor.Success(m))
+                 case o => (StatusCodes.InternalServerError, EpitweetrActor.Success(s"Cannot interpret $o as a message"))
                }
              complete(fut)
             }
           }
+        } ~ path("geo-training-set") {
+          get {
+            parameters("excludedLangs".as[String].*, "locationSamples".as[Boolean]?true, "jsonnl".as[Boolean]?false) { (excludedLangs, locationSamples, jsonnl) => 
+              implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
+              val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                ackMessage = ByteString("ok")
+                , completionMatcher = {case Done => CompletionStrategy.immediately}
+                , failureMatcher = PartialFunction.empty
+              )
+              val (actorRef, matSource) = source.preMaterialize()
+              geonamesRunner ! GeonamesActor.TrainingSetRequest(excludedLangs.toSeq, locationSamples, jsonnl, actorRef) 
+              complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                  throw new Exception(m.decodeString("UTF-8"))
+                else 
+                  m
+              }))
+            }
+          }
+        } ~ path("geolocate-text") {
+          post {
+            parameters("minScore".as[Int].?, "jsonnl".as[Boolean]?false) { (minScore, jsonnl) => 
+              entity(as[JsValue]) { json  =>
+                implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
+                Try(textsToGeoFormat.read(json)) match {
+                  case Success(toGeo) =>
+                    val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                      ackMessage = ByteString("ok")
+                      , completionMatcher = {case Done => CompletionStrategy.immediately}
+                      , failureMatcher = PartialFunction.empty
+                    )
+                    val (actorRef, matSource) = source.preMaterialize()
+                    geonamesRunner ! GeonamesActor.GeolocateTextsRequest(toGeo.items, minScore, jsonnl, actorRef) 
+                    complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                      if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                        throw new Exception(m.decodeString("UTF-8"))
+                      else 
+                        m
+                    }))
+                  case Failure(e) =>
+                    println(s"Cannot interpret the provided body as a value to geolocate:\n $e, ${e.getStackTrace.mkString("\n")}") 
+                    complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a value to geolocate:\n $e")) 
+                } 
+              } ~ 
+                entity(as[String]) { value  => 
+                logThis(value)
+                complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+              }
+            }
+          }
         } ~ {
-          complete(StatusCodes.NotAcceptable,  LuceneActor.Failure(s"Cannot find a route for uri $uri")) 
+          complete(StatusCodes.NotAcceptable,  EpitweetrActor.Failure(s"Cannot find a route for uri $uri")) 
         }
-    }
+      }
+    
 
     Http().newServerAt("localhost", conf.fsPort).bind(route)
   }

@@ -318,7 +318,12 @@ object implicits {
                  val termWeightsArray:Seq[Seq[Option[Seq[Double]]]] = 
                    isArrayJoinWeights.zipWithIndex.map{
                      case (None, i) => qValues(i).map(_ => None) 
-                     case (Some(false), i) => Seq(Some(leftRow.getAs[Seq[Double]](leftRow.fieldIndex(termWeightsColumnNames(i).get))))
+                     case (Some(false), i) =>
+                       val vects = leftRow.getAs[Seq[Double]](leftRow.fieldIndex(termWeightsColumnNames(i).get)) 
+                       if(vects ==null)
+                         qValues(i).map(_ => None)
+                       else
+                         Seq(Some(vects))
                      case (Some(true), i) => throw new Exception("@epi not yet supported") 
                  }
                  for(i <- Iterator.range(0, queriesCount)) {
@@ -328,7 +333,7 @@ object implicits {
                  for{i <- Iterator.range(0, qValues.size)
                       j <-Iterator.range(0, qValues(i).size)} { 
                      // call search on SearchStrategy
-                     val startTime = System.nanoTime
+                     //val startTime = System.nanoTime
                      
                      val tokens = (tokenizeRegex,  qValues(i)(j)) match {
                            case (_, null) => null
@@ -352,7 +357,7 @@ object implicits {
                          caseInsensitive = caseInsensitive)
                      //val endTime = System.nanoTime
                      //if(termWeightsArray(i)(j) != null && termWeightsArray(i)(j).map(s => s.size).getOrElse(0)>0)
-                     //  l.msg(s"long in ${(endTime - startTime)/1e6d} for $iRow in $iPart ${(endTime - startTime)/1e6d} mili seconds for ${if(tokens != null) tokens.size else "null"}")
+                     //l.msg(s"long in ${(endTime - startTime)/1e6d} for $iRow in $iPart ${(endTime - startTime)/1e6d} mili seconds for ${if(tokens != null) tokens.size else "null"} ${strategy}")
 
                      if(res.size > 0 && (rightResults(i)(j).isEmpty || res(0).getAs[Float]("_score_") > rightResults(i)(j).get.getAs[Float]("_score_"))) { 
                         rightResults(i)(j) = Some(res(0)) 

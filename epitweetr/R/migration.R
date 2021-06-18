@@ -140,7 +140,7 @@ store_geo <- function(lines, created_dates, async = T, chunk_size = 100) {
   if(length(chunks) > 0) {
     if(async) {
       requests <-lapply(chunks, function(line) { 
-        request <- crul::HttpRequest$new(url = paste0("http://localhost:8080/geolocated?", paste0("created=", created_dates, collapse = '&')), headers = list(`Content-Type`= "application/json", charset="utf-8"))
+        request <- crul::HttpRequest$new(url = paste0(get_scala_geolocated_tweets_url(), "?", paste0("created=", created_dates, collapse = '&')), headers = list(`Content-Type`= "application/json", charset="utf-8"))
         request$post(body = line, encode = "raw")
         request
       })
@@ -156,7 +156,7 @@ store_geo <- function(lines, created_dates, async = T, chunk_size = 100) {
     } else {
       #migration_log(chunks[i])
       for( i in 1:length(chunks)) {
-        post_result <- httr::POST(url="http://localhost:8080/geolocated", httr::content_type_json(), body=chunks[i], encode = "raw", encoding = "UTF-8")
+        post_result <- httr::POST(url=get_scala_geolocated_tweets_url(), httr::content_type_json(), body=chunks[i], encode = "raw", encoding = "UTF-8")
         if(httr::status_code(post_result) != 200) {
           migration_log(httr::content(post_result, "text", encoding = "UTF-8"))
           stop(paste("Storage rejected ", length(status[status == 406]), "geolocation request for not having a valid content"))
@@ -176,7 +176,7 @@ store_v1_search <- function(lines, topic, async = T) {
   if(length(lines) > 0) {
     if(async) {
       requests <-lapply(lines, function(line) {
-        request <- crul::HttpRequest$new(url = paste0("http://localhost:8080/tweets?topic=", curl::curl_escape(topic), "&geolocate=false"), headers = list(`Content-Type`= "application/json", charset="utf-8"))
+        request <- crul::HttpRequest$new(url = paste0(get_scala_tweets_url(), "?topic=", curl::curl_escape(topic), "&geolocate=false"), headers = list(`Content-Type`= "application/json", charset="utf-8"))
         request$post(body = line, encode = "raw")
         request
       })
@@ -194,7 +194,7 @@ store_v1_search <- function(lines, topic, async = T) {
     } else {
       #migration_log(lines[i])
       for( i in 1:length(lines)) {
-        post_result <- httr::POST(url=paste0("http://localhost:8080/tweets?topic=", curl::curl_escape(topic), "&geolocate=false"), httr::content_type_json(), body=lines[i], encode = "raw", encoding = "UTF-8")
+        post_result <- httr::POST(url=paste0(get_scala_tweets_url(), "?topic=", curl::curl_escape(topic), "&geolocate=false"), httr::content_type_json(), body=lines[i], encode = "raw", encoding = "UTF-8")
         if(httr::status_code(post_result) != 200) {
           stop("running",substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
         }
@@ -205,7 +205,7 @@ store_v1_search <- function(lines, topic, async = T) {
 }
 
 commit_tweets <- function() {
-  post_result <- httr::POST(url="http://localhost:8080/commit", httr::content_type_json(), encode = "raw", encoding = "UTF-8")
+  post_result <- httr::POST(url=get_scala_commit_url(), httr::content_type_json(), encode = "raw", encoding = "UTF-8")
   if(httr::status_code(post_result) != 200) {
     stop(print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100)))
   }

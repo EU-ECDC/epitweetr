@@ -118,6 +118,9 @@ get_empty_config <- function(data_dir) {
   ret$maven_repo <- "https://repo1.maven.org/maven2"
   ret$winutils_url <- "https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe"
   ret$api_version <- "1.1"
+  ret$fs_port <- 8080
+  ret$fs_batch_timeout <- 60*60 
+  ret$fs_query_timeout <- 60
   return(ret)
 }
 
@@ -244,6 +247,10 @@ setup_config <- function(
     conf$maven_repo <- temp$maven_repo
     conf$winutils_url <- temp$winutils_url
     conf$api_version <- temp$api_version
+    conf$fs_port <- temp$fs_port
+    conf$fs_batch_timeout <- temp$fs_batch_timeout
+    conf$fs_query_timeout <- temp$fs_query_timeout
+
   }
   if(!ignore_topics && exists("topics", where = paths)){
     # updating plans and topics if requested 
@@ -433,6 +440,9 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$maven_repo <- conf$maven_repo
     temp$winutils_url <- conf$winutils_url
     temp$api_version <- conf$api_version
+    temp$fs_port <- conf$fs_port
+    temp$fs_batch_timeout <- conf$fs_batch_timeout
+    temp$fs_query_timeout <- conf$fs_query_timeout
     # writing the json file
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }

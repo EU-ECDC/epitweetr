@@ -64,7 +64,13 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
         this.searcher = new IndexSearcher(this.reader)
       } 
       finally {
-        oldReader.decRef()
+        try { 
+          oldReader.decRef() 
+        }
+        catch {
+          case e:org.apache.lucene.store.AlreadyClosedException =>
+            println("reader already closed")
+        }
       }
     }
     this
@@ -79,8 +85,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       doc.add(new StoredField("tweet_id", tweet.tweet_id))
       doc.add(new TextField("text", tweet.text, Field.Store.YES))  
       tweet.linked_text.map(text => doc.add(new TextField("linked_text", text, Field.Store.YES)))  
-      doc.add(new StoredField("user_description", tweet.user_description))  
-      tweet.linked_user_description.map(desc => doc.add(new StoredField("linked_user_description", desc)))  
+      doc.add(new StringField("user_description", tweet.user_description, Field.Store.YES))  
+      tweet.linked_user_description.map(desc => doc.add(new StringField("linked_user_description", desc, Field.Store.YES)))  
       doc.add(new StringField("is_retweet", if(tweet.is_retweet) "true" else "false", Field.Store.NO)) 
       doc.add(new StoredField("is_retweet", Array(if(tweet.is_retweet) 1.toByte else 0.toByte )))  
       doc.add(new StringField("screen_name", tweet.screen_name, Field.Store.YES))
@@ -88,8 +94,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       doc.add(new LongPoint("user_id", tweet.user_id))
       doc.add(new StoredField("user_id", tweet.user_id))
       doc.add(new StoredField("user_location", tweet.user_location))
-      tweet.linked_user_name.map(value => doc.add(new StoredField("linked_user_name", value))) 
-      tweet.linked_screen_name.map(value => doc.add(new StoredField("linked_screen_name", value))) 
+      tweet.linked_user_name.map(value => doc.add(new StringField("linked_user_name", value, Field.Store.YES))) 
+      tweet.linked_screen_name.map(value => doc.add(new StringField("linked_screen_name", value, Field.Store.YES))) 
       tweet.linked_user_location.map(value => doc.add(new StoredField("linked_user_location", value))) 
       doc.add(new LongPoint("created_timestamp", tweet.created_at.toEpochMilli()))
       doc.add(new StringField("created_at", tweet.created_at.toString(), Field.Store.YES)) 
@@ -101,8 +107,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       tweet.linked_longitude.map(value => doc.add(new StoredField("linked_longitude", value))) 
       tweet.linked_latitude.map(value => doc.add(new StoredField("linded_latitude", value))) 
       tweet.place_type.map(value => doc.add(new StoredField("place_type", value))) 
-      tweet.place_name.map(value => doc.add(new StoredField("place_name", value))) 
-      tweet.place_full_name.map(value => doc.add(new StoredField("place_full_name", value))) 
+      tweet.place_name.map(value => doc.add(new StringField("place_name", value, Field.Store.YES))) 
+      tweet.place_full_name.map(value => doc.add(new StringField("place_full_name", value, Field.Store.YES))) 
       tweet.linked_place_full_name.map(value => doc.add(new StoredField("linked_place_full_name", value))) 
       tweet.place_country_code.map(value => doc.add(new StoredField("place_country_code", value))) 
       tweet.place_country.map(value => doc.add(new StoredField("place_country", value))) 
@@ -293,7 +299,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     }
   }
 
-  def indexGeolocated(geo:Geolocated) = {
+  def indexGeolocated(geo:GeolocatedTweet) = {
     searchTweetV1(geo.id, geo.topic).orElse({geo.topic = geo.topic.toLowerCase;searchTweetV1(geo.id, geo.topic)}) match {
       case Some((tweet, t))  => 
         val doc = tweetDoc(tweet, t)
@@ -351,13 +357,20 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     }
     docs
   } 
-  def searchAll(query:String):Iterator[Document]  = {
-    searchAll(parseQuery(query))
+  def searchTweets(query:String, max:Option[Int]):Iterator[Document]  = {
+    searchTweets(parseQuery(query), max)
   }
-  def searchAll(query:Query):Iterator[Document]  = {
+  def searchTweets(query:String):Iterator[Document]  = {
+    searchTweets(parseQuery(query), None)
+  }
+  def searchTweets(query:Query):Iterator[Document]  = {
+    searchTweets(query, None)
+  }
+  def searchTweets(query:Query, max:Option[Int]):Iterator[Document]  = {
     var after:Option[ScoreDoc] = None
     var first = true
     var searcher:Option[IndexSearcher]=None
+    var left = max
     Iterator.continually{
       if(first) {
         searcher = Some(this.useSearcher()) 
@@ -365,12 +378,21 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       }
       val res = search(query = query, after = after)(searcher.get)
       val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
-      if(res.scoreDocs.size > 0)
+      if(res.scoreDocs.size > 0) {
         after = Some(res.scoreDocs.last)
-      else {
+        left  = left.map(l => l -  res.scoreDocs.size)
+      }
+      if(res.scoreDocs.size == 0 || left.map(l => l <= 0).getOrElse(false)) {
         this.releaseSearcher(searcher.get)
       }
-      ret
+      left.map{l => 
+       if(l < 0) 
+         ret.take(ret.size+l)
+       else 
+         ret
+      }.getOrElse{
+        ret
+      }
     }.takeWhile(_.size > 0)
       .flatMap(docs => docs)
   }

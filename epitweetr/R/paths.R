@@ -18,6 +18,22 @@ get_plans_path <- function() file.path(conf$data_dir, "topics.json")
 get_tasks_path <- function() file.path(conf$data_dir, "tasks.json")
 
 # Get default languages file path
+get_default_geo_training_path <- function() system.file("extdata", "geo-training.xlsx", package = get_package_name())
+
+# Get available languages file path (writter by shiny app)
+get_geo_training_path <- function() {
+  path <- get_user_geo_training_path()
+  if(!file.exists(path))
+    path <- get_default_geo_training_path()
+  path
+}
+
+# Get user geo training file
+get_user_geo_training_path <- function() {
+  paste(conf$data_dir, "geo-training.xlsx", sep = "/")
+}
+
+# Get default languages file path
 get_default_available_languages_path <- function() system.file("extdata", "languages.xlsx", package = get_package_name())
 
 # Get available languages file path (writter by shiny app)
@@ -126,3 +142,4 @@ get_lang_model_path <- function(code) {
 get_lang_stamp_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz.stamp", sep = "")) 
 }
+

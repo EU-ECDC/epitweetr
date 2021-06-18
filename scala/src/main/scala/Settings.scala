@@ -52,7 +52,7 @@ case class Settings(epiHome:String) {
       properties.fields.get("geonames_simplify").map(v => v.asInstanceOf[JsBoolean].value).get
     )
   def fsRoot = Paths.get(epiHome, "fs").toString
-  def fsBatchTimeout = properties.fields.get("fs.batch.timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60*60)
-  def fsQueryTimeout = properties.fields.get("fs.query.timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60)
-  def fsPort = properties.fields.get("fs.port").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(8080)
+  def fsBatchTimeout = properties.fields.get("fs_batch_timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60*60)
+  def fsQueryTimeout = properties.fields.get("fs_query_timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60)
+  def fsPort = properties.fields.get("fs_port").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(8080)
 }

@@ -12,7 +12,7 @@ send "conf.load\r"
 send "import org.ecdc.epitweetr.fs.LuceneActor\r"
 send "import org.apache.spark.sql.SparkSession\r"
 send "import org.apache.spark.sql.functions._\r"
-send "org.ecdc.epitweetr.fs.API.run(conf.epiHome)\r"
+send "org.ecdc.epitweetr.API.run(conf.epiHome)\r"
 interact'
 
 cd ..

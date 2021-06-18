@@ -206,6 +206,7 @@ override def searchDoc(
   , caseInsensitive:Boolean = true
   , tokenize:Boolean = true 
   ) = {
+    //println(s"OUUUUUUUUUUUULA ${terms.mkString(" ")}")
       val nTerms = terms.length
       if( (terms.length > nNgrams) && (nNgrams != -1) ) {
         // calculate score for each ngram and take the N with the highest score

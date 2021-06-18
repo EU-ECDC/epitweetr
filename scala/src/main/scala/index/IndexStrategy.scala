@@ -48,6 +48,7 @@ trait IndexStrategy {
     , caseInsensitive:Boolean = true
     , tokenize:Boolean = true
     ) = {
+    //println(s"Standard ${terms.mkString(" ")}")
       evaluate(
         terms = terms
         , likelihood = termWeights.getOrElse(Array.fill(terms.size)(1.0)) 

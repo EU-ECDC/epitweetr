@@ -146,7 +146,7 @@ search_topic <- function(plan, query, topic) {
     # interpreting is necesssary know the number of obtained tweets and the id of the oldest tweet found and to keep tweet collecting stats
     # Saving uninterpreted content as a gzip archive
     json <- jsonlite::fromJSON(content)
-    post_result <- httr::POST(url=paste0("http://localhost:8080/tweets?topic=", curl::curl_escape(topic), "&geolocate=true"), httr::content_type_json(), body=content, encode = "raw", encoding = "UTF-8")
+    post_result <- httr::POST(url=paste0(get_scala_tweets_url(), "?topic=", curl::curl_escape(topic), "&geolocate=true"), httr::content_type_json(), body=content, encode = "raw", encoding = "UTF-8")
     if(httr::status_code(post_result) != 200) {
       print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
       stop()

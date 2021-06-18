@@ -7,6 +7,7 @@ import org.apache.spark.sql.{SparkSession, Column, Dataset, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import Language.LangTools
+import Geonames.Geolocate
 
 
 case class Geonames(source:String, destination:String, simplify:Boolean = false) {
@@ -65,6 +66,7 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , strategy:String = "demy.mllib.index.NgramStrategy"
     , stopWords:Seq[String]=Seq[String]()
     )(implicit storage:Storage):DataFrame  = {
+
       implicit val spark = ds.sparkSession
       import spark.implicits._
       Some(ds)
@@ -90,7 +92,8 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
             right = this.getDataset()
             , queries = geoTexts.zip(termWeightsPadded).map{
                 case(geoText, None) => geoText
-                case(geoText, Some(termWeight)) => when(col(termWeight).isNotNull, geoText).as(geoText.toString.split("`").last)
+                //case(geoText, Some(termWeight)) => when(col(termWeight).isNotNull, geoText).as(geoText.toString.split("`").last)
+                case(geoText, Some(termWeight)) => geoText.as(geoText.toString.split("`").last)
               }
             , popularity = Some(col("pop"))
             , text =  expr("concat(coalesce(city, ''), ' ', coalesce(adm4, ''), ' ', coalesce(adm3, ''), ' ', coalesce(adm2, ''), ' ', coalesce(adm1, ''), ' ', coalesce(country, ''))")
@@ -109,7 +112,6 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
             , minScore = minScore
             , boostAcronyms = true
             , termWeightsColumnNames = termWeightsPadded
-//            , strategy="demy.mllib.index.StandardStrategy"
             , stopWords = sWords
             , strategy = strategy
             , strategyParams=if(strategy == "demy.mllib.index.NgramStrategy") Map(("nNgrams", nGram.toString)) else Map[String, String]()
@@ -295,12 +297,23 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
 
     }
   } 
-  def getLocationSample()(implicit spark:SparkSession, storage:Storage)= {
+  def getLocationSample(splitAliases:Boolean=true, otherCitiesCount:Int=10000, maxAliases:Option[Int] = Some(10))(implicit spark:SparkSession, storage:Storage)= {
     import spark.implicits._
-    this.getDataset().where(col("geo_type")==="PCLI").select(explode(split(col("alias"), ",")).as("alias"))
-      .union(this.getDataset().where(col("geo_type")==="PPLC").select(explode(split(col("alias"), ",")).as("alias")))
-      .union(this.getDataset().where(col("geo_type")=!="PPLC" && col("geo_type")=!="PCLI").sample(1.0).limit(10000).select(explode(split(col("alias"), ",")).as("alias")))
-      .as[String]
+    Some(this.getDataset().where(col("geo_type")==="PCLI").select(col("alias"))
+      .union(this.getDataset().where(col("geo_type")==="PPLC").select(col("alias")))
+      .union(this.getDataset().where(col("geo_type")=!="PPLC" && col("geo_type")=!="PCLI").sample(1.0).limit(otherCitiesCount).select(col("alias")))
+    ).map(df =>
+      if(!maxAliases.isEmpty)
+        df.withColumn("alias", udf((alias:String) => if(alias==null) null else alias.split(",").take(maxAliases.get).mkString(",")).apply(col("alias")))
+      else 
+        df
+    ).map(df =>
+      if(splitAliases) 
+        df.select(explode(split(col("alias"), ",")).as("alias")).as[String]
+       else 
+        df.as[String]
+    )
+    .get
   }
 }
 

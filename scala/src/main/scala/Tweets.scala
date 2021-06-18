@@ -12,7 +12,7 @@ import java.sql.Timestamp
 import demy.mllib.text.Word2VecApplier
 import Language.LangTools
 import Geonames.Geolocate
-import org.ecdc.epitweetr.fs.API 
+import org.ecdc.epitweetr.API 
 object Tweets {
   val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+|RT|via|vía"
   def main(args: Array[String]): Unit = {
