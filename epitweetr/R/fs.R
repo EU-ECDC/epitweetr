@@ -2,7 +2,7 @@ get_scala_api_endpoint <- function() {
   paste("http://localhost:", conf$fs_port, "/", sep = "")
 }
 
-get_scala_geo_training_url <- function() {
+get_scala_geotraining_url <- function() {
   paste(get_scala_api_endpoint(), "geo-training-set", sep ="")
 }
 
@@ -40,7 +40,7 @@ fs_loop <-  function(data_dir = NA) {
   
   # Infinite loop calling the fs runner
   while(TRUE) {
-    TryCatch({
+    tryCatch({
       spark_job(
         paste(
 	        "fsService"

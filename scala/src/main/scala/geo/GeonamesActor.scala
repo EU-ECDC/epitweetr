@@ -93,7 +93,6 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         val df0 = 
           toGeo.toDS
             .withColumn("lang", udf((lang:String) =>  if(lang == null || lang == "all") null else lang).apply(col("lang")))
-        df0.where(col("lang").isNotNull).show
         val df =  df0.geolocate(
               textLangCols = Map("text" -> Some("lang")) 
               , maxLevDistance = 0

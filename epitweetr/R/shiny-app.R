@@ -374,32 +374,25 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   ######### GEOTAG PAGE ##########################
   ################################################
-  geotest_page <- 
+  geotraining_page <- 
     shiny::fluidPage(
-          shiny::h3("Geotagging sample"),
-          shiny::h5("Random selection of today's tweets"),
+          shiny::h3("Geo tagging training"),
+          shiny::h5("Database used for training tweets"),
           shiny::fluidRow(
             ################################################
             ######### GEO TAG FILTERS #######################
             ################################################
-            shiny::column(1, 
-              shiny::h4("Geo field") 
-            ),
-            shiny::column(3, shiny::selectInput("geotest_fields", label = NULL, multiple = FALSE, choices = cd$geo_cols)),
-            shiny::column(1, 
-              shiny::h4("Sample size") 
-            ),
-            shiny::column(3, 
-              shiny::numericInput("geotest_size", label = NULL, value = 100), 
-            ),
-            shiny::column(4)
+            shiny::column(4, shiny::numericInput("geotraining_tweets2add", label = shiny::h4("Tweets to add"), value = 100)),
+            shiny::column(2, shiny::actionButton("geotraining_update", "Update")),
+            shiny::column(2, shiny::downloadButton("geotraining_update_download", "Update & Download")),
+            shiny::column(4, shiny::fileInput("geotraining_upload", label = NULL, buttonLabel = "Upload"))
           ), 
           shiny::fluidRow(
             shiny::column(12, 
               ################################################
-              ######### ALERTS TABLE #########################
+              ######### GEO TAG TABLE #########################
               ################################################
-              DT::dataTableOutput("geotest_table")
+              DT::dataTableOutput("geotraining_table")
           ))
   ) 
   ################################################
@@ -428,7 +421,7 @@ epitweetr_app <- function(data_dir = NA) {
     shiny::navbarPage("epitweetr"
       , shiny::tabPanel("Dashboard", dashboard_page)
       , shiny::tabPanel("Alerts", alerts_page)
-      , shiny::tabPanel("Geotag evaluation", geotest_page)
+      , shiny::tabPanel("Geotag training/evaluation", geotraining_page)
       , shiny::tabPanel("Configuration", config_page)
       , shiny::tabPanel("Troubleshoot", troubleshoot_page)
     )
@@ -1381,32 +1374,69 @@ epitweetr_app <- function(data_dir = NA) {
 
     ######### GEOTEST LOGIC ##################
     # rendering geotest data, updates are done automatically whenever an input changes
-    output$geotest_table <- DT::renderDataTable({
+    output$geotraining_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
-       text_col <- strsplit(input$geotest_fields, ";")[[1]][[1]]
-       lang_col <-  if(length(strsplit(input$geotest_fields, ";")[[1]]) > 1) strsplit(input$geotest_fields, ";")[[1]][[2]] else NA
-       lang_col_name <- if(is.na(lang_col)) "lang" else lang_col
-
-       df <- get_todays_sample_tweets(limit = input$geotest_size, text_col = text_col, lang_col = lang_col)
-       shiny::validate(
-         shiny::need(!is.null(df) && nrow(df) > 0, 'Cannot geolocate sample tweets, please check the troubleshoot page')
-       )
+       df <- get_geotraining_df()
        df %>%
          DT::datatable(
-           colnames = c(
-             "Tweet ID" = "id",  
-             "Text" =  text_col,
-             "Language" = lang_col_name,
-             "Location name" = "geo_name",
-             "Location type" = "geo_type",
-             "Country code" =  "geo_country_code",
-             "Country" = "country", 
-             "Score" = "score", 
-             "Tagged text" = "tagged"
-           ),
            filter = "top",
            escape = TRUE
          )
+    })
+    # uploading geotagging training file
+    shiny::observe({
+      df <- input$geotraining_upload
+      if(!is.null(df) && nrow(df)>0) {
+        progress_start("processing new training set")
+        uploaded <- df$datapath[[1]]
+        #copying file and making a backup of existing one
+        if(file.exists(get_user_geotraining_path()))
+          file.copy(get_user_geotraining_path(), paste(get_user_geotraining_path(), ".bak", sep = ""), overwrite=TRUE) 
+        file.copy(uploaded, get_user_geotraining_path(), overwrite=TRUE) 
+        #updating geotraining df taking in condideration new uploaded file
+        
+        tryCatch({
+           update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
+           cd$geotraining_refresh_flag(Sys.time())
+          },
+          error = function(w) {app_error(w, env = cd)}
+        )
+      }
+    })
+    # Updating geolocation data
+    shiny::observeEvent(input$geotraining_update, {
+      progress_start("updating geo training dataset")
+      #updating geotraining df taking in condideration new uploaded file
+      tryCatch({
+         update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
+         cd$geotraining_refresh_flag(Sys.time())
+        },
+        error = function(w) {app_error(w, env = cd)}
+      )
+    })
+    
+    # update & download geotraining data
+    output$geotraining_update_download <- shiny::downloadHandler(
+      filename = function() "geo-training.xlsx",
+      content = function(file) {
+        progress_start("updating geo training dataset for download")
+        #updating geotraining file before downloading
+        tryCatch({
+           update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
+           file.copy(get_geotraining_path(), file) 
+           cd$geotraining_refresh_flag(Sys.time())
+          },
+          error = function(w) {app_error(w, env = cd)}
+        )
+      }
+    )
+    
+    # updating geotraining table on change of geotraining file
+    shiny::observe({
+      # Adding a dependency to subscribers refresh
+      cd$geotraining_refresh_flag()
+      DT::replaceData(DT::dataTableProxy('geotraining_table'), get_geotraining_df())
+      progress_close()
     })
 
     ######## DIAGNOSTIC LOGIC ############
@@ -1436,7 +1466,36 @@ epitweetr_app <- function(data_dir = NA) {
     })
 
   } 
-  # Printing PID 
+
+  # Functions for managing calculation progress
+  progress_start <- function(start_message = "processing", env = cd) {
+    message("starting progress")
+    progress_close(env = env)
+    env$progress <- shiny::Progress$new()
+    env$progress$set(message = start_message, value = 0)
+  }
+  
+  progress_close <- function(env = cd) {
+    if(exists("progress", where = env)) {
+      env$progress$close()
+      rm("progress", envir = env)
+    }
+  }
+  
+  progress_inc <- function(value, message  = "processing", env = cd) {
+    env$progress$set(value = env$progress$getValue() + value, detail = message) 
+  }
+  
+  progress_set <- function(value, message  = "processing", env = cd) {
+    env$progress$set(value = value, detail = message) 
+  }
+
+  app_error <- function(e, env = cd) {
+    progress_close(env = env)
+    showNotification(paste(e), type = "error")
+  }
+
+# Printing PID 
   message(Sys.getpid())
   # Launching the app
   old <- options()
@@ -1483,6 +1542,7 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   return(e)
 }
 
+
 # Get or update data for config page from configuration, Data collection & processing and Requirements & alerts pipeline files
 refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks", "geo")) {
   # Refreshing configuration
@@ -1499,6 +1559,10 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   #Creating the flag for subscribers refresh
   if(!exists("subscribers_refresh_flag", where = e)) {
     e$subscribers_refresh_flag <- shiny::reactiveVal()
+  }
+  #Creating the flag for geotraining refresh
+  if(!exists("geotraining_refresh_flag", where = e)) {
+    e$geotraining_refresh_flag <- shiny::reactiveVal()
   }
   #Creating the flag for countries refresh
   if(!exists("countries_refresh_flag", where = e)) {
@@ -1582,10 +1646,6 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   }
   # Updating geolocation test related fields
   if("geo" %in% limit) {
-    e$geo_cols <- setNames(
-      c("text;lang", "linked_text;linked_lang", "user_description;lang", "user_location;lang", "place_full_name", "linked_place_full_name"), 
-      c("Tweet Text", "Retweeted/Quoted text", "User description", "User declared location", "API tweet location", "API retweeted/Quoted tweet location")
-    )  
   }
   return(e)
 }

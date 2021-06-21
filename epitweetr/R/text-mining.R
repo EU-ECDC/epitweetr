@@ -79,19 +79,26 @@ geolocate_text <- function(df, text_col = "text", lang_col=NULL, min_score = NUL
   dplyr::select(ret, -which(names(ret) %in% c("text", "id", "lang")))
 }
 
-
-get_training_df <- function(tweets_to_add = 100) {
+get_geotraining_df <- function() {
   data_types<-c("text","text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text")
-  current <- readxl::read_excel(get_geo_training_path(), col_types = data_types)
+  current <- readxl::read_excel(get_geotraining_path(), col_types = data_types)
   current$Text <- stringr::str_trim(current$Text)
   current <- current %>% dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+  current
+}
+
+updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
+  message("working hard!!!")
+  if(is.function(progress)) progress(0.1, "getting current training file")
+  current <- get_geotraining_df()
   locations <- current %>% dplyr::filter(Type == "Location" & `Location OK/KO` == "OK")
   add_locations <- if(nrow(locations) == 0) "&locationSamples=true" else "&locationSamples=false" 
   non_locations <- current %>% dplyr::filter(Type == "Location" & `Location OK/KO` == "KO")
   non_location_langs <- unique(non_locations$Lang)
   excl_langs <- if(length(non_location_langs) > 0) paste("&excludedLangs=", paste(non_location_langs, collapse = "&excludedLangs="), sep = "") else "" 
 
-  geo_training_uri <- paste(get_scala_geo_training_url(), "?jsonnl=true", add_locations, excl_langs, sep = "")
+  if(is.function(progress)) progress(0.3, "obtaining locations from downloaded models and geonames")
+  geo_training_uri <- paste(get_scala_geotraining_url(), "?jsonnl=true", add_locations, excl_langs, sep = "")
   geo_training_url <- url(geo_training_uri)
   geo_training <- jsonlite::stream_in(geo_training_url) 
   if(nrow(geo_training) > 0) {
@@ -118,6 +125,7 @@ get_training_df <- function(tweets_to_add = 100) {
   to_add <- tweets_to_add
 
 
+  if(is.function(progress)) progress(0.6, "adding new tweets")
   to_tag <- search_tweets(max = to_add) 
   to_tag$text <- stringr::str_trim(to_tag$text)
   to_tag$user_description <- stringr::str_trim(to_tag$user_description)
@@ -190,23 +198,26 @@ get_training_df <- function(tweets_to_add = 100) {
   )) %>% dplyr::filter(!is.na(.data$Text) & !.data$Text == "") %>%
     dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
 
+
   text_togeo <- ret %>% dplyr::transmute(
     Text = ifelse(!is.na(.data$`Associate with`), .data$`Associate with`, .data$Text), 
     Lang = ifelse(!is.na(.data$`Associate with`), "all", .data$Lang)
   ) 
   #getting current geolocation evaluation
+  if(is.function(progress)) progress(0.7, "geolocating all items")
   geoloc = geolocate_text(df = text_togeo, text_col="Text", lang_col = "Lang")
   ret$`Epitweetr match` <- geoloc$geo_name
   ret$`Epitweetr country match` <- geoloc$geo_country
   ret$`Epitweetr country code match` <- geoloc$geo_country_code
   ret$`Location in text` <- ifelse((is.na(ret$`Location OK/KO`) | ret$`Location OK/KO`=="?") & ret$Type == "Text", geoloc$tags, ret$`Location in text`)
-  ret
+  ret %>% arrange(dplyr::desc(Type), `Tweet part`)
 }
 
 
-update_training_excel <- function(tweets_to_add = 100) {
-  training_df <- get_training_df(tweets_to_add = 100)
-  wb <- openxlsx::loadWorkbook(get_geo_training_path())
+update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
+  training_df <- updated_geotraining_df(tweets_to_add = 100, progress = progress)
+  if(is.function(progress)) progress(0.9, "writing result file")
+  wb <- openxlsx::loadWorkbook(get_geotraining_path())
   # we have to remove the existing worksheet since writing on the same was producing a corrupted file
   openxlsx::removeWorksheet(wb, "geolocation")
   openxlsx::addWorksheet(wb, "geolocation")
@@ -216,7 +227,7 @@ update_training_excel <- function(tweets_to_add = 100) {
   openxlsx::setColWidths(wb, "geolocation", cols = c(2), widths = c(70))
   openxlsx::setColWidths(wb, "geolocation", cols = c(3, 11, 12, 13), widths = c(25))
   openxlsx::setColWidths(wb, "geolocation", cols = c(4, 5, 6, 10), widths = c(17))
-  openxlsx::setRowHeights(wb, "geolocation", rows = 1, heights = 5)
+  openxlsx::setRowHeights(wb, "geolocation", rows = 1, heights = 20)
   openxlsx::addStyle(
     wb, 
     sheet = "geolocation", 
@@ -266,6 +277,6 @@ update_training_excel <- function(tweets_to_add = 100) {
     gridExpand = TRUE
   )
   openxlsx::freezePane(wb, "geolocation",firstActiveRow = T)
-  openxlsx::saveWorkbook(wb, get_user_geo_training_path() ,overwrite = T) 
+  openxlsx::saveWorkbook(wb, get_user_geotraining_path() ,overwrite = T) 
 }
 
