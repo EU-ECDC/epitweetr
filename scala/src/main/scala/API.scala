@@ -1,7 +1,7 @@
 package org.ecdc.epitweetr
 
 import org.ecdc.epitweetr.fs.{LuceneActor, TopicTweetsV1}
-import org.ecdc.epitweetr.geo.{GeonamesActor}
+import org.ecdc.epitweetr.geo.{GeonamesActor, GeoTrainings }
 import akka.actor.{ActorSystem, Actor, Props}
 import akka.stream.ActorMaterializer
 import akka.pattern.{ask, pipe}
@@ -213,7 +213,9 @@ object API {
               val fut = (luceneRunner ? LuceneActor.PeriodRequest(collection))
                 .map{
                    case LuceneActor.PeriodResponse(min, max) => (StatusCodes.OK, LuceneActor.PeriodResponse(min, max))
-                   case o => (StatusCodes.InternalServerError, LuceneActor.PeriodResponse(None, None))
+                   case akka.actor.Status.Failure(f)  => 
+                     println(s"error found $f")
+                     (StatusCodes.InternalServerError, LuceneActor.PeriodResponse(None, None))
                  }
               complete(fut) 
             }
@@ -261,7 +263,7 @@ object API {
              complete(fut)
             }
           }
-        } ~ path("geo-training-set") {
+        } ~ path("geotraining-set") {
           get {
             parameters("excludedLangs".as[String].*, "locationSamples".as[Boolean]?true, "jsonnl".as[Boolean]?false) { (excludedLangs, locationSamples, jsonnl) => 
               implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
@@ -278,6 +280,31 @@ object API {
                 else 
                   m
               }))
+            }
+          } ~ 
+          post {
+            withRequestTimeout(conf.fsBatchTimeout.seconds) {
+              entity(as[JsValue]) { json  =>
+                implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
+                Try(geoTrainingsFormat.read(json)) match {
+                  case Success(GeoTrainings(trainingSet)) =>
+                    val fut = (geonamesRunner ? GeonamesActor.TrainLanguagesRequest(trainingSet) )
+                      .map{
+                         case GeonamesActor.LanguagesTrained("ok") => (StatusCodes.OK, "OK")
+                         case akka.actor.Status.Failure(f)  => 
+                           println(s"error found $f")
+                           (StatusCodes.InternalServerError, f.toString())
+                      }
+                    complete(fut) 
+                  case Failure(e) =>
+                    println(s"Cannot interpret the provided body as a value train geolocation algorithm:\n $e, ${e.getStackTrace.mkString("\n")}") 
+                    complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a value to train geolocation algorithm:\n $e")) 
+                  } 
+              } ~ 
+                entity(as[String]) { value  => 
+                logThis(value)
+                complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+              }
             }
           }
         } ~ path("geolocate-text") {

@@ -1,6 +1,6 @@
 package org.ecdc.epitweetr.geo
 
-import org.ecdc.twitter.{JavaBridge,  Geonames, Tweets}
+import org.ecdc.twitter.{JavaBridge,  Geonames, Tweets, Language}
 import org.ecdc.twitter.Geonames.Geolocate
 import org.ecdc.epitweetr.{Settings, EpitweetrActor}
 import org.ecdc.epitweetr.fs.{TextToGeo}
@@ -125,6 +125,16 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
           caller ! ByteString(s"[Stream--error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
       }
+    case GeonamesActor.TrainLanguagesRequest(trainingSet) => 
+      Future {
+        implicit val s = GeonamesActor.getSparkSession
+        implicit val st = GeonamesActor.getSparkStorage
+        Language.updateLanguages(trainingSet, conf.languages.get, conf.geonames, indexPath=conf.langIndexPath, conf.sparkCores)
+      }
+      .map{_ =>
+        GeonamesActor.LanguagesTrained("ok")
+      }
+      .pipeTo(sender())
     case b => 
       Future(EpitweetrActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
   }
@@ -134,7 +144,9 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
 object GeonamesActor {
   var spark:Option[SparkSession] = None
   case class TrainingSetRequest(excludedLangs:Seq[String], locationSamples:Boolean, jsonnl:Boolean, caller:ActorRef)
+  case class TrainLanguagesRequest(trainingSet:Seq[GeoTraining])
   case class GeolocateTextsRequest(toGeo:Seq[TextToGeo], minScore:Option[Int], jsonnl:Boolean, caller:ActorRef)
+  case class LanguagesTrained(msg:String)
   def closeSparkSession() = {
     spark match{
       case Some(spark) =>

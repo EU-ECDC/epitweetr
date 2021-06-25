@@ -13,6 +13,7 @@ import org.apache.spark.ml.linalg.{Vectors, DenseVector, Vector=>MLVector}
 import scala.collection.mutable.HashMap
 import org.apache.spark.ml.classification.{LinearSVC, LinearSVCModel}
 import java.lang.reflect.Method
+import org.ecdc.epitweetr.geo.GeoTraining
 import Geonames.Geolocate
 
 case class Language(name:String, code:String, vectorsPath:String) {
@@ -55,12 +56,16 @@ case class Language(name:String, code:String, vectorsPath:String) {
        .where(col("geo_id").isNull)
        .select(col("word"), col("_score_"), lit(0.0).as("label"), col("vector").as("feature"))
    }
-   def getGeoLikehoodModel(geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
-      if(storage.getNode(modelPath).exists 
-          && storage.isUnchanged(path = Some(this.vectorsPath), checkPath = Some(s"${this.vectorsPath}.stamp"), updateStamp = false)
+
+   def areVectorsNew()(implicit storage:Storage) = !storage.isUnchanged(path = Some(this.vectorsPath), checkPath = Some(s"${this.vectorsPath}.stamp"), updateStamp = false) 
+   def getGeoLikehoodModel(retrainWith:Option[Seq[GeoTraining]], geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
+      if(storage.getNode(modelPath).exists
+          && !areVectorsNew()
+          && retrainWith.isEmpty
       ) {
         LinearSVCModel.load(modelPath)
-      } else { 
+      } else if(!retrainWith.isEmpty){
+        println(retrainWith) 
         val model = 
           new LinearSVC()
             .setFeaturesCol("feature")
@@ -72,6 +77,8 @@ case class Language(name:String, code:String, vectorsPath:String) {
         //Setting update timestamp
         storage.isUnchanged(path = Some(this.vectorsPath), checkPath = Some(s"${this.vectorsPath}.stamp"), updateStamp = true)  
         trained
+      } else {
+        throw new Exception("Cannot get a likelyhood model without training data and unprocessed vectors")
       }
    }
  }
@@ -108,10 +115,9 @@ object Language {
     , vectorsColNames:Seq[String]
     , langCodeColNames:Seq[String]
     , likehoodColNames:Seq[String]
-    , nonVectorScore:Double=0.5
     )(implicit storage:Storage) = {
     implicit val spark = df.sparkSession
-    val trainedModels = spark.sparkContext.broadcast(languages.map(l => (l.code -> l.getGeoLikehoodModel(geonames))).toMap)
+    val trainedModels = spark.sparkContext.broadcast(languages.map(l => (l.code -> l.getGeoLikehoodModel(retrainWith = None, geonames = geonames))).toMap)
     Some(
       df.rdd.mapPartitions{iter => 
         val rawPredict = 
@@ -131,7 +137,8 @@ object Language {
                        .map{case (model, method) =>
                          vectors.map{vector => 
                            if(vector == null)
-                             nonVectorScore
+                             //throw new Exception("Null vectors are not supported anymore")
+                             0.4
                            else
                              Some(method.invoke(model, vector).asInstanceOf[DenseVector])
                                .map{scores =>
@@ -157,18 +164,18 @@ object Language {
       .get
   }
   def array2Seq(array:Array[Language]) = array.toSeq
-  def updateLanguages(langs:Seq[Language], geonames:Geonames, indexPath:String, parallelism:Option[Int]=None) 
+  def updateLanguages(trainingSet:Seq[GeoTraining], langs:Seq[Language], geonames:Geonames, indexPath:String, parallelism:Option[Int]=None) 
     (implicit spark:SparkSession, storage:Storage):Unit = {
       import spark.implicits._
       
       //Ensuring languages models are up to date
-      langs.foreach(l => l.getGeoLikehoodModel(geonames = geonames))
-
+      langs.foreach(l => l.getGeoLikehoodModel(retrainWith = Some(trainingSet), geonames = geonames))
+      val reuseExistingIndex = langs.map(l => !l.areVectorsNew()).reduce(_ && _)
       //Getting multilingual vectors
       val vectors = Language.multiLangVectors(langs)
 
-      //Building vector index index is built 
-      Seq(("Viva Chile","es"), ("We did a very good job", "en")).toDF("text", "lang")
+      //Building vector index index if it is not  built 
+      Seq(("Viva Chile constituyente, gracias Sébastian","es"), ("We did a very good job", "en")).toDF("text", "lang")
         .luceneLookup(right = vectors
           , query = udf((text:String, lang:String) => text.split(" ").map(w => s"${w}LANG$lang")).apply(col("text"), col("lang")).as("tokens")
           , popularity = None
@@ -177,7 +184,7 @@ object Language {
           , leftSelect= Array(col("*"))
           , maxLevDistance = 0
           , indexPath = indexPath
-          , reuseExistingIndex = false
+          , reuseExistingIndex = reuseExistingIndex
           , indexPartitions = 1
           , maxRowsInMemory=1
           , indexScanParallelism = 1
@@ -185,7 +192,7 @@ object Language {
           , caseInsensitive = false
           , minScore = 0.0
           , boostAcronyms=false
-          , strategy="demy.mllib.index.StandardStrategy"
+          , strategy="demy.mllib.index.PredictStrategy"
         )
         .show
      

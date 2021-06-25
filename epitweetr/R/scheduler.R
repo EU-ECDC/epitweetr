@@ -248,12 +248,14 @@ get_tasks <- function(statuses = list()) {
     #alerts
     tasks$alerts <- list(
       task = "alerts",
-      order = 5,
+      order = 3,
       started_on = NA,
       end_on = NA,
       status = NA,
       scheduled_for = NA
     )
+  } else if(exists("alerts", where = tasks) && tasks$alerts$order != 3) { #dealing with bad order case after migration
+    tasks$alerts$order = 3
   }
   # The rest of the function code is to detect changes that has been requested by the shiny app
   # changes are detected by looking on xxx_updated_on or xxx_requested_on settings on the configuration saved from the shiny_app

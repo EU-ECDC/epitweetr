@@ -1,6 +1,7 @@
 package org.ecdc.epitweetr.fs
 
 import org.ecdc.epitweetr.EpitweetrActor
+import org.ecdc.epitweetr.geo.{GeoTrainings, GeoTraining, GeoTrainingSource, GeoTrainingPart}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json.{JsString, JsNull, JsValue, JsNumber, DefaultJsonProtocol, JsonFormat, RootJsonFormat, JsObject, JsArray, JsBoolean}
 import java.time.Instant
@@ -11,6 +12,8 @@ import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, B
 import org.apache.lucene.index.IndexableField
 import scala.collection.JavaConverters._
 import java.net.URLDecoder
+
+
 
 case class TextsToGeo(items:Seq[TextToGeo])
 case class TextToGeo(id:String, text:String, lang:Option[String])
@@ -303,6 +306,56 @@ object EpiSerialisation
             case _ => throw new Exception("@epi cannot find expected items field to get to geos")
           }
         case _ => throw new Exception(s"@epi cannot deserialize $value to ToGeos")
+      }
+    }
+    implicit object geoTrainingsFormat extends RootJsonFormat[GeoTrainings] {
+      def write(t: GeoTrainings) = JsArray(t.items.map(c => geoTrainingFormat.write(c)):_*)
+      def read(value: JsValue) = value match {
+        case JsArray(items) => GeoTrainings(items = items.map(t => geoTrainingFormat.read(t)).toSeq)
+        case JsObject(fields) =>
+          fields.get("items") match {
+            case Some(JsArray(items)) => GeoTrainings(items = items.map(t => geoTrainingFormat.read(t)).toSeq)
+            case _ => throw new Exception("@epi cannot find expected items field to get geoTrainingd")
+          }
+        case _ => throw new Exception(s"@epi cannot deserialize $value to GeoTrainings")
+      }
+    }
+    implicit object geoTrainingFormat extends RootJsonFormat[GeoTraining] {
+      def write(t: GeoTraining) = throw new NotImplementedError("Writing GeoTraining is as json is not implemented")
+      def read(value: JsValue) = {
+        value match {
+          case JsObject(fields) =>
+              GeoTraining(
+                category = fields("Type").asInstanceOf[JsString].value,  
+                text = fields("Text").asInstanceOf[JsString].value,  
+                locationInText = fields.get("Location in text").map(v => v.asInstanceOf[JsString].value), 
+                isLocation = fields.get("Location OK/KO")
+                  .map(v => v.asInstanceOf[JsString].value)
+                  .map(v => v.toLowerCase == "ok"),  
+                forcedLocationCode = fields.get("Associate country code").map(v => v.asInstanceOf[JsString].value), 
+                forcedLocationName =fields.get("Associate with").map(v => v.asInstanceOf[JsString].value) , 
+                source = fields.get("Source")
+                  .map(v => v.asInstanceOf[JsString].value)
+                  .map(v => GeoTrainingSource(v))
+                  .getOrElse(GeoTrainingSource.manual), 
+                tweetId = fields.get("Tweet Id").map(v => v.asInstanceOf[JsString].value),
+                lang = fields.get("Lang")
+                  .map(v => v.asInstanceOf[JsString].value.toLowerCase)
+                  .map{
+                    case null => None
+                    case "all" => None
+                    case v => Some(v)
+                  }.flatten,
+                tweetPart = fields.get("Tweet part")
+                  .map(v => v.asInstanceOf[JsString].value)
+                  .map(v => GeoTrainingPart(v)), 
+                foundLocation = fields.get("Epitweetr match").map(v => v.asInstanceOf[JsString].value) , 
+                foundLocationCode = fields.get("Epitweetr country match").map(v => v.asInstanceOf[JsString].value), 
+                foundCuntryCode = fields.get("Epitweetr country code match").map(v => v.asInstanceOf[JsString].value)
+              )
+          case _ =>
+            throw new Exception(s"@epi cannot deserialize $value to GeoTraining")
+        }
       }
     }
     implicit object tweetsV1Format extends RootJsonFormat[TweetsV1] {

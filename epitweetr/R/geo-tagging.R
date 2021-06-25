@@ -493,3 +493,232 @@ update_languages <- function(tasks) {
   return(tasks)
 }
 
+#' @export
+# Returns a dataframe with geolocation columns based on a given text column and optionally a language col
+geolocate_text <- function(df, text_col = "text", lang_col=NULL, min_score = NULL) {
+  `%>%` <- magrittr::`%>%`
+  if(is.null(lang_col)) df[[lang_col]] <- NA
+  to_geolocate = df %>% 
+    dplyr::transmute(id = as.character(dplyr::row_number()), text = .data[[text_col]], lang =.data[[lang_col]] ) %>%
+    jsonlite::toJSON()
+  geo_uri = paste(get_scala_geolocate_text_url(), "?jsonnl=true", sep = "")
+  if(!is.null(min_score)) {
+    geo_uri <- paste(geo_uri,"&minScore=", min_score, sep = "")
+  }
+
+  ret = stream_post(uri = geo_uri, body = to_geolocate) %>%
+    dplyr::arrange(as.integer(.data$id))
+  dplyr::select(ret, -which(names(ret) %in% c("text", "id", "lang")))
+}
+
+get_geotraining_df <- function() {
+  data_types<-c("text","text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text")
+  current <- readxl::read_excel(get_geotraining_path(), col_types = data_types)
+  current$Text <- stringr::str_trim(current$Text)
+  current <- current %>% dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+  current
+}
+
+updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
+  if(is.function(progress)) progress(0.1, "getting current training file")
+  current <- get_geotraining_df()
+  locations <- current %>% dplyr::filter(Type == "Location" & `Location OK/KO` == "OK")
+  add_locations <- if(nrow(locations) == 0) "&locationSamples=true" else "&locationSamples=false" 
+  non_locations <- current %>% dplyr::filter(Type == "Location" & `Location OK/KO` == "KO")
+  non_location_langs <- unique(non_locations$Lang)
+  excl_langs <- if(length(non_location_langs) > 0) paste("&excludedLangs=", paste(non_location_langs, collapse = "&excludedLangs="), sep = "") else "" 
+
+  if(is.function(progress)) progress(0.3, "obtaining locations from downloaded models and geonames")
+  geo_training_uri <- paste(get_scala_geotraining_url(), "?jsonnl=true", add_locations, excl_langs, sep = "")
+  geo_training_url <- url(geo_training_uri)
+  geo_training <- jsonlite::stream_in(geo_training_url) 
+  if(nrow(geo_training) > 0) {
+    geo_training <- geo_training %>%
+      dplyr::transmute(
+        Type = "Location", 
+        `Text` = .data$word, 
+        `Location in text` = NA, 
+        `Location OK/KO` = ifelse(.data$isLocation, "OK", "KO"), 
+        `Associate country code` = NA, 
+        `Associate with`=NA, 
+        `Source` = "Epitweetr model", 
+        `Tweet Id` = NA, 
+        `Lang` = .data$lang,
+        `Tweet part` = NA, 
+        `Epitweetr match` = NA,
+        `Epitweetr country match` = NA,
+        `Epitweetr country code match` = NA
+      )
+    geo_training$Text <- stringr::str_trim(geo_training$Text)
+    geo_training <- geo_training %>%  dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+  }
+  # Adding new tweets
+  to_add <- tweets_to_add
+
+
+  if(is.function(progress)) progress(0.6, "adding new tweets")
+  to_tag <- search_tweets(max = to_add) 
+  to_tag$text <- stringr::str_trim(to_tag$text)
+  to_tag$user_description <- stringr::str_trim(to_tag$user_description)
+  to_tag$user_location <- stringr::str_trim(to_tag$user_location)
+  texts <- to_tag %>%
+    dplyr::transmute(
+      Type = "Text", 
+      `Text`=.data$text,
+      `Location in text` = NA, 
+      `Location OK/KO` = "?", 
+      `Associate country code` = NA, 
+      `Associate with`=NA, 
+      `Source` = "Tweet", 
+      `Tweet Id` = .data$tweet_id, 
+      `Lang` = .data$lang,
+      `Tweet part` = "text", 
+      `Epitweetr match` = NA,
+      `Epitweetr country match` = NA,
+      `Epitweetr country code match` = NA
+    ) %>%
+    dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+    
+  user_desc <- to_tag %>%
+    dplyr::filter(!is.na(.data$user_description)) %>%
+    dplyr::transmute(
+      Type = "Text", 
+      `Text`=.data$user_description,
+      `Location in text` = NA, 
+      `Location OK/KO` = "?", 
+      `Associate country code` = NA, 
+      `Associate with`= NA, 
+      `Source` = "Tweet", 
+      `Tweet Id` = .data$tweet_id, 
+      `Lang` = .data$lang,
+      `Tweet part` = "user description", 
+      `Epitweetr match` = NA,
+      `Epitweetr country match` = NA,
+      `Epitweetr country code match` = NA,
+    ) %>%
+    dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+  
+  user_loc <- to_tag %>%
+    dplyr::filter(!is.na(.data$user_location)) %>%
+    dplyr::transmute(
+      Type = "Text",
+      `Text`=.data$user_location,
+      `Location in text` = NA, 
+      `Location OK/KO` = "?", 
+      `Associate country code` = NA, 
+      `Associate with`=NA, 
+      `Source` = "Tweet", 
+      `Tweet Id` = .data$tweet_id, 
+      `Lang` = .data$lang,
+      `Tweet part` = "user location", 
+      `Epitweetr match` = NA,
+      `Epitweetr country match` = NA,
+      `Epitweetr country code match` = NA,
+    ) %>%
+    dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+
+  ret = jsonlite::rbind_pages(list(
+    current,
+    geo_training,
+    texts,
+    user_desc,
+    user_loc
+  )) %>% dplyr::filter(!is.na(.data$Text) & !.data$Text == "") %>%
+    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+
+
+  text_togeo <- ret %>% dplyr::transmute(
+    Text = ifelse(!is.na(.data$`Associate with`), .data$`Associate with`, .data$Text), 
+    Lang = ifelse(!is.na(.data$`Associate with`), "all", .data$Lang)
+  ) 
+  #getting current geolocation evaluation
+  if(is.function(progress)) progress(0.7, "geolocating all items")
+  geoloc = geolocate_text(df = text_togeo, text_col="Text", lang_col = "Lang")
+  ret$`Epitweetr match` <- geoloc$geo_name
+  ret$`Epitweetr country match` <- geoloc$geo_country
+  ret$`Epitweetr country code match` <- geoloc$geo_country_code
+  ret$`Location in text` <- ifelse((is.na(ret$`Location OK/KO`) | ret$`Location OK/KO`=="?") & ret$Type == "Text", geoloc$tags, ret$`Location in text`)
+  ret %>% arrange(dplyr::desc(Type), `Tweet part`)
+}
+
+
+update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
+  training_df <- updated_geotraining_df(tweets_to_add = 100, progress = progress)
+  if(is.function(progress)) progress(0.9, "writing result file")
+  wb <- openxlsx::loadWorkbook(get_geotraining_path())
+  # we have to remove the existing worksheet since writing on the same was producing a corrupted file
+  openxlsx::removeWorksheet(wb, "geolocation")
+  openxlsx::addWorksheet(wb, "geolocation")
+  # writing data to the worksheet
+  openxlsx::writeDataTable(wb, sheet = "geolocation", training_df, colNames = T, startRow = 1, startCol = "A")
+  # setting some minimal formatting
+  openxlsx::setColWidths(wb, "geolocation", cols = c(2), widths = c(70))
+  openxlsx::setColWidths(wb, "geolocation", cols = c(3, 11, 12, 13), widths = c(25))
+  openxlsx::setColWidths(wb, "geolocation", cols = c(4, 5, 6, 10), widths = c(17))
+  openxlsx::setRowHeights(wb, "geolocation", rows = 1, heights = 20)
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ff860d", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T), 
+    rows = 1, 
+    cols = 1, 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ffde59", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T), 
+    rows = 1, 
+    cols = 2:6, 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#f7d1d5", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T), 
+    rows = 1, 
+    cols = 7:10, 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#dedce6", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T), 
+    rows = 1, 
+    cols = 11:13, 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, border = c("top", "bottom", "left", "right")), 
+    rows = 1:nrow(training_df)+1, 
+    cols = 1:13, 
+    gridExpand = TRUE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, border = c("top", "bottom", "left", "right"), wrapText=T), 
+    rows = 2:nrow(training_df)+1, 
+    cols = 2, 
+    gridExpand = TRUE
+  )
+  openxlsx::freezePane(wb, "geolocation",firstActiveRow = T)
+  openxlsx::saveWorkbook(wb, get_user_geotraining_path() ,overwrite = T) 
+}
+
+retrain_languages <- function() {
+  body <- get_geotraining_df() %>% jsonlite::toJSON()
+  post_result <- httr::POST(url=get_scala_geotraining_url(), httr::content_type_json(), body=body, encode = "raw", encoding = "UTF-8")
+  if(httr::status_code(post_result) != 200) {
+    message(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
+    stop()
+  } else {
+    message("I guess it worked")
+    message(httr::content(post_result, "text", encoding = "UTF-8"))
+  }
+}

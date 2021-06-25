@@ -19,7 +19,6 @@ object Tweets {
     val cmd = Map(
      "fsService" -> Set("epiHome")
      , "updateGeonames" -> Set("geonamesSource", "geonamesDestination", "geonamesSimplify", "assemble", "index", "parallelism")
-      , "updateLanguages" -> Set("langCodes", "langNames", "langPaths", "geonamesSource", "geonamesDestination", "geonamesSimplify", "langIndexPath", "parallelism")
     )
     if(args == null || args.size < 3 || !cmd.contains(args(0)) || args.size % 2 == 0 ) 
       l.msg(s"first argument must be within ${cmd.keys} and followed by a set of 'key' 'values' parameters, but the command ${args(0)} is followed by ${args.size -1} values")
@@ -40,24 +39,6 @@ object Tweets {
          if(params.get("index").map(s => s.toBoolean).getOrElse(false)) {
            geonames.geolocateText(text=Seq("Viva Chile"), reuseGeoIndex = false).show
          }
-      } else if(command == "updateLanguages"){ 
-         implicit val spark = JavaBridge.getSparkSession(params.get("parallelism").map(_.toInt).getOrElse(0)) 
-         implicit val storage = JavaBridge.getSparkStorage(spark) 
-         Language.updateLanguages(
-           langs = 
-               Some(Seq("langCodes", "langNames", "langPaths"))
-                 .map{s => s.map(p => params(p).split(",").map(_.trim))}
-                 .map{case Seq(codes, names, paths) =>
-                   codes.zip(names.zip(paths))
-                     .map{case (code, (name, path)) =>
-                        Language(name = name, code = code, vectorsPath = path)
-                     }
-                 }
-                 .get
-           , geonames = Geonames( params.get("geonamesSource").get,  params.get("geonamesDestination").get,  params.get("geonamesSimplify").get.toBoolean)
-           , indexPath = params.get("langIndexPath").get
-           , parallelism = params.get("parallelism").map(_.toInt)
-         )
       } else {
         throw new Exception("Not implemented @epi") 
       }

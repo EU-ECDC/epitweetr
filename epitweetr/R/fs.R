@@ -3,7 +3,7 @@ get_scala_api_endpoint <- function() {
 }
 
 get_scala_geotraining_url <- function() {
-  paste(get_scala_api_endpoint(), "geo-training-set", sep ="")
+  paste(get_scala_api_endpoint(), "geotraining-set", sep ="")
 }
 
 get_scala_tweets_url <- function() {
