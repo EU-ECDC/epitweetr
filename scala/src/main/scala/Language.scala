@@ -65,7 +65,8 @@ case class Language(name:String, code:String, vectorsPath:String) {
       ) {
         LinearSVCModel.load(modelPath)
       } else if(!retrainWith.isEmpty){
-        println(retrainWith) 
+        println(s"Evaluating new  model with ${retrainWith.map(v => v.size)}")
+        //println(retrainWith) 
         val model = 
           new LinearSVC()
             .setFeaturesCol("feature")
@@ -175,6 +176,7 @@ object Language {
       val vectors = Language.multiLangVectors(langs)
 
       //Building vector index index if it is not  built 
+      print("creating vectors")
       Seq(("Viva Chile constituyente, gracias Sébastian","es"), ("We did a very good job", "en")).toDF("text", "lang")
         .luceneLookup(right = vectors
           , query = udf((text:String, lang:String) => text.split(" ").map(w => s"${w}LANG$lang")).apply(col("text"), col("lang")).as("tokens")

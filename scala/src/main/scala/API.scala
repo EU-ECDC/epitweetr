@@ -283,9 +283,9 @@ object API {
             }
           } ~ 
           post {
-            withRequestTimeout(conf.fsBatchTimeout.seconds) {
+            withRequestTimeout(conf.fsLongBatchTimeout.seconds) {
               entity(as[JsValue]) { json  =>
-                implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
+                implicit val timeout: Timeout = conf.fsLongBatchTimeout.seconds //For ask property
                 Try(geoTrainingsFormat.read(json)) match {
                   case Success(GeoTrainings(trainingSet)) =>
                     val fut = (geonamesRunner ? GeonamesActor.TrainLanguagesRequest(trainingSet) )

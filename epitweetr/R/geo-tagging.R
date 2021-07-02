@@ -467,17 +467,10 @@ update_languages <- function(tasks) {
     }
     # Indexing languages after changes
     # using the spark job with entry point updateLanguages 
-    tasks <- update_languages_task(tasks, "running", "indexing")
-    spark_job(
-      paste(
-        "updateLanguages"
-        , conf_geonames_as_arg()
-        , conf_languages_as_arg()
-        , "langIndexPath", paste("\"", get_lang_index_path(), "\"", sep = "")
-        , "parallelism", conf$spark_cores 
-      )
-    )
-    
+    update_languages_task(tasks, "running", "updating training set & indexing")
+    update_geotraining_df()
+    retrain_languages()
+
     # Setting status to succès
     tasks <- update_languages_task(tasks, "success", "", end = TRUE)
     tasks
@@ -727,7 +720,6 @@ retrain_languages <- function() {
     message(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
     stop()
   } else {
-    message("I guess it worked")
     message(httr::content(post_result, "text", encoding = "UTF-8"))
   }
 }

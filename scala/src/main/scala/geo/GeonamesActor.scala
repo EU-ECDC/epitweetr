@@ -90,16 +90,18 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         implicit val s = GeonamesActor.getSparkSession
         implicit val st = GeonamesActor.getSparkStorage
         import s.implicits._
+        val readyLangs = conf.languages.get.filter(l => !l.areVectorsNew())
+        println(s"langs ready: ${readyLangs.size}")
         val df0 = 
           toGeo.toDS
             .withColumn("lang", udf((lang:String) =>  if(lang == null || lang == "all") null else lang).apply(col("lang")))
         val df =  df0.geolocate(
-              textLangCols = Map("text" -> Some("lang")) 
+              textLangCols = Map("text" -> (if(readyLangs.size > 0) Some("lang") else None)) 
               , maxLevDistance = 0
               , minScore = minScore.getOrElse(0)
               , nGram = 3
               , tokenizerRegex = Tweets.twitterSplitter
-              , langs = conf.languages.get
+              , langs = readyLangs
               , geonames = conf.geonames
               , reuseGeoIndex = true
               , langIndexPath=conf.langIndexPath

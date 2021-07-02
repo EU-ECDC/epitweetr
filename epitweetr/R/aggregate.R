@@ -332,8 +332,16 @@ get_aggregated_period <- function(dataset) {
   rds_period <- get_aggregated_period_rds(dataset)
   fs_period <- tryCatch({
      ret <- jsonlite::fromJSON(url("http://localhost:8080/period?serie=country_counts"), simplifyVector = T)
-     ret$first <- as.Date(strptime(ret$first, format = "%Y-%m-%d"))
-     ret$last <- as.Date(strptime(ret$last, format = "%Y-%m-%d"))
+     ret$first <- if(exists("first", where = ret)) {
+         as.Date(strptime(ret$first, format = "%Y-%m-%d"))
+       } else {
+         NA
+       }
+     ret$last <-  if(exists("last", where = ret)) {
+         as.Date(strptime(ret$last, format = "%Y-%m-%d"))
+       } else {
+         NA
+       }
      ret
   }, warning = function(w) {
      list(first= NA, last = NA)
