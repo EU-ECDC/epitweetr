@@ -110,7 +110,7 @@ is_search_running <- function() {
 # Get search runner execution status
 is_fs_running <- function() {
   stop_if_no_config(paste("Cannot check running status for fs without configuration setup")) 
-  get_running_task_pid("fs")>=0
+  tryCatch(httr::GET(url=get_scala_status_url(), httr::timeout(0.2))$status_code == 200, error = function(e) FALSE, warning = function(w) FALSE)
 }
 
 # Get search runner execution status

@@ -1,17 +1,17 @@
 json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
   stop_if_no_config(paste("Cannot migrate if no configuration is setup")) 
     
-  if(!file.exists(get_search_archive_path())) dir.create(get_search_archive_path())
+  if(!file.exists(get_search_archive_path())) dir.create(get_search_archive_path(), recursive = TRUE)
   total_size <- get_folder_size(get_search_path())
   read_size <- 0
   total_lines <- 0
   line_size = 70000 #Empiric observation set as initial value in bytes. It will be fixed later
   start.time <- Sys.time()
   tasks <- update_dep_task(tasks, "running", "Scanning dates to migrate")
-  dates <- sort(unique(c(
+  dates <- sort(unique(unlist(c(
     get_file_names(get_search_path(), pattern = "[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9].*\\.json\\.gz$"),
     get_file_names(get_geo_path(), pattern = "[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9].*\\.json\\.gz$")
-  )))
+  ))))
   for(i in 1:length(dates)) {
     while(is_search_running()) {
       tasks <- update_dep_task(tasks, "running", paste(

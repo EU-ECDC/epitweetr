@@ -558,78 +558,87 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
 
   if(is.function(progress)) progress(0.6, "adding new tweets")
   to_tag <- search_tweets(max = to_add) 
-  to_tag$text <- stringr::str_trim(to_tag$text)
-  to_tag$user_description <- stringr::str_trim(to_tag$user_description)
-  to_tag$user_location <- stringr::str_trim(to_tag$user_location)
-  texts <- to_tag %>%
-    dplyr::transmute(
-      Type = "Text", 
-      `Text`=.data$text,
-      `Location in text` = NA, 
-      `Location OK/KO` = "?", 
-      `Associate country code` = NA, 
-      `Associate with`=NA, 
-      `Source` = "Tweet", 
-      `Tweet Id` = .data$tweet_id, 
-      `Lang` = .data$lang,
-      `Tweet part` = "text", 
-      `Epitweetr match` = NA,
-      `Epitweetr country match` = NA,
-      `Epitweetr country code match` = NA
-    ) %>%
-    dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
-    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+  if(nrow(to_tag) > 0) {
+    to_tag$text <- stringr::str_trim(to_tag$text)
+    to_tag$user_description <- stringr::str_trim(to_tag$user_description)
+    to_tag$user_location <- stringr::str_trim(to_tag$user_location)
+    texts <- to_tag %>%
+      dplyr::transmute(
+        Type = "Text", 
+        `Text`=.data$text,
+        `Location in text` = NA, 
+        `Location OK/KO` = "?", 
+        `Associate country code` = NA, 
+        `Associate with`=NA, 
+        `Source` = "Tweet", 
+        `Tweet Id` = .data$tweet_id, 
+        `Lang` = .data$lang,
+        `Tweet part` = "text", 
+        `Epitweetr match` = NA,
+        `Epitweetr country match` = NA,
+        `Epitweetr country code match` = NA
+      ) %>%
+      dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+      dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
     
-  user_desc <- to_tag %>%
-    dplyr::filter(!is.na(.data$user_description)) %>%
-    dplyr::transmute(
-      Type = "Text", 
-      `Text`=.data$user_description,
-      `Location in text` = NA, 
-      `Location OK/KO` = "?", 
-      `Associate country code` = NA, 
-      `Associate with`= NA, 
-      `Source` = "Tweet", 
-      `Tweet Id` = .data$tweet_id, 
-      `Lang` = .data$lang,
-      `Tweet part` = "user description", 
-      `Epitweetr match` = NA,
-      `Epitweetr country match` = NA,
-      `Epitweetr country code match` = NA,
-    ) %>%
-    dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
-    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+    user_desc <- to_tag %>%
+      dplyr::filter(!is.na(.data$user_description)) %>%
+      dplyr::transmute(
+        Type = "Text", 
+        `Text`=.data$user_description,
+        `Location in text` = NA, 
+        `Location OK/KO` = "?", 
+        `Associate country code` = NA, 
+        `Associate with`= NA, 
+        `Source` = "Tweet", 
+        `Tweet Id` = .data$tweet_id, 
+        `Lang` = .data$lang,
+        `Tweet part` = "user description", 
+        `Epitweetr match` = NA,
+        `Epitweetr country match` = NA,
+        `Epitweetr country code match` = NA,
+      ) %>%
+      dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+      dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
   
-  user_loc <- to_tag %>%
-    dplyr::filter(!is.na(.data$user_location)) %>%
-    dplyr::transmute(
-      Type = "Text",
-      `Text`=.data$user_location,
-      `Location in text` = NA, 
-      `Location OK/KO` = "?", 
-      `Associate country code` = NA, 
-      `Associate with`=NA, 
-      `Source` = "Tweet", 
-      `Tweet Id` = .data$tweet_id, 
-      `Lang` = .data$lang,
-      `Tweet part` = "user location", 
-      `Epitweetr match` = NA,
-      `Epitweetr country match` = NA,
-      `Epitweetr country code match` = NA,
-    ) %>%
-    dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
-    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+    user_loc <- to_tag %>%
+      dplyr::filter(!is.na(.data$user_location)) %>%
+      dplyr::transmute(
+        Type = "Text",
+        `Text`=.data$user_location,
+        `Location in text` = NA, 
+        `Location OK/KO` = "?", 
+        `Associate country code` = NA, 
+        `Associate with`=NA, 
+        `Source` = "Tweet", 
+        `Tweet Id` = .data$tweet_id, 
+        `Lang` = .data$lang,
+        `Tweet part` = "user location", 
+        `Epitweetr match` = NA,
+        `Epitweetr country match` = NA,
+      `  Epitweetr country code match` = NA,
+      ) %>%
+      dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+      dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = TRUE)
 
-  ret = jsonlite::rbind_pages(list(
-    current,
-    geo_training,
-    texts,
-    user_desc,
-    user_loc
-  )) %>% dplyr::filter(!is.na(.data$Text) & !.data$Text == "") %>%
-    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+      ret <- jsonlite::rbind_pages(list(
+        current,
+        geo_training,
+        texts,
+        user_desc,
+        user_loc
+      ))
+    } else {
+      ret <- jsonlite::rbind_pages(list(
+        current,
+        geo_training
+      ))
+	}	  
+	
+	ret <- ret %>% dplyr::filter(!is.na(.data$Text) & !.data$Text == "") %>%
+    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = TRUE)
 
-
+    ret 
   text_togeo <- ret %>% dplyr::transmute(
     Text = ifelse(!is.na(.data$`Associate with`), .data$`Associate with`, .data$Text), 
     Lang = ifelse(!is.na(.data$`Associate with`), "all", .data$Lang)

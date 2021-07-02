@@ -38,6 +38,11 @@ search_loop <-  function(data_dir = NA) {
   # Infinite loop for getting tweets if it is successfully registered as the search runner
   req2Commit <- 0
   while(TRUE) {
+    # Waiting until database system will be running
+    while(!is_fs_running()) {
+      message("Epitweetr Database is not yet running waiting for 5 seconds")
+      Sys.sleep(5)
+    }
     # On each iteration this loop will perform one request for each active plans having the minimum number of requests 
     # Creating plans for each topic if collect span is expired and calculating next execution time for each plan.
     for(i in 1:length(conf$topics)) {

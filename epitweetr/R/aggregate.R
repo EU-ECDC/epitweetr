@@ -341,9 +341,12 @@ get_aggregated_period <- function(dataset) {
      list(first = NA, last = NA)
   })
 
-  list(
-    first = min(c(rds_period$first, fs_period$first), na.rm = T), 
-    last = max(c(rds_period$last, fs_period$last), na.rm = T),
-    last_hour = 23
-  )
+  if(is.na(rds_period$first) && is.na(fs_period$first))
+    list(first = NA, last = NA, last_hour = NA)
+  else 
+    list(
+      first = min(c(rds_period$first, fs_period$first), na.rm = T), 
+      last = max(c(rds_period$last, fs_period$last), na.rm = T),
+      last_hour = 23
+    )
 }
