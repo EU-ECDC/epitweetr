@@ -1,6 +1,6 @@
 package org.ecdc.epitweetr.geo
 
-import org.ecdc.twitter.{JavaBridge,  Geonames, Tweets, Language}
+import org.ecdc.twitter.{JavaBridge,  Geonames, Language}
 import org.ecdc.twitter.Geonames.Geolocate
 import org.ecdc.epitweetr.{Settings, EpitweetrActor}
 import org.ecdc.epitweetr.fs.{TextToGeo}
@@ -100,7 +100,7 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
               , maxLevDistance = 0
               , minScore = minScore.getOrElse(0)
               , nGram = 3
-              , tokenizerRegex = Tweets.twitterSplitter
+              , tokenizerRegex = conf.splitter
               , langs = readyLangs
               , geonames = conf.geonames
               , reuseGeoIndex = true

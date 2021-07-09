@@ -534,7 +534,6 @@ object LuceneActor {
     }
   }
 
-  val twitterSplitter = "((http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+|RT|via|vía"
   val defaultTextLangCols =
     Map(
       "text"->Some("lang")
@@ -561,7 +560,7 @@ object LuceneActor {
           , minScore = conf.geolocationThreshold.get
           , maxLevDistance = 0
           , nGram = 3
-          , tokenizerRegex = twitterSplitter
+          , tokenizerRegex = conf.splitter
           , langs = conf.languages.get
           , geonames = conf.geonames
           , reuseGeoIndex = true

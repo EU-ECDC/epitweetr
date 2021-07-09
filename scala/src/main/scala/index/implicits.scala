@@ -34,6 +34,7 @@ object implicits {
       , strategy:String = "demy.mllib.index.StandardStrategy"
       , strategyParams: Map[String, String]=Map.empty[String,String]
       , stopWords:Set[String]=Set[String]()
+      , defaultValue:Option[Row]=None
     ) = luceneLookups(
       right = right
       , queries = Seq(query)
@@ -55,6 +56,7 @@ object implicits {
       , strategy = strategy
       , strategyParams = strategyParams
       , stopWords = stopWords
+      , defaultValue = defaultValue
     )
     def luceneLookups(
       right:Dataset[_]
@@ -77,6 +79,7 @@ object implicits {
       , strategy:String = "demy.mllib.index.StandardStrategy"
       , strategyParams: Map[String, String]=Map.empty[String,String]
       , stopWords:Set[String]=Set[String]()
+      , defaultValue:Option[Row]=None
     ) = {
       val rightApplied = right.select(
         Array(text.as("_text_")) 
@@ -120,6 +123,7 @@ object implicits {
         , strategy = strategy
         , strategyParams = strategyParams
         , stopWords = stopWords
+        , defaultValue = defaultValue
       ) 
     }
 
@@ -200,6 +204,7 @@ object implicits {
       , strategy:String = "demy.mllib.index.StandardStrategy"
       , strategyParams: Map[String, String]=Map.empty[String,String]
       , stopWords:Set[String]=Set[String]()
+      , defaultValue:Option[Row]=None
       
     ) = {
       val sparkStorage = Storage.getSparkStorage
@@ -354,7 +359,9 @@ object implicits {
                        tokens = searchTokens, maxHits=1, filter = Row.empty, outFields=rightRequestFields,
                          maxLevDistance=maxLevDistance, minScore=minScore, boostAcronyms=boostAcronyms,
                          usePopularity = iReader.usePopularity, termWeights=searchWeights,
-                         caseInsensitive = caseInsensitive)
+                         caseInsensitive = caseInsensitive,
+                         defaultValue = defaultValue
+                         )
                      //val endTime = System.nanoTime
                      //if(termWeightsArray(i)(j) != null && termWeightsArray(i)(j).map(s => s.size).getOrElse(0)>0)
                      //l.msg(s"long in ${(endTime - startTime)/1e6d} for $iRow in $iPart ${(endTime - startTime)/1e6d} mili seconds for ${if(tokens != null) tokens.size else "null"} ${strategy}")

@@ -1,5 +1,5 @@
 #!/bin/bash
-export SPARK_VERSION=3.0.0
+export SPARK_VERSION=3.1.2
 export SBT_OPTS="-Xmx16G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
 if [ -z ${EPI_HOME+x} ]; then echo "please set EPI_HOME is unset"; exit 1; fi
 cd scala

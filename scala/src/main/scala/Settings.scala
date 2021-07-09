@@ -45,6 +45,8 @@ case class Settings(epiHome:String) {
   def collectionPath =  Paths.get(epiHome, "collections").toString 
   def geolocationThreshold = properties.fields.get("geolocation_threshold").map(v => v.asInstanceOf[JsString].value.toInt)
   def geolocationStrategy = Some("demy.mllib.index.PredictStrategy")
+  def geoNBefore = 10
+  def geoNAfter = 4
   def geonames = 
     Geonames(
       Paths.get(epiHome, "geo", "allCountries.txt").toString,  
@@ -56,4 +58,9 @@ case class Settings(epiHome:String) {
   def fsQueryTimeout = properties.fields.get("fs_query_timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60)
   def fsLongBatchTimeout = properties.fields.get("fs_long_batch_timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60*60*24)
   def fsPort = properties.fields.get("fs_port").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(8080)
+  
+  def splitter = properties.fields.get("tweetSplitterRegex").map(v => v.asInstanceOf[JsString].value).getOrElse(Settings.defaultSplitter)
+}
+object Settings {
+  def defaultSplitter = "(http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|\\bRT\\b+|\\bvia\\b+|\\bvía\\b+|((?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+"
 }

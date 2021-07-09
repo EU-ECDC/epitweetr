@@ -1,7 +1,6 @@
 package org.ecdc.twitter 
 
 import demy.storage.{Storage, WriteMode, FSNode}
-import demy.mllib.text.Word2VecApplier
 import demy.mllib.index.implicits._
 import demy.mllib.linalg.implicits._
 import demy.util.{log => l, util}
@@ -25,6 +24,15 @@ case class Language(name:String, code:String, vectorsPath:String) {
        .filter(a => a.size>2)
        .map(a => (a(0), Vectors.dense(a.drop(1).map(s => s.toDouble)), this.code))
    }
+   def getVectorsSize()(implicit spark:SparkSession, storage:Storage) = { 
+     import spark.implicits._
+     spark.read.text(vectorsPath).as[String]
+       .map(s => s.split(" "))
+       .filter(a => a.size>2)
+       .map(a => a.drop(1).size)
+       .head
+   }
+   def getUnknownVector(n:Int) = Vectors.dense(Array.range(0, n).map(s => 1.0))
 
    def getVectorsDF()(implicit spark:SparkSession, storage:Storage) = {
      this.getVectors().toDF("word", "vector", "lang")
@@ -82,6 +90,7 @@ case class Language(name:String, code:String, vectorsPath:String) {
         throw new Exception("Cannot get a likelyhood model without training data and unprocessed vectors")
       }
    }
+
  }
 
 object Language {
@@ -138,8 +147,7 @@ object Language {
                        .map{case (model, method) =>
                          vectors.map{vector => 
                            if(vector == null)
-                             //throw new Exception("Null vectors are not supported anymore")
-                             0.4
+                             throw new Exception("Null vectors are not supported anymore")
                            else
                              Some(method.invoke(model, vector).asInstanceOf[DenseVector])
                                .map{scores =>
@@ -224,6 +232,7 @@ object Language {
     , tokenizerRegex: String = simpleSplitter
   )(implicit storage:Storage) = {
     implicit val spark =  ds.sparkSession
+    val unk = langs(0).getUnknownVector(langs(0).getVectorsSize())
     val vectors = Language.multiLangVectors(langs)
     Some(ds)
       .map(df => ds
@@ -258,6 +267,7 @@ object Language {
           , minScore = 0.0
           , boostAcronyms=false
           , strategy="demy.mllib.index.StandardStrategy"
+          , defaultValue = Some(Row(unk)) 
       ))
       .map(df => df.toDF(df.schema.map(f => 
           if(textLangCols.size == 1 && f.name == "array") s"${textLangCols.keys.head}_vec"

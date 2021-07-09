@@ -351,7 +351,7 @@ object EpiSerialisation
                   .map(v => GeoTrainingPart(v)), 
                 foundLocation = fields.get("Epitweetr match").map(v => v.asInstanceOf[JsString].value) , 
                 foundLocationCode = fields.get("Epitweetr country match").map(v => v.asInstanceOf[JsString].value), 
-                foundCuntryCode = fields.get("Epitweetr country code match").map(v => v.asInstanceOf[JsString].value)
+                foundCountryCode = fields.get("Epitweetr country code match").map(v => v.asInstanceOf[JsString].value)
               )
           case _ =>
             throw new Exception(s"@epi cannot deserialize $value to GeoTraining")

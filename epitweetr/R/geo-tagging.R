@@ -597,7 +597,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
     user_loc <- to_tag %>%
       dplyr::filter(!is.na(.data$user_location)) %>%
       dplyr::transmute(
-        Type = "Text",
+        Type = "Location",
         `Text`=.data$user_location,
         `Location in text` = NA, 
         `Location OK/KO` = "?", 

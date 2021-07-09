@@ -132,15 +132,14 @@ trait IndexStrategy {
 
   def search(tokens:Array[String], maxHits:Int, filter:Row = Row.empty, outFields:Seq[StructField]=Seq[StructField](),
              maxLevDistance:Int=2 , minScore:Double=0.0, boostAcronyms:Boolean=false, showTags:Boolean=false, usePopularity:Boolean, termWeights:Option[Seq[Double]]=None,
-             caseInsensitive:Boolean = true):Array[GenericRowWithSchema] = {
-
+             caseInsensitive:Boolean = true, defaultValue:Option[Row]=None):Array[GenericRowWithSchema] = {
     val outSchema = StructType(outFields.toList :+ StructField("_score_", FloatType)
                                                 :+ StructField("_tags_", ArrayType(StringType))
                                                 :+ StructField("_startIndex_", IntegerType)
                                                 :+ StructField("_endIndex_", IntegerType))
                                               //  :+ StructField("_pos_", ArrayType(IntegerType, IntegerType)) ) // add fields
     //if(tokens != null) println(s"$termWeights, ${tokens.mkString(",")}")
-    if (tokens != null && tokens.size >0 ) {
+    var ret = if (tokens != null && tokens.size >0 ) {
       searchDoc(
         terms = tokens, maxHits=maxHits, filter=filter, maxLevDistance=maxLevDistance
           ,minScore=minScore, boostAcronyms = boostAcronyms, usePopularity = usePopularity, termWeights=termWeights
@@ -178,6 +177,11 @@ trait IndexStrategy {
         })
     } 
       else Array[GenericRowWithSchema]()
+    if(ret.size == 0 && !defaultValue.isEmpty) {
+      ret = Array(new GenericRowWithSchema(values = defaultValue.get.toSeq.toArray ++ Array(0.0f, null, null, null), schema = outSchema))
+    }
+
+    ret
   }
 
 
