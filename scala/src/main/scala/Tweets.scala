@@ -1,5 +1,6 @@
 package org.ecdc.twitter 
 
+import org.ecdc.epitweetr.geo.Geonames
 import demy.mllib.linalg.implicits._
 import demy.mllib.index.implicits._
 import demy.storage.{Storage, WriteMode, FSNode}
@@ -36,7 +37,7 @@ object Tweets {
          if(params.get("assemble").map(s => s.toBoolean).getOrElse(false))
            geonames.getDataset(reuseExisting = false)
          if(params.get("index").map(s => s.toBoolean).getOrElse(false)) {
-           geonames.geolocateText(text=Seq("Viva Chile"), reuseGeoIndex = false).show
+           geonames.geolocateText(text=Seq("Viva Chile"), reuseGeoIndex = false, maxLevDistance = 0, minScore = 0, nBefore = 0, nAfter = 0, langs = Seq[Language]()).show
          }
       } else {
         throw new Exception("Not implemented @epi") 

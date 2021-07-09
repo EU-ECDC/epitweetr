@@ -15,7 +15,7 @@ import org.apache.lucene.search.BooleanClause.Occur
 import scala.util.{Try,Success,Failure}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
-import org.ecdc.twitter.Geonames.Geolocate
+import org.ecdc.epitweetr.geo.Geonames.Geolocate
 import org.apache.spark.sql.{Row}
 import org.apache.spark.sql.types.{StructField, StringType, IntegerType, FloatType, BooleanType, LongType, DoubleType}
 object TweetIndex {

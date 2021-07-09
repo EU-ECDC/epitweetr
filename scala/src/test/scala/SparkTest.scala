@@ -28,6 +28,7 @@ class SparkTest  extends UnitTest
   with geo.GeoTrainingTest
   with SettingsTest
   with LanguageTest
+  with geo.GeonamesTest
 {
   override def beforeAll() {
     SharedSpark.init

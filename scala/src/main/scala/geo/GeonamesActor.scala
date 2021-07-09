@@ -1,7 +1,8 @@
 package org.ecdc.epitweetr.geo
 
-import org.ecdc.twitter.{JavaBridge,  Geonames, Language}
-import org.ecdc.twitter.Geonames.Geolocate
+import org.ecdc.twitter.{JavaBridge, Language}
+import Geonames.Geolocate
+import demy.util.{log => l, util}
 import org.ecdc.epitweetr.{Settings, EpitweetrActor}
 import org.ecdc.epitweetr.fs.{TextToGeo}
 import akka.pattern.{ask, pipe}
@@ -90,7 +91,7 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         implicit val s = GeonamesActor.getSparkSession
         implicit val st = GeonamesActor.getSparkStorage
         import s.implicits._
-        val readyLangs = conf.languages.get.filter(l => !l.areVectorsNew())
+        val readyLangs = GeoTraining.trainedLanguages()
         println(s"langs ready: ${readyLangs.size}")
         val df0 = 
           toGeo.toDS
@@ -99,14 +100,14 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
               textLangCols = Map("text" -> (if(readyLangs.size > 0) Some("lang") else None)) 
               , maxLevDistance = 0
               , minScore = minScore.getOrElse(0)
-              , nGram = 3
+              , nBefore = conf.geoNBefore
+              , nAfter = conf.geoNAfter
               , tokenizerRegex = conf.splitter
               , langs = readyLangs
               , geonames = conf.geonames
               , reuseGeoIndex = true
               , langIndexPath=conf.langIndexPath
               , reuseLangIndex = true
-              , strategy = conf.geolocationStrategy.get
              ).select(col("id"), col("text"), col("lang"), col("geo_code"), col("geo_country_code"), col("geo_country"), col("geo_name"), array_join(col("_tags_"), " ").as("tags"))
              .withColumn("geo_country", udf((country:String)=>if(country == null) null else country.split(",").head.trim).apply(col("geo_country")))
         df.toJSON
@@ -131,7 +132,8 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
       Future {
         implicit val s = GeonamesActor.getSparkSession
         implicit val st = GeonamesActor.getSparkStorage
-        Language.updateLanguages(trainingSet, conf.languages.get, conf.geonames, indexPath=conf.langIndexPath, conf.sparkCores)
+        val ret = Language.updateLanguages(trainingSet, conf.languages.get, conf.geonames, indexPath=conf.langIndexPath, conf.sparkCores)
+        l.msg(s"Training finished, metrics = ${ret.map(_._4).reduce(_.sum(_))}")
       }
       .map{_ =>
         GeonamesActor.LanguagesTrained("ok")

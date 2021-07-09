@@ -176,17 +176,16 @@ trait GeoTrainingTest extends UnitTest {
   }
 
   "Geotraining tools" should "build training/test dataset from GeoTraining datasets" in {
-     val seqs = GeoTraining.getTrainingTestDfs(ds = geotrainingTestDS, trainingRation=0.8, splitter = s, nBefore = 10, nAfter = 2)
+     val seqs = GeoTraining.getTrainingTestDfs(ds = geotrainingTestDS, trainingRatio=0.8, splitter = s, nBefore = 10, nAfter = 2)
      //seqs.foreach(s => println(s"${s._1}, ${s._2.count} ${s._3.count}"))
      seqs.size > 0
    }
-   it should "train models from GeoTraining datasets" in {
+   it should "evaluate models from GeoTraining datasets" in {
      assume(!sys.env.get("EPI_HOME").isEmpty)
      implicit val conf = Settings(sys.env("EPI_HOME"))
      conf.load
      implicit val storage = Storage.getSparkStorage  
-     val df = GeoTraining.trainAndEvaluate(ds = geotrainingTestDS, trainingRation = 0.5,  s)
-     df.show
+     val df = GeoTraining.getTrainedAndEvaluate(ds = geotrainingTestDS, trainingRatio = 0.5,  s)
      df.count > 0
    }
 

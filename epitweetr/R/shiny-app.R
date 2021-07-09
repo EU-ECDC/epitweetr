@@ -1,4 +1,3 @@
-
 #' @title Run the epitweetr Shiny app
 #' @description Open the epitweetr Shiny app, used to setup the Data collection & processing pipeline, the Requirements & alerts pipeline and to visualise the outputs. 
 #' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
@@ -1396,6 +1395,8 @@ epitweetr_app <- function(data_dir = NA) {
         #updating geotraining df taking in condideration new uploaded file
         
         tryCatch({
+           update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
+           retrain_languages()
            update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
            cd$geotraining_refresh_flag(Sys.time())
           },

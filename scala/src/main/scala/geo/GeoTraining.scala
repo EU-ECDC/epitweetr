@@ -1,6 +1,7 @@
 package org.ecdc.epitweetr.geo
 
 import demy.storage.{Storage}
+import demy.util.{log => l, util}
 import org.ecdc.epitweetr.Settings
 import org.ecdc.twitter.Language
 import org.apache.spark.sql.{Dataset, SparkSession, DataFrame, Row}
@@ -72,8 +73,26 @@ case class TaggedChunk(tokens:Seq[String], isEntity:Boolean) {
 }
 object TaggedChunk {
   def apply(chunk:String, isEntity:Boolean, splitter:String):TaggedChunk = TaggedChunk(tokens = chunk.split(splitter).filter(_.size > 0), isEntity = isEntity)
+  def fromBIO(tokens:Seq[String], bioTags:Seq[String]) = {
+    assert(tokens.size == bioTags.size)
+    var nextStart = 0
+    for{
+      i <- Iterator.range(0, tokens.size)
+      if i == nextStart
+    } yield {
+      if(bioTags(i) == "O") {
+        nextStart = Iterator.range(i+1, tokens.size).dropWhile(j => bioTags(j) != "B").toSeq.headOption.getOrElse(tokens.size)
+        TaggedChunk(tokens = tokens.slice(i, nextStart), isEntity = false) 
+      } else {
+        nextStart = Iterator.range(i+1, tokens.size).dropWhile(j => bioTags(j) == "I").toSeq.headOption.getOrElse(tokens.size)
+        TaggedChunk(tokens = tokens.slice(i, nextStart), isEntity = true) 
+      }
+    }
+  }
 }
-case class ConfusionMatrix(tp:Int, fp:Int, tn:Int, fn:Int)
+case class ConfusionMatrix(tp:Int, fp:Int, tn:Int, fn:Int) {
+  def sum(that:ConfusionMatrix) = ConfusionMatrix(tp = this.tp + that.tp, fp = this.fp + that.fp, tn = this.tn + that.tn, fn = this.fn + that.fn) 
+}
 object ConfusionMatrix {
   def apply(tagged:TaggedText, predicted:TaggedText):ConfusionMatrix = {
     val predictedEntities = predicted.taggedChunks.filter(_.isEntity).toSet
@@ -86,7 +105,7 @@ object ConfusionMatrix {
       tp = if(isTP) 1 else 0,
       fp = if(isFP) 1 else 0,
       tn = if(isTN) 1 else 0,
-      fn = if(isFP) 1 else 0
+      fn = if(isFN) 1 else 0
     )
   } 
 }
@@ -139,25 +158,15 @@ case class TaggedText(id:String, taggedChunks:Seq[TaggedChunk], lang:Option[Stri
 }
 object TaggedText {
   def apply(id:String, lang:Option[String], tokens:Seq[String], bioTags:Seq[String]):TaggedText = {
-    assert(tokens.size == bioTags.size)
-    var nextStart = 0
-    val chunks = for{
-      i <- Iterator.range(0, tokens.size)
-      if i == nextStart
-    } yield {
-      if(bioTags(i) == "O") {
-        nextStart = Iterator.range(i+1, tokens.size).dropWhile(j => bioTags(j) != "B").toSeq.headOption.getOrElse(tokens.size)
-        TaggedChunk(tokens = tokens.slice(i, nextStart), isEntity = false) 
-      } else {
-        nextStart = Iterator.range(i+1, tokens.size).dropWhile(j => bioTags(j) == "I").toSeq.headOption.getOrElse(tokens.size)
-        TaggedChunk(tokens = tokens.slice(i, nextStart), isEntity = true) 
-      }
-    }
+    val chunks = TaggedChunk.fromBIO(tokens = tokens, bioTags = bioTags )
     TaggedText(id = id, taggedChunks = chunks.toSeq, lang = lang)
   }
 }
 
-case class BIOAnnotation(tag:String, token:String, before:Seq[String], after:Seq[String], lang:Option[String])
+case class BIOAnnotation(tag:String, token:String, before:Seq[String], after:Seq[String], lang:Option[String]) {
+  def forceLangTo(newLang:Option[String]) = BIOAnnotation(tag = tag, token=token, before = before, after = after, lang = newLang)
+}
+
 case class GeoTrainings(items:Seq[GeoTraining])
 
 case class GeoTrainingSource(value:String)
@@ -234,32 +243,34 @@ object GeoTraining {
       .map(_._2) 
   }
 
-  def getTrainingTestDfs(ds:Dataset[GeoTraining], trainingRation:Double, splitter:String, nBefore:Int, nAfter:Int) = { 
+  def getTrainingTestDfs(ds:Dataset[GeoTraining], trainingRatio:Double, splitter:String, nBefore:Int, nAfter:Int) = { 
     val baseDs = ds.filter(gt => !gt.isLocation.isEmpty)
     val l = 10000
     Seq(
       (
         "Tweet texts", 
-        baseDs.filter(gt => gt.source == GeoTrainingSource.tweet && gt.tweetPart == Some(GeoTrainingPart.text) && Math.abs(gt.id().hashCode) % l < trainingRation * l),
-        baseDs.filter(gt => gt.source != GeoTrainingSource.tweet || gt.tweetPart != Some(GeoTrainingPart.text) || Math.abs(gt.id().hashCode) % l >= trainingRation * l)
+        baseDs.filter(gt => gt.source == GeoTrainingSource.tweet && gt.tweetPart == Some(GeoTrainingPart.text) && Math.abs(gt.id().hashCode) % l < trainingRatio * l),
+        baseDs.filter(gt => gt.source != GeoTrainingSource.tweet || gt.tweetPart != Some(GeoTrainingPart.text) || Math.abs(gt.id().hashCode) % l >= trainingRatio * l)
       ),(
         "Tweet location", 
-        baseDs.filter(gt => gt.source == GeoTrainingSource.tweet  && gt.tweetPart == Some(GeoTrainingPart.userLocation) && Math.abs(gt.id().hashCode) % l < trainingRation * l),
-        baseDs.filter(gt => gt.source != GeoTrainingSource.tweet  || gt.tweetPart != Some(GeoTrainingPart.userLocation) || Math.abs(gt.id().hashCode) % l >= trainingRation * l)
+        baseDs.filter(gt => gt.source == GeoTrainingSource.tweet  && gt.tweetPart == Some(GeoTrainingPart.userLocation) && Math.abs(gt.id().hashCode) % l < trainingRatio * l),
+        baseDs.filter(gt => gt.source != GeoTrainingSource.tweet  || gt.tweetPart != Some(GeoTrainingPart.userLocation) || Math.abs(gt.id().hashCode) % l >= trainingRatio * l)
       ),(
         "Tweet user description", 
-        baseDs.filter(gt => gt.source == GeoTrainingSource.tweet && gt.tweetPart == Some(GeoTrainingPart.userDescription) && Math.abs(gt.id().hashCode) % l < trainingRation * l),
-        baseDs.filter(gt => gt.source != GeoTrainingSource.tweet || gt.tweetPart != Some(GeoTrainingPart.userDescription) || Math.abs(gt.id().hashCode) % l >= trainingRation * l)
+        baseDs.filter(gt => gt.source == GeoTrainingSource.tweet && gt.tweetPart == Some(GeoTrainingPart.userDescription) && Math.abs(gt.id().hashCode) % l < trainingRatio * l),
+        baseDs.filter(gt => gt.source != GeoTrainingSource.tweet || gt.tweetPart != Some(GeoTrainingPart.userDescription) || Math.abs(gt.id().hashCode) % l >= trainingRatio * l)
       ),(
         "Model Location", 
-        baseDs.filter(gt => gt.source == GeoTrainingSource.epitweetrModel && gt.category.toLowerCase == "location" && Math.abs(gt.id().hashCode) % l < trainingRation * l),
-        baseDs.filter(gt => gt.source != GeoTrainingSource.epitweetrModel || gt.category.toLowerCase != "location" || Math.abs(gt.id().hashCode) % l >= trainingRation * l)
+        baseDs.filter(gt => gt.source == GeoTrainingSource.epitweetrModel && gt.category.toLowerCase == "location" && Math.abs(gt.id().hashCode) % l < trainingRatio * l),
+        baseDs.filter(gt => gt.source != GeoTrainingSource.epitweetrModel || gt.category.toLowerCase != "location" || Math.abs(gt.id().hashCode) % l >= trainingRatio * l)
       )
-    ).map{case(t, test, train) => (t, GeoTraining.TaggedTextDataset(test, splitter, nBefore, nAfter), GeoTraining.TaggedTextDataset(train, splitter, nBefore, nAfter))}
-    
+    ).map{case(t, test, train) => (t, GeoTraining.TaggedTextDataset(test, splitter, nBefore, nAfter).cache, GeoTraining.TaggedTextDataset(train, splitter, nBefore, nAfter).cache)}
   }
 
-  def BIO2TrainData(bio:Dataset[BIOAnnotation])(implicit storage:Storage, conf:Settings) = {
+  def BIO2TrainData(bio:Dataset[BIOAnnotation])(implicit storage:Storage, conf:Settings):DataFrame = {
+    BIO2TrainData(bio = bio, languages = conf.languages.get, splitter = conf.splitter, langIndexPath = conf.langIndexPath, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter)
+  }
+  def BIO2TrainData(bio:Dataset[BIOAnnotation], languages:Seq[Language], splitter:String, langIndexPath:String, nBefore:Int, nAfter:Int)(implicit storage:Storage):DataFrame = {
     bio.select(
       col("tag"), 
       col("token"), 
@@ -268,11 +279,11 @@ object GeoTraining {
       col("lang")
     )
     .vectorize(
-      languages = conf.languages.get, 
+      languages = languages, 
       reuseIndex = true, 
-      indexPath = conf.langIndexPath, 
+      indexPath = langIndexPath, 
       textLangCols = Map("token"->Some("lang"), "before" -> Some("lang"), "after" -> Some("lang")), 
-      tokenizerRegex = conf.splitter
+      tokenizerRegex = splitter
     )
     .select("tag", "token", "before", "after", "lang", "token_vec", "before_vec", "after_vec")
     .select(col("tag"),col("lang"), 
@@ -284,61 +295,83 @@ object GeoTraining {
         val before = rbefore.map(r => r.getAs[DenseVector]("vector"))
         val after = rafter.map(r => r.getAs[DenseVector]("vector"))
         GeoTraining.getContextVector(vector, before.iterator, after.iterator, nBefore, nAfter)
-      }).apply(col("token_vec"), col("before_vec"), col("after_vec"), lit(conf.geoNBefore), lit(conf.geoNAfter)).as("vector")
+      }).apply(col("token_vec"), col("before_vec"), col("after_vec"), lit(nBefore), lit(nAfter)).as("vector")
     ) 
   }
 
-  def getTrained(annotations:Option[Dataset[BIOAnnotation]], reuse:Boolean=true, id:String="")(implicit storage:Storage, conf:Settings) = {
+  def getTrained(annotations:Option[Dataset[BIOAnnotation]])(implicit storage:Storage, conf:Settings):Map[String, LinearSVCModel] = {
+    getTrained(annotations = annotations, reuse = true, id = "") 
+  }
+  def getTrained(annotations:Option[Dataset[BIOAnnotation]], reuse:Boolean, id:String)(implicit storage:Storage, conf:Settings):Map[String, LinearSVCModel] = {
+    getTrained(annotations = annotations, reuse = reuse, id = id, languages = conf.languages.get, splitter = conf.splitter, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter, langIndexPath = conf.langIndexPath) 
+  }
+  def trainedLanguages()(implicit conf:Settings, storage:Storage) = {
+    conf.languages.get.filter{lang => 
+       Seq("B", "I", "O")
+         .forall(t => /*!l.areVectorsNew() &&*/ storage.getNode(s"${lang.modelPath}.${t}").exists)
+    }
+  }
+  def getTrained(annotations:Option[Dataset[BIOAnnotation]], reuse:Boolean=true, id:String="", languages:Seq[Language], splitter:String, nBefore:Int, nAfter:Int, langIndexPath:String)
+    (implicit storage:Storage):Map[String, LinearSVCModel] = {
     val models = 
-      conf.languages.get
-        .flatMap(l => Seq("B", "I", "O").map(t => (t, l)))
-        .flatMap{case (t, l) => 
-           val path = s"${l.modelPath}.${t}${if(id=="") "" else "."}$id"
-           if(storage.getNode(l.modelPath).exists
-               && !l.areVectorsNew()
+      languages
+        .flatMap(lang => Seq("B", "I", "O").map(t => (t, lang)))
+        .flatMap{case (t, lang) => 
+           val path = s"${lang.modelPath}.${t}${if(id=="") "" else "."}$id"
+           if(storage.getNode(path).exists
+               && !lang.areVectorsNew()
                && (annotations.isEmpty || reuse)
            ) {
-               Some(s"$t.${l.code}", LinearSVCModel.load(path))
+             l.msg(s"Loading model for $path")
+               Some(s"$t.${lang.code}", LinearSVCModel.load(path))
            }  else if(!annotations.isEmpty) {
              val spark =  annotations.get.sparkSession
              import spark.implicits._
-             val trainData = GeoTraining.BIO2TrainData(bio = annotations.get)
+             val trainData = {
+               //util.checkpoint(
+                 //ds = {
+                   val langAnnotations = annotations.get.filter(bio => bio.lang.isEmpty || bio.lang == Some(lang.code)).map(bio => bio.forceLangTo(Some(lang.code)))
+                   GeoTraining.BIO2TrainData(bio = langAnnotations, languages = languages, splitter = splitter, langIndexPath = langIndexPath, nBefore = nBefore, nAfter = nAfter)
+                 //},
+                 //path = storage.getTmpNode(sandboxed = true),
+                 //reuse = false
+               }.cache
              val model = new LinearSVC().setFeaturesCol("vector").setLabelCol(s"${t}Label")
-             val data = trainData.where(col("lang")===lit(l.code)).cache
-             if(data.count > 0) {
-               val trained = model.fit(data)
+             val ret = if(trainData.count > 0) {
+               l.msg(s"Training model for $path")
+               val trained = model.fit(trainData)
                trained.write.overwrite().save(path)
                //Setting update timestamp
                storage.isUnchanged(path = Some(path), checkPath = Some(s"${path}.stamp"), updateStamp = true)  
-               data.unpersist
-               Some(s"$t.${l.code}", trained)
+               Some(s"$t.${lang.code}", trained)
              } else {
                None
              }
+             trainData.unpersist
+             //storage.removeMarkedFiles()
+             ret
            } else {
-              throw new Exception("Cannot get a likelyhood model without training data and unprocessed vectors")
+              throw new Exception("Cannot get a tagging model without training data and unprocessed vectors")
            }
         }
         .toMap
     models
   }
 
-  def trainAndEvaluate(
+  def getTrainedAndEvaluate(
     ds:Dataset[GeoTraining],
-    trainingRation:Double,
+    trainingRatio:Double,
     splitter:String,
   ) (implicit storage:Storage, conf:Settings) = {
     import ds.sparkSession.implicits._
-    val tests = GeoTraining.getTrainingTestDfs(ds = ds, trainingRation:Double, splitter:String, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter) 
+    val tests = GeoTraining.getTrainingTestDfs(ds = ds, trainingRatio:Double, splitter:String, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter) 
     
     val testNames = tests.map(_._1) 
     val testSets =   tests.map(_._2)
     val trainingSets = tests.map(_._3)
     (for(i <- Iterator.range(0, testNames.size)) yield {
       val testName = testNames(i)
-      println(s"-------------> training $testName")
       val models = GeoTraining.getTrained(annotations = Some(trainingSets(i).flatMap(tt => tt.toBIO(conf.geoNBefore, conf.geoNAfter))), reuse = true, id = testName)
-      println(s"-------------> training $testName done")
       val testTexts = testSets(i)
         .select(udf((id:String, taggedChunks:Seq[TaggedChunk], lang:Option[String]) => TaggedText(id, taggedChunks, lang)).apply(col("id"), col("taggedChunks"), col("lang")).as("tagged"))
         .select(
@@ -359,11 +392,12 @@ object GeoTraining {
         df = testTexts, 
         vectorsCols = Seq("text_vec"), 
         langCols = Seq("lang"), 
-        tagColNames = Seq("text_tag"), 
+        tagCols = Seq("text_tag"), 
         models = models, 
         nBefore = conf.geoNBefore, 
         nAfter = conf.geoNAfter
-      ).withColumn(
+      )
+      .withColumn(
         "predicted", 
         udf((id:String, lang:Option[String], tokens:Seq[String], bioTags:Seq[String]) => 
            TaggedText(id, lang, tokens, bioTags) 
@@ -373,9 +407,9 @@ object GeoTraining {
         lit(testName),
         col("text"),
         udf((tagged:TaggedText) => tagged.taggedChunks.filter(_.isEntity).map(_.tokens.mkString(" "))).apply(col("tagged")).as("tagged"),
-        udf((predicted:TaggedText) => predicted.taggedChunks.filter(_.isEntity).map(_.tokens.mkString(" "))).apply(col("tagged")).as("tagged"),
-        col("confMatrix.*")
-      )
+        udf((predicted:TaggedText) => predicted.taggedChunks.filter(_.isEntity).map(_.tokens.mkString(" "))).apply(col("predicted")).as("predicted"),
+        col("confMatrix")
+      ).as[(String, String, String, ConfusionMatrix)]
     }).reduce(_.union(_))
   }
 
@@ -399,7 +433,17 @@ object GeoTraining {
     //vector.sum(vAfter.sum(vBefore))
   }
 
-  def predictBIO(df:DataFrame, vectorsCols:Seq[String], langCols:Seq[String], tagColNames:Seq[String], models:Map[String, LinearSVCModel], nBefore:Int, nAfter:Int) =  {
+  def predictBIO(df:DataFrame, vectorsCols:Seq[String], langCols:Seq[String], tagCols:Seq[String])(implicit storage:Storage, conf:Settings):DataFrame =  {
+    val models = GeoTraining.getTrained(annotations = None, reuse = true, id = "")
+    predictBIO(df = df, vectorsCols = vectorsCols, langCols = langCols, tagCols = tagCols, models = models, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter)
+  }
+  def predictBIO(df:DataFrame, vectorsCols:Seq[String], langCols:Seq[String], tagCols:Seq[String], languages:Seq[Language], langIndexPath:String, splitter:String, nBefore:Int, nAfter:Int)
+  (implicit storage:Storage):DataFrame =  {
+    val models = GeoTraining.getTrained(annotations = None, reuse = true, id = "", languages = languages, langIndexPath= langIndexPath, splitter = splitter, nBefore = nBefore, nAfter = nAfter)
+    predictBIO(df = df, vectorsCols = vectorsCols, langCols = langCols, tagCols = tagCols, models = models, nBefore = nBefore, nAfter = nAfter)
+  }
+
+  def predictBIO(df:DataFrame, vectorsCols:Seq[String], langCols:Seq[String], tagCols:Seq[String], models:Map[String, LinearSVCModel], nBefore:Int, nAfter:Int):DataFrame =  {
     val spark = df.sparkSession
     val bModels = spark.sparkContext.broadcast(models)
     assert(vectorsCols.size == langCols.size)
@@ -439,6 +483,7 @@ object GeoTraining {
                          }.foldLeft(("O", 0.5))((curr, iter)=> if(curr._2 > iter._2) curr else iter )
                        }
                        .map(_._1)
+                       .toSeq
                    }
                    .get
                }
@@ -447,7 +492,38 @@ object GeoTraining {
              .get
         }
       })
-      .map(rdd => spark.createDataFrame(rdd, StructType(fields = df.schema.fields ++ tagColNames.map(colName => StructField(colName , ArrayType(StringType, true), true)))))
+      .map(rdd => spark.createDataFrame(rdd, StructType(fields = df.schema.fields ++ tagCols.map(colName => StructField(colName , ArrayType(StringType, true), true)))))
       .get
   }
+
+  def predictEntity(df:DataFrame, textCols:Seq[String], vectorsCols:Seq[String], langCols:Seq[String], entCols:Seq[String])(implicit storage:Storage, conf:Settings):DataFrame =  {
+    val models = GeoTraining.getTrained(annotations = None, reuse = true, id = "")
+    predictEntity(df = df, textCols = textCols, vectorsCols = vectorsCols, langCols = langCols, entCols = entCols, models = models, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter, splitter = conf.splitter)
+
+  }
+  def predictEntity(df:DataFrame, textCols: Seq[String], vectorsCols:Seq[String], langCols:Seq[String], entCols:Seq[String], languages:Seq[Language], langIndexPath:String, splitter:String, nBefore:Int, nAfter:Int)(implicit storage:Storage):DataFrame =  {
+    val models = GeoTraining.getTrained(annotations = None, reuse = true, id = "", languages = languages, langIndexPath= langIndexPath, splitter = splitter, nBefore = nBefore, nAfter = nAfter)
+    predictEntity(df = df, textCols = textCols, vectorsCols = vectorsCols, langCols = langCols, entCols = entCols, models = models, nBefore = nBefore, nAfter = nAfter, splitter = splitter)
+  }
+  def predictEntity(df:DataFrame, textCols: Seq[String], vectorsCols:Seq[String], langCols:Seq[String], entCols:Seq[String], models:Map[String, LinearSVCModel], nBefore:Int, nAfter:Int, splitter:String)
+    :DataFrame =  {
+     val bioCols = entCols.map(c => s"${c}_bio")
+
+     predictBIO(df = df, vectorsCols = vectorsCols, langCols = langCols, tagCols = bioCols , models = models, nAfter=nAfter, nBefore = nBefore)
+      .select(
+        Seq(col("*")) ++ 
+          textCols.zip(bioCols.zip(entCols)).map{case (textCol, (bioCol, entCol)) =>
+            udf((text:String, bioTags:Seq[String], splitter:String) => 
+               TaggedChunk.fromBIO(text.split(splitter).filter(_.size > 0), bioTags)
+                 .filter(c => c.isEntity)
+                 .map(c => c.tokens.mkString(" "))
+                 .toSeq
+                 .headOption
+                 .getOrElse(text)
+            ).apply(col(textCol), col(bioCol), lit(splitter)).as(entCol)
+          } :_*
+      ).drop(bioCols :_*)
+
+  }
+
 }

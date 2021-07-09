@@ -29,7 +29,7 @@ import org.apache.lucene.index.Term
 import org.apache.lucene.search.spell.LuceneDictionary
 import demy.storage.{Storage, FSNode}
 import scala.concurrent.ExecutionContext
-import org.ecdc.twitter.Geonames.Geolocate
+import org.ecdc.epitweetr.geo.Geonames.Geolocate
 import scala.util.{Try, Success, Failure}
 import java.nio.charset.StandardCharsets
 import spray.json.JsonParser
@@ -559,14 +559,14 @@ object LuceneActor {
           textLangCols = defaultTextLangCols
           , minScore = conf.geolocationThreshold.get
           , maxLevDistance = 0
-          , nGram = 3
+          , nBefore = conf.geoNBefore
+          , nAfter = conf.geoNAfter
           , tokenizerRegex = conf.splitter
           , langs = conf.languages.get
           , geonames = conf.geonames
           , reuseGeoIndex = true
           , langIndexPath=conf.langIndexPath
           , reuseLangIndex = true
-          , strategy = conf.geolocationStrategy.get
         )
         .select((
           Seq(col("topic"), col("lang"), col("tweet_id").as("id"), col("created_at"))

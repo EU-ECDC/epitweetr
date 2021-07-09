@@ -2,7 +2,8 @@ package org.ecdc.epitweetr
 
 import spray.json._
 import java.nio.file.Paths
-import org.ecdc.twitter.{Geonames, Language}
+import org.ecdc.twitter.Language
+import org.ecdc.epitweetr.geo.Geonames
 
 case class Settings(epiHome:String) {
   var _properties:Option[JsObject] = None

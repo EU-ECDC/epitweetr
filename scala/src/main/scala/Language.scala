@@ -1,5 +1,7 @@
 package org.ecdc.twitter 
 
+import org.ecdc.epitweetr.{Settings}
+import org.ecdc.epitweetr.geo.{GeoTraining, Geonames}
 import demy.storage.{Storage, WriteMode, FSNode}
 import demy.mllib.index.implicits._
 import demy.mllib.linalg.implicits._
@@ -12,7 +14,6 @@ import org.apache.spark.ml.linalg.{Vectors, DenseVector, Vector=>MLVector}
 import scala.collection.mutable.HashMap
 import org.apache.spark.ml.classification.{LinearSVC, LinearSVCModel}
 import java.lang.reflect.Method
-import org.ecdc.epitweetr.geo.GeoTraining
 import Geonames.Geolocate
 
 case class Language(name:String, code:String, vectorsPath:String) {
@@ -66,37 +67,13 @@ case class Language(name:String, code:String, vectorsPath:String) {
    }
 
    def areVectorsNew()(implicit storage:Storage) = !storage.isUnchanged(path = Some(this.vectorsPath), checkPath = Some(s"${this.vectorsPath}.stamp"), updateStamp = false) 
-   def getGeoLikehoodModel(retrainWith:Option[Seq[GeoTraining]], geonames:Geonames)(implicit spark:SparkSession, storage:Storage) = {
-      if(storage.getNode(modelPath).exists
-          && !areVectorsNew()
-          && retrainWith.isEmpty
-      ) {
-        LinearSVCModel.load(modelPath)
-      } else if(!retrainWith.isEmpty){
-        println(s"Evaluating new  model with ${retrainWith.map(v => v.size)}")
-        //println(retrainWith) 
-        val model = 
-          new LinearSVC()
-            .setFeaturesCol("feature")
-            .setLabelCol("label")
-        val trainData = getGeoVectors(geonames).select("feature", "label").union(getNonGeoVectors(geonames).select("feature", "label").limit(10000)).cache
-        val trained = model.fit(trainData)
-        trainData.unpersist
-        trained.write.overwrite().save(modelPath)
-        //Setting update timestamp
-        storage.isUnchanged(path = Some(this.vectorsPath), checkPath = Some(s"${this.vectorsPath}.stamp"), updateStamp = true)  
-        trained
-      } else {
-        throw new Exception("Cannot get a likelyhood model without training data and unprocessed vectors")
-      }
-   }
 
  }
 
 object Language {
   val simpleSplitter = "\\s+"
   implicit class LangTools(val ds: Dataset[_]) {
-    def addLikehoods(languages:Seq[Language], geonames:Geonames, vectorsColNames:Seq[String], langCodeColNames:Seq[String], likehoodColNames:Seq[String])(implicit spark:SparkSession, storage:Storage) = {
+/*    def addLikehoods(languages:Seq[Language], geonames:Geonames, vectorsColNames:Seq[String], langCodeColNames:Seq[String], likehoodColNames:Seq[String])(implicit spark:SparkSession, storage:Storage) = {
       Language.addLikehoods(
         df = ds.toDF
         , languages = languages
@@ -105,7 +82,7 @@ object Language {
         , langCodeColNames = langCodeColNames
         , likehoodColNames = likehoodColNames
       ) 
-    }
+    }*/
     def vectorize(languages:Seq[Language] , reuseIndex:Boolean = true, indexPath:String, textLangCols:Map[String, Option[String]], tokenizerRegex: String = simpleSplitter
     )(implicit storage:Storage) = {
       Language.vectorizeTextDS(
@@ -118,67 +95,10 @@ object Language {
       )
     }
   }
-  def addLikehoods(
-    df:DataFrame
-    , languages:Seq[Language]
-    , geonames:Geonames
-    , vectorsColNames:Seq[String]
-    , langCodeColNames:Seq[String]
-    , likehoodColNames:Seq[String]
-    )(implicit storage:Storage) = {
-    implicit val spark = df.sparkSession
-    val trainedModels = spark.sparkContext.broadcast(languages.map(l => (l.code -> l.getGeoLikehoodModel(retrainWith = None, geonames = geonames))).toMap)
-    Some(
-      df.rdd.mapPartitions{iter => 
-        val rawPredict = 
-          trainedModels.value.mapValues{model => 
-            val method = model.getClass.getDeclaredMethod("predictRaw", classOf[MLVector])
-            method.setAccessible(true) 
-            (model, method)
-          }
-
-        iter.map{row =>
-           Some(
-             vectorsColNames.zip(langCodeColNames)
-               .map{case (vectorsCol, langCodeCol) =>
-                 Some((row.getAs[String](langCodeCol), row.getAs[Seq[Row]](vectorsCol).map(r => r.getAs[DenseVector]("vector"))))
-                   .map{case(langCode, vectors) => 
-                     rawPredict.get(langCode)
-                       .map{case (model, method) =>
-                         vectors.map{vector => 
-                           if(vector == null)
-                             throw new Exception("Null vectors are not supported anymore")
-                           else
-                             Some(method.invoke(model, vector).asInstanceOf[DenseVector])
-                               .map{scores =>
-                                 val (yes, no) = (scores(1), scores(0))
-                                 if(no>=0 && yes>=0) yes/(no + yes)
-                                 else if(no>=0 && yes<=0) 0.5 - Math.atan(no-yes)/Math.PI
-                                 else if(no<=0 && yes>=0) 0.5 + Math.atan(yes-no)/Math.PI
-                                 else no/(no + yes)
-                               }
-                               .get
-                         }
-                       }
-                       .getOrElse(null)
-                   }
-                   .get
-               }
-             )
-             .map(scoreVectors => Row.fromSeq(row.toSeq ++ scoreVectors))
-             .get
-        }
-      })
-      .map(rdd => spark.createDataFrame(rdd, StructType(fields = df.schema.fields ++ likehoodColNames.map(colName => StructField(colName , ArrayType(DoubleType, true), true)))))
-      .get
-  }
   def array2Seq(array:Array[Language]) = array.toSeq
   def updateLanguages(trainingSet:Seq[GeoTraining], langs:Seq[Language], geonames:Geonames, indexPath:String, parallelism:Option[Int]=None) 
-    (implicit spark:SparkSession, storage:Storage):Unit = {
+    (implicit spark:SparkSession, storage:Storage, conf:Settings) =  {
       import spark.implicits._
-      
-      //Ensuring languages models are up to date
-      langs.foreach(l => l.getGeoLikehoodModel(retrainWith = Some(trainingSet), geonames = geonames))
       val reuseExistingIndex = langs.map(l => !l.areVectorsNew()).reduce(_ && _)
       //Getting multilingual vectors
       val vectors = Language.multiLangVectors(langs)
@@ -202,10 +122,16 @@ object Language {
           , caseInsensitive = false
           , minScore = 0.0
           , boostAcronyms=false
-          , strategy="demy.mllib.index.PredictStrategy"
+          , strategy="demy.mllib.index.StandardStrategy"
         )
         .show
-     
+      
+      //Ensuring languages models are up to date
+      GeoTraining.getTrainedAndEvaluate(
+        ds = trainingSet.toDS,
+        trainingRatio = 0.7,
+        splitter = conf.splitter
+      ).collect
   }
 
   def multiLangVectors(langs:Seq[Language]) (implicit spark:SparkSession, storage:Storage) 
