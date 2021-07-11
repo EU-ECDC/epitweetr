@@ -132,8 +132,16 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
       Future {
         implicit val s = GeonamesActor.getSparkSession
         implicit val st = GeonamesActor.getSparkStorage
-        val ret = Language.updateLanguages(trainingSet, conf.languages.get, conf.geonames, indexPath=conf.langIndexPath, conf.sparkCores)
-        l.msg(s"Training finished, metrics = ${ret.map(_._4).reduce(_.sum(_))}")
+        Language.updateLanguageIndexes(conf.languages.get, conf.geonames, indexPath=conf.langIndexPath)
+        //Ensuring languages models are up to date
+        val ret = GeoTraining.splitTrainEvaluate(annotations = trainingSet, trainingRatio = 0.7).cache
+        import s.implicits._
+        l.msg(s"Evaluation finished")
+        ret.show(1000)
+        ret.groupByKey(_._1).reduceGroups((a, b) => (a._1, a._2, a._3, a._4, a._5.sum(b._5))).map(p => (p._2._1, p._2._5)).toDF("test", "metric").select(col("test"), col("metric.*")).show
+        l.msg(s"Training models with full data now")
+        GeoTraining.trainModels(annotations = GeoTraining.toTaggedText(trainingSet).flatMap(tt => tt.toBIO()))
+        ret.collect
       }
       .map{_ =>
         GeonamesActor.LanguagesTrained("ok")

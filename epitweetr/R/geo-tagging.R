@@ -609,7 +609,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
         `Tweet part` = "user location", 
         `Epitweetr match` = NA,
         `Epitweetr country match` = NA,
-      `  Epitweetr country code match` = NA,
+        `Epitweetr country code match` = NA,
       ) %>%
       dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
       dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = TRUE)
@@ -709,7 +709,7 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
     cols = 2, 
     gridExpand = TRUE
   )
-  openxlsx::freezePane(wb, "geolocation",firstActiveRow = T)
+  openxlsx::freezePane(wb, "geolocation",firstActiveRow = 2)
   openxlsx::saveWorkbook(wb, get_user_geotraining_path() ,overwrite = T) 
 }
 

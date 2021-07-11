@@ -17,6 +17,9 @@ trait SettingsTest extends UnitTest {
   it should "remove twitter stop words" in {
     assert("hola como estas via RT".split(Settings.defaultSplitter).toSeq.filter(_.size > 0) == Seq("hola", "como", "estas"))
   }
+  it should "remove twitter stop words from the beggining" in {
+    assert("RT hola como estas via".split(Settings.defaultSplitter).toSeq.filter(_.size > 0) == Seq("hola", "como", "estas"))
+  }
   it should "ignore closest cases" in {
     assert("Hola Como httppopo viaducto RTO".split(Settings.defaultSplitter).toSeq.filter(_.size > 0) == Seq("Hola", "Como", "httppopo", "viaducto", "RTO"))
   }

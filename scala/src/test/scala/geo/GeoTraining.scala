@@ -1,5 +1,6 @@
 package org.ecdc.epitweetr.test.geo
 import demy.storage.Storage
+import demy.util.{log => l}
 import org.ecdc.twitter.JavaBridge
 import org.apache.spark.sql.{SparkSession, Dataset}
 
@@ -9,7 +10,7 @@ import org.ecdc.epitweetr.Settings
 
 trait GeoTrainingTest extends UnitTest {
   lazy val s = Settings.defaultSplitter
-  lazy val geotrainingTestDS = {
+  lazy val trainingSet = {
     val spark = getSpark
     import spark.implicits._
 
@@ -22,7 +23,7 @@ trait GeoTrainingTest extends UnitTest {
       GeoTraining(category = "Text", text = "Ciclista viviendo en Paris", locationInText = Some("Paris"), isLocation = Some(true), forcedLocationCode = None, forcedLocationName = None, source = GeoTrainingSource.tweet, tweetId = None, lang = Some("es"), tweetPart = Some(GeoTrainingPart.userDescription), foundLocation = None, foundLocationCode = None, foundCountryCode = None),
       GeoTraining(category = "Text", text = "Ciclista viviendo en Chantiago", locationInText = Some("Paris"), isLocation = Some(true), forcedLocationCode = None, forcedLocationName = None, source = GeoTrainingSource.tweet, tweetId = None, lang = Some("es"), tweetPart = Some(GeoTrainingPart.userDescription), foundLocation = None, foundLocationCode = None, foundCountryCode = None),
       GeoTraining(category = "Location", text = "Asnières sur Seine", locationInText = None, isLocation = Some(true), forcedLocationCode = None, forcedLocationName = None, source = GeoTrainingSource.tweet, tweetId = None, lang = Some("es"), tweetPart = Some(GeoTrainingPart.userLocation), foundLocation = None, foundLocationCode = None, foundCountryCode = None),
-      GeoTraining(category = "Location", text = "La via lactea", locationInText = None, isLocation = Some(true), forcedLocationCode = None, forcedLocationName = None, source = GeoTrainingSource.tweet, tweetId = None, lang = Some("es"), tweetPart = Some(GeoTrainingPart.userLocation), foundLocation = None, foundLocationCode = None, foundCountryCode = None),
+      GeoTraining(category = "Location", text = "La via lactea", locationInText = None, isLocation = Some(false), forcedLocationCode = None, forcedLocationName = None, source = GeoTrainingSource.tweet, tweetId = None, lang = Some("es"), tweetPart = Some(GeoTrainingPart.userLocation), foundLocation = None, foundLocationCode = None, foundCountryCode = None),
       GeoTraining(category = "Location", text = "Perro", locationInText = None, isLocation = Some(false), forcedLocationCode = None, forcedLocationName = None, source = GeoTrainingSource.epitweetrModel, tweetId = None, lang = Some("es"), tweetPart = None, foundLocation = None, foundLocationCode = None, foundCountryCode = None),
       GeoTraining(category = "Location", text = "Amigo", locationInText = None, isLocation = Some(false), forcedLocationCode = None, forcedLocationName = None, source = GeoTrainingSource.epitweetrModel, tweetId = None, lang = Some("es"), tweetPart = None, foundLocation = None, foundLocationCode = None, foundCountryCode = None),
       GeoTraining(category = "Location", text = "Juan", locationInText = None, isLocation = Some(false), forcedLocationCode = None, forcedLocationName = None, source = GeoTrainingSource.epitweetrModel, tweetId = None, lang = Some("es"), tweetPart = None, foundLocation = None, foundLocationCode = None, foundCountryCode = None),
@@ -43,7 +44,7 @@ trait GeoTrainingTest extends UnitTest {
       GeoTraining(category = "Demonym", text = "Chileno", locationInText = None, isLocation = Some(false), forcedLocationCode = None, forcedLocationName = Some("Chile"), source = GeoTrainingSource.manual, tweetId = None, lang = Some("es"), tweetPart = None, foundLocation = None, foundLocationCode = None, foundCountryCode = None),
       GeoTraining(category = "Demonym", text = "Santiaguino", locationInText = None, isLocation = Some(false), forcedLocationCode = None, forcedLocationName = Some("Santiago de Chile"), source = GeoTrainingSource.manual, tweetId = None, lang = Some("es"), tweetPart = None, foundLocation = None, foundLocationCode = None, foundCountryCode = None),
       GeoTraining(category = "Demonym", text = "Francés", locationInText = None, isLocation = Some(false), forcedLocationCode = None, forcedLocationName = Some("Francia"), source = GeoTrainingSource.manual, tweetId = None, lang = Some("es"), tweetPart = None, foundLocation = None, foundLocationCode = None, foundCountryCode = None),
-    ).toDS
+    )
   }
   
   
@@ -143,6 +144,13 @@ trait GeoTrainingTest extends UnitTest {
       )).toBIO(2, 2).isInstanceOf[Iterator[BIOAnnotation]]
     )
   }
+  it should "ignore a text with non word characters when converting to BIO" in {
+    assert(
+      TaggedText(id = "1", lang = Some("es"),  taggedChunks = Seq(
+        TaggedChunk("?", false, s),
+      )).toBIO(2, 2).size == 0
+    )
+  }
   it should "produce right BIOAnnotations" in {
     assert(
       TaggedText(id = "1", lang = Some("es"), taggedChunks = Seq(
@@ -163,20 +171,35 @@ trait GeoTrainingTest extends UnitTest {
         )
     )
   }
+  it should "build right Tagged text from BIO annotations" in {
+    assert(
+      TaggedText(id = "1", lang = Some("es"), taggedChunks = Seq(
+          TaggedChunk("Personalmente prefiero", false, s),
+          TaggedChunk("Valdivia", true, s),
+          TaggedChunk("que", false, s),
+          TaggedChunk("Santiago de Chile", true, s)
+        ), 
+      ) ==
+        TaggedText(
+          id = "1",
+          lang = Some("es"),
+          tokens = Seq("Personalmente","prefiero", "Valdivia",  "que","Santiago", "de", "Chile"),
+          bioTags = Seq("O", "O", "B", "O", "B", "I", "I")
+        )
+    )
+  }
   lazy val bio = {
-    import geotrainingTestDS.sparkSession.implicits._
-    GeoTraining.TaggedTextDataset(geotrainingTestDS, splitter = s, nBefore = 3, nAfter = 3).flatMap(tt => tt.toBIO(3, 3)).asInstanceOf[Dataset[BIOAnnotation]]
+    GeoTraining.toTaggedText(trainingSet, splitter = s, nBefore = 3, nAfter = 3).flatMap(tt => tt.toBIO(3, 3))
   }
 
   "Geotraining test dataset" should " produce a BIO annotation for each token" in {
-    import geotrainingTestDS.sparkSession.implicits._
     val sp = s
-    val tokens  = geotrainingTestDS.groupByKey(gt => gt.id()).reduceGroups((a, b) => b).map(p => p._2).flatMap(gt => gt.text.split(sp).filter(_.size > 0))
-    assert(tokens.count == bio.count)
+    val tokens  = trainingSet.groupBy(gt => gt.id()).mapValues(geos => geos.reduce((a, b) => b)).values.flatMap(gt => gt.text.split(sp).filter(_.size > 0))
+    assert(tokens.size == bio.size)
   }
 
   "Geotraining tools" should "build training/test dataset from GeoTraining datasets" in {
-     val seqs = GeoTraining.getTrainingTestDfs(ds = geotrainingTestDS, trainingRatio=0.8, splitter = s, nBefore = 10, nAfter = 2)
+     val seqs = GeoTraining.getTrainingTestSets(annotations = trainingSet, trainingRatio=0.8, splitter = s, nBefore = 10, nAfter = 2)
      //seqs.foreach(s => println(s"${s._1}, ${s._2.count} ${s._3.count}"))
      seqs.size > 0
    }
@@ -185,8 +208,24 @@ trait GeoTrainingTest extends UnitTest {
      implicit val conf = Settings(sys.env("EPI_HOME"))
      conf.load
      implicit val storage = Storage.getSparkStorage  
-     val df = GeoTraining.getTrainedAndEvaluate(ds = geotrainingTestDS, trainingRatio = 0.5,  s)
-     df.count > 0
+     implicit val spark = getSpark
+     import spark.implicits._
+     val evaluation = GeoTraining.splitTrainEvaluate(annotations = trainingSet, trainingRatio = 0.5).collect
+     val results = evaluation.map(_._5).reduce(_.sum(_))
+     l.msg(results)
+     assert(evaluation.size > 0)
    }
+   it should "evaluate models for geolocating" in {
+     assume(!sys.env.get("EPI_HOME").isEmpty)
+     implicit val conf = Settings(sys.env("EPI_HOME"))
+     conf.load
+     implicit val spark = getSpark
+     import spark.implicits._
+     implicit val storage = Storage.getSparkStorage  
+     val models = GeoTraining.trainModels(bio)
+     assert(models.size > 0)
+
+   }
+
 
 }

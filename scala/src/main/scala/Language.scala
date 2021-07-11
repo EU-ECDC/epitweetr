@@ -1,7 +1,6 @@
 package org.ecdc.twitter 
 
-import org.ecdc.epitweetr.{Settings}
-import org.ecdc.epitweetr.geo.{GeoTraining, Geonames}
+import org.ecdc.epitweetr.geo.{Geonames}
 import demy.storage.{Storage, WriteMode, FSNode}
 import demy.mllib.index.implicits._
 import demy.mllib.linalg.implicits._
@@ -73,16 +72,6 @@ case class Language(name:String, code:String, vectorsPath:String) {
 object Language {
   val simpleSplitter = "\\s+"
   implicit class LangTools(val ds: Dataset[_]) {
-/*    def addLikehoods(languages:Seq[Language], geonames:Geonames, vectorsColNames:Seq[String], langCodeColNames:Seq[String], likehoodColNames:Seq[String])(implicit spark:SparkSession, storage:Storage) = {
-      Language.addLikehoods(
-        df = ds.toDF
-        , languages = languages
-        , geonames = geonames
-        , vectorsColNames = vectorsColNames
-        , langCodeColNames = langCodeColNames
-        , likehoodColNames = likehoodColNames
-      ) 
-    }*/
     def vectorize(languages:Seq[Language] , reuseIndex:Boolean = true, indexPath:String, textLangCols:Map[String, Option[String]], tokenizerRegex: String = simpleSplitter
     )(implicit storage:Storage) = {
       Language.vectorizeTextDS(
@@ -96,16 +85,19 @@ object Language {
     }
   }
   def array2Seq(array:Array[Language]) = array.toSeq
-  def updateLanguages(trainingSet:Seq[GeoTraining], langs:Seq[Language], geonames:Geonames, indexPath:String, parallelism:Option[Int]=None) 
-    (implicit spark:SparkSession, storage:Storage, conf:Settings) =  {
+  def updateLanguageIndexes(langs:Seq[Language], geonames:Geonames, indexPath:String) 
+    (implicit spark:SparkSession, storage:Storage) =  {
       import spark.implicits._
       val reuseExistingIndex = langs.map(l => !l.areVectorsNew()).reduce(_ && _)
       //Getting multilingual vectors
+      if(reuseExistingIndex)
+        l.msg("Reusing existing index for vectors")
+      else
+        l.msg("Change in vectors detected, recreating the index")
       val vectors = Language.multiLangVectors(langs)
 
       //Building vector index index if it is not  built 
-      print("creating vectors")
-      Seq(("Viva Chile constituyente, gracias Sébastian","es"), ("We did a very good job", "en")).toDF("text", "lang")
+      Seq(("Viva Chile constituyente","es"), ("We did a very good job", "en")).toDF("text", "lang")
         .luceneLookup(right = vectors
           , query = udf((text:String, lang:String) => text.split(" ").map(w => s"${w}LANG$lang")).apply(col("text"), col("lang")).as("tokens")
           , popularity = None
@@ -126,12 +118,6 @@ object Language {
         )
         .show
       
-      //Ensuring languages models are up to date
-      GeoTraining.getTrainedAndEvaluate(
-        ds = trainingSet.toDS,
-        trainingRatio = 0.7,
-        splitter = conf.splitter
-      ).collect
   }
 
   def multiLangVectors(langs:Seq[Language]) (implicit spark:SparkSession, storage:Storage) 
