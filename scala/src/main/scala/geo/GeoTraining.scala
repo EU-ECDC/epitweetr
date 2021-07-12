@@ -344,7 +344,7 @@ object GeoTraining {
          val path = s"${lang.modelPath}.${t}${testId.map(tid => "."+tid.toLowerCase.replace(" ", "-")).getOrElse("")}"
          if(storage.getNode(path).exists && !lang.areVectorsNew()) 
          {
-           l.msg(s"loading $path") 
+           //l.msg(s"loading $path") 
              Some(s"$t.${lang.code}", LinearSVCModel.load(path))
          } else {
             throw new Exception(s"Cannot get a tagging model in $path or vectors are new. Please retrain")
@@ -579,12 +579,15 @@ object GeoTraining {
         Seq(col("*")) ++ 
           textCols.zip(bioCols.zip(entCols)).map{case (textCol, (bioCol, entCol)) =>
             udf((text:String, bioTags:Seq[String], splitter:String) => 
-               TaggedChunk.fromBIO(text.split(splitter).filter(_.size > 0), bioTags)
-                 .filter(c => c.isEntity)
-                 .map(c => c.tokens.mkString(" "))
-                 .toSeq
-                 .headOption
-                 .getOrElse(null)
+               if(text == null) 
+                 null
+               else
+                 TaggedChunk.fromBIO(text.split(splitter).filter(_.size > 0), bioTags)
+                   .filter(c => c.isEntity)
+                   .map(c => c.tokens.mkString(" "))
+                   .toSeq
+                   .headOption
+                   .getOrElse(null)
             ).apply(col(textCol), col(bioCol), lit(splitter)).as(entCol)
           } :_*
       )

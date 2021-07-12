@@ -294,7 +294,12 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           val keys = Files.list(sPath).iterator.asScala.toSeq.map(p => p.getFileName.toString)
           val dates = Seq(keys.min, keys.max)
             .distinct
-            .map(key => LuceneActor.getIndex(collection, key))
+            .flatMap(key => 
+              Try (LuceneActor.getIndex(collection, key)) match {
+                case Success(i) => Some(i)
+                case _ => None
+              }
+            )
             .flatMap{index =>
               val aDates = ArrayBuffer[String]()
               val searcher = index.useSearcher()

@@ -31,14 +31,26 @@ object TweetIndex {
       else
         None
     //make the index near real time
-    val reader = 
-      if(writeEnabled)
-        DirectoryReader.open(writer.get,true, true)
-      else {
-        DirectoryReader.open(index)
-      }
+    val reader =
+      //Try{ 
+        if(writeEnabled)
+          DirectoryReader.open(writer.get,true, true)
+        else {
+          DirectoryReader.open(index)
+        }
+      /*} match {
+        case Success(r) => r
+        case Failure(e: org.apache.lucene.index.IndexNotFoundException) => 
+          Files.list(Paths.get(indexPath)).iterator().asScala.toArray.foreach(p => Files.delete(p))
+          if(writeEnabled)
+            DirectoryReader.open(writer.get,true, true)
+          else {
+            DirectoryReader.open(index)
+          }
+        case Failure(f) => throw(f)
+      }*/
     val searcher = new IndexSearcher(reader)
-    TweetIndex(reader = reader, writer = writer, searcher = searcher, index = index, writeEnabled)
+      TweetIndex(reader = reader, writer = writer, searcher = searcher, index = index, writeEnabled)
   }
 }
 

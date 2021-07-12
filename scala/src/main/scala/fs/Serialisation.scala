@@ -330,8 +330,14 @@ object EpiSerialisation
                 text = fields("Text").asInstanceOf[JsString].value,  
                 locationInText = fields.get("Location in text").map(v => v.asInstanceOf[JsString].value), 
                 isLocation = fields.get("Location OK/KO")
-                  .map(v => v.asInstanceOf[JsString].value)
-                  .map(v => v.toLowerCase == "ok"),  
+                  .map(v => v.asInstanceOf[JsString].value.toLowerCase match { 
+                    case "ok" => Some(true)
+                    case "ko" => Some(false)
+                    case "yes" => Some(true)
+                    case "no" => Some(false)
+                    case _ => None
+                  })
+                  .flatten,  
                 forcedLocationCode = fields.get("Associate country code").map(v => v.asInstanceOf[JsString].value), 
                 forcedLocationName =fields.get("Associate with").map(v => v.asInstanceOf[JsString].value) , 
                 source = fields.get("Source")

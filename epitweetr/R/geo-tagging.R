@@ -631,7 +631,6 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
 	ret <- ret %>% dplyr::filter(!is.na(.data$Text) & !.data$Text == "") %>%
     dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = TRUE)
 
-    ret 
   text_togeo <- ret %>% dplyr::transmute(
     Text = ifelse(!is.na(.data$`Associate with`), .data$`Associate with`, .data$Text), 
     Lang = ifelse(!is.na(.data$`Associate with`), "all", .data$Lang)
