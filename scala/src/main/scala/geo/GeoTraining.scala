@@ -98,7 +98,7 @@ object TaggedChunk {
 case class ConfusionMatrix(tp:Int, fp:Int, tn:Int, fn:Int) {
   def sum(that:ConfusionMatrix) = ConfusionMatrix(tp = this.tp + that.tp, fp = this.fp + that.fp, tn = this.tn + that.tn, fn = this.fn + that.fn) 
 }
-case class TestResult(test:String, text:String, tagged:Seq[String], predicited:Seq[String], tp:Int, fp:Int, tn:Int, fn:Int) {
+case class TestResult(test:String, text:String, tagged:Seq[String], predicted:Seq[String], tp:Int, fp:Int, tn:Int, fn:Int) {
   def sum(that:ConfusionMatrix) = ConfusionMatrix(tp = this.tp + that.tp, fp = this.fp + that.fp, tn = this.tn + that.tn, fn = this.fn + that.fn) 
 }
 object ConfusionMatrix {
@@ -470,10 +470,10 @@ object GeoTraining {
         col("text"),
         udf((tagged:TaggedText) => tagged.taggedChunks.filter(_.isEntity).map(_.tokens.mkString(" "))).apply(col("tagged")).as("tagged"),
         udf((predicted:TaggedText) => predicted.taggedChunks.filter(_.isEntity).map(_.tokens.mkString(" "))).apply(col("predicted")).as("predicted"),
-        col("confMatrixi.tp"),
-        col("confMatrixi.fp"),
-        col("confMatrixi.tn"),
-        col("confMatrixi.fn"),
+        col("confMatrix.tp"),
+        col("confMatrix.fp"),
+        col("confMatrix.tn"),
+        col("confMatrix.fn"),
       ).as[TestResult]
     }).reduce(_.union(_))
   }
