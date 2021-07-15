@@ -128,25 +128,52 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
           caller ! ByteString(s"[Stream--error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
       }
-    case GeonamesActor.TrainLanguagesRequest(trainingSet) => 
+    case GeonamesActor.TrainLanguagesRequest(trainingSet, jsonnl, caller) => 
+      implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
+      implicit val s = GeonamesActor.getSparkSession
+      implicit val st = GeonamesActor.getSparkStorage
+      import s.implicits._
+      //Ensuring languages models are up to date
+      Language.updateLanguageIndexes(conf.languages.get, conf.geonames, indexPath=conf.langIndexPath)
+
+
+      var sep = ""
       Future {
+        if(!jsonnl) { 
+          Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
+        }
         implicit val s = GeonamesActor.getSparkSession
         implicit val st = GeonamesActor.getSparkStorage
-        Language.updateLanguageIndexes(conf.languages.get, conf.geonames, indexPath=conf.langIndexPath)
-        //Ensuring languages models are up to date
-        val ret = GeoTraining.splitTrainEvaluate(annotations = trainingSet, trainingRatio = 0.7).cache
         import s.implicits._
+        val readyLangs = GeoTraining.trainedLanguages()
+        println(s"langs ready: ${readyLangs.size}")
+        
+        val results = GeoTraining.splitTrainEvaluate(annotations = trainingSet, trainingRatio = 0.7).cache
+        import s.implicits._
+        //ret.groupByKey(_._1).reduceGroups((a, b) => (a._1, a._2, a._3, a._4, a._5.sum(b._5))).map(p => (p._2._1, p._2._5)).toDF("test", "metric").select(col("test"), col("metric.*")).show
+        val ret = results.toJSON.collect
         l.msg(s"Evaluation finished")
-        ret.show(1000)
-        ret.groupByKey(_._1).reduceGroups((a, b) => (a._1, a._2, a._3, a._4, a._5.sum(b._5))).map(p => (p._2._1, p._2._5)).toDF("test", "metric").select(col("test"), col("metric.*")).show
+        
         l.msg(s"Training models with full data now")
         GeoTraining.trainModels(annotations = GeoTraining.toTaggedText(trainingSet).flatMap(tt => tt.toBIO()))
-        ret.collect
+        
+        ret
+          .foreach{line =>
+             Await.result(caller ? ByteString(
+               s"${sep}${line.toString}\n", 
+               ByteString.UTF_8
+             ), Duration.Inf)
+             if(!jsonnl) sep = ","
+          }
+        if(!jsonnl) { 
+          Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
+        }
+        caller ! Done
+      }.recover {
+        case e: Exception => 
+          caller ! ByteString(s"[Stream--error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
+      }.onComplete { case  _ =>
       }
-      .map{_ =>
-        GeonamesActor.LanguagesTrained("ok")
-      }
-      .pipeTo(sender())
     case b => 
       Future(EpitweetrActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
   }
@@ -156,7 +183,7 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
 object GeonamesActor {
   var spark:Option[SparkSession] = None
   case class TrainingSetRequest(excludedLangs:Seq[String], locationSamples:Boolean, jsonnl:Boolean, caller:ActorRef)
-  case class TrainLanguagesRequest(trainingSet:Seq[GeoTraining])
+  case class TrainLanguagesRequest(trainingSet:Seq[GeoTraining], jsonnl:Boolean, caller:ActorRef)
   case class GeolocateTextsRequest(toGeo:Seq[TextToGeo], minScore:Option[Int], jsonnl:Boolean, caller:ActorRef)
   case class LanguagesTrained(msg:String)
   def closeSparkSession() = {

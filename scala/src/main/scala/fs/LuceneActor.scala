@@ -149,6 +149,9 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       implicit val holder = LuceneActor.readHolder
       val indexes = LuceneActor.getReadIndexes(collection, Some(from), Some(to)).toSeq
       var sep = ""
+      val chunkSize = 500
+      val builder = StringBuilder.newBuilder
+      var toAdd = chunkSize
       Future {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
@@ -163,13 +166,20 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             i.searchTweets(qb.build)
           }
           .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
-          .foreach{line => 
-            Await.result(caller ? ByteString(
-              s"${sep}${line.toString}\n", 
-              ByteString.UTF_8
-            ), Duration.Inf)
+          .foreach{line =>
+            builder ++= s"${sep}${line.toString}\n"
+            toAdd = toAdd -1
+            if(toAdd == 0) {
+              Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+              toAdd = chunkSize
+              builder.clear
+            }
             if(!jsonnl) sep = ","
           }
+        if(builder.size > 0) {
+          Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+          builder.clear
+        }
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
         }

@@ -27,9 +27,15 @@ get_scala_aggregate_url <- function() {
   paste(get_scala_api_endpoint(), "aggregate", sep = "")
 }
 
+get_scala_period_url <- function() {
+  paste(get_scala_api_endpoint(), "period", sep = "")
+}
+
 get_scala_status_url <- function() {
   paste(get_scala_api_endpoint(), "period?serie=country_counts", sep = "")
 }
+
+
 
 #' @export 
 fs_loop <-  function(data_dir = NA) {

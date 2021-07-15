@@ -283,27 +283,34 @@ object API {
             }
           } ~ 
           post {
-            withRequestTimeout(conf.fsLongBatchTimeout.seconds) {
-              entity(as[JsValue]) { json  =>
-                implicit val timeout: Timeout = conf.fsLongBatchTimeout.seconds //For ask property
-                Try(geoTrainingsFormat.read(json)) match {
-                  case Success(GeoTrainings(trainingSet)) =>
-                    val fut = (geonamesRunner ? GeonamesActor.TrainLanguagesRequest(trainingSet) )
-                      .map{
-                         case GeonamesActor.LanguagesTrained("ok") => (StatusCodes.OK, "OK")
-                         case akka.actor.Status.Failure(f)  => 
-                           println(s"error found $f")
-                           (StatusCodes.InternalServerError, f.toString())
-                      }
-                    complete(fut) 
-                  case Failure(e) =>
-                    println(s"Cannot interpret the provided body as a value train geolocation algorithm:\n $e, ${e.getStackTrace.mkString("\n")}") 
-                    complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a value to train geolocation algorithm:\n $e")) 
-                  } 
-              } ~ 
-                entity(as[String]) { value  => 
-                logThis(value)
-                complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+            parameters("jsonnl".as[Boolean]?false) { (jsonnl) => 
+              withRequestTimeout(conf.fsLongBatchTimeout.seconds) {
+                entity(as[JsValue]) { json  =>
+                  implicit val timeout: Timeout = conf.fsLongBatchTimeout.seconds //For ask property
+                  Try(geoTrainingsFormat.read(json)) match {
+                    case Success(GeoTrainings(trainingSet)) =>
+                      val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                        ackMessage = ByteString("ok")
+                        , completionMatcher = {case Done => CompletionStrategy.immediately}
+                        , failureMatcher = PartialFunction.empty
+                      )
+                      val (actorRef, matSource) = source.preMaterialize()
+                      geonamesRunner ! GeonamesActor.TrainLanguagesRequest(trainingSet, jsonnl, actorRef) 
+                      complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                        if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                          throw new Exception(m.decodeString("UTF-8"))
+                        else 
+                          m
+                      }))
+                    case Failure(e) =>
+                      println(s"Cannot interpret the provided body as a value train geolocation algorithm:\n $e, ${e.getStackTrace.mkString("\n")}") 
+                      complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a value to train geolocation algorithm:\n $e")) 
+                    } 
+                } ~ 
+                  entity(as[String]) { value  => 
+                  logThis(value)
+                  complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+                }
               }
             }
           }

@@ -14,7 +14,6 @@ import scala.collection.JavaConverters._
 import java.net.URLDecoder
 
 
-
 case class TextsToGeo(items:Seq[TextToGeo])
 case class TextToGeo(id:String, text:String, lang:Option[String])
 

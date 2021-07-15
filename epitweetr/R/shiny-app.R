@@ -443,7 +443,7 @@ epitweetr_app <- function(data_dir = NA) {
       ,k_decay = k_decay
       ,no_historic = no_history
       ,bonferroni_correction = bonferroni_correction
-      , same_weekday_baseline = same_weekday_baseline
+      ,same_weekday_baseline = same_weekday_baseline
     )
     
   }
