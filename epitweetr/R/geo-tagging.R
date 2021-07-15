@@ -716,9 +716,10 @@ retrain_languages <- function() {
   body <- get_geotraining_df() %>% jsonlite::toJSON()
   post_result <- httr::POST(url=get_scala_geotraining_url(), httr::content_type_json(), body=body, encode = "raw", encoding = "UTF-8")
   if(httr::status_code(post_result) != 200) {
-    message(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
-    stop()
+    stop(paste("retrain web service failed with the following output: ", substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100), sep  = "\n"))
   } else {
-    message(httr::content(post_result, "text", encoding = "UTF-8"))
+    fileConn<-file(get_geotraining_evaluation_path())
+    writeLines(httr::content(post_result, "text", encoding = "UTF-8"), fileConn)
+    close(fileConn)
   }
 }

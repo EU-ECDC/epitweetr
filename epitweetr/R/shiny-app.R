@@ -1408,7 +1408,7 @@ epitweetr_app <- function(data_dir = NA) {
         #updating geotraining df taking in condideration new uploaded file
         
         tryCatch({
-           update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value /3, message = message)})
+           #update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value /3, message = message)})
            progress_set(value = 0.5, message = "Retraining models and avaluating")
            retrain_languages()
            update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = 0.5 + value/2, message = message)})

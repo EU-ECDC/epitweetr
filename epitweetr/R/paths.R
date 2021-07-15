@@ -33,6 +33,10 @@ get_user_geotraining_path <- function() {
   paste(conf$data_dir, "geo-training.xlsx", sep = "/")
 }
 
+# Get user geo training file
+get_geotraining_evaluation_path <- function() {
+  paste(conf$data_dir, "geo-training-evaluation.json", sep = "/")
+}
 # Get default languages file path
 get_default_available_languages_path <- function() system.file("extdata", "languages.xlsx", package = get_package_name())
 

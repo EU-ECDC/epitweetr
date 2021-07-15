@@ -58,8 +58,9 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
   last_filter_name <- paste("last_filter", dataset, sep = "_")
 
   # Setting a time out of 1 hour
-  if(is.null(filter$last_aggregate) ||  as.numeric(Sys.time() - filter$last_aggregate, unit = "secs") > 3600) 
+  if(is.null(filter$last_aggregate) ||  as.numeric(Sys.time() - filter$last_aggregate, unit = "secs") > 3600) { 
     filter$last_aggregate <- Sys.time()
+  }
 
 
   # checking wether we can reuse the cache
@@ -106,7 +107,8 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
           "&to=", 
           URLencode(strftime(filter$period[[2]], format = "%Y-%m-%d"), reserved = T) 
         ) 
-      else if(last_aggregate != "last_aggregate")q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(filter[[field]], reserved = T))
+      else if(field != "last_aggregate")
+        q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(filter[[field]], reserved = T))
     }
 
     #measure_time <- function(f) {start.time <- Sys.time();ret <- f();end.time <- Sys.time();time.taken <- end.time - start.time;message(time.taken); ret}
@@ -116,7 +118,11 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
     agg_df$created_weeknum <- as.integer(strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G%V"))
     agg_df$created_date <- as.Date(agg_df$created_date, format = "%Y-%m-%d")
-    rbind(get_aggregates_rds(dataset, cache = cache, filter = filter), agg_df)
+    ret <- rbind(get_aggregates_rds(dataset, cache = cache, filter = filter), agg_df)
+    if(cache) {
+      cached[[dataset]] <- ret
+    }
+    ret
   }
 }
 
@@ -161,7 +167,6 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
         jsonlite::rbind_pages(dfs)
       else 
         readRDS(tail(list.files(file.path(conf$data_dir, "series"), full.names=TRUE, recursive=TRUE, pattern="*.Rds"), 1)) %>% dplyr::filter(1 == 0)
-    if(cache) cached[[dataset]] <- ret
     return(ret)
   }
 
