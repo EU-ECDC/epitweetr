@@ -391,6 +391,8 @@ epitweetr_app <- function(data_dir = NA) {
               ################################################
               ######### GEO TAG TABLE #########################
               ################################################
+              ## TeST CHARLINE 
+              DT::dataTableOutput("fake_df_ccn"),
               DT::dataTableOutput("geotraining_table")
           ))
   ) 
@@ -1168,7 +1170,10 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(e = cd, limit = list("langs"))
     })
     
-    ######### TASKS LOGIC ##################
+   
+ 
+    
+     ######### TASKS LOGIC ##################
     # rendering the tasks each time something changes in the tasks
     output$tasks_df <- DT::renderDataTable({
       # Adding dependency with tasks refresh
@@ -1371,7 +1376,15 @@ epitweetr_app <- function(data_dir = NA) {
         )
     })
 
-    ######### GEOTEST LOGIC ##################
+    ######### FAKE DATAFRAME CCN ####
+    # rendering  a fake dataframe fake_df_ccn
+    #To check param cd
+    output$fake_df_ccn <- DT::renderDataTable({
+      fake_df_ccn <- data.frame("A" = 1:2, "B" = c(1,15), "C" = c("ABC","DEF"))
+      DT::datatable(fake_df_ccn)
+    })
+    
+     ######### GEOTEST LOGIC ##################
     # rendering geotest data, updates are done automatically whenever an input changes
     output$geotraining_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
