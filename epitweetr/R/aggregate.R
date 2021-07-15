@@ -57,10 +57,12 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
   # getting the name for cache lookup dataset dependant
   last_filter_name <- paste("last_filter", dataset, sep = "_")
 
-  # getting the last aggregated end on to check if the cache is outdated
-  filter$last_aggregate <- get_tasks()$aggregate$end_on  
+  # Setting a time out of 1 hour
+  if(is.null(filter$last_aggregate) ||  as.numeric(Sys.time() - filter$last_aggregate, unit = "secs") > 3600) 
+    filter$last_aggregate <- Sys.time()
 
-  # checking wether we can reuse the cacje
+
+  # checking wether we can reuse the cache
   reuse_filter <- 
     exists(last_filter_name, where = cached) && #cache entry exists for that dataset
     (exists("last_aggregate", where = cached[[last_filter_name]]) && cached[[last_filter_name]]$last_aggregate == filter$last_aggregate) && # No new aggregation has been finished
@@ -79,7 +81,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
         cached[[last_filter_name]]$period[[2]] >= filter$period[[2]]
       )
     )
-
+  message(paste("reuuuuuuuuuuuuuuuse", reuse_filter, filter$topic))
   # Overriding current filter when no cache hit
   if(!reuse_filter) cached[[last_filter_name]] <- filter
   # On cache hit returning from cache
@@ -93,7 +95,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
   }
   else {
     # getting the aggregated dataframe from the storage system
-    q_url <- paste0("http://localhost:8080/aggregate?jsonnl=true&serie=", URLencode(dataset, reserved = T))
+    q_url <- paste0(get_scala_aggregate_url(), "?jsonnl=true&serie=", URLencode(dataset, reserved = T))
     for(field in names(filter)) {
       if(field == "topic") q_url <- paste0(q_url, "&topic=", URLencode(filter$topic, reserved = T)) 
       else if(field == "period") 
@@ -104,8 +106,11 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
           "&to=", 
           URLencode(strftime(filter$period[[2]], format = "%Y-%m-%d"), reserved = T) 
         ) 
-      else q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(filter[[field]], reserved = T))
+      else if(last_aggregate != "last_aggregate")q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(filter[[field]], reserved = T))
     }
+
+    #measure_time <- function(f) {start.time <- Sys.time();ret <- f();end.time <- Sys.time();time.taken <- end.time - start.time;message(time.taken); ret}
+
     agg_df = jsonlite::stream_in(url(q_url))
     # Calculating the created week
     agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
@@ -331,7 +336,7 @@ get_aggregated_period <- function(dataset) {
   #TODO: add last hour!!
   rds_period <- get_aggregated_period_rds(dataset)
   fs_period <- tryCatch({
-     ret <- jsonlite::fromJSON(url("http://localhost:8080/period?serie=country_counts"), simplifyVector = T)
+     ret <- jsonlite::fromJSON(url(paste0(get_scala_period_url(),"?serie=country_counts")), simplifyVector = T)
      ret$first <- if(exists("first", where = ret)) {
          as.Date(strptime(ret$first, format = "%Y-%m-%d"))
        } else {
