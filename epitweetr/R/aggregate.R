@@ -58,9 +58,10 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
   last_filter_name <- paste("last_filter", dataset, sep = "_")
 
   # Setting a time out of 1 hour
-  if(is.null(filter$last_aggregate) ||  as.numeric(Sys.time() - filter$last_aggregate, unit = "secs") > 3600) { 
+  if(is.null(cached[[last_filter_name]]$last_aggregate) ||  as.numeric(Sys.time() - cached[[last_filter_name]]$last_aggregate, unit = "secs") > 3600) { 
     filter$last_aggregate <- Sys.time()
-  }
+  } else 
+    filter$last_aggregate <- cached[[last_filter_name]]$last_aggregate 
 
 
   # checking wether we can reuse the cache
@@ -82,7 +83,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
         cached[[last_filter_name]]$period[[2]] >= filter$period[[2]]
       )
     )
-  message(paste("reuuuuuuuuuuuuuuuse", reuse_filter, filter$topic))
+
   # Overriding current filter when no cache hit
   if(!reuse_filter) cached[[last_filter_name]] <- filter
   # On cache hit returning from cache
