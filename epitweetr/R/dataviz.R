@@ -756,7 +756,6 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
         & .data$created_date >= date_min 
         & .data$created_date <= date_max
         & (if(length(country_codes)==0) TRUE else .data$tweet_geo_country_code %in% country_codes )
-        & .data$tokens != "via" & nchar(.data$tokens) > 1
       ))
  
   # dealing with retweets if requested
@@ -765,12 +764,12 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
   # grouping by topwords and limiting as requested
   df <- (df
       %>% dplyr::filter(!is.na(.data$frequency))
-      %>% dplyr::group_by(.data$tokens)
+      %>% dplyr::group_by(.data$token)
       %>% dplyr::summarize(frequency = sum(.data$frequency))
       %>% dplyr::ungroup() 
       %>% dplyr::arrange(-.data$frequency) 
       %>% head(top)
-      %>% dplyr::mutate(tokens = reorder(.data$tokens, .data$frequency))
+      %>% dplyr::mutate(token = reorder(.data$token, .data$frequency))
   )
   if(nrow(df)==0) {
     return(get_empty_chart("No data found for the selected topic, region and period"))
@@ -785,7 +784,7 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
 
   # plotting
   fig <- (
-      df %>% ggplot2::ggplot(ggplot2::aes(x = .data$tokens, y = .data$frequency)) +
+      df %>% ggplot2::ggplot(ggplot2::aes(x = .data$token, y = .data$frequency)) +
            ggplot2::geom_col(fill = "#65B32E") +
            ggplot2::xlab(NULL) +
            ggplot2::coord_flip(expand = FALSE) +

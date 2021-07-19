@@ -71,8 +71,6 @@ get_user_location_columns <- function(table) {
       , "user_description_loc"
       , "place_full_name_loc"
       , "linked_place_full_name_loc"
-      , "text_loc"
-      , "linked_text_loc"
       , "place_full_name_loc"
       , "linked_place_full_name_loc"
       )

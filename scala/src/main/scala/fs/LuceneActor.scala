@@ -28,11 +28,14 @@ import org.apache.lucene.search.BooleanClause.Occur
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.spell.LuceneDictionary
 import demy.storage.{Storage, FSNode}
+import demy.util.{log => l}
 import scala.concurrent.ExecutionContext
 import org.ecdc.epitweetr.geo.Geonames.Geolocate
 import scala.util.{Try, Success, Failure}
 import java.nio.charset.StandardCharsets
 import spray.json.JsonParser
+import scala.collection.parallel.ForkJoinTaskSupport
+import java.util.concurrent.ForkJoinPool
 
 class LuceneActor(conf:Settings) extends Actor with ActorLogging {
   implicit val executionContext = context.system.dispatchers.lookup("lucene-dispatcher")
@@ -150,36 +153,52 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       val indexes = LuceneActor.getReadIndexes(collection, Some(from), Some(to)).toSeq
       var sep = ""
       val chunkSize = 500
-      val builder = StringBuilder.newBuilder
-      var toAdd = chunkSize
+                
+   
       Future {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
-        indexes
-          .iterator
-          .flatMap{case i => 
+
+        val (parSeq, parallelism) = 
+          Some(indexes.toSeq)
+           .map(s => (s.par, s.size))
+           .get
+          
+        val pool = new ForkJoinPool(parallelism)
+        parSeq.tasksupport = new ForkJoinTaskSupport(pool)
+        //parSeq.tasksupport = new ForkJoinTaskSupport(java.util.concurrent.ForkJoinPool.commonPool)
+        parSeq
+          .foreach{case i =>
+            val builder = StringBuilder.newBuilder
+            var toAdd = chunkSize
             val qb = new BooleanQuery.Builder()
             qb.add(new TermQuery(new Term("topic", topic)), Occur.MUST) 
             qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
             filters.foreach{case(field, value) => qb.add(new TermQuery(new Term(field, value)), Occur.MUST)}
+            var first = true
             i.searchTweets(qb.build)
-          }
-          .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
-          .foreach{line =>
-            builder ++= s"${sep}${line.toString}\n"
-            toAdd = toAdd -1
-            if(toAdd == 0) {
+              .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
+              .foreach{line =>
+                if(first == true) {
+                  first = false
+                }
+                builder ++= s"${sep}${line.toString}\n"
+                toAdd = toAdd -1
+                if(toAdd == 0) {
+                  Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+                  toAdd = chunkSize
+                  builder.clear
+                }
+                if(!jsonnl) sep = ","
+              }
+
+            if(builder.size > 0) {
               Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
-              toAdd = chunkSize
               builder.clear
             }
-            if(!jsonnl) sep = ","
           }
-        if(builder.size > 0) {
-          Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
-          builder.clear
-        }
+        pool.shutdown
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
         }
@@ -329,6 +348,12 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         }
       }
       .pipeTo(sender())
+    case LuceneActor.RecalculateHashRequest() =>
+      implicit val holder = LuceneActor.writeHolder
+      Future {
+        LuceneActor.recalculateHash()
+        "Done!" 
+      }.pipeTo(sender())
     case b => 
       Future(EpitweetrActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
   }
@@ -370,6 +395,7 @@ object LuceneActor {
   )
   case class PeriodRequest(collection:String)
   case class PeriodResponse(first:Option[String], last:Option[String])
+  case class RecalculateHashRequest()
   def getHolder(writeEnabled:Boolean) = IndexHolder(writeEnabled = writeEnabled)
   def commit()(implicit holder:IndexHolder)  {
     commit(closeDirectory = true)
@@ -719,5 +745,27 @@ object LuceneActor {
         println(s"${(endTime - startTime)/1e9d} secs for aggregating ${numAggr} tweets in ${collection.name}")
       }
   }
+  def recalculateHash()(implicit holder:IndexHolder, conf:Settings){
+    Files.list(Paths.get(conf.collectionPath)).iterator.asScala.foreach{p =>
+      Some(Files.lines(p, StandardCharsets.UTF_8).iterator.asScala.mkString("\n"))
+         .map(content => EpiSerialisation.collectionFormat.read(JsonParser(content)))
+         .map{ case col =>
+           l.msg(f"Recalculating hashes for ${col.name}")
+           val pkName = col.pks.mkString("_")
+           val ind  = LuceneActor.getReadIndexes(collection = col.name, from = None, to = None)
+           ind.foreach{i => 
+             i.searchTweets(new org.apache.lucene.search.MatchAllDocsQuery(), max = None)
+               .foreach{ case doc =>
+                  i.updateHash(doc = doc, pkName = pkName) 
+               }
+           }
+           l.msg(f"Recalculating hashes for ${col.name} done!!")
+
+         }
+
+    }
+    LuceneActor.commit()
+  }
+
 }
 

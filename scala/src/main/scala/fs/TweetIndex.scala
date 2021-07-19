@@ -10,7 +10,7 @@ import org.apache.lucene.index.{IndexWriter, IndexReader, DirectoryReader,IndexW
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, LongPoint, DoublePoint, FloatPoint, Field, StoredField, DoubleDocValuesField, BinaryPoint}
 import org.apache.lucene.index.Term
-import org.apache.lucene.search.{TopDocs, BooleanQuery}
+import org.apache.lucene.search.{TopDocs, BooleanQuery, PrefixQuery}
 import org.apache.lucene.search.BooleanClause.Occur
 import scala.util.{Try,Success,Failure}
 import scala.collection.JavaConverters._
@@ -92,7 +92,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       val doc = new Document()
       doc.add(new StringField("topic", s"${topic}", Field.Store.YES))  
       doc.add(new StringField("topic_tweet_id", s"${topic.toLowerCase}_${tweet.tweet_id}", Field.Store.YES))  
-      doc.add(new StringField("hash", s"${Math.abs(tweet.tweet_id.toString.hashCode)}", Field.Store.YES))  
+      doc.add(new StringField("hash", s"${Math.abs(tweet.tweet_id.toString.hashCode).toInt.toString}", Field.Store.YES))  
       doc.add(new LongPoint("tweet_id", tweet.tweet_id))
       doc.add(new StoredField("tweet_id", tweet.tweet_id))
       doc.add(new TextField("text", tweet.text, Field.Store.YES))  
@@ -169,6 +169,13 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       doc.add(new StringField(
         pkFields.mkString("_"), 
         pkFields.map(k => pkVal.get(k).getOrElse(null)).mkString("_"), 
+        Field.Store.YES
+      ))
+    }
+    pk.map{pkFields =>
+      doc.add(new StringField(
+        "hash", 
+        Math.abs(pkFields.map(k => pkVal.get(k).getOrElse(null)).mkString("_").hashCode).toInt.toString, 
         Field.Store.YES
       ))
     }
@@ -379,34 +386,37 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     searchTweets(query, None)
   }
   def searchTweets(query:Query, max:Option[Int]):Iterator[Document]  = {
-    var after:Option[ScoreDoc] = None
-    var first = true
-    var searcher:Option[IndexSearcher]=None
-    var left = max
-    Iterator.continually{
-      if(first) {
-        searcher = Some(this.useSearcher()) 
-        first = false
-      }
-      val res = search(query = query, after = after)(searcher.get)
-      val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
-      if(res.scoreDocs.size > 0) {
-        after = Some(res.scoreDocs.last)
-        left  = left.map(l => l -  res.scoreDocs.size)
-      }
-      if(res.scoreDocs.size == 0 || left.map(l => l <= 0).getOrElse(false)) {
-        this.releaseSearcher(searcher.get)
-      }
-      left.map{l => 
-       if(l < 0) 
-         ret.take(ret.size+l)
-       else 
-         ret
-      }.getOrElse{
-        ret
-      }
-    }.takeWhile(_.size > 0)
-      .flatMap(docs => docs)
+   Seq(query)
+      .flatMap{q => 
+        var after:Option[ScoreDoc] = None
+        var left = max
+        var first = true
+        var searcher:Option[IndexSearcher]=None
+        Iterator.continually{
+          if(first) {
+            searcher = Some(this.useSearcher()) 
+            first = false
+          }
+          val res = search(query = q, after = after)(searcher.get)
+          val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
+          if(res.scoreDocs.size > 0) {
+            after = Some(res.scoreDocs.last)
+            left  = left.map(l => l -  res.scoreDocs.size)
+          }
+          if(res.scoreDocs.size == 0 || left.map(l => l <= 0).getOrElse(false)) {
+            this.releaseSearcher(searcher.get)
+          }
+          left.map{l => 
+           if(l < 0) 
+             ret.take(ret.size+l)
+           else 
+             ret
+          }.getOrElse{
+            ret
+          }
+        }.takeWhile(_.size > 0 && left.map(l => l >0).getOrElse(true))
+        .flatMap(docs => docs)
+      }.toIterator
   }
 
   def getLocationFields(field:String, loc:Location) = {
@@ -425,14 +435,78 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     this.synchronized {
       val searcher = this.searcher
       val reader = searcher.getIndexReader
-      reader.incRef
-      searcher
+      if(reader.tryIncRef())
+        searcher
+      else {
+        this.refreshReader()
+        val searcher = this.searcher
+        val reader = searcher.getIndexReader
+        reader.incRef()
+        searcher
+      }
+    }
+  }
+  def partitionKey(partitions:Int) = {
+    if(partitions == 1)
+      Seq(Seq.range(0, 9).map(_.toString))
+    else {
+      val prefixLength =  Math.ceil(Math.log10(partitions)).toInt
+      val max = Math.pow(10, prefixLength).toInt
+      Range(0, max).map(i => (i % partitions, i)).groupBy(_._1).mapValues(s => s.map(v => s"%0${prefixLength}d".format(v._2))).values
     }
   }
 
+  def partition(baseQuery:Query, partitions:Int) = {
+    partitionKey(partitions)
+      .map{hashSeq =>  
+        val qparent = new BooleanQuery.Builder()
+        val qhash = new BooleanQuery.Builder()
+        hashSeq.foreach{key => qhash.add(new PrefixQuery(new Term("hash", key)), Occur.SHOULD)}
+        qparent.add(baseQuery, Occur.MUST)
+        qparent.add(qhash.build, Occur.MUST)
+        qparent.build
+      }
+  }
   def releaseSearcher(searcher:IndexSearcher) {
     this.synchronized {
       searcher.getIndexReader.decRef()
     }
+  }
+  def updateHash(doc:Document, pkName:String){
+    val pk = doc.getField(pkName).stringValue 
+    val hash = Math.abs(pk.hashCode).toInt.toString
+    doc.removeField("hash")
+    doc.add(new StringField("hash", hash, Field.Store.YES ))
+    this.writer.get.updateDocument(new Term(pkName, pk), rebuildDoc(doc))
+  }
+
+  def rebuildDoc(doc:Document) = {
+    val ndoc = new Document()
+    doc.getFields.asScala.toSeq.foreach{f =>
+      if(f.binaryValue != null) {
+        ndoc.add(new StringField(f.name, if(f.binaryValue == 1.toByte) "true" else "false", Field.Store.NO ))
+        ndoc.add(new StoredField(f.name, f.binaryValue))
+      } else if(f.numericValue != null) {
+        f.numericValue match {
+          case v:java.lang.Integer =>
+            ndoc.add(new IntPoint(f.name, v))
+            ndoc.add(new StoredField(f.name, v))
+          case v:java.lang.Float => 
+            ndoc.add(new FloatPoint(f.name, v))
+            ndoc.add(new StoredField(f.name, v))
+          case v:java.lang.Double =>
+            ndoc.add(new DoublePoint(f.name, v))
+            ndoc.add(new StoredField(f.name, v))
+          case v:java.lang.Long => 
+            ndoc.add(new LongPoint(f.name, v))
+            ndoc.add(new StoredField(f.name, v))
+          case _ => throw new NotImplementedError("I do not know how convert ${v.getClass.getName} into lucene document")
+        }
+      } else if(f.stringValue != null)
+        ndoc.add(new StringField(f.name, f.stringValue, Field.Store.YES))
+      else
+        throw new NotImplementedError("I do not know how convert ${f} into lucene document")
+    }
+    ndoc
   }
 }

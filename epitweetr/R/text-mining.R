@@ -14,6 +14,7 @@ get_stop_words <- function(language_code) {
         close(con)
         if(length(stop_words) > 0) {
           stop_words <- c(fixed, stop_words)
+          stop_words <- stop_words[grep("'|\\\\", stop_words, invert = TRUE)]
           cached[[stop_id]] <- stop_words
           return(stop_words)
         } else {

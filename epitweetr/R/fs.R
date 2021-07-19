@@ -35,7 +35,9 @@ get_scala_status_url <- function() {
   paste(get_scala_api_endpoint(), "period?serie=country_counts", sep = "")
 }
 
-
+get_scala_recalc_hash_url <- function() {
+  paste(get_scala_api_endpoint(), "recalculate-hash", sep = "")
+}
 
 #' @export 
 fs_loop <-  function(data_dir = NA) {

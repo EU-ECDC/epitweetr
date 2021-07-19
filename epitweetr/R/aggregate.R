@@ -113,7 +113,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     }
 
     #measure_time <- function(f) {start.time <- Sys.time();ret <- f();end.time <- Sys.time();time.taken <- end.time - start.time;message(time.taken); ret}
-
+    message(q_url)
     agg_df = jsonlite::stream_in(url(q_url))
     # Calculating the created week
     agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
@@ -176,138 +176,132 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
 register_series <- function() {
   `%>%` <- magrittr::`%>%`
   #geolocated"
-    set_aggregated_tweets(
-       name = "geolocated"
-       , dateCol = "created_date"
-       , pks = list("created_date", "topic", "user_geo_country_code", "tweet_geo_country_code", "user_geo_code", "tweet_geo_code", "user_geo_name", "tweet_geo_name")
-       , aggr = list(tweet_longitude = "avg", tweet_latitude = "avg", user_longitude = "avg", user_latitude = "avg", retweets = "sum", tweets = "sum") 
-       , sources_exp = c(
-           "topic"
-            , list("date_format(created_at, 'yyyy-MM-dd') as created_date", "is_retweet")
-            , get_user_location_columns("tweet")
-            , get_tweet_location_columns("geo") 
-            , get_user_location_columns("geo") 
-       )
-       , vars = list(
-           paste("avg(", get_tweet_location_var("longitude"), ") as tweet_longitude") 
-           , paste("avg(", get_tweet_location_var("latitude"), ") as tweet_latitude")
-           , paste("avg(", get_user_location_var("longitude"), ") as user_longitude") 
-           , paste("avg(", get_user_location_var("latitude"), ") as user_latitude")
-           , "cast(sum(case when is_retweet then 1 else 0 end) as Integer) as retweets"
-           , "cast(sum(case when is_retweet then 0 else 1 end) as Integer) as tweets"
-       )
-       , group_by = list(
-         "topic"
-         , "created_date" 
-         , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
-         , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
-         , paste(get_user_location_var("geo_code"), "as user_geo_code")
-         , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code")
-         , paste(get_user_location_var("geo_name"), "as user_geo_name")
-         , paste(get_tweet_location_var("geo_name"), "as tweet_geo_name")
-       )
-     )
-  #topwords
- #   # Getting topic words to exclude 
- #   topic_word_to_exclude <- unlist(sapply(1:length(conf$topics), 
- #     function(i) {
- #       terms <- strsplit(conf$topics[[i]]$query, " |OR|\"|AND|,|\\.| |'")[[1]]
- #       terms <- terms[terms != ""]
- #       paste(conf$topics[[i]]$topic, "_", terms, sep = "")
- #     })) 
- #   
- #   # Getting top word aggregation by using an streaming aggregation
- #   # Query is not aggregated by spark but by an R function wich is called each 500 lines
- #   top_chunk <- get_aggregated_tweets(from = created_date, to = created_date
-
- #     , sources_exp = c(
- #         list(
- #           "topic"
- #           ,"date_format(created_at, 'yyyy-MM-dd') as created_date"
- #           , "is_retweet"
- #           , "date_format(created_at, 'yyyy-MM-dd HH:mm:ss') as created_at" 
- #           , "lang"
- #           , "text"
- #          )
- #         , get_user_location_columns("geo") 
- #       )
- #     , sort_by = list(
- #       "topic"
- #       , "tweet_geo_country_code" 
- #       , "created_at" 
- #     )
- #     , filter_by = list(
- #        paste("date_format(created_at, 'yyyy-MM-dd') = '", strftime(created_date, "%Y-%m-%d"), "'", sep = "")
- #     )  
- #     , vars = list(
- #       "topic"
- #       , "created_date" 
- #       , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
- #       , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code") 
- #       , "lang"
- #       , "text"
- #       , "is_retweet"
- #     )
- #     , handler = function(df, con_tmp) {
- #         pipe_top_words(df = df, text_col = "text", lang_col = "lang", max_words = 500, topic_word_to_exclude = topic_word_to_exclude, con_out = con_tmp, page_size = 500)
- #     }
- #   )
- #  if(nrow(top_chunk)==0) {
- #    data.frame(topic = character(), created_date=character(), tweet_geo_country_code=character(), tokens=character(), frequency=numeric(), original=numeric(), retwets=numeric())
- #   } else {
- #     if(!("tweet_geo_country_code" %in% colnames(top_chunk))) top_chunk$tweet_geo_country_code <- NA
-
- #     top_chunk %>% 
- #       dplyr::group_by(.data$tokens, .data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
- #       dplyr::summarize(frequency = sum(.data$count), original = sum(.data$original), retweets = sum(.data$retweets))  %>%
- #       dplyr::ungroup()  %>%
- #       dplyr::group_by(.data$topic, .data$created_date, .data$tweet_geo_country_code)  %>%
- #       dplyr::top_n(n = 200, wt = .data$frequency) %>%
- #       dplyr::ungroup() 
- #   }
- #country_counts
-    # Getting the expression for known users and writing it as a file so it can be read and applied by spark on query
-    known_user <- 
-      paste("screen_name in ('"
-        , paste(get_known_users(), collapse="','")
-	      , "') or linked_screen_name in ('"
-        , paste(get_known_users(), collapse="','")
-	      , "') "
-	      , sep = ""
-      )
-    params <- list(
-      known_retweets = paste("cast(sum(case when is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_retweets")
-      , known_original = paste("cast(sum(case when not is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_original")
-    )
-    
-    # Aggregation by country level
-     set_aggregated_tweets(
-       name = "country_counts"
-       , dateCol = "created_date"
-       , pks = list("created_date", "topic", "created_hour", "tweet_geo_country_code", "user_geo_country_code")
-       , aggr = list(retweets = "sum", tweets = "sum", know_retweets = "sum", know_original = "sum") 
-       , sources_exp = c(
-           list("topic", "created_at", "is_retweet", "screen_name", "linked_screen_name")
-           , get_user_location_columns("tweet")
-           , get_tweet_location_columns("geo") 
-           , get_user_location_columns("geo") 
-      )
-      , group_by = list(
+  set_aggregated_tweets(
+    name = "geolocated"
+    , dateCol = "created_date"
+    , pks = list("created_date", "topic", "user_geo_country_code", "tweet_geo_country_code", "user_geo_code", "tweet_geo_code", "user_geo_name", "tweet_geo_name")
+    , aggr = list(tweet_longitude = "avg", tweet_latitude = "avg", user_longitude = "avg", user_latitude = "avg", retweets = "sum", tweets = "sum") 
+    , sources_exp = c(
         "topic"
-        , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
-        , "date_format(created_at, 'HH') as created_hour" 
-        , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
-        , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
-      )
-      , vars = list(
-        "cast(sum(case when is_retweet then 1 else 0 end) as Integer) as retweets"
-        , "cast(sum(case when is_retweet then 0 else 1 end) as Integer) as tweets"
-        , "@known_retweets"
-        , "@known_original"
-       )
-      , params = params
+         , list("date_format(created_at, 'yyyy-MM-dd') as created_date", "is_retweet")
+         , get_user_location_columns("tweet")
+         , get_tweet_location_columns("geo") 
+         , get_user_location_columns("geo") 
     )
-  #}
+    , vars = list(
+        paste("avg(", get_tweet_location_var("longitude"), ") as tweet_longitude") 
+        , paste("avg(", get_tweet_location_var("latitude"), ") as tweet_latitude")
+        , paste("avg(", get_user_location_var("longitude"), ") as user_longitude") 
+        , paste("avg(", get_user_location_var("latitude"), ") as user_latitude")
+        , "cast(sum(case when is_retweet then 1 else 0 end) as Integer) as retweets"
+        , "cast(sum(case when is_retweet then 0 else 1 end) as Integer) as tweets"
+    )
+    , group_by = list(
+      "topic"
+      , "created_date" 
+      , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
+      , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+      , paste(get_user_location_var("geo_code"), "as user_geo_code")
+      , paste(get_tweet_location_var("geo_code"), "as tweet_geo_code")
+      , paste(get_user_location_var("geo_name"), "as user_geo_name")
+      , paste(get_tweet_location_var("geo_name"), "as tweet_geo_name")
+    )
+  )
+  #topwords
+  # Getting topic words to exclude 
+  topic_word_to_exclude <- unlist(sapply(1:length(conf$topics), 
+    function(i) {
+      terms <- strsplit(conf$topics[[i]]$query, " |OR|\"|AND|,|\\.| |'|-|_")[[1]]
+      terms <- terms[terms != ""]
+      paste(conf$topics[[i]]$topic, "_", terms, sep = "")
+    })) 
+  lang_stop_words <- paste("'", unlist(lapply(conf$languages, function(l) lapply(get_stop_words(l$code), function(t) paste(l$code, t, sep = "_")))), "'", sep = "", collapse = ",")
+  # Getting top word aggregation
+  set_aggregated_tweets(
+    name = "topwords"
+    , dateCol = "created_date"
+    , pks = list("created_date", "topic", "tweet_geo_country_code", "token")
+    , aggr = list(frequency = "sum", original = "sum", retweets = "sum") 
+    , sources_exp = c(
+        list(
+          "topic"
+          , "date_format(created_at, 'yyyy-MM-dd') as created_date"
+          , "is_retweet"
+          , "lang"
+          , "explode(split(text, '\\\\W')) as token"
+         )
+        , get_tweet_location_columns("geo") 
+      )
+    #, sort_by = list(
+    #  "topic"
+    #  , "tweet_geo_country_code" 
+    #  , "created_at" 
+    #)
+    , filter_by = list(
+       "length(token) > 1",
+       "lower(token) not in ('via', 'rt', 'http', 'www', 'https', 'co', 't')",
+       paste("lower(concat(topic, '_', token)) not in (", paste("'", sapply(topic_word_to_exclude, function(t) tolower(t)), "'", collapse = ",", sep = '') , ")", sep = ""),
+       paste("concat(lang, '_', token) not in (", lang_stop_words, ")")
+    )  
+    , vars = list(
+      "topic"
+      ,"token"
+      , "created_date" 
+      , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+      , "count(1) as frequency"
+      , "sum(case when is_retweet then 0 else 1 end) as original"
+      , "sum(case when is_retweet then 1 else 0 end) as retweets"
+    )
+    , group_by = list(
+      "topic"
+      ,"token"
+      , "created_date" 
+      , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+    )
+ )
+ #country_counts
+ # Getting the expression for known users and writing it as a file so it can be read and applied by spark on query
+ known_user <- 
+   paste("screen_name in ('"
+     , paste(get_known_users(), collapse="','")
+     , "') or linked_screen_name in ('"
+     , paste(get_known_users(), collapse="','")
+     , "') "
+     , sep = ""
+   )
+ params <- list(
+   known_retweets = paste("cast(sum(case when is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_retweets")
+   , known_original = paste("cast(sum(case when not is_retweet and ", known_user, "then 1 else 0 end) as Integer) as known_original")
+ )
+ 
+ # Aggregation by country level
+  set_aggregated_tweets(
+    name = "country_counts"
+    , dateCol = "created_date"
+    , pks = list("created_date", "topic", "created_hour", "tweet_geo_country_code", "user_geo_country_code")
+    , aggr = list(retweets = "sum", tweets = "sum", know_retweets = "sum", know_original = "sum") 
+    , sources_exp = c(
+        list("topic", "created_at", "is_retweet", "screen_name", "linked_screen_name")
+        , get_user_location_columns("tweet")
+        , get_tweet_location_columns("geo") 
+        , get_user_location_columns("geo") 
+   )
+   , group_by = list(
+     "topic"
+     , "date_format(created_at, 'yyyy-MM-dd') as created_date" 
+     , "date_format(created_at, 'HH') as created_hour" 
+     , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
+     , paste(get_user_location_var("geo_country_code"), "as user_geo_country_code") 
+   )
+   , vars = list(
+     "cast(sum(case when is_retweet then 1 else 0 end) as Integer) as retweets"
+     , "cast(sum(case when is_retweet then 0 else 1 end) as Integer) as tweets"
+     , "@known_retweets"
+     , "@known_original"
+    )
+   , params = params
+ )
+ 
 }
 
 # getting last aggregation date or NA if first
@@ -368,4 +362,16 @@ get_aggregated_period <- function(dataset) {
       last = max(c(rds_period$last, fs_period$last), na.rm = T),
       last_hour = 23
     )
+}
+
+recalculate_hash <- function() {
+  
+  message("recalculating hashes")
+  post_result <- httr::POST(url=get_scala_recalc_hash_url(), httr::content_type_json(), body="", encode = "raw", encoding = "UTF-8")
+  if(httr::status_code(post_result) != 200) {
+    stop(paste("recalc hash web service failed with the following output: ", substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100), sep  = "\n"))
+  } else {
+    message("hashes recalculated")
+  }
+
 }
