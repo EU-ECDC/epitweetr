@@ -391,6 +391,8 @@ epitweetr_app <- function(data_dir = NA) {
               ################################################
               ######### GEO TAG TABLE #########################
               ################################################
+              ## TeST CHARLINE 
+              DT::dataTableOutput("geotraining_eval_df"),
               DT::dataTableOutput("geotraining_table")
           ))
   ) 
@@ -1168,7 +1170,10 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(e = cd, limit = list("langs"))
     })
     
-    ######### TASKS LOGIC ##################
+   
+ 
+    
+     ######### TASKS LOGIC ##################
     # rendering the tasks each time something changes in the tasks
     output$tasks_df <- DT::renderDataTable({
       # Adding dependency with tasks refresh
@@ -1371,7 +1376,34 @@ epitweetr_app <- function(data_dir = NA) {
         )
     })
 
-    ######### GEOTEST LOGIC ##################
+    ######### GEOTRAINING EVALUATION DATAFRAME ####
+    # rendering a dataframe showing evaluation metrics 
+    output$geotraining_eval_df <- DT::renderDataTable({
+      df <-get_geotraining_eval_df()
+      DT::datatable(df)
+    })
+    
+    get_geotraining_eval_df <- function() {
+      `%>%` <- dplyr::`%>%`
+      df <- fromJSON(get_geotraining_evaluation_path(), flatten=TRUE)
+      df <- as.data.frame(df)
+      df <- df %>%
+        dplyr::select(test,tp,tn,fp,fn)%>%
+        dplyr::group_by(test)%>%
+        dplyr::summarise(tp = sum(tp), tn=sum(tn), fp=sum(fp), fn = sum(fn))%>%
+        janitor:: adorn_totals("row")%>%
+        dplyr::mutate(Sensitivity = round(tp/(tp +fn),3))%>%
+        dplyr::mutate(Precision=round(tp/(tp+fp),3))%>%
+        dplyr::mutate(F1Score =round((((tp/(tp+fp))*(tp/(tp+fn)))/((tp/(tp+fp)+(tp/(tp+fn))))),3))%>%
+        dplyr::rename(Category=test)%>%
+        dplyr::rename("True positives"=tp)%>%
+        dplyr::rename("True negatives"=tn)%>%
+        dplyr::rename("False positives"=fp)%>%
+        dplyr::rename("False negatives"=fn)
+
+    }
+    
+     ######### GEOTEST LOGIC ##################
     # rendering geotest data, updates are done automatically whenever an input changes
     output$geotraining_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
@@ -1400,6 +1432,7 @@ epitweetr_app <- function(data_dir = NA) {
            retrain_languages()
            update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = 0.5 + value/2, message = message)})
            cd$geotraining_refresh_flag(Sys.time())
+           #TO DO : afficher les résultats + observe qui met à jour si de nouveelles données sont uploadées
           },
           error = function(w) {app_error(w, env = cd)}
         )
