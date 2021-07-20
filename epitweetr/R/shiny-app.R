@@ -376,7 +376,6 @@ epitweetr_app <- function(data_dir = NA) {
   geotraining_page <- 
     shiny::fluidPage(
           shiny::h3("Geo tagging training"),
-          shiny::h5("Database used for training tweets"),
           shiny::fluidRow(
             ################################################
             ######### GEO TAG FILTERS #######################
@@ -389,10 +388,14 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(12, 
               ################################################
-              ######### GEO TAG TABLE #########################
-              ################################################
-              ## TeST CHARLINE 
+              ######### GEO TAG EVALUATION####################
+              ################################################ 
+              shiny::h4("Performance evaluation of geo tagging algorithm (finding location position in text)"),
               DT::dataTableOutput("geotraining_eval_df"),
+              ################################################
+              ######### GEO TAG TABLE #########################
+              ################################################ 
+              shiny::h4("Database used for training the geo tagging algorithm"),
               DT::dataTableOutput("geotraining_table")
           ))
   ) 
@@ -1379,27 +1382,43 @@ epitweetr_app <- function(data_dir = NA) {
     ######### GEOTRAINING EVALUATION DATAFRAME ####
     # rendering a dataframe showing evaluation metrics 
     output$geotraining_eval_df <- DT::renderDataTable({
+      
       df <-get_geotraining_eval_df()
-      DT::datatable(df)
+      DT::datatable(df,
+        escape = TRUE
+      )
     })
     
     get_geotraining_eval_df <- function() {
       `%>%` <- dplyr::`%>%`
-      df <- fromJSON(get_geotraining_evaluation_path(), flatten=TRUE)
-      df <- as.data.frame(df)
-      df <- df %>%
-        dplyr::select(test,tp,tn,fp,fn)%>%
-        dplyr::group_by(test)%>%
-        dplyr::summarise(tp = sum(tp), tn=sum(tn), fp=sum(fp), fn = sum(fn))%>%
-        janitor:: adorn_totals("row")%>%
-        dplyr::mutate(Sensitivity = round(tp/(tp +fn),3))%>%
-        dplyr::mutate(Precision=round(tp/(tp+fp),3))%>%
-        dplyr::mutate(F1Score =round((((tp/(tp+fp))*(tp/(tp+fn)))/((tp/(tp+fp)+(tp/(tp+fn))))),3))%>%
-        dplyr::rename(Category=test)%>%
-        dplyr::rename("True positives"=tp)%>%
-        dplyr::rename("True negatives"=tn)%>%
-        dplyr::rename("False positives"=fp)%>%
-        dplyr::rename("False negatives"=fn)
+      if(file.exists(get_geotraining_evaluation_path())) {
+        df <- fromJSON(get_geotraining_evaluation_path(), flatten=TRUE)
+        df <- as.data.frame(df)
+        df <- df %>%
+          dplyr::select(test,tp,tn,fp,fn)%>%
+          dplyr::group_by(test)%>%
+          dplyr::summarise(tp = sum(tp), tn=sum(tn), fp=sum(fp), fn = sum(fn))%>%
+          janitor:: adorn_totals("row")%>%
+          dplyr::mutate(Sensitivity = round(tp/(tp +fn),3))%>%
+          dplyr::mutate(Precision=round(tp/(tp+fp),3))%>%
+          dplyr::mutate(F1Score =round((((tp/(tp+fp))*(tp/(tp+fn)))/((tp/(tp+fp)+(tp/(tp+fn))))),3))%>%
+          dplyr::rename(Category=test)%>%
+          dplyr::rename("True positives"=tp)%>%
+          dplyr::rename("False positives"=fp)%>%
+          dplyr::rename("True negatives"=tn)%>%
+          dplyr::rename("False negatives"=fn)
+      } else {
+        data.frame(Category=character(),
+           `True positives`=integer(),
+           `False positives`=integer(),
+           `True negatives`=integer(),
+           `False negatives`=integer(),
+           `Sensitivity` = double(),
+           `Precision` = double(),
+           `F1Score` = double(),
+            check.names = FALSE
+        )
+      }
 
     }
     
@@ -1471,6 +1490,7 @@ epitweetr_app <- function(data_dir = NA) {
       # Adding a dependency to subscribers refresh
       cd$geotraining_refresh_flag()
       DT::replaceData(DT::dataTableProxy('geotraining_table'), get_geotraining_df())
+      DT::replaceData(DT::dataTableProxy('geotraining_eval_df'), get_geotraining_eval_df())
       progress_close()
     })
 

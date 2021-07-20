@@ -220,6 +220,18 @@ object API {
               complete(fut) 
             }
           }
+        } ~ path("recalculate-hash") { // checks if path/url starts with model
+          withRequestTimeout(conf.fsBatchTimeout.seconds) {
+          post {
+              implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
+              val fut = (luceneRunner ? LuceneActor.RecalculateHashRequest())
+                .map{v =>
+                   println(v)
+                   v.toString
+                 }
+              complete(fut) 
+            }
+          }
         } ~ path("geolocated-tweets") { 
           post {
             parameters("created".as[String].*) { createdStr => 
