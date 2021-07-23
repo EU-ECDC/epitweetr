@@ -1,6 +1,6 @@
 # updating scala depedencies file
 export cdir=`pwd`
-export SPARK_VERSION=3.1.2
+export SPARK_VERSION=3.0.3
 
 cd "$cdir/scala"
 
