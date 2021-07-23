@@ -12,6 +12,8 @@ import demy.mllib.linalg.implicits._
 import org.apache.spark.ml.classification.{LinearSVC, LinearSVCModel}
 import scala.util.Random
 import org.ecdc.twitter.Language.LangTools
+import java.util.regex.Pattern
+import org.apache.spark.sql.Encoders
 
 case class TaggedChunk(tokens:Seq[String], isEntity:Boolean) {
   def split(that:TaggedChunk, tryed:Int = 0):Seq[TaggedChunk] = {
@@ -567,37 +569,124 @@ object GeoTraining {
       .get
   }
 
-  def predictEntity(df:DataFrame, textCols:Seq[String], vectorsCols:Seq[String], langCols:Seq[String], entCols:Seq[String])(implicit storage:Storage, conf:Settings):DataFrame =  {
+  def predictEntity(
+    df:DataFrame, 
+    textCols:Seq[String], 
+    vectorsCols:Seq[String], 
+    langCols:Seq[String], 
+    entCols:Seq[String],
+    forcedLocations:Option[Map[String, String]],
+    forceFilters:Option[Map[String, (String, String)]]
+  )(implicit storage:Storage, conf:Settings):DataFrame =  {
     val models = GeoTraining.getModels(languages = conf.languages.get)
-    predictEntity(df = df, textCols = textCols, vectorsCols = vectorsCols, langCols = langCols, entCols = entCols, models = models, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter, splitter = conf.splitter)
+    predictEntity(
+      df = df, 
+      textCols = textCols, 
+      vectorsCols = vectorsCols, 
+      langCols = langCols, 
+      entCols = entCols, 
+      models = models, 
+      nBefore = conf.geoNBefore, 
+      nAfter = conf.geoNAfter, 
+      splitter = conf.splitter,
+      forcedLocations = forcedLocations,
+      forcedFilters = forcedFilterd
+    )
 
   }
-  def predictEntity(df:DataFrame, textCols: Seq[String], vectorsCols:Seq[String], langCols:Seq[String], entCols:Seq[String], languages:Seq[Language], langIndexPath:String, splitter:String, nBefore:Int, nAfter:Int)(implicit storage:Storage):DataFrame =  {
+  def predictEntity(
+    df:DataFrame, 
+    textCols: Seq[String], 
+    vectorsCols:Seq[String], 
+    langCols:Seq[String], 
+    entCols:Seq[String], 
+    languages:Seq[Language], 
+    langIndexPath:String, 
+    splitter:String, 
+    nBefore:Int, 
+    nAfter:Int,
+    forcedLocations:Option[Map[String, String]],
+    forceFilters:Option[Map[String, (String, String)]]
+  )(implicit storage:Storage):DataFrame =  {
     val models = GeoTraining.getModels(languages = languages)
-    predictEntity(df = df, textCols = textCols, vectorsCols = vectorsCols, langCols = langCols, entCols = entCols, models = models, nBefore = nBefore, nAfter = nAfter, splitter = splitter)
+    predictEntity(
+      df = df, 
+      textCols = 
+      textCols, 
+      vectorsCols = vectorsCols, 
+      langCols = langCols, 
+      entCols = entCols, 
+      models = models, 
+      nBefore = nBefore, 
+      nAfter = nAfter, 
+      splitter = splitter,
+      forcedLocations = forcedLocations,
+      forcedFilters = forcedFilterd
+    )
   }
-  def predictEntity(df:DataFrame, textCols: Seq[String], vectorsCols:Seq[String], langCols:Seq[String], entCols:Seq[String], models:Map[String, LinearSVCModel], nBefore:Int, nAfter:Int, splitter:String)
-    :DataFrame =  {
-     val bioCols = entCols.map(c => s"${c}_bio")
-   
-     val df0 = predictBIO(df = df, vectorsCols = vectorsCols, langCols = langCols, tagCols = bioCols , models = models, nAfter=nAfter, nBefore = nBefore)
-      .select(
-        Seq(col("*")) ++ 
-          textCols.zip(bioCols.zip(entCols)).map{case (textCol, (bioCol, entCol)) =>
-            udf((text:String, bioTags:Seq[String], splitter:String) => 
-               if(text == null) 
-                 null
-               else
-                 TaggedChunk.fromBIO(text.split(splitter).filter(_.size > 0), bioTags)
-                   .filter(c => c.isEntity)
-                   .map(c => c.tokens.mkString(" "))
-                   .toSeq
-                   .headOption
-                   .getOrElse(null)
-            ).apply(col(textCol), col(bioCol), lit(splitter)).as(entCol)
-          } :_*
-      )
-      //df0.show(1000)
-      df0.drop(bioCols :_*)
+  def predictEntity(
+    df:DataFrame, 
+    textCols: Seq[String], 
+    vectorsCols:Seq[String], 
+    langCols:Seq[String], 
+    entCols:Seq[String], 
+    models:Map[String, LinearSVCModel], 
+    nBefore:Int, 
+    nAfter:Int, 
+    splitter:String,
+    forcedEntities:Option[Map[String, String]],
+    forceFilters:Option[Map[String, (String, String)]]
+    closestTO:Option[Set[String]]
+  ):DataFrame =  {
+    val bioCols = entCols.map(c => s"${c}_bio")
+    val sc = df.sparkSession.sparkContext 
+    val fEntReg = sc.broadcast(forcedEntities.map(fents => s"\\b(${fents.keys.map(k => Pattern.quote(k)).mkString("|")})\\b"))
+    val fFiltReg = sc.bradcast(forcedFilters.map(ffilt => s"\\b(${ffilt.keys.map(k => Pattern.quote(k)).mkString("|")})\\b"))
+    val clostReg = sc.bradcast(closestTo.map(cs => s"\\b(${cs.keys.map(k => Pattern.quote(k)).mkString("|")})\\b"))
+    val bFEnts = sc.broadcast(forcedEntities)
+    val bFFilters = sc.broadcast(forcedFilters)
+    val bClos = sc.bradcast(forcedComple)
+
+
+    Some(predictBIO(df = df, vectorsCols = vectorsCols, langCols = langCols, tagCols = bioCols , models = models, nAfter=nAfter, nBefore = nBefore))
+      .map{df => df.rdd.mapPartitions{iter => 
+        val fEntMatch = Pattern.compile(fEntReg.value)
+        val fFiltMatch = Pattern.compile(fEntReg.value)
+        val fTargMatch = Pattern.compile(fTargReg.value)
+        //;x.find();s"-${x.start}-${x.end}-"
+        iter.map{row =>
+          val res =  textCols.zip(bioCols.zip(entCols)).map{case (textCol, (bioCol, entCol)) =>
+            val text = row.getAs[String](textCol)
+            val bioTags = row.getAs[Seq[String]](bioCol)
+            val splitter = row.getAs[String](entCol)
+            if(text == null) 
+              null
+            else {
+              val tokens = text.split(splitter).filter(_.size > 0)
+              val reText = tokens.mkString(" ")
+              val cm = bClos.matcher(reText)
+              val target = if(cm.find()) Some(cm.group(0)) else None
+              TaggedChunk.fromBIO(text, bioTags)
+                .filter(c => c.isEntity)
+                .map(c => c.tokens.mkString(" "))
+                .toSeq
+                .headOption
+                .getOrElse(null)
+            }
+          }
+
+             .map(tags => Row.fromSeq(row.toSeq ++ res))
+             .get
+        }
+      })
+      .map{rdd =>
+      val taggedSchema = Encoders.product[TaggedChunk].schema 
+        spark.createDataFrame(rdd, StructType(fields = df.schema.fields ++ entCol.map(colName => StructField(colName ,  taggedSchema, true))))
+      }
+      .map{ df =>
+        //df.show(1000)
+        df.drop(bioCols :_*)
+      }
+      .get
   }
 }

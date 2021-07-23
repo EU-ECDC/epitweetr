@@ -66,6 +66,8 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , langIndexPath:String = null
     , reuseLangIndex:Boolean = true
     , stopWords:Seq[String]=Seq[String]()
+    , forcedLocations:Option[Map[String, String]]=None
+    , forceFilters:Option[Map[String, (String, String)]]=None
     )(implicit storage:Storage):DataFrame  = {
       implicit val spark = ds.sparkSession
       assert(langs.size == 0 || langIndexPath !=null)
@@ -87,18 +89,20 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
               textCols = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol.map(langCol => s"${textCol}")},
               langCols = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol},
               entCols = textLangCols.toSeq.flatMap{case (textCol, oLangCol) => oLangCol.map(langCol => s"${textCol}_ent")}, 
-              languages = langs, 
-              langIndexPath = langIndexPath, 
-              splitter = tokenizerRegex, 
-              nBefore = nBefore, 
-              nAfter = nAfter
+              languages = langs,
+              langIndexPath = langIndexPath,
+              splitter = tokenizerRegex,
+              nBefore = nBefore,
+              nAfter = nAfter,
+              forcedLocations = forcedLocations,
+              forceFilters = forcedFilters
             )
             withEnt.toDF(withEnt.schema.map(f => renameCols.get(f.name).getOrElse(f.name)):_* )
           case ds => ds.toDF
         }
         .map{df:DataFrame =>
           val geoTexts = textLangCols.toSeq.map{case (textCol, oLang) => col(textCol)} 
-          val sWords = langs.flatMap(l => l.getStopWords).toSet ++ stopWords.toSet
+          val sWords = langs.flatMap(l => l.getStopWords.filter(w => w.slice(0, 1) == w.slice(0, 1).toLowerCase)).toSet ++ stopWords.toSet
         
           df.luceneLookups(
             right = this.getDataset()
