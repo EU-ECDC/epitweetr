@@ -24,6 +24,36 @@ object Ngram {
   //def print() {println("Terms: "+terms.mkString(",")+" startIndex: "+startIndex+" endIndex: "+endIndex+"\nWeights:"+termWeights.mkString(","))}
 }
 
+case class EncodedQuery(original:String, replacement:String, field:Option[String]) {
+  val begin = EncodedQuery.begin
+  val end = EncodedQuery.end
+  val sep = EncodedQuery.sep
+  def encode = {
+    val encoded = EncodedQuery.encoder.encode(s"${original}${sep}${replacement}${field.map{v => s"${sep}${v}"}}")
+    s"${begin}${encoded}${end}"
+  }
+}
+object EncodedQuery {
+  val begin = "xqqqo"
+  val end = "oqqqx"
+  val sep = "@~@"
+  lazy val encoder = Encoding("azertyuiopqsdfghjklmwxcvbn")
+  def decodeQuery(value:String) = {
+     if(value.startsWith(begin) && value.endsWith(end)) {
+       Some(encoder.decode(value.slice(begin.size, value.size - end.size)))
+         .map(decoded => decoded.split(sep))
+         .map{
+           case Array(original, replacement) => Some(EncodedQuery(original= original, replacement = replacement, field = None))
+           case Array(original, replacement, field) => Some(EncodedQuery(original = original, replacement= replacement, field = Some(field)))
+           case _ => throw new Exception(s"Cannot decode $value as query") 
+         }
+         .get
+     }
+     else 
+       None
+  }
+}
+
 case class SearchMatch(docId:Int, score:Float, ngram:Ngram)
 
 trait IndexStrategy {
@@ -133,16 +163,19 @@ trait IndexStrategy {
 
   def search(tokens:Array[String], maxHits:Int, filter:Row = Row.empty, outFields:Seq[StructField]=Seq[StructField](),
              maxLevDistance:Int=2 , minScore:Double=0.0, boostAcronyms:Boolean=false, showTags:Boolean=false, usePopularity:Boolean, termWeights:Option[Seq[Double]]=None,
-             caseInsensitive:Boolean = true, defaultValue:Option[Row]=None):Array[GenericRowWithSchema] = {
+             caseInsensitive:Boolean = true, defaultValue:Option[Row]=None,
+             replaceQuery:Option[Array[String]]
+             ):Array[GenericRowWithSchema] = {
     val outSchema = StructType(outFields.toList :+ StructField("_score_", FloatType)
                                                 :+ StructField("_tags_", ArrayType(StringType))
                                                 :+ StructField("_startIndex_", IntegerType)
                                                 :+ StructField("_endIndex_", IntegerType))
                                               //  :+ StructField("_pos_", ArrayType(IntegerType, IntegerType)) ) // add fields
     //if(tokens != null) println(s"$termWeights, ${tokens.mkString(",")}")
-    var ret = if (tokens != null && tokens.size >0 ) {
+    val searchTokens = replaceQuery.getOrElse(tokens)
+    var ret = if (searchTokens != null && (searchTokens.size >0 || filter.size > 0)) {
       searchDoc(
-        terms = tokens, maxHits=maxHits, filter=filter, maxLevDistance=maxLevDistance
+        terms = searchTokens, maxHits=maxHits, filter=filter, maxLevDistance=maxLevDistance
           ,minScore=minScore, boostAcronyms = boostAcronyms, usePopularity = usePopularity, termWeights=termWeights
           ,caseInsensitive = caseInsensitive
         )

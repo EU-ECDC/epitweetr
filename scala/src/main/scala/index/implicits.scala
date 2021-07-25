@@ -340,28 +340,45 @@ object implicits {
                      // call search on SearchStrategy
                      //val startTime = System.nanoTime
                      
-                     val tokens = (tokenizeRegex,  qValues(i)(j)) match {
+                     val tokens0 = (tokenizeRegex,  qValues(i)(j)) match {
                            case (_, null) => null
                            case (Some(r), s) => s.split(r).filter(_.size > 0)
                            case (None, s) => Array(s)
                          }
-                     val (searchTokens, searchWeights) = 
-                       if(stopBC.value.size > 0 && tokens != null) 
-                         (tokens.filter(t => !stopBC.value(t))
+                     val (tokens1, searchWeights) = 
+                       if(stopBC.value.size > 0 && tokens0 != null) 
+                         (tokens0.filter(t => !stopBC.value(t))
                           ,termWeightsArray(i)(j).map(seq => 
-                             tokens.toSeq.zipWithIndex.filter{
-                               case (t, k) => !stopBC.value(t)}.map{case (t, k) =>  {if(seq.size < tokens.size) {println(s"$seq, ${tokens.mkString(", ")}");throw new Exception("OUCH")} else seq(k)}
+                             tokens0.toSeq.zipWithIndex.filter{
+                               case (t, k) => !stopBC.value(t)}.map{case (t, k) =>  {if(seq.size < tokens0.size) {println(s"$seq, ${tokens0.mkString(", ")}");throw new Exception("OUCH")} else seq(k)}
                              })
                          )
-                       else (tokens,  termWeightsArray(i)(j))
+                       else (tokens0,  termWeightsArray(i)(j))
                      //l.msg(s"searching for ${searchTokens.mkString(",")}") 
+                     
+                     val (tokens2, filter, replacement) =  
+                     if(tokens1.size == 1)
+                       EncodedQuery.decodeQuery(tokens1(0)) match {
+                         case Some(EncodedQuery(original, replacement, Some(field))) =>
+                           (tokenizeRegex.map(r => original.split(r).filter(_.size > 0)).getOrElse(Array(original)), 
+                             new GenericRowWithSchema(Array(replacement), new StructType(Array(StructField(name = field, dataType = StringType)))),
+                             Some(Array[String]())
+                           )
+                         case Some(EncodedQuery(original, replacement, None)) =>
+                           (tokenizeRegex.map(r => original.split(r).filter(_.size > 0)).getOrElse(Array(original)), 
+                             Row.empty,
+                             Some(tokenizeRegex.map(r => replacement.split(r).filter(_.size > 0)).getOrElse(Array(replacement)))
+                           )
+                         case None => (tokens1, Row.empty, None)
+                       } else (tokens1, Row.empty, None)
                      val res:Array[GenericRowWithSchema] =  rInfo.search(
-                       tokens = searchTokens, maxHits=1, filter = Row.empty, outFields=rightRequestFields,
+                       tokens = tokens2, maxHits=1, filter = filter, outFields=rightRequestFields,
                          maxLevDistance=maxLevDistance, minScore=minScore, boostAcronyms=boostAcronyms,
                          usePopularity = iReader.usePopularity, termWeights=searchWeights,
                          caseInsensitive = caseInsensitive,
-                         defaultValue = defaultValue
-                         )
+                         defaultValue = defaultValue,
+                         replaceQuery = replacement
+                       )
                      //val endTime = System.nanoTime
                      //if(termWeightsArray(i)(j) != null && termWeightsArray(i)(j).map(s => s.size).getOrElse(0)>0)
                      //l.msg(s"long in ${(endTime - startTime)/1e6d} for $iRow in $iPart ${(endTime - startTime)/1e6d} mili seconds for ${if(tokens != null) tokens.size else "null"} ${strategy}")

@@ -28,6 +28,9 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , reuseGeoIndex:Boolean = true
     , langIndexPath:String = null
     , reuseLangIndex:Boolean = true
+    , forcedGeo:Option[Map[String, String]]=None
+    , forcedGeoCodes:Option[Map[String, String]]=None
+    , closestTo:Option[Set[String]]=None
   )(implicit spark:SparkSession, storage:Storage) = {
     import spark.implicits._
     this.geolocateDS(
@@ -50,9 +53,12 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
       , reuseGeoIndex = reuseGeoIndex
       , langIndexPath = langIndexPath
       , reuseLangIndex = reuseLangIndex
+      , forcedGeo = forcedGeo
+      , forcedGeoCodes = forcedGeoCodes
+      , closestTo = closestTo
     )
   }
-  
+ 
   def geolocateDS(
     ds:Dataset[_]
     , textLangCols:Map[String, Option[String]]
@@ -66,8 +72,9 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , langIndexPath:String = null
     , reuseLangIndex:Boolean = true
     , stopWords:Seq[String]=Seq[String]()
-    , forcedLocations:Option[Map[String, String]]=None
-    , forceFilters:Option[Map[String, (String, String)]]=None
+    , forcedGeo:Option[Map[String, String]]=None
+    , forcedGeoCodes:Option[Map[String, String]]=None
+    , closestTo:Option[Set[String]]=None
     )(implicit storage:Storage):DataFrame  = {
       implicit val spark = ds.sparkSession
       assert(langs.size == 0 || langIndexPath !=null)
@@ -94,8 +101,9 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
               splitter = tokenizerRegex,
               nBefore = nBefore,
               nAfter = nAfter,
-              forcedLocations = forcedLocations,
-              forceFilters = forcedFilters
+              forcedEntities = forcedGeo,
+              forcedFilters = forcedGeoCodes.map{_.mapValues(v => ("geo_code", v))},
+              closestTo = closestTo
             )
             withEnt.toDF(withEnt.schema.map(f => renameCols.get(f.name).getOrElse(f.name)):_* )
           case ds => ds.toDF
