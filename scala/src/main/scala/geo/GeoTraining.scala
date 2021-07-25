@@ -437,10 +437,10 @@ object GeoTraining {
       val models = GeoTraining.trainModels(annotations = trainingSets(i).flatMap(tt => tt.toBIO(nBefore = conf.geoNBefore, nAfter = conf.geoNAfter)), testId = Some(testName))
       val testTexts = testSets(i)
         .toDS
-        .select(udf((id:String, taggedChunks:Seq[TaggedChunk], lang:Option[String]) => TaggedText(id, taggedChunks, lang)).apply(col("id"), col("taggedChunks"), col("lang")).as("tagged"))
+        .select(udf((id:String, taggedChunks:Seq[TaggedChunk], lang:String) => TaggedText(id, taggedChunks, if(lang==null)None else Some(lang))).apply(col("id"), col("taggedChunks"), col("lang")).as("tagged"))
         .select(
           col("tagged"),
-          udf((lang:Option[String]) => lang.getOrElse(null)).apply(col("tagged.lang")).as("lang"),
+          udf((lang:String) => lang).apply(col("tagged.lang")).as("lang"),
           udf((taggedText:TaggedText)=>taggedText.getTokens).apply(col("tagged")).as("tokens")
         )
         .withColumn("text", array_join(col("tokens"), " "))
@@ -463,8 +463,8 @@ object GeoTraining {
       )
       .withColumn(
         "predicted", 
-        udf((id:String, lang:Option[String], tokens:Seq[String], bioTags:Seq[String]) => 
-           TaggedText(id, lang, tokens, bioTags) 
+        udf((id:String, lang:String, tokens:Seq[String], bioTags:Seq[String]) => 
+           TaggedText(id, if(lang == null) None else Some(lang), tokens, bioTags) 
         ).apply(col("tagged.id"), col("lang"), col("tokens"), col("text_tag"))
       ).withColumn("confMatrix", udf((tagged:TaggedText, predicted:TaggedText) => ConfusionMatrix(tagged = tagged, predicted = predicted)).apply(col("tagged"), col("predicted")))
       .select(

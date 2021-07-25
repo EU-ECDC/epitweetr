@@ -1,5 +1,5 @@
 #!/bin/bash
-export SPARK_VERSION=3.1.2
+export SPARK_VERSION=3.0.3
 export SBT_OPTS="-Xmx10G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
 cd scala
 expect -c '
