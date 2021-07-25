@@ -1447,7 +1447,7 @@ epitweetr_app <- function(data_dir = NA) {
         
         tryCatch({
            #update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value /3, message = message)})
-           progress_set(value = 0.5, message = "Retraining models and avaluating")
+           progress_set(value = 0.5, message = "Retraining models and evaluating")
            retrain_languages()
            update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = 0.5 + value/2, message = message)})
            cd$geotraining_refresh_flag(Sys.time())
