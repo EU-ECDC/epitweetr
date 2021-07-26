@@ -160,16 +160,15 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
 
-        //val (parSeq, parallelism) = 
-        //  Some(indexes.toSeq)
-        //   .map(s => (s.par, s.size))
-        //   .get
-          
-        //val pool = new ForkJoinPool(parallelism)
-        //parSeq.tasksupport = new ForkJoinTaskSupport(pool)
-        //parSeq.tasksupport = new ForkJoinTaskSupport(java.util.concurrent.ForkJoinPool.commonPool)
-        //parSeq
-        indexes
+        val (parSeq, parallelism) = 
+          Some(indexes.toSeq)
+           .map(s => (s.par, s.size))
+           .get
+        
+        val pool = new ForkJoinPool(parallelism)
+        parSeq.tasksupport = new ForkJoinTaskSupport(pool)
+        parSeq.tasksupport = new ForkJoinTaskSupport(java.util.concurrent.ForkJoinPool.commonPool)
+        parSeq
           .foreach{case i =>
             val builder = StringBuilder.newBuilder
             var toAdd = chunkSize
@@ -187,7 +186,9 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
                 builder ++= s"${sep}${line.toString}\n"
                 toAdd = toAdd -1
                 if(toAdd == 0) {
-                  Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+                  pool.synchronized {
+                    Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+                  }
                   toAdd = chunkSize
                   builder.clear
                 }
@@ -195,11 +196,13 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               }
 
             if(builder.size > 0) {
-              Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+              pool.synchronized {
+                Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+              }
               builder.clear
             }
           }
-        //pool.shutdown
+        pool.shutdown
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
         }
