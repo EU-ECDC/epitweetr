@@ -245,15 +245,15 @@ check_geolocated_present <- function() {
 
 # check if aggregated files are present (aggregate has successfully run)
 check_series_present <- function(series = c("country_counts", "geolocated", "topwords")) { 
-   rds_counts <- sapply(series, function(ds) length(list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(ds, ".*\\.Rds", sep="")))) 
-   fs_counts <- sapply(series, function(ds) length(list.files(path = file.path(conf$data_dir, "fs"), recursive=TRUE, pattern = paste(ds, ".*\\.fdt", sep="")))) 
-   
-   if(all(rds_counts) || all(fs_counts) > 0)
-     TRUE
-   else {
-     warning("No aggregated series found. Please run the search loop to collect and aggregate data")  
-     FALSE
-   }
+   rds_counts <- sapply(series, function(ds) length(list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(ds, ".*\\.Rds", sep=""))))
+   fs_counts <- sapply(series, function(ds) length(list.files(path = file.path(conf$data_dir, "fs"), recursive=TRUE, pattern = paste(ds, ".*\\.fdt", sep=""))))
+
+   if(all(rds_counts > 0) || all(fs_counts > 0))
+      TRUE
+    else {
+      warning("No aggregated series found. Please run the search loop to collect and aggregate data")
+      FALSE
+    }
 }
 
 # check if tweets files are present tweet collect has run
