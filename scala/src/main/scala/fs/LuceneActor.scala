@@ -504,7 +504,9 @@ object LuceneActor {
   def getReadIndexes(collection:String, from:Option[Instant], to:Option[Instant])(implicit conf:Settings, holder:IndexHolder) = 
     getReadKeys(collection, from, to).map(key => getIndex(collection, key))
 
-  def add2Geolocate(tweets:TopicTweetsV1)(implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = {
+  def add2Geolocate(tweets:TopicTweetsV1, forcedGeo:Option[Map[String, String]], forcedGeoCodes:Option[Map[String, String]], topics:Set[String])
+    (implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = 
+  {
     val toGeo = holder.toGeolocate.synchronized { 
       holder.toGeolocate += tweets
       if(!holder.geolocating) {
@@ -522,7 +524,7 @@ object LuceneActor {
       if(toGeo.size > 0) {
         implicit val spark = LuceneActor.getSparkSession()
         implicit val storage = LuceneActor.getSparkStorage
-        LuceneActor.geolocateTweets(toGeo)
+        LuceneActor.geolocateTweets(toGeo, forcedGeo, forcedGeoCodes, topics)
         holder.geolocating = false
         LuceneActor.add2Aggregate(toGeo) 
       }
@@ -586,7 +588,12 @@ object LuceneActor {
       , "place_full_name"->None.asInstanceOf[Option[String]]
       , "linked_place_full_name"->None.asInstanceOf[Option[String]]
     )
-  def geolocateTweets(tweets:ArrayBuffer[TopicTweetsV1])(implicit spark:SparkSession, conf:Settings, storage:Storage) {
+  def geolocateTweets(
+    tweets:ArrayBuffer[TopicTweetsV1], 
+    forcedGeo:Option[Map[String, String]], 
+    forcedGeoCodes:Option[Map[String, String]], 
+    topics:Set[String]
+  )(implicit spark:SparkSession, conf:Settings, storage:Storage) {
     import spark.implicits._
     val sc = spark.sparkContext
     val startTime = System.nanoTime
@@ -608,6 +615,9 @@ object LuceneActor {
           , reuseGeoIndex = true
           , langIndexPath=conf.langIndexPath
           , reuseLangIndex = true
+          , forcedGeo = forcedGeo
+          , forcedGeoCodes = forcedGeoCodes
+          , closestTo = Some(topics)
         )
         .select((
           Seq(col("topic"), col("lang"), col("tweet_id").as("id"), col("created_at"))

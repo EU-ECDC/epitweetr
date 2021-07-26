@@ -78,7 +78,7 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
           caller ! ByteString(s"[Stream--error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
       }
-    case GeonamesActor.GeolocateTextsRequest(toGeo, minScore, jsonnl, caller) =>
+    case GeonamesActor.GeolocateTextsRequest(toGeo, minScore, forcedGeo, forcedGeoCodes, topics, jsonnl, caller) =>
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
       implicit val s = GeonamesActor.getSparkSession
       implicit val st = GeonamesActor.getSparkStorage
@@ -108,6 +108,9 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
               , reuseGeoIndex = true
               , langIndexPath=conf.langIndexPath
               , reuseLangIndex = true
+              , forcedGeo = forcedGeo
+              , forcedGeoCodes = forcedGeoCodes
+              , closestTo = Some(topics)
              ).select(col("id"), col("text"), col("lang"), col("geo_code"), col("geo_country_code"), col("geo_country"), col("geo_name"), array_join(col("_tags_"), " ").as("tags"))
              .withColumn("geo_country", udf((country:String)=>if(country == null) null else country.split(",").head.trim).apply(col("geo_country")))
         df.toJSON
@@ -184,7 +187,15 @@ object GeonamesActor {
   var spark:Option[SparkSession] = None
   case class TrainingSetRequest(excludedLangs:Seq[String], locationSamples:Boolean, jsonnl:Boolean, caller:ActorRef)
   case class TrainLanguagesRequest(trainingSet:Seq[GeoTraining], jsonnl:Boolean, caller:ActorRef)
-  case class GeolocateTextsRequest(toGeo:Seq[TextToGeo], minScore:Option[Int], jsonnl:Boolean, caller:ActorRef)
+  case class GeolocateTextsRequest(
+    toGeo:Seq[TextToGeo], 
+    minScore:Option[Int], 
+    forcedGeo:Option[Map[String, String]], 
+    forcedGeoCodes:Option[Map[String, String]], 
+    topics:Set[String], 
+    jsonnl:Boolean, 
+    caller:ActorRef
+  )
   case class LanguagesTrained(msg:String)
   def closeSparkSession() = {
     spark match{

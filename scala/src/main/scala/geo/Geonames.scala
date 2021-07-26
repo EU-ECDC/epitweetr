@@ -28,9 +28,9 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , reuseGeoIndex:Boolean = true
     , langIndexPath:String = null
     , reuseLangIndex:Boolean = true
-    , forcedGeo:Option[Map[String, String]]=None
-    , forcedGeoCodes:Option[Map[String, String]]=None
-    , closestTo:Option[Set[String]]=None
+    , forcedGeo:Option[Map[String, String]] = None
+    , forcedGeoCodes:Option[Map[String, String]] = None
+    , closestTo:Option[Set[String]]= None
   )(implicit spark:SparkSession, storage:Storage) = {
     import spark.implicits._
     this.geolocateDS(
@@ -72,8 +72,8 @@ case class Geonames(source:String, destination:String, simplify:Boolean = false)
     , langIndexPath:String = null
     , reuseLangIndex:Boolean = true
     , stopWords:Seq[String]=Seq[String]()
-    , forcedGeo:Option[Map[String, String]]=None
-    , forcedGeoCodes:Option[Map[String, String]]=None
+    , forcedGeo:Option[Map[String, String]]= None
+    , forcedGeoCodes:Option[Map[String, String]]= None
     , closestTo:Option[Set[String]]=None
     )(implicit storage:Storage):DataFrame  = {
       implicit val spark = ds.sparkSession
@@ -351,6 +351,9 @@ object Geonames {
       , langIndexPath:String = null
       , reuseLangIndex:Boolean = true
       , stopWords:Seq[String]=Seq[String]()
+      , forcedGeo:Option[Map[String, String]] = None
+      , forcedGeoCodes:Option[Map[String, String]] = None
+      , closestTo:Option[Set[String]] = None
     ) (implicit storage:Storage) = {
         geonames.geolocateDS(
           ds = ds
@@ -365,6 +368,9 @@ object Geonames {
           , langIndexPath = langIndexPath
           , reuseLangIndex = reuseLangIndex
           , stopWords = stopWords
+          , forcedGeo = forcedGeo
+          , forcedGeoCodes = forcedGeoCodes
+          , closestTo = closestTo
         ) 
     }
   }
