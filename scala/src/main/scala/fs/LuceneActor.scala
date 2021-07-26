@@ -160,15 +160,16 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
 
-        val (parSeq, parallelism) = 
-          Some(indexes.toSeq)
-           .map(s => (s.par, s.size))
-           .get
+        //val (parSeq, parallelism) = 
+        //  Some(indexes.toSeq)
+        //   .map(s => (s.par, s.size))
+        //   .get
           
-        val pool = new ForkJoinPool(parallelism)
-        parSeq.tasksupport = new ForkJoinTaskSupport(pool)
+        //val pool = new ForkJoinPool(parallelism)
+        //parSeq.tasksupport = new ForkJoinTaskSupport(pool)
         //parSeq.tasksupport = new ForkJoinTaskSupport(java.util.concurrent.ForkJoinPool.commonPool)
-        parSeq
+        //parSeq
+        indexes
           .foreach{case i =>
             val builder = StringBuilder.newBuilder
             var toAdd = chunkSize
@@ -198,7 +199,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               builder.clear
             }
           }
-        pool.shutdown
+        //pool.shutdown
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
         }

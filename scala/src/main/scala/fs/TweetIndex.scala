@@ -3,7 +3,7 @@ package org.ecdc.epitweetr.fs
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.search.{IndexSearcher, Query, TermQuery}
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.ScoreDoc
+import org.apache.lucene.search.{ScoreDoc, Sort}
 import java.nio.file.{Files, Paths, Path}
 import org.apache.lucene.store.{ FSDirectory, MMapDirectory}
 import org.apache.lucene.index.{IndexWriter, IndexReader, DirectoryReader,IndexWriterConfig}
@@ -18,6 +18,7 @@ import scala.collection.mutable.HashMap
 import org.ecdc.epitweetr.geo.Geonames.Geolocate
 import org.apache.spark.sql.{Row}
 import org.apache.spark.sql.types.{StructField, StringType, IntegerType, FloatType, BooleanType, LongType, DoubleType}
+
 object TweetIndex {
   def apply(indexPath:String, writeEnabled:Boolean=false):TweetIndex = {
     val analyzer = new StandardAnalyzer()
@@ -371,8 +372,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   }
   def search(query:Query, maxHits:Int, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
     val docs = after match {
-      case Some(last) => searcher.searchAfter(last, query, maxHits)
-      case None => searcher.search(query, maxHits)
+      case Some(last) => searcher.searchAfter(last, query, maxHits, Sort.INDEXORDER, false)
+      case None => searcher.search(query, maxHits, Sort.INDEXORDER, false)
     }
     docs
   } 
@@ -393,28 +394,33 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
         var first = true
         var searcher:Option[IndexSearcher]=None
         Iterator.continually{
-          if(first) {
-            searcher = Some(this.useSearcher()) 
-            first = false
+          if(left.map(l => l == 0).getOrElse(false))
+            Array[Document]()
+          else {
+            if(first) {
+              searcher = Some(this.useSearcher()) 
+              first = false
+            }
+            val res = search(query = q, after = after)(searcher.get)
+            val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
+            
+            if(res.scoreDocs.size > 0) {
+              after = Some(res.scoreDocs.last)
+              left  = left.map(l => l -  res.scoreDocs.size)
+            }
+            if(res.scoreDocs.size == 0 || left.map(l => l <= 0).getOrElse(false)) {
+              this.releaseSearcher(searcher.get)
+            }
+            left.map{l => 
+             if(l < 0) 
+               ret.take(ret.size+l)
+             else 
+               ret
+            }.getOrElse{
+              ret
+            }
           }
-          val res = search(query = q, after = after)(searcher.get)
-          val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
-          if(res.scoreDocs.size > 0) {
-            after = Some(res.scoreDocs.last)
-            left  = left.map(l => l -  res.scoreDocs.size)
-          }
-          if(res.scoreDocs.size == 0 || left.map(l => l <= 0).getOrElse(false)) {
-            this.releaseSearcher(searcher.get)
-          }
-          left.map{l => 
-           if(l < 0) 
-             ret.take(ret.size+l)
-           else 
-             ret
-          }.getOrElse{
-            ret
-          }
-        }.takeWhile(_.size > 0 && left.map(l => l >0).getOrElse(true))
+        }.takeWhile(_.size > 0)
         .flatMap(docs => docs)
       }.toIterator
   }
