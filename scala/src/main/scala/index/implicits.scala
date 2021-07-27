@@ -357,7 +357,7 @@ object implicits {
                      //l.msg(s"searching for ${searchTokens.mkString(",")}") 
                      
                      val (tokens2, filter, replacement) =  
-                     if(tokens1.size == 1)
+                     if(tokens1 != null && tokens1.size == 1)
                        EncodedQuery.decodeQuery(tokens1(0)) match {
                          case Some(EncodedQuery(original, replacement, Some(field))) =>
                            (tokenizeRegex.map(r => original.split(r).filter(_.size > 0)).getOrElse(Array(original)), 
@@ -371,6 +371,9 @@ object implicits {
                            )
                          case None => (tokens1, Row.empty, None)
                        } else (tokens1, Row.empty, None)
+                     //replacement.foreach{r => 
+                     //  l.msg(s"tokens ${tokens2.toSeq}, filter ${filter.schema}>> ${filter}, relacement ${r.toSeq}")
+                     //}
                      val res:Array[GenericRowWithSchema] =  rInfo.search(
                        tokens = tokens2, maxHits=1, filter = filter, outFields=rightRequestFields,
                          maxLevDistance=maxLevDistance, minScore=minScore, boostAcronyms=boostAcronyms,

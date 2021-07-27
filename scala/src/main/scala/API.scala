@@ -339,7 +339,15 @@ object API {
                       , failureMatcher = PartialFunction.empty
                     )
                     val (actorRef, matSource) = source.preMaterialize()
-                    geonamesRunner ! GeonamesActor.GeolocateTextsRequest(toGeo.items, minScore, jsonnl, actorRef) 
+                    geonamesRunner ! GeonamesActor.GeolocateTextsRequest(
+                      toGeo.items, 
+                      minScore, 
+                      conf.forcedGeo.map(_.items), 
+                      conf.forcedGeoCodes.map(_.items), 
+                      conf.topicKeyWords.map(_.items.flatMap(e => e._2).toSet), 
+                      jsonnl, 
+                      actorRef
+                    ) 
                     complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
                       if(m.startsWith(ByteString(s"[Stream--error]:"))) 
                         throw new Exception(m.decodeString("UTF-8"))

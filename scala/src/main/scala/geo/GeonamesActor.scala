@@ -91,7 +91,7 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         implicit val s = GeonamesActor.getSparkSession
         implicit val st = GeonamesActor.getSparkStorage
         import s.implicits._
-        val readyLangs = GeoTraining.trainedLanguages()
+        if(conf.languages.size > readyLangs.size) println(s"only ${readyLangs.size} of ${conf.languages.size} are ready")
         println(s"langs ready: ${readyLangs.size}")
         val df0 = 
           toGeo.toDS
@@ -110,9 +110,10 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
               , reuseLangIndex = true
               , forcedGeo = forcedGeo
               , forcedGeoCodes = forcedGeoCodes
-              , closestTo = Some(topics)
+              , closestTo = topics
              ).select(col("id"), col("text"), col("lang"), col("geo_code"), col("geo_country_code"), col("geo_country"), col("geo_name"), array_join(col("_tags_"), " ").as("tags"))
              .withColumn("geo_country", udf((country:String)=>if(country == null) null else country.split(",").head.trim).apply(col("geo_country")))
+        //df.show
         df.toJSON
           .collect
           .foreach{line =>
@@ -149,7 +150,7 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         implicit val st = GeonamesActor.getSparkStorage
         import s.implicits._
         val readyLangs = GeoTraining.trainedLanguages()
-        println(s"langs ready: ${readyLangs.size}")
+        if(conf.languages.size > readyLangs.size) println(s"only ${readyLangs.size} of ${conf.languages.size} are ready")
         
         val results = GeoTraining.splitTrainEvaluate(annotations = trainingSet, trainingRatio = 0.7).cache
         import s.implicits._
@@ -192,7 +193,7 @@ object GeonamesActor {
     minScore:Option[Int], 
     forcedGeo:Option[Map[String, String]], 
     forcedGeoCodes:Option[Map[String, String]], 
-    topics:Set[String], 
+    topics:Option[Set[String]], 
     jsonnl:Boolean, 
     caller:ActorRef
   )

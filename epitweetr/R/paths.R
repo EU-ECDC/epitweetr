@@ -129,6 +129,18 @@ get_geonames_index_path <- function() {
   file.path(conf$data_dir, "geo", "all-geos.parquet.index") 
 }
 
+get_topic_keywords_path <- function() {
+  file.path(conf$data_dir, "geo", "topic-keywords.json") 
+}
+
+get_forced_geo_path <- function() {
+  file.path(conf$data_dir, "geo", "forced-geo.json") 
+}
+
+get_forced_geo_codes_path <- function() {
+  file.path(conf$data_dir, "geo", "forced-geo-codes.json") 
+}
+
 # Get languages index path 
 get_lang_index_path <- function() {
   file.path(conf$data_dir, "geo", "lang_vectors.index") 
@@ -138,10 +150,12 @@ get_lang_index_path <- function() {
 get_lang_vectors_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz", sep = "")) 
 }
+
 # Get language model path
 get_lang_model_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz.model", sep = "")) 
 }
+
 # Get language model stamp
 get_lang_stamp_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz.stamp", sep = "")) 

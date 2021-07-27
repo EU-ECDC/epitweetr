@@ -3,7 +3,7 @@ package org.ecdc.epitweetr.fs
 import org.ecdc.epitweetr.EpitweetrActor
 import org.ecdc.epitweetr.geo.{GeoTrainings, GeoTraining, GeoTrainingSource, GeoTrainingPart}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import spray.json.{JsString, JsNull, JsValue, JsNumber, DefaultJsonProtocol, JsonFormat, RootJsonFormat, JsObject, JsArray, JsBoolean}
+import spray.json.{JsString, JsNull, JsValue, JsNumber, DefaultJsonProtocol, JsonFormat, RootJsonFormat, JsObject, JsArray, JsBoolean, JsField, JsonParser}
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale 
@@ -12,6 +12,10 @@ import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, B
 import org.apache.lucene.index.IndexableField
 import scala.collection.JavaConverters._
 import java.net.URLDecoder
+
+case class TopicKeyWords(items:Map[String, Set[String]])
+case class ForcedGeo(items:Map[String, String])
+case class ForcedGeoCodes(items:Map[String, String])
 
 
 case class TextsToGeo(items:Seq[TextToGeo])
@@ -439,7 +443,57 @@ object EpiSerialisation
             case Some(JsArray(items)) => GeolocatedTweets(items = items.map(t => geolocatedTweetFormat.read(t)).map(g => g.fixTopic).toSeq)
             case _ => throw new Exception("@epi cannot find expected itmes array on search Json result")
           }
-        case _ => throw new Exception(s"@epi cannot deserialize $value to TweetsV1")
+        case _ => throw new Exception(s"@epi cannot deserialize $value to GeolocatedTweets")
+      }
+    }
+    implicit object topicKeyWordsFormat extends RootJsonFormat[TopicKeyWords] {
+      def write(t: TopicKeyWords) = JsObject(t.items.map{case (k, s) => new JsField(k, JsArray(s.toSeq.map(v => JsString(v)):_*))})
+      def read(value: JsValue) = value match {
+        case JsObject(fields) =>
+          TopicKeyWords(
+            fields.map{
+              case (name, JsArray(items)) => 
+                (name, 
+                  items.map{ 
+                    case JsString(value) => value
+                    case e => throw new Exception(s"@epi1 TopicKeyWords is expected to have only a map of string sets, but got ${e}")
+                  }.toSet
+                )
+              case (name, JsString(value)) => 
+                (name, Set(value))
+              case e => throw new Exception(s"@epi2 TopicKeyWords is expected to have only a map of string sets, but got ${e}")
+            }
+            .toMap
+          )
+        case e => throw new Exception(s"@epi3 TopicKeyWords is expected to have only a map of string sets, but got ${e}")
+      }
+    }
+    implicit object forcedGeoFormat extends RootJsonFormat[ForcedGeo] {
+      def write(t: ForcedGeo) = JsObject(t.items.map{case (k, v) => new JsField(k, JsString(v))})
+      def read(value: JsValue) = value match {
+        case JsObject(fields) =>
+          ForcedGeo(
+            fields.map{
+              case (name, JsString(value)) => (name, value)
+              case _ => throw new Exception("@epi ForcedGeo is expected to have only a map of values")
+            }
+            .toMap
+          )
+        case _ => throw new Exception("@epi ForcedGeo is expected to have only a map of values")
+      }
+    }
+    implicit object forcedGeoCodesFormat extends RootJsonFormat[ForcedGeoCodes] {
+      def write(t: ForcedGeoCodes) = JsObject(t.items.map{case (k, v) => new JsField(k, JsString(v))})
+      def read(value: JsValue) = value match {
+        case JsObject(fields) =>
+          ForcedGeoCodes(
+            fields.map{
+              case (name, JsString(value)) => (name, value)
+              case e => throw new Exception(s"@epi ForcedGeoCodes is expected to have only a map of values but got ${e}")
+            }
+            .toMap
+          )
+        case e => throw new Exception(s"@epi ForcedGeo is expected to have only a map of values, but got ${e}")
       }
     }
 }

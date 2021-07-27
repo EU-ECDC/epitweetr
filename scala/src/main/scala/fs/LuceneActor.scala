@@ -27,7 +27,6 @@ import org.apache.lucene.search.{Query, TermQuery, BooleanQuery, PrefixQuery, Te
 import org.apache.lucene.search.BooleanClause.Occur
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.spell.LuceneDictionary
-import demy.storage.{Storage, FSNode}
 import demy.util.{log => l}
 import scala.concurrent.ExecutionContext
 import org.ecdc.epitweetr.geo.Geonames.Geolocate
@@ -60,7 +59,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       Future{
         implicit val spark = LuceneActor.getSparkSession()
         implicit val storage = LuceneActor.getSparkStorage
-        LuceneActor.add2Geolocate(TopicTweetsV1(topic, ts))  
+        LuceneActor.add2Geolocate(TopicTweetsV1(topic, ts), conf.forcedGeo.map(_.items), conf.forcedGeoCodes.map(_.items), conf.topicKeyWords.map(_.items(topic)))  
       }.onComplete {
         case Success(_) =>
         case Failure(t) => println("Error during geolocalisation: " + t.getMessage)
@@ -508,7 +507,7 @@ object LuceneActor {
   def getReadIndexes(collection:String, from:Option[Instant], to:Option[Instant])(implicit conf:Settings, holder:IndexHolder) = 
     getReadKeys(collection, from, to).map(key => getIndex(collection, key))
 
-  def add2Geolocate(tweets:TopicTweetsV1, forcedGeo:Option[Map[String, String]], forcedGeoCodes:Option[Map[String, String]], topics:Set[String])
+  def add2Geolocate(tweets:TopicTweetsV1, forcedGeo:Option[Map[String, String]], forcedGeoCodes:Option[Map[String, String]], topics:Option[Set[String]])
     (implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = 
   {
     val toGeo = holder.toGeolocate.synchronized { 
@@ -596,7 +595,7 @@ object LuceneActor {
     tweets:ArrayBuffer[TopicTweetsV1], 
     forcedGeo:Option[Map[String, String]], 
     forcedGeoCodes:Option[Map[String, String]], 
-    topics:Set[String]
+    topics:Option[Set[String]]
   )(implicit spark:SparkSession, conf:Settings, storage:Storage) {
     import spark.implicits._
     val sc = spark.sparkContext
@@ -621,7 +620,7 @@ object LuceneActor {
           , reuseLangIndex = true
           , forcedGeo = forcedGeo
           , forcedGeoCodes = forcedGeoCodes
-          , closestTo = Some(topics)
+          , closestTo = topics
         )
         .select((
           Seq(col("topic"), col("lang"), col("tweet_id").as("id"), col("created_at"))

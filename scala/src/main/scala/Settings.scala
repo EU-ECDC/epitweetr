@@ -1,9 +1,10 @@
 package org.ecdc.epitweetr
 
 import spray.json._
-import java.nio.file.Paths
+import java.nio.file.{Paths, Files}
 import org.ecdc.twitter.Language
 import org.ecdc.epitweetr.geo.Geonames
+import org.ecdc.epitweetr.fs.EpiSerialisation
 
 case class Settings(epiHome:String) {
   var _properties:Option[JsObject] = None
@@ -12,6 +13,15 @@ case class Settings(epiHome:String) {
     val plines = try psource.mkString finally psource.close() 
     _properties = Some(plines.parseJson.asJsObject)
     this
+  }
+  def loadJson(relativePath:String) = {
+    val path = Paths.get(epiHome, relativePath)
+    if(Files.exists(path)) {
+      val psource = scala.io.Source.fromFile(path.toString)
+      val plines = try psource.mkString finally psource.close() 
+      Some(plines.parseJson.asJsObject)
+    }
+    else None
   }
 
   def properties = _properties match {
@@ -61,6 +71,10 @@ case class Settings(epiHome:String) {
   def fsPort = properties.fields.get("fs_port").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(8080)
   
   def splitter = properties.fields.get("tweetSplitterRegex").map(v => v.asInstanceOf[JsString].value).getOrElse(Settings.defaultSplitter)
+  def forcedGeo = this.loadJson("geo/forced-geo.json").map(json => EpiSerialisation.forcedGeoFormat.read(json)) 
+  def forcedGeoCodes = this.loadJson("geo/forced-geo-codes.json").map(json => EpiSerialisation.forcedGeoCodesFormat.read(json)) 
+  def topicKeyWords = this.loadJson("geo/topic-keywords.json").map(json => EpiSerialisation.topicKeyWordsFormat.read(json)) 
+
 }
 object Settings {
   def defaultSplitter = "(http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|\\bRT\\b+|\\bvia\\b+|\\bvía\\b+|((?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+"

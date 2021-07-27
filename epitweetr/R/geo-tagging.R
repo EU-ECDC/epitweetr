@@ -496,9 +496,11 @@ geolocate_text <- function(df, text_col = "text", lang_col=NULL, min_score = NUL
   if(!is.null(min_score)) {
     geo_uri <- paste(geo_uri,"&minScore=", min_score, sep = "")
   }
-
   ret = stream_post(uri = geo_uri, body = to_geolocate) %>%
     dplyr::arrange(as.integer(.data$id))
+  for(col in c("geo_code", "geo_country_code", "geo_country", "geo_name", "tags"))
+    if(!exists(col, where = ret))
+      ret[[col]] <- NA
   dplyr::select(ret, -which(names(ret) %in% c("text", "id", "lang")))
 }
 
@@ -646,6 +648,9 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
 
 update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   training_df <- updated_geotraining_df(tweets_to_add = 100, progress = progress)
+  update_topic_keywords()
+  update_forced_geo()
+  update_forced_geo_codes()
   if(is.function(progress)) progress(0.9, "writing result file")
   wb <- openxlsx::loadWorkbook(get_geotraining_path())
   # we have to remove the existing worksheet since writing on the same was producing a corrupted file
@@ -721,3 +726,44 @@ retrain_languages <- function() {
     close(fileConn)
   }
 }
+
+update_topic_keywords <- function() {
+   keywords <- lapply(strsplit(gsub("\\-\\w*\\b|\"", "", unlist(lapply(conf$topics, function(t) t$query))), "OR|AND|NOT|\\(|\\)"), function(t) {x <- gsub("^ *| *$", "", t); x[x != ""]} )
+   topicKeywords <- setNames(keywords, sapply(conf$topics, function(t) t$topic))
+   ret <- list()
+   for(i in 1:length(conf$topics)) 
+     if(exists(conf$topics[[i]]$topic, where = ret)) ret[[conf$topics[[i]]$topic]] <- unique(c(ret[[conf$topics[[i]]$topic]], yy[[i]])) 
+     else ret[[conf$topics[[i]]$topic]] <- unique(yy[[i]])
+   write_json_atomic(ret, get_topic_keywords_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+}
+
+update_forced_geo <- function() {
+  df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(`Location in text`), `Text`, `Location in text`), to = `Associate with`) %>% dplyr::filter(!is.na(to))
+  ret <- list()
+  if(nrow(df) > 0) {
+    for(i in 1:nrow(df)) {
+      toReplace <- sapply(strsplit(df$from[[i]], ",")[[1]], function(t) {x <- gsub("^ *| *$", "", t); x[x != ""]})
+      for(j in 1:length(toReplace)) ret[[toReplace[[j]]]] <- df$to[[i]]
+    }
+    write_json_atomic(ret, get_forced_geo_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+  } else {
+    if(file.exists(get_forced_geo_path()))
+      file.remove(get_forced_geo_path())
+  }
+}
+
+update_forced_geo_codes <- function() {
+  df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(`Location in text`), `Text`, `Location in text`), to = `Associate country code`) %>% dplyr::filter(!is.na(to))
+  ret <- list()
+  if(nrow(df) > 0) {
+    for(i in 1:nrow(df)) {
+      toReplace <- sapply(strsplit(df$from[[i]], ",")[[1]], function(t) {x <- gsub("^ *| *$", "", t); x[x != ""]})
+      for(j in 1:length(toReplace)) ret[[toReplace[[j]]]] <- df$to[[i]]
+    }
+    write_json_atomic(ret, get_forced_geo_codes_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+  } else {
+    if(file.exists(get_forced_geo_codes_path()))
+      file.remove(get_forced_geo_codes_path())
+  }
+}
+

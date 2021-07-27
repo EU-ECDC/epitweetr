@@ -169,64 +169,84 @@ case class TaggedText(id:String, taggedChunks:Seq[TaggedChunk], lang:Option[Stri
   def getTokens = taggedChunks.flatMap(tc => tc.tokens)
 
   def forceEntities(replacements:Seq[(Seq[String], Seq[String])]) = {
-    replacements.map{case (from, to) =>
-      Some(
-        TaggedText(
-          id = this.id, 
-          taggedChunks = 
-            TaggedChunk(
-              tokens = this.getTokens, 
-              isEntity = false
-            ).split(
-              TaggedChunk(
-                tokens = from, 
-                isEntity = false
-              )
-            )
-          , lang = this.lang
-        )
-      ).map{case TaggedText(id, tcs, l) =>
-        TaggedText(
-          id = this.id,
-          taggedChunks = tcs.map{tc => 
-            if(tc.isEntity) 
-              TaggedChunk(tokens = to, isEntity = true)
-            else 
-              tc
-          },
-          lang = this.lang
-        )
-      }
-      .get
-    }.foldLeft(this)((curr, iter) => iter.mergeWith(curr)) 
+    val empty = TaggedText(
+        id = this.id, 
+        taggedChunks = 
+          Seq(TaggedChunk(
+            tokens = this.getTokens.toVector, 
+            isEntity = false
+          )),
+        lang = this.lang
+      )
+ 
+    val withReplacements = replacements.foldLeft(empty){
+      case(current, (from, to)) =>
+        val tagged = current.mergeWith(TaggedText(id = this.id, taggedChunks = Seq(TaggedChunk(from, true)), lang = this.lang))
+        val replaced = 
+          TaggedText(
+            id = this.id,
+            taggedChunks = tagged.taggedChunks.map{tc => 
+              if(tc.tokens == from) 
+                TaggedChunk(tokens = to.toVector, isEntity = true)
+              else 
+                tc
+            },
+            lang = this.lang
+          )
+        replaced
+    }
+    val ret = withReplacements.mergeWith(this)
+    ret
   }
   def findClosestEntity(targets:Seq[Seq[String]]) = {
-    var i = 0
-    var best = None.asInstanceOf[Option[(Int, Int)]]
-    val locs = for{
+    val matches = for{
       ic <- Iterator.range(0,  this.taggedChunks.size)
-      itok <- Iterator.range(0, this.taggedChunks(ic).tokens(i).size)
+      itok <- Iterator.range(0, this.taggedChunks(ic).tokens.size)
       itar <- Iterator.range(0, targets.size) 
-      if targets(itar).iterator.zipWithIndex.forall{case (t, i) => this.taggedChunks(i).tokens(itok + i) == t}
-      } {
-        (Iterator.range(ic-1, -1, -1).zipWithIndex.filter(p => this.taggedChunks(p._1).isEntity).take(1).toSeq
-         ++ 
-          Iterator.range(ic+1, this.taggedChunks.size).zipWithIndex.filter(p => this.taggedChunks(p._1).isEntity).take(1).toSeq
-        ).foreach{case (iEnt, dist) => 
-          best = best match {
-            case Some((iBest, bestDist)) if(dist < bestDist) => Some(iEnt, dist)
-            case None =>  Some(iEnt, dist)
-            case _ => best
-          } 
+      if this.taggedChunks(ic).tokens.size >= itok + targets(itar).size && targets(itar).iterator.zipWithIndex.forall{case (t, i) => this.taggedChunks(ic).tokens(itok + i) == t}
+    } yield {
+      //Here (ic, itok) os the  position of the beggining of the current target  
+      var backDist = itok
+      var forwDist = this.taggedChunks(ic).tokens.size - (itok + targets(itar).size)
+      (Iterator.range(ic-1, -1, -1)
+        .map{itc => 
+          if(!this.taggedChunks(itc).isEntity) 
+            backDist = backDist + this.taggedChunks(itc).tokens.size
+          itc
         }
+        .filter(itc => this.taggedChunks(itc).isEntity)
+        .map{itc => (itc, backDist)}
+        .take(1)
+        .toSeq
+       ++ 
+        Iterator.range(ic+1, this.taggedChunks.size)
+          .map{itc => 
+            if(!this.taggedChunks(itc).isEntity) 
+              forwDist = forwDist + this.taggedChunks(itc).tokens.size
+            itc
+          }
+          .filter(itc => this.taggedChunks(itc).isEntity)
+          .map{itc => (itc, forwDist)}
+          .take(1)
+          .toSeq
+      )
+    }
+    matches.flatMap(e => e).reduceOption(
+      (p1, p2) => (p1, p2) match {
+        case ((i1, dist1), (i2, dist2)) => if(dist1 < dist2) p1 else p2 
       }
-    best.map{case (iBest, dist) => 
-      println(s"${ this.taggedChunks(iBest)} is at $dist within ${this.getTokens}")
+    ).map{case (iBest, dist) => 
+      //println(s"${this.taggedChunks(iBest)} is at $dist within ${this.getTokens}")
       this.taggedChunks(iBest)
-
+    } match {
+      case Some(taggedChunk) => 
+        Some(taggedChunk)
+      case None if this.taggedChunks.filter(_.isEntity).size > 0 =>
+        Some(this.taggedChunks.filter(_.isEntity).head)
+      case _ =>
+        None
     }
   }
-
 }
 
 
@@ -707,25 +727,23 @@ object GeoTraining {
     val bioCols = entCols.map(c => s"${c}_bio")
     val sc = spark.sparkContext 
     //Applyins splitter to all map keys
-    val bFEnts = sc.broadcast(forcedEntities.map{fent => fent.map{case (k, v) => (k.split(splitter).filter(_.size > 0).mkString(" "), v)}})
-    val bFFilters = sc.broadcast(forcedFilters.map{ffilt => ffilt.map{case (k, v) => (k.split(splitter).filter(_.size > 0).mkString(" "), v)}})
-    val bClos = sc.broadcast(closestTo.map(ct => ct.map(v => v.split(splitter).filter(_.size > 0).mkString(" "))))
+    val bFEnts = sc.broadcast(forcedEntities.map{fent => fent.map{case (k, v) => (k.split(splitter).filter(_.size > 0).mkString(" "), v)}.filter{case (k, v) => k.trim.size > 0 && v.trim.size > 0}})
+    val bFFilters = sc.broadcast(forcedFilters.map{ffilt => ffilt.map{case (k, v) => (k.split(splitter).filter(_.size > 0).mkString(" "), v)}.filter{case (k, (f, v)) => k.trim.size > 0 && v.trim.size > 0}})
+    val bClos = sc.broadcast(closestTo.map(ct => ct.map(v => v.split(splitter).filter(_.size > 0).mkString(" ")).filter{v => v.trim.size > 0}))
     //Compiling regular expressions to find all map keys
     val fEntReg = sc.broadcast(bFEnts.value.map(fents => s"\\b(${fents.keys.map(k => Pattern.quote(k)).mkString("|")})\\b"))
     val fFiltReg = sc.broadcast(bFFilters.value.map(ffilt => s"\\b(${ffilt.keys.map(k => Pattern.quote(k)).mkString("|")})\\b"))
     val closReg = sc.broadcast(bClos.value.map(cs => s"\\b(${cs.map(k => Pattern.quote(k)).mkString("|")})\\b"))
-
-    Some(predictBIO(df = df, vectorsCols = vectorsCols, langCols = langCols, tagCols = bioCols , models = models, nAfter=nAfter, nBefore = nBefore))
+    val bioDF = predictBIO(df = df, vectorsCols = vectorsCols, langCols = langCols, tagCols = bioCols , models = models, nAfter=nAfter, nBefore = nBefore)
+    Some(bioDF)
       .map{df => df.rdd.mapPartitions{iter => 
         val fEntMatch = fEntReg.value.map(r=> Pattern.compile(r))
         val fFiltMatch = fFiltReg.value.map(r => Pattern.compile(r))
-        val closMatch = closReg.value.map(r => Pattern.compile(r))
-        //;x.find();s"-${x.start}-${x.end}-"
+        val closMatch = closReg.value.map(r => Pattern.compile(r, Pattern.CASE_INSENSITIVE))
         iter.map{row =>
           val entValues = textCols.zip(bioCols.zip(entCols)).map{case (textCol, (bioCol, entCol)) =>
             val text = row.getAs[String](textCol)
             val bioTags = row.getAs[Seq[String]](bioCol)
-            val splitter = row.getAs[String](entCol)
             if(text == null) 
               null
             else {
@@ -779,21 +797,21 @@ object GeoTraining {
                       ).encode
                     ) 
                   )}
-
+              //println(targets)
+              //println(forcedEnt)
+              //println(forcedFilt)
               Some(TaggedText(id = "", taggedChunks = TaggedChunk.fromBIO(tokens, bioTags).toSeq, lang = null))
                 .map(tt => tt.forceEntities(replacements = forcedFilt ++ forcedEnt))
-                .flatMap(tt => tt.findClosestEntity(targets = targets))
+                .flatMap{tt => /*println(s"forced: $tt");val z =*/ tt.findClosestEntity(targets = targets)/*;println(s"closest:$z");z*/}
                 .map(ent => ent.tokens.mkString(" "))
                 .getOrElse(null)
             }
           }
-
           Row.fromSeq(row.toSeq ++ entValues)
         }
       }}
       .map{rdd =>
-        //val taggedSchema = Encoders.product[TaggedChunk].schema 
-        spark.createDataFrame(rdd, StructType(fields = df.schema.fields ++ entCols.map(colName => StructField(colName ,  StringType, true))))
+        spark.createDataFrame(rdd, StructType(fields = bioDF.schema.fields ++ entCols.map(colName => StructField(colName ,  StringType, true))))
       }
       .map{ df =>
         //df.show(1000)
