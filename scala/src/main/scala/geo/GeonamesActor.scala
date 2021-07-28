@@ -160,7 +160,10 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         
         l.msg(s"Training models with full data now")
         GeoTraining.trainModels(annotations = GeoTraining.toTaggedText(trainingSet).flatMap(tt => tt.toBIO()))
-        
+        //Setting models to unchanged 
+        conf.languages.get.foreach{ l => 
+          st.isUnchanged(path = Some(l.vectorsPath), checkPath = Some(s"${l.vectorsPath}.stamp"), updateStamp = true) 
+        }
         ret
           .foreach{line =>
              Await.result(caller ? ByteString(

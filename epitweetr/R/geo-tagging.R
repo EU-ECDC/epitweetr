@@ -742,8 +742,8 @@ update_topic_keywords <- function() {
    topicKeywords <- setNames(keywords, sapply(conf$topics, function(t) t$topic))
    ret <- list()
    for(i in 1:length(conf$topics)) 
-     if(exists(conf$topics[[i]]$topic, where = ret)) ret[[conf$topics[[i]]$topic]] <- unique(c(ret[[conf$topics[[i]]$topic]], yy[[i]])) 
-     else ret[[conf$topics[[i]]$topic]] <- unique(yy[[i]])
+     if(exists(conf$topics[[i]]$topic, where = ret)) ret[[conf$topics[[i]]$topic]] <- unique(c(ret[[conf$topics[[i]]$topic]], topicKeywords[[i]])) 
+     else ret[[conf$topics[[i]]$topic]] <- unique(topicKeywords[[i]])
    write_json_atomic(ret, get_topic_keywords_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
 }
 

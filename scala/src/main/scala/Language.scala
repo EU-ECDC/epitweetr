@@ -95,7 +95,6 @@ object Language {
       else
         l.msg("Change in vectors detected, recreating the index")
       val vectors = Language.multiLangVectors(langs)
-
       //Building vector index index if it is not  built 
       Seq(("Viva Chile constituyente","es"), ("We did a very good job", "en")).toDF("text", "lang")
         .luceneLookup(right = vectors
