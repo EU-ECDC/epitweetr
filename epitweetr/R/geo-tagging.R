@@ -468,6 +468,7 @@ update_languages <- function(tasks) {
     update_languages_task(tasks, "running", "updating training set & indexing")
     update_geotraining_df()
     retrain_languages()
+    update_geotraining_df()
 
     # Setting status to succès
     tasks <- update_languages_task(tasks, "success", "", end = TRUE)
@@ -637,11 +638,20 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   ) 
   #getting current geolocation evaluation
   if(is.function(progress)) progress(0.7, "geolocating all items")
-  geoloc = geolocate_text(df = text_togeo, text_col="Text", lang_col = "Lang")
-  ret$`Epitweetr match` <- geoloc$geo_name
-  ret$`Epitweetr country match` <- geoloc$geo_country
-  ret$`Epitweetr country code match` <- geoloc$geo_country_code
-  ret$`Location in text` <- ifelse((is.na(ret$`Location OK/KO`) | ret$`Location OK/KO`=="?") & ret$Type == "Text", geoloc$tags, ret$`Location in text`)
+  tryCatch({
+      geoloc = geolocate_text(df = text_togeo, text_col="Text", lang_col = "Lang")
+      ret$`Epitweetr match` <- geoloc$geo_name
+      ret$`Epitweetr country match` <- geoloc$geo_country
+      ret$`Epitweetr country code match` <- geoloc$geo_country_code
+      ret$`Location in text` <- ifelse((is.na(ret$`Location OK/KO`) | ret$`Location OK/KO`=="?") & ret$Type == "Text", geoloc$tags, ret$`Location in text`)
+    }
+    ,error = function(e) {
+      message("Models are not trained, getting geotraining dataset without evaluation")
+      ret$`Epitweetr match` <- NA
+      ret$`Epitweetr country match` <- NA
+      ret$`Epitweetr country code match` <- NA
+    }
+  )
   ret %>% arrange(dplyr::desc(Type), `Tweet part`)
 }
 

@@ -166,25 +166,38 @@ stream_post <- function(uri, body, handler = NULL) {
 		    cum$tail <- c()
 		  }
 	    con <- rawConnection(bytes, "rb")
+      on.exit(close(con))
       if(is.null(handler)) {
 	      cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, verbose = F)
       }
 	    else
   	    jsonlite::stream_in(con, function(df) handler(df, con_tmp), verbose = F)
-	    close(con)
 	  }
   }
   # Doing the post request
-  u = url(uri)
-  on.exit(close(u))
-  post_result <- httr::POST(
-    url=uri, httr::write_stream(function(x) {pipeconnection(x, handler)}), 
-    body = body,
-    httr::content_type_json(),
-    encode = "raw", 
-    encoding = "UTF-8"
+  parts = gregexpr("//[^/]+/", uri)
+  split <- parts[[1]][[1]] + attr(parts[[1]], "match.length")
+  #h <- httr::handle(substr(uri, 1, split-1))
+  #path <- substr(uri, split, nchar(uri))
+  #on.exit(httr::handle_reset(h))
+  
+  post_result <- tryCatch({
+      httr::POST(
+        url = uri , 
+        httr::write_stream(function(x) {pipeconnection(x, handler)}), 
+        body = body,
+        httr::content_type_json(),
+        encode = "raw", 
+        encoding = "UTF-8"
+      )
+    }
+    ,error = function(e) {
+      closeAllConnections()
+      stop(e)
+    }
   )
   if(httr::status_code(post_result) != 200) {
+    message("HOLA§!!!!")
     message(uri)
     message(httr::status_code(post_result))
     message(httr::content(post_result, "text", encoding = "UTF-8"))
