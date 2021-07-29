@@ -514,6 +514,7 @@ get_geotraining_df <- function() {
 }
 
 updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
+  `%>%` <- magrittr::`%>%`
   if(is.function(progress)) progress(0.1, "getting current training file")
   current <- get_geotraining_df()
   locations <- current %>% dplyr::filter(Type == "Location" & `Location OK/KO` == "OK")
@@ -547,11 +548,12 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
     geo_training <- geo_training %>%  dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
   }
   # Adding new tweets
-  to_add <- tweets_to_add
+  untagged <- unique(length((current %>% dplyr::filter(`Tweet part` == 'text' & `Location OK/KO` == '?'))$`Tweet Id`))
+  to_add <- if(tweets_to_add > untagged) tweets_to_add else 0
 
 
   if(is.function(progress)) progress(0.6, "adding new tweets")
-  to_tag <- search_tweets(max = to_add) 
+  to_tag <- search_tweets(query = paste("lang:", lapply(conf$languages, function(l) l$code), collapse = " ", sep = ""), max = to_add)
   if(nrow(to_tag) > 0) {
     to_tag$text <- stringr::str_trim(to_tag$text)
     to_tag$user_description <- stringr::str_trim(to_tag$user_description)
