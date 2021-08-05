@@ -1391,35 +1391,36 @@ epitweetr_app <- function(data_dir = NA) {
     
     get_geotraining_eval_df <- function() {
       `%>%` <- dplyr::`%>%`
-      if(file.exists(get_geotraining_evaluation_path())) {
-        df <- fromJSON(get_geotraining_evaluation_path(), flatten=TRUE)
-        df <- as.data.frame(df)
-        df <- df %>%
-          dplyr::select(test,tp,tn,fp,fn)%>%
-          dplyr::group_by(test)%>%
-          dplyr::summarise(tp = sum(tp), tn=sum(tn), fp=sum(fp), fn = sum(fn))%>%
-          janitor:: adorn_totals("row")%>%
-          dplyr::mutate(Sensitivity = round(tp/(tp +fn),3))%>%
-          dplyr::mutate(Precision=round(tp/(tp+fp),3))%>%
-          dplyr::mutate(F1Score =round((((tp/(tp+fp))*(tp/(tp+fn)))/((tp/(tp+fp)+(tp/(tp+fn))))),3))%>%
-          dplyr::rename(Category=test)%>%
-          dplyr::rename("True positives"=tp)%>%
-          dplyr::rename("False positives"=fp)%>%
-          dplyr::rename("True negatives"=tn)%>%
-          dplyr::rename("False negatives"=fn)
-      } else {
-        data.frame(Category=character(),
+      ret <- data.frame(Category=character(),
            `True positives`=integer(),
            `False positives`=integer(),
            `True negatives`=integer(),
            `False negatives`=integer(),
-           `Sensitivity` = double(),
            `Precision` = double(),
+           `Sensitivity` = double(),
            `F1Score` = double(),
             check.names = FALSE
         )
+      if(file.exists(get_geotraining_evaluation_path())) {
+        df <- fromJSON(get_geotraining_evaluation_path(), flatten=TRUE)
+        df <- as.data.frame(df)
+        if(nrow(df) > 0) {
+          ret <- df %>%
+            dplyr::select(test,tp,tn,fp,fn)%>%
+            dplyr::group_by(test)%>%
+            dplyr::summarise(tp = sum(tp), fp=sum(fp), tn=sum(tn),  fn = sum(fn))%>%
+            janitor:: adorn_totals("row")%>%
+            dplyr::mutate(Precision=round(tp/(tp+fp),3))%>%
+            dplyr::mutate(Sensitivity = round(tp/(tp +fn),3))%>%
+            dplyr::mutate(F1Score =round((2*tp)/(2*tp + fn + fp),3))%>%
+            dplyr::rename(Category=test)%>%
+            dplyr::rename("True positives"=tp)%>%
+            dplyr::rename("False positives"=fp)%>%
+            dplyr::rename("True negatives"=tn)%>%
+            dplyr::rename("False negatives"=fn)
+        }
       }
-
+      ret
     }
     
      ######### GEOTEST LOGIC ##################

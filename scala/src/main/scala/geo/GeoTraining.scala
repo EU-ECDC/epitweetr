@@ -102,7 +102,7 @@ case class ConfusionMatrix(tp:Int, fp:Int, tn:Int, fn:Int) {
   def sum(that:ConfusionMatrix) = ConfusionMatrix(tp = this.tp + that.tp, fp = this.fp + that.fp, tn = this.tn + that.tn, fn = this.fn + that.fn) 
 }
 case class TestResult(test:String, text:String, tagged:Seq[String], predicted:Seq[String], tp:Int, fp:Int, tn:Int, fn:Int) {
-  def sum(that:ConfusionMatrix) = ConfusionMatrix(tp = this.tp + that.tp, fp = this.fp + that.fp, tn = this.tn + that.tn, fn = this.fn + that.fn) 
+  def confusionMatrix = ConfusionMatrix(tp = this.tp, fp = this.fp, tn = this.tn, fn = this.fn) 
 }
 object ConfusionMatrix {
   def apply(tagged:TaggedText, predicted:TaggedText):ConfusionMatrix = {
@@ -308,12 +308,12 @@ case class GeoTraining(
   def toTaggedText(splitter:String) = {
     isLocation.map{isLocationAnnotation =>
       if(!isLocationAnnotation)
-        TaggedText(id = this.id(), taggedChunks = Seq(TaggedChunk(chunk = text, isEntity = false, splitter = splitter)), lang = lang)
+        TaggedText(id = this.uid(), taggedChunks = Seq(TaggedChunk(chunk = text, isEntity = false, splitter = splitter)), lang = lang)
       else if(locationInText.isEmpty || locationInText.get.trim.size == 0) 
-        TaggedText(id = this.id(), taggedChunks = Seq(TaggedChunk(chunk = text, isEntity = true, splitter = splitter)), lang = lang)
+        TaggedText(id = this.uid(), taggedChunks = Seq(TaggedChunk(chunk = text, isEntity = true, splitter = splitter)), lang = lang)
       else {//is Location and a text has been annotated
         TaggedText(
-          id = this.id(), 
+          id = this.uid(), 
           taggedChunks = TaggedChunk(chunk = text, isEntity = false, splitter = splitter).split(TaggedChunk(chunk = locationInText.get, isEntity = true, splitter = splitter)),
           lang = lang
         )
@@ -321,15 +321,15 @@ case class GeoTraining(
     }
   }
   
-  def id() = {
+  def uid() = {
     val md = java.security.MessageDigest.getInstance("SHA-1");
     val enc = new sun.misc.BASE64Encoder()
     enc.encode(md.digest(s"$category.$text.$tweetId.$tweetPart".getBytes))
   }  
 }
 object GeoTraining {
-  def toTaggedText(annotations:Seq[GeoTraining])(implicit conf:Settings):Seq[TaggedText] = toTaggedText(annotations = annotations, splitter = conf.splitter, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter)
-  def toTaggedText(annotations:Seq[GeoTraining], splitter:String, nBefore:Int, nAfter:Int):Seq[TaggedText] = { 
+  def toTaggedText(annotations:Seq[GeoTraining])(implicit conf:Settings):Seq[TaggedText] = toTaggedText(annotations = annotations, splitter = conf.splitter)
+  def toTaggedText(annotations:Seq[GeoTraining], splitter:String):Seq[TaggedText] = { 
     annotations.map(g => g.toTaggedText(splitter))
       .flatMap(d => d)
       .groupBy(t => t.id)
@@ -338,22 +338,22 @@ object GeoTraining {
       .toSeq
   }
 
-  def getTrainingTestSets(annotations:Seq[GeoTraining], trainingRatio:Double, splitter:String, nBefore:Int, nAfter:Int) = { 
+  def getTrainingTestSets(annotations:Seq[GeoTraining], trainingRatio:Double, splitter:String) = { 
     val annotated = annotations.filter(gt => !gt.isLocation.isEmpty)
     val l = 10000
     Seq(
       (
         "Tweet texts", 
-        annotated.filter(gt => gt.source == GeoTrainingSource.tweet && gt.tweetPart == Some(GeoTrainingPart.text) && Math.abs(gt.id().hashCode) % l < trainingRatio * l),
-        annotated.filter(gt => gt.source != GeoTrainingSource.tweet || gt.tweetPart != Some(GeoTrainingPart.text) || Math.abs(gt.id().hashCode) % l >= trainingRatio * l)
+        annotated.filter(gt => gt.source == GeoTrainingSource.tweet && gt.tweetPart == Some(GeoTrainingPart.text) && Math.abs(gt.uid().hashCode) % l < trainingRatio * l),
+        annotated.filter(gt => gt.source != GeoTrainingSource.tweet || gt.tweetPart != Some(GeoTrainingPart.text) || Math.abs(gt.uid().hashCode) % l >= trainingRatio * l)
       ),(
         "Tweet location", 
-        annotated.filter(gt => gt.source == GeoTrainingSource.tweet  && gt.tweetPart == Some(GeoTrainingPart.userLocation) && Math.abs(gt.id().hashCode) % l < trainingRatio * l),
-        annotated.filter(gt => gt.source != GeoTrainingSource.tweet  || gt.tweetPart != Some(GeoTrainingPart.userLocation) || Math.abs(gt.id().hashCode) % l >= trainingRatio * l)
+        annotated.filter(gt => gt.source == GeoTrainingSource.tweet  && gt.tweetPart == Some(GeoTrainingPart.userLocation) && Math.abs(gt.uid().hashCode) % l < trainingRatio * l),
+        annotated.filter(gt => gt.source != GeoTrainingSource.tweet  || gt.tweetPart != Some(GeoTrainingPart.userLocation) || Math.abs(gt.uid().hashCode) % l >= trainingRatio * l)
       ),(
         "Tweet user description", 
-        annotated.filter(gt => gt.source == GeoTrainingSource.tweet && gt.tweetPart == Some(GeoTrainingPart.userDescription) && Math.abs(gt.id().hashCode) % l < trainingRatio * l),
-        annotated.filter(gt => gt.source != GeoTrainingSource.tweet || gt.tweetPart != Some(GeoTrainingPart.userDescription) || Math.abs(gt.id().hashCode) % l >= trainingRatio * l)
+        annotated.filter(gt => gt.source == GeoTrainingSource.tweet && gt.tweetPart == Some(GeoTrainingPart.userDescription) && Math.abs(gt.uid().hashCode) % l < trainingRatio * l),
+        annotated.filter(gt => gt.source != GeoTrainingSource.tweet || gt.tweetPart != Some(GeoTrainingPart.userDescription) || Math.abs(gt.uid().hashCode) % l >= trainingRatio * l)
       )/*,(
         "Model Location", 
         annotated.filter(gt => gt.source == GeoTrainingSource.epitweetrModel && gt.category.toLowerCase == "location" && Math.abs(gt.id().hashCode) % l < trainingRatio * l),
@@ -362,8 +362,8 @@ object GeoTraining {
     ).map{case(t, test, train) => 
       (
         t, 
-        GeoTraining.toTaggedText(test, splitter, nBefore, nAfter), 
-        GeoTraining.toTaggedText(train, splitter, nBefore, nAfter)
+        GeoTraining.toTaggedText(test, splitter), 
+        GeoTraining.toTaggedText(train, splitter)
       )}
   }
 
@@ -464,7 +464,6 @@ object GeoTraining {
                //path = storage.getTmpNode(sandboxed = true),
                //reuse = false
              }.cache
-           //trainData.show(1000)
            val model = new LinearSVC().setFeaturesCol("vector").setLabelCol(s"${t}Label")
            val ret = if(trainData.count > 0) {
              //trainData.select(sum("BLabel"), sum("ILabel"), sum("OLabel")).show
@@ -487,14 +486,16 @@ object GeoTraining {
 
   def rescale(annotations:Seq[BIOAnnotation]) = {
     val all = annotations 
+    
     //rescaling to avoid getting to imbalanced classes
     val bb = all.filter(n => n.tag == "B")
     val ii = all.filter(n => n.tag == "I")
     val oo = all.filter(n => n.tag == "O")
+    val maxFactor = 1.0
     val toTrain = 
-      if(oo.size > 2*(bb.size + ii.size)) {
+      if(oo.size > maxFactor*(bb.size + ii.size)) {
         val r = new Random(1234)
-        val newO = r.shuffle(oo).take(2*(bb.size + ii.size))
+        val newO = r.shuffle(oo).take((maxFactor*(bb.size + ii.size)).toInt)
         l.msg(s"limiting O:(${oo.size}) vs  B+I = ${(bb.size + ii.size)} to ${newO.size}")
         bb ++ ii ++ newO
       }
@@ -510,12 +511,12 @@ object GeoTraining {
     trainingRatio:Double
   ) (implicit spark:SparkSession, storage:Storage, conf:Settings) = {
     import spark.implicits._
-    val tests = GeoTraining.getTrainingTestSets(annotations = annotations, trainingRatio = trainingRatio, splitter = conf.splitter, nBefore = conf.geoNBefore, nAfter = conf.geoNAfter) 
+    val tests = GeoTraining.getTrainingTestSets(annotations = annotations, trainingRatio = trainingRatio, splitter = conf.splitter) 
     val testNames = tests.map(_._1) 
     val testSets =   tests.map(_._2)
     val trainingSets = tests.map(_._3)
     (for(i <- Iterator.range(0, testNames.size)) yield {
-      val testName = testNames(i) 
+      val testName = testNames(i)
       val models = GeoTraining.trainModels(annotations = trainingSets(i).flatMap(tt => tt.toBIO(nBefore = conf.geoNBefore, nAfter = conf.geoNAfter)), testId = Some(testName))
       val testTexts = testSets(i)
         .toDS

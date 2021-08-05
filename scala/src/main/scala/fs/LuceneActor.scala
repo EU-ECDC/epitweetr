@@ -163,45 +163,46 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           Some(indexes.toSeq)
            .map(s => (s.par, s.size))
            .get
-        
-        val pool = new ForkJoinPool(parallelism)
-        parSeq.tasksupport = new ForkJoinTaskSupport(pool)
-        parSeq.tasksupport = new ForkJoinTaskSupport(java.util.concurrent.ForkJoinPool.commonPool)
-        parSeq
-          .foreach{case i =>
-            val builder = StringBuilder.newBuilder
-            var toAdd = chunkSize
-            val qb = new BooleanQuery.Builder()
-            qb.add(new TermQuery(new Term("topic", topic)), Occur.MUST) 
-            qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
-            filters.foreach{case(field, value) => qb.add(new TermQuery(new Term(field, value)), Occur.MUST)}
-            var first = true
-            i.searchTweets(qb.build)
-              .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
-              .foreach{line =>
-                if(first == true) {
-                  first = false
-                }
-                builder ++= s"${sep}${line.toString}\n"
-                toAdd = toAdd -1
-                if(toAdd == 0) {
-                  pool.synchronized {
-                    Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+        if(parSeq.size > 0) {
+          val pool = new ForkJoinPool(parallelism)
+          parSeq.tasksupport = new ForkJoinTaskSupport(pool)
+          parSeq.tasksupport = new ForkJoinTaskSupport(java.util.concurrent.ForkJoinPool.commonPool)
+          parSeq
+            .foreach{case i =>
+              val builder = StringBuilder.newBuilder
+              var toAdd = chunkSize
+              val qb = new BooleanQuery.Builder()
+              qb.add(new TermQuery(new Term("topic", topic)), Occur.MUST) 
+              qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
+              filters.foreach{case(field, value) => qb.add(new TermQuery(new Term(field, value)), Occur.MUST)}
+              var first = true
+              i.searchTweets(qb.build)
+                .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
+                .foreach{line =>
+                  if(first == true) {
+                    first = false
                   }
-                  toAdd = chunkSize
-                  builder.clear
+                  builder ++= s"${sep}${line.toString}\n"
+                  toAdd = toAdd -1
+                  if(toAdd == 0) {
+                    pool.synchronized {
+                      Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+                    }
+                    toAdd = chunkSize
+                    builder.clear
+                  }
+                  if(!jsonnl) sep = ","
                 }
-                if(!jsonnl) sep = ","
-              }
 
-            if(builder.size > 0) {
-              pool.synchronized {
-                Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+              if(builder.size > 0) {
+                pool.synchronized {
+                  Await.result(caller ? ByteString(builder.toString, ByteString.UTF_8), Duration.Inf)
+                }
+                builder.clear
               }
-              builder.clear
             }
-          }
-        pool.shutdown
+          pool.shutdown
+        }
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
         }

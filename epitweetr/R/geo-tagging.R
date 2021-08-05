@@ -509,7 +509,7 @@ get_geotraining_df <- function() {
   data_types<-c("text","text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text")
   current <- readxl::read_excel(get_geotraining_path(), col_types = data_types)
   current$Text <- stringr::str_trim(current$Text)
-  current <- current %>% dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+  current <- current %>% dplyr::distinct(.data$`Text`, .data$Lang, .data$`Location in text`, .keep_all = T)
   current
 }
 

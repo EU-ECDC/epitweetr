@@ -116,9 +116,15 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     message(q_url)
     agg_df = jsonlite::stream_in(url(q_url))
     # Calculating the created week
-    agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
-    agg_df$created_weeknum <- as.integer(strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G%V"))
-    agg_df$created_date <- as.Date(agg_df$created_date, format = "%Y-%m-%d")
+    if(nrow(agg_df) > 0) {
+      agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
+      agg_df$created_weeknum <- as.integer(strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G%V"))
+      agg_df$created_date <- as.Date(agg_df$created_date, format = "%Y-%m-%d")
+    } else {
+      agg_df$created_week <- NULL 
+      agg_df$created_weeknum <- NULL 
+      agg_df$created_date <- NULL
+    }
     ret <- rbind(get_aggregates_rds(dataset, cache = cache, filter = filter), agg_df)
     if(cache) {
       cached[[dataset]] <- ret
@@ -130,6 +136,8 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
 get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
   # No cache hit getting from aggregated files
   # starting by listing all series files
+  `%>%` <- magrittr::`%>%`
+  # getting the name for cache lookup dataset dependant
   files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".*\\.Rds", sep=""))
   if(length(files) == 0) {
     warning(paste("Dataset ", dataset, " not found in any week folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
@@ -168,6 +176,9 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
         jsonlite::rbind_pages(dfs)
       else 
         readRDS(tail(list.files(file.path(conf$data_dir, "series"), full.names=TRUE, recursive=TRUE, pattern="*.Rds"), 1)) %>% dplyr::filter(1 == 0)
+    if(dataset == "topwords" && "tokens" %in% colnames(ret)) {
+      ret <- ret %>% dplyr::rename("token" = .data$tokens) 
+    }
     return(ret)
   }
 

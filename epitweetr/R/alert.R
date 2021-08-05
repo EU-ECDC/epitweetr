@@ -485,16 +485,16 @@ do_next_alerts <- function(tasks = get_tasks()) {
                 & (if(length(codes)==0) TRUE else .data$tweet_geo_country_code %in% codes )
               ) %>% 
             dplyr::filter(!is.na(.data$frequency)) %>% 
-            dplyr::group_by(.data$tokens) %>%
+            dplyr::group_by(.data$token) %>%
             dplyr::summarize(frequency = sum(.data$frequency)) %>%
             dplyr::ungroup() %>%
             dplyr::arrange(-.data$frequency) %>%
             head(10) %>%
-            dplyr::mutate(tokens = reorder(.data$tokens, .data$frequency)))
+            dplyr::mutate(token = reorder(.data$token, .data$frequency)))
             if(nrow(tws) == 0) 
               ""
             else 
-              paste(paste(tws$tokens, " (", tws$frequency, ")", collapse = ", ", sep = ""))
+              paste(paste(tws$token, " (", tws$frequency, ")", collapse = ", ", sep = ""))
           }
         }, 
         alerts$topic, 

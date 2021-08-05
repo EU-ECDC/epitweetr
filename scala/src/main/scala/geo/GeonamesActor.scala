@@ -22,6 +22,7 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Try, Success, Failure}
 import java.nio.charset.StandardCharsets
 import spray.json.JsonParser
+import scala.util.Random
 
 class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
   implicit val executionContext = context.system.dispatchers.lookup("lucene-dispatcher")
@@ -152,15 +153,30 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         val readyLangs = GeoTraining.trainedLanguages()
         if(conf.languages.size > readyLangs.size) println(s"only ${readyLangs.size} of ${conf.languages.size} are ready")
         
-        val results = GeoTraining.splitTrainEvaluate(annotations = trainingSet, trainingRatio = 0.7).cache
+        val r = new Random(197912)
+        val annotated = r.shuffle(trainingSet.filter(t => !t.isLocation.isEmpty))
+        val tweets = annotated.filter(t => !t.tweetId.isEmpty)
+        val refSize = if(tweets.size < 500) 200 else tweets.size
+        val demonyms = annotated.filter(t => t.category == "Demonym").take(refSize / 4)
+        val people   = annotated.filter(t => t.category == "Person").take(refSize / 4)
+        val locations = annotated.filter(t => t.source == GeoTrainingSource.epitweetrModel && t.isLocation == Some(true)).take(refSize)
+        val noLocations = annotated.filter(t => t.source == GeoTrainingSource.epitweetrModel && t.isLocation == Some(false)).take(refSize) 
+        val rescaled = tweets ++ demonyms ++ people ++ locations ++ noLocations
+        println(s"tweets ${tweets.size} ++ dem ${demonyms.size} ++ peop ${people.size} ++ loc ${locations.size} ++ noloc ${noLocations.size}")
+        
+        val results = GeoTraining.splitTrainEvaluate(annotations = rescaled, trainingRatio = 0.7).cache
         import s.implicits._
         //ret.groupByKey(_._1).reduceGroups((a, b) => (a._1, a._2, a._3, a._4, a._5.sum(b._5))).map(p => (p._2._1, p._2._5)).toDF("test", "metric").select(col("test"), col("metric.*")).show
+        //!((!t.forcedLocationName.isEmpty || !t.forcedLocationCode.isEmpty) && t.isLocation == Some(false))
         val ret = results.toJSON.collect
         l.msg(s"Evaluation finished")
         
         l.msg(s"Training models with full data now")
-        GeoTraining.trainModels(annotations = GeoTraining.toTaggedText(trainingSet).flatMap(tt => tt.toBIO()))
+        
+
+        GeoTraining.trainModels(annotations = GeoTraining.toTaggedText(rescaled).flatMap(tt => tt.toBIO()))
         //Setting models to unchanged 
+        
         conf.languages.get.foreach{ l => 
           st.isUnchanged(path = Some(l.vectorsPath), checkPath = Some(s"${l.vectorsPath}.stamp"), updateStamp = true) 
         }
@@ -172,6 +188,7 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
              ), Duration.Inf)
              if(!jsonnl) sep = ","
           }
+        
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
         }
