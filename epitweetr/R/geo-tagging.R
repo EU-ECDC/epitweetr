@@ -733,7 +733,7 @@ retrain_languages <- function() {
   if(httr::status_code(post_result) != 200) {
     stop(paste("retrain web service failed with the following output: ", substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100), sep  = "\n"))
   } else {
-    fileConn<-file(get_geotraining_evaluation_path())
+    fileConn<-file(get_geotraining_evaluation_path(), encoding = "UTF-8")
     writeLines(httr::content(post_result, "text", encoding = "UTF-8"), fileConn)
     close(fileConn)
   }

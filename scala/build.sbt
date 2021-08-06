@@ -23,6 +23,7 @@ lazy val root = (project in file("."))
     libraryDependencies += "com.typesafe.akka" %% "akka-stream" % akkaVersion,
     libraryDependencies += "com.typesafe.akka" %% "akka-http" % akkaHttpVersion ,
     libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
+    libraryDependencies += "com.github.swagger-akka-http" %% "swagger-akka-http" % "2.4.2",
     scalacOptions ++= Seq("-deprecation", "-feature"),
     assemblyMergeStrategy in assembly := {
       case PathList("org","aopalliance", xs @ _*) => MergeStrategy.last

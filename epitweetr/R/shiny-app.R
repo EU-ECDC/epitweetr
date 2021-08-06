@@ -1402,7 +1402,7 @@ epitweetr_app <- function(data_dir = NA) {
             check.names = FALSE
         )
       if(file.exists(get_geotraining_evaluation_path())) {
-        df <- fromJSON(get_geotraining_evaluation_path(), flatten=TRUE)
+        df <- jsonlite::fromJSON(get_geotraining_evaluation_path(), flatten=TRUE)
         df <- as.data.frame(df)
         if(nrow(df) > 0) {
           ret <- df %>%

@@ -17,7 +17,7 @@ case class Settings(epiHome:String) {
   def loadJson(relativePath:String) = {
     val path = Paths.get(epiHome, relativePath)
     if(Files.exists(path)) {
-      val psource = scala.io.Source.fromFile(path.toString)
+      val psource = scala.io.Source.fromFile(path.toString, "UTF-8")
       val plines = try psource.mkString finally psource.close() 
       Some(plines.parseJson.asJsObject)
     }
