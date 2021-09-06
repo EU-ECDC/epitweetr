@@ -1,6 +1,7 @@
 package org.ecdc.epitweetr.fs
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer
+import org.apache.lucene.analysis.custom.CustomAnalyzer
 import org.apache.lucene.search.{IndexSearcher, Query, TermQuery}
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search.{ScoreDoc, Sort}
@@ -111,7 +112,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       tweet.linked_screen_name.map(value => doc.add(new StringField("linked_screen_name", value, Field.Store.YES))) 
       tweet.linked_user_location.map(value => doc.add(new StoredField("linked_user_location", value))) 
       doc.add(new LongPoint("created_timestamp", tweet.created_at.toEpochMilli()))
-      doc.add(new StringField("created_at", tweet.created_at.toString(), Field.Store.YES)) 
+      doc.add(new StringField("created_at", tweet.created_at.toString().toLowerCase, Field.Store.NO)) 
+      doc.add(new StoredField("created_at", tweet.created_at.toString()))
       doc.add(new StringField("created_date", tweet.created_at.toString().take(10), Field.Store.YES)) 
       doc.add(new StringField("lang", tweet.lang, Field.Store.YES)) 
       tweet.linked_lang.map(value => doc.add(new StoredField("linked_lang", value))) 

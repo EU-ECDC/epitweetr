@@ -133,36 +133,57 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   alerts_page <- 
     shiny::fluidPage(
-          shiny::h3("Generated alerts"),
+          shiny::h3("Find alerts"),
+          ################################################
+          ######### ALERTS FILTERS #######################
+          ################################################
           shiny::fluidRow(
-            ################################################
-            ######### ALERTS FILTERS #######################
-            ################################################
-            shiny::column(1, 
+            shiny::column(4, 
               shiny::h4("Detection date") 
             ),
-            shiny::column(3, 
-              shiny::dateRangeInput("alerts_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
-            ),
-            shiny::column(1, 
+            shiny::column(2, 
               shiny::h4("Topics")
+            ),
+            shiny::column(2, 
+              shiny::h4("Countries & regions")
+            ),
+            shiny::column(2, 
+              shiny::h4("Display")
+            ),
+            shiny::column(2
+            ),
+          ), 
+          shiny::fluidRow(
+            shiny::column(4, 
+              shiny::dateRangeInput("alerts_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
             ),
             shiny::column(2, 
               shiny::selectInput("alerts_topics", label = NULL, multiple = TRUE, choices = d$topics[d$topics!=""]),
             ),
             shiny::column(2, 
-              shiny::h4("Countries & regions")
+              shiny::selectInput("alerts_countries", label = NULL, multiple = TRUE, choices = d$countries)
             ),
-            shiny::column(3, 
-              shiny::selectInput("alerts_countries", label = NULL, multiple = TRUE, choices = d$countries),
-            )
+            shiny::column(2, 
+              shiny::radioButtons("alerts_display", label = NULL, choices = list("Tweets"="tweets", "Parameters"="parameters"), selected = "Tweets", inline = TRUE),
+            ),
+            shiny::column(2,
+              shiny::actionButton("alerts_search", "search"),
+              shiny::conditionalPanel(
+                condition = "false",
+                shiny::textInput("alerts_show_search", value = "false", label = NULL)
+              )
+            ),
           ), 
           shiny::fluidRow(
             shiny::column(12, 
               ################################################
               ######### ALERTS TABLE #########################
               ################################################
-              DT::dataTableOutput("alerts_table")
+              shiny::conditionalPanel(
+                condition = "input.alerts_show_search == 'true'",
+                DT::dataTableOutput("alerts_table"),
+                shiny::actionButton("alerts_close", "hide")
+              )
           ))
   ) 
   # Defining configuration
@@ -371,7 +392,7 @@ epitweetr_app <- function(data_dir = NA) {
   ) 
   # Defining geo tuning page UI
   ################################################
-  ######### GEOTAG PAGE ##########################
+  ######### GEOTRAINING PAGE ##########################
   ################################################
   geotraining_page <- 
     shiny::fluidPage(
@@ -1342,41 +1363,69 @@ epitweetr_app <- function(data_dir = NA) {
     ######### ALERTS LOGIC ##################
     # rendering the alerts 
     # updates are launched automatically when any input value changes
-    output$alerts_table <- DT::renderDataTable({
-      `%>%` <- magrittr::`%>%`
-      alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]])
-      shiny::validate(
-        shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
-      )
-      alerts %>%
-        dplyr::select(
-          "date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", 
-          "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type",
-          "alpha", "alpha_outlier", "k_decay"
-        ) %>%
-        DT::datatable(
-          colnames = c(
-            "Date" = "date", 
-            "Hour" = "hour", 
-            "Topic" = "topic",  
-            "Region" = "country",
-            "Top words" = "topwords", 
-            "Tweets" = "number_of_tweets", 
-            "% important user" = "known_ratio",
-            "Threshold" = "limit",
-            "Baseline" = "no_historic", 
-            "Bonf. corr." = "bonferroni_correction",
-            "Same weekday baseline" = "same_weekday_baseline",
-            "Day rank" = "rank",
-            "With retweets" = "with_retweets",
-            "Location" = "location_type",
-            "Alert FPR (alpha)" = "alpha",
-            "Outlier FPR (alpha)" = "alpha_outlier",
-            "Downweight strenght" = "k_decay"
-            ),
-          filter = "top",
-          escape = TRUE
+    
+    shiny::observeEvent(input$alerts_search, {
+      shiny::updateTextInput(session, "alerts_show_search", label = NULL, value = "true")
+      output$alerts_table <- DT::renderDataTable({
+        `%>%` <- magrittr::`%>%`
+        max_tweets <- if(input$alerts_display == "tweets") 10 else 0
+        message(max_tweets)
+        alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]], max_tweets = max_tweets)
+        shiny::validate(
+          shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
         )
+        if(max_tweets == 0) {
+          alerts %>%
+            dplyr::select(
+              "date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", 
+              "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type",
+              "alpha", "alpha_outlier", "k_decay"
+            ) %>%
+            DT::datatable(
+              colnames = c(
+                "Date" = "date", 
+                "Hour" = "hour", 
+                "Topic" = "topic",  
+                "Region" = "country",
+                "Top words" = "topwords", 
+                "Tweets" = "number_of_tweets", 
+                "% important user" = "known_ratio",
+                "Threshold" = "limit",
+                "Baseline" = "no_historic", 
+                "Bonf. corr." = "bonferroni_correction",
+                "Same weekday baseline" = "same_weekday_baseline",
+                "Day rank" = "rank",
+                "With retweets" = "with_retweets",
+                "Location" = "location_type",
+                "Alert FPR (alpha)" = "alpha",
+                "Outlier FPR (alpha)" = "alpha_outlier",
+                "Downweight strenght" = "k_decay"
+              ),
+              filter = "top",
+              escape = TRUE
+            )
+        } else {
+          alerts %>%
+            dplyr::select("date", "hour", "topic", "country", "topwords", "number_of_tweets", "toptweets") %>%
+            DT::datatable(
+              colnames = c(
+                "Date" = "date", 
+                "Hour" = "hour", 
+                "Topic" = "topic",  
+                "Region" = "country",
+                "Top words" = "topwords", 
+                "Tweets" = "number_of_tweets", 
+                "Top tweets" = "toptweets",
+              ),
+              filter = "top",
+              escape = TRUE
+            )
+        }
+      })
+    })
+
+    shiny::observeEvent(input$alerts_close, {
+      shiny::updateTextInput(session, "alerts_show_search", label = NULL, value = "false")
     })
 
     ######### GEOTRAINING EVALUATION DATAFRAME ####

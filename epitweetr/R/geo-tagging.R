@@ -659,17 +659,17 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
 
 
 update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
+  `%>%` <- magrittr::`%>%`
   training_df <- updated_geotraining_df(tweets_to_add = 100, progress = progress)
   update_topic_keywords()
   update_forced_geo()
   update_forced_geo_codes()
   if(is.function(progress)) progress(0.9, "writing result file")
-  wb <- openxlsx::loadWorkbook(get_geotraining_path())
+  wb <- openxlsx::createWorkbook()
   # we have to remove the existing worksheet since writing on the same was producing a corrupted file
-  openxlsx::removeWorksheet(wb, "geolocation")
   openxlsx::addWorksheet(wb, "geolocation")
   # writing data to the worksheet
-  openxlsx::writeDataTable(wb, sheet = "geolocation", training_df, colNames = T, startRow = 1, startCol = "A")
+  openxlsx::writeDataTable(wb, sheet = "geolocation", training_df, colNames = TRUE, startRow = 1, startCol = "A")
   # setting some minimal formatting
   openxlsx::setColWidths(wb, "geolocation", cols = c(2), widths = c(70))
   openxlsx::setColWidths(wb, "geolocation", cols = c(3, 11, 12, 13), widths = c(25))
@@ -678,7 +678,7 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   openxlsx::addStyle(
     wb, 
     sheet = "geolocation", 
-    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ff860d", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T), 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ff860d", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
     rows = 1, 
     cols = 1, 
     gridExpand = FALSE
@@ -686,7 +686,7 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   openxlsx::addStyle(
     wb, 
     sheet = "geolocation", 
-    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ffde59", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T), 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ffde59", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
     rows = 1, 
     cols = 2:6, 
     gridExpand = FALSE
@@ -694,7 +694,7 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   openxlsx::addStyle(
     wb, 
     sheet = "geolocation", 
-    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#f7d1d5", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T), 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#f7d1d5", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
     rows = 1, 
     cols = 7:10, 
     gridExpand = FALSE
@@ -702,7 +702,7 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   openxlsx::addStyle(
     wb, 
     sheet = "geolocation", 
-    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#dedce6", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T), 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#dedce6", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
     rows = 1, 
     cols = 11:13, 
     gridExpand = FALSE
@@ -723,7 +723,7 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
     cols = 2, 
     gridExpand = TRUE
   )
-  #openxlsx::freezePane(wb, "geolocation",firstActiveRow = 2)
+  openxlsx::freezePane(wb, "geolocation",firstActiveRow = 2)
   openxlsx::saveWorkbook(wb, get_user_geotraining_path() ,overwrite = T) 
 }
 

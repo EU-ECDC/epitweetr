@@ -561,7 +561,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #' @importFrom dplyr filter arrange group_by mutate ungroup bind_rows
 #' @importFrom stats reorder sd qt
 #' @importFrom utils head
-get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01") {
+get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01", toptweets = 0) {
   `%>%` <- magrittr::`%>%`
   # preparing filers and renaming variables with names as column on dataframe to avoid conflicts
   regions <- get_country_items()
@@ -594,7 +594,7 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
         df$k_decay <- as.numeric(sapply(df$topic, function(t) NA))
 
 
-      df %>% dplyr::filter(
+      df <- df %>% dplyr::filter(
         (if(length(cnames)==0) TRUE else .data$country %in% cnames) &
         (if(length(t)==0) TRUE else .data$topic %in% t)
       ) %>%
@@ -602,6 +602,33 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
        dplyr::group_by(.data$topic, .data$country) %>%
        dplyr::mutate(rank = rank(.data$hour, ties.method = "first")) %>%
        dplyr::ungroup()
+
+       # Adding top tweets if required
+       if(toptweets > 0) {
+         df$toptweets <- if(nrow(df)==0) character() else { 
+           sapply(1:nrow(df), function(i) { 
+             created_from = (
+               if(df$hour == 23) { df$date[[i]]
+               } else if(df$hour < 9) { paste0(as.character(as.Date(df$date[[i]]) - 1), "T0", df$hour + 1)
+               } else paste0(as.character(as.Date(df$date[[i]]) - 1), "T", df$hour + 1)
+             )
+             created_to = (
+               if(df$hour == 23) { paste0(df$date[[i]], "TZ") 
+               } else if(df$hour < 10) { paste0(df$date[[i]], "T0", df$hour,"Z")
+               } else paste0(df$date[[i]], "T", df$hour, "Z")
+             )
+             tweets <- search_tweets(
+               query = paste0("created_at:%5B",created_from ," TO ", created_to,"%5D AND is_retweet:false"), 
+               topic = df$topic[[i]], 
+               from = as.character(as.Date(df$date[[i]])-1), 
+               to = df$date[[i]], 
+               max = toptweets
+             )
+             browser()
+             paste(tweets$text, collapse = "\n\n")
+           })
+         }
+       }
     })
     Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
   }

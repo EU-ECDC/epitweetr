@@ -125,7 +125,10 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
       agg_df$created_weeknum <- NULL 
       agg_df$created_date <- NULL
     }
-    ret <- rbind(get_aggregates_rds(dataset, cache = cache, filter = filter), agg_df)
+    #add possible missing columns removed by json null management
+    agg_df <- add_missing(agg_df, dataset)
+    
+    ret <- rbind(agg_df, get_aggregates_rds(dataset, cache = cache, filter = filter))
     if(cache) {
       cached[[dataset]] <- ret
     }
@@ -140,7 +143,6 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
   # getting the name for cache lookup dataset dependant
   files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".*\\.Rds", sep=""))
   if(length(files) == 0) {
-    warning(paste("Dataset ", dataset, " not found in any week folder inside", conf$data_dir, "/series. Please make sure the data/series folder is not empty and run aggregate process", sep = ""))  
     return (data.frame(created_date=as.Date(character()),topic=character()))
   }
   else {
@@ -347,7 +349,7 @@ get_aggregated_period <- function(dataset) {
   #TODO: add last hour!!
   rds_period <- get_aggregated_period_rds(dataset)
   fs_period <- tryCatch({
-     ret <- jsonlite::fromJSON(url(paste0(get_scala_period_url(),"?serie=country_counts")), simplifyVector = T)
+     ret <- jsonlite::fromJSON(url(paste0(get_scala_period_url(),"?serie=",dataset)), simplifyVector = T)
      ret$first <- if(exists("first", where = ret)) {
          as.Date(strptime(ret$first, format = "%Y-%m-%d"))
        } else {
@@ -369,14 +371,13 @@ get_aggregated_period <- function(dataset) {
     list(first = NA, last = NA, last_hour = NA)
   else 
     list(
-      first = min(c(rds_period$first, fs_period$first), na.rm = T), 
-      last = max(c(rds_period$last, fs_period$last), na.rm = T),
+      first = min(c(as.Date(rds_period$first), as.Date(fs_period$first)), na.rm = T), 
+      last = max(c(as.Date(rds_period$last), as.Date(fs_period$last)), na.rm = T),
       last_hour = 23
     )
 }
 
 recalculate_hash <- function() {
-  
   message("recalculating hashes")
   post_result <- httr::POST(url=get_scala_recalc_hash_url(), httr::content_type_json(), body="", encode = "raw", encoding = "UTF-8")
   if(httr::status_code(post_result) != 200) {
@@ -386,3 +387,65 @@ recalculate_hash <- function() {
   }
 
 }
+
+add_missing <- function(df, dataset) {
+  cols <- colnames(df)
+  defaults <- ( 
+    if(dataset == "geolocated") {
+      list(
+        topic = "char",
+        created_date = "date",
+        user_geo_country_code = "char",
+        tweet_geo_country_code = "char",
+        user_geo_code = "char",
+        tweet_geo_code = "char",
+        tweet_longitude = "num",
+        tweet_latitude = "num",
+        user_longitude = "num",
+        user_latitude = "num",
+        retweets = "int",
+        tweets= "int",
+        created_weeknum = "int" 
+      )
+    } else if(dataset == "country_counts") {
+      list(
+        topic  = "char",
+        created_date = "date",
+        created_hour = "char",
+        tweet_geo_country_code = "char",
+        user_geo_country_code  = "char",
+        retweets = "int",
+        tweets = "int",
+        known_retweets = "int",
+        known_original = "int",
+        created_weeknum = "int"
+      )
+    } else if(dataset == "topwords") {
+      list(
+        token = "char",
+        topic = "char",
+        created_date = "date",
+        tweet_geo_country_code = "char",
+        frequency = "int",
+        original = "int",
+        retweets = "int",
+        created_weeknum = "int"
+      )
+    }
+  )
+  for(attr in names(defaults)) {
+    type <- defaults[attr]
+    if(!(attr %in% cols)) {
+      if(nrow(df) == 0 && type == "char") df[attr] <- character()
+      else if(nrow(df) == 0 && type == "date") df[attr] <- as.Date(character())
+      else if(nrow(df) == 0 && type == "int") df[attr] <- integer()
+      else if(nrow(df) == 0 && type == "num") df[attr] <- numeric()
+      else if(nrow(df) > 0 && type == "char") df[attr] <- as.character(NA)
+      else if(nrow(df) > 0 && type == "date") df[attr] <- as.Date(NA)
+      else if(nrow(df) > 0 && type == "int") df[attr] <- as.integer(NA)
+      else if(nrow(df) > 0 && type == "num") df[attr] <- as.numeric(NA)
+      else stop(paste("unexpected default case with type", type, "for", attr, "with length", nrow(df)))
+    }
+  }
+  return(df)
+} 

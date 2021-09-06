@@ -343,7 +343,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
                 date = dateIter.next
               }
               index.releaseSearcher(searcher)
-              aDates
+              aDates.filter(d => d.contains("-")) //this filter is to prevent tokenized forms of dates to be returned 
             }
           if(dates.size> 0)
             LuceneActor.PeriodResponse(Some(dates.min), Some(dates.max))
