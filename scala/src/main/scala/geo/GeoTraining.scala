@@ -323,8 +323,8 @@ case class GeoTraining(
   
   def uid() = {
     val md = java.security.MessageDigest.getInstance("SHA-1");
-    val enc = new sun.misc.BASE64Encoder()
-    enc.encode(md.digest(s"$category.$text.$tweetId.$tweetPart".getBytes))
+    val enc = java.util.Base64.getEncoder()
+    new String(enc.encode(md.digest(s"$category.$text.$tweetId.$tweetPart".getBytes)))
   }  
 }
 object GeoTraining {
