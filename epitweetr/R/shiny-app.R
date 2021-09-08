@@ -164,7 +164,7 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::selectInput("alerts_countries", label = NULL, multiple = TRUE, choices = d$countries)
             ),
             shiny::column(2, 
-              shiny::radioButtons("alerts_display", label = NULL, choices = list("Tweets"="tweets", "Parameters"="parameters"), selected = "Tweets", inline = TRUE),
+              shiny::radioButtons("alerts_display", label = NULL, choices = list("Tweets"="tweets", "Parameters"="parameters"), selected = "parameters", inline = TRUE),
             ),
             shiny::column(2,
               shiny::actionButton("alerts_search", "search"),
@@ -1368,13 +1368,12 @@ epitweetr_app <- function(data_dir = NA) {
       shiny::updateTextInput(session, "alerts_show_search", label = NULL, value = "true")
       output$alerts_table <- DT::renderDataTable({
         `%>%` <- magrittr::`%>%`
-        max_tweets <- if(input$alerts_display == "tweets") 10 else 0
-        message(max_tweets)
-        alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]], max_tweets = max_tweets)
+        toptweets <- if(input$alerts_display == "tweets") 10 else 0
+        alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]], toptweets = toptweets)
         shiny::validate(
           shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
         )
-        if(max_tweets == 0) {
+        if(toptweets == 0) {
           alerts %>%
             dplyr::select(
               "date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", 
@@ -1415,7 +1414,7 @@ epitweetr_app <- function(data_dir = NA) {
                 "Region" = "country",
                 "Top words" = "topwords", 
                 "Tweets" = "number_of_tweets", 
-                "Top tweets" = "toptweets",
+                "Top tweets" = "toptweets"
               ),
               filter = "top",
               escape = TRUE

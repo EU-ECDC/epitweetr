@@ -608,27 +608,27 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
          df$toptweets <- if(nrow(df)==0) character() else { 
            sapply(1:nrow(df), function(i) { 
              created_from = (
-               if(df$hour == 23) { df$date[[i]]
-               } else if(df$hour < 9) { paste0(as.character(as.Date(df$date[[i]]) - 1), "T0", df$hour + 1)
+               if(df$hour[i] == 23) { df$date[[i]]
+               } else if(df$hour[i] < 9) { paste0(as.character(as.Date(df$date[[i]]) - 1), "T0", df$hour[i] + 1)
                } else paste0(as.character(as.Date(df$date[[i]]) - 1), "T", df$hour + 1)
              )
              created_to = (
-               if(df$hour == 23) { paste0(df$date[[i]], "TZ") 
-               } else if(df$hour < 10) { paste0(df$date[[i]], "T0", df$hour,"Z")
-               } else paste0(df$date[[i]], "T", df$hour, "Z")
+               if(df$hour[i] == 23) { paste0(df$date[[i]], "TZ") 
+               } else if(df$hour[i] < 10) { paste0(df$date[[i]], "T0", df$hour[i],"Z")
+               } else paste0(df$date[[i]], "T", df$hour[i], "Z")
              )
              tweets <- search_tweets(
-               query = paste0("created_at:%5B",created_from ," TO ", created_to,"%5D AND is_retweet:false"), 
+               query = paste0("created_at:%5B",created_from ,"%20TO%20", created_to,"%5D%20AND%20is_retweet:false"), 
                topic = df$topic[[i]], 
                from = as.character(as.Date(df$date[[i]])-1), 
                to = df$date[[i]], 
                max = toptweets
              )
-             browser()
              paste(tweets$text, collapse = "\n\n")
            })
          }
        }
+       df
     })
     Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
   }
