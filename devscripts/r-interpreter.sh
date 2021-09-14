@@ -9,6 +9,7 @@ then
 fi
 
 export ecdc_wtitter_tool_kr_password=$pass
+export TMPDIR=$EPI_HOME/tmp
 expect -c '
 spawn R
 expect ">"

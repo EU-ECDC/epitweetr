@@ -1,6 +1,7 @@
 #!/bin/bash
 export SPARK_VERSION=3.0.3
-export SBT_OPTS="-Xmx10G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
+export TEMPDIR=$EPI_HOME/tmp
+export SBT_OPTS="-Xmx16G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M -Duser.timezone=GMT -Djava.io.tmpdir=$TEMPDIR"
 cd scala
 expect -c '
 spawn sbt consoleQuick
