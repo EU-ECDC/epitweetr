@@ -88,10 +88,10 @@ object TaggedChunk {
         if i == nextStart
       } yield {
         if(bioTags(i) == "O") {
-          nextStart = Iterator.range(i+1, tokens.size).dropWhile(j => bioTags(j) != "B").toSeq.headOption.getOrElse(tokens.size)
+          nextStart = Iterator.range(i+1, tokens.size).dropWhile(j => bioTags(j) == "O").toSeq.headOption.getOrElse(tokens.size)
           TaggedChunk(tokens = tokens.slice(i, nextStart), isEntity = false) 
         } else {
-          nextStart = Iterator.range(i+1, tokens.size).dropWhile(j => bioTags(j) == "I").toSeq.headOption.getOrElse(tokens.size)
+          nextStart = Iterator.range(i+1, tokens.size).dropWhile(j => bioTags(j) != "O").toSeq.headOption.getOrElse(tokens.size)
           TaggedChunk(tokens = tokens.slice(i, nextStart), isEntity = true) 
         }
       }
@@ -138,7 +138,7 @@ case class TaggedText(id:String, taggedChunks:Seq[TaggedChunk], lang:Option[Stri
        yield {
         BIOAnnotation(
           tag = 
-            if(this.taggedChunks(i).isEntity && j == 0) "B"
+            if(this.taggedChunks(i).isEntity && j == 0) "I"
             else if(this.taggedChunks(i).isEntity) "I"
             else "O",
           token = this.taggedChunks(i).tokens(j),
@@ -406,7 +406,6 @@ object GeoTraining {
       }).apply(col("token_vec"), col("before_vec"), col("after_vec"), col("token"), col("before"), col("after"))
     )
     .select(col("token"), col("tag"),col("lang"), 
-      udf((tag:String) => if(tag == "B") 1.0 else 0.0).apply(col("tag")).as("BLabel"),
       udf((tag:String) => if(tag == "I") 1.0 else 0.0).apply(col("tag")).as("ILabel"),
       udf((tag:String) => if(tag == "O") 1.0 else 0.0).apply(col("tag")).as("OLabel"),
       udf((rvector:Seq[Row], rbefore:Seq[Row], rafter:Seq[Row], nBefore:Int, nAfter:Int) => {
@@ -420,13 +419,13 @@ object GeoTraining {
 
   def trainedLanguages()(implicit conf:Settings, storage:Storage) = {
     conf.languages.get.filter{lang => 
-       Seq("B", "I")
+       Seq("I")
          .forall(t => /*!l.areVectorsNew() &&*/ storage.getNode(s"${lang.modelPath}.${t}").exists)
     }
   }
   def getModels(testId:Option[String]=None, languages:Seq[Language])(implicit storage:Storage) = { 
     languages
-      .flatMap(lang => Seq("B", "I").map(t => (t, lang)))
+      .flatMap(lang => Seq("I").map(t => (t, lang)))
       .flatMap{case (t, lang) => 
          val path = s"${lang.modelPath}.${t}${testId.map(tid => "."+tid.toLowerCase.replace(" ", "-")).getOrElse("")}"
          if(storage.getNode(path).exists && !lang.areVectorsNew()) 
@@ -451,7 +450,7 @@ object GeoTraining {
     (implicit storage:Storage, spark:SparkSession):Map[String, LinearSVCModel] = {
     val models = 
       languages
-        .flatMap(lang => Seq("B", "I").map(t => (t, lang)))
+        .flatMap(lang => Seq("I").map(t => (t, lang)))
         .flatMap{case (t, lang) => 
            val path = s"${lang.modelPath}.${t}${testId.map(tid => "."+tid.toLowerCase.replace(" ", "-")).getOrElse("")}"
            import spark.implicits._
@@ -471,7 +470,7 @@ object GeoTraining {
              val trained = model.fit(trainData)
              trained.write.overwrite().save(path)
              //Setting update timestamp
-             storage.isUnchanged(path = Some(path), checkPath = Some(s"${path}.stamp"), updateStamp = true)  
+             storage.isUnchanged(path = Some(path), checkPath = Some(s"${path}.txt"), updateStamp = true)  
              Some(s"$t.${lang.code}", trained)
            } else {
              None
@@ -488,23 +487,21 @@ object GeoTraining {
     val all = annotations 
     
     //rescaling to avoid getting to imbalanced classes
-    val bb = all.filter(n => n.tag == "B")
     val ii = all.filter(n => n.tag == "I")
     val oo = all.filter(n => n.tag == "O")
     val maxFactor = 1.0
     val toTrain = 
-      if(oo.size > maxFactor*(bb.size + ii.size)) {
+      if(oo.size > maxFactor*(ii.size)) {
         val r = new Random(1234)
-        val newO = r.shuffle(oo).take((maxFactor*(bb.size + ii.size)).toInt)
-        l.msg(s"limiting O:(${oo.size}) vs  B+I = ${(bb.size + ii.size)} to ${newO.size}")
-        bb ++ ii ++ newO
+        val newO = r.shuffle(oo).take((maxFactor*(ii.size)).toInt)
+        l.msg(s"limiting O:(${oo.size}) vs  B+I = ${(ii.size)} to ${newO.size}")
+        ii ++ newO
       }
       else {
         //l.msg(s"no need to split  O:(${oo.size}) vs  B+I = ${(bb.size + ii.size)}")
         all
       }
     toTrain
-
   }
   def splitTrainEvaluate(
     annotations:Seq[GeoTraining],
@@ -612,12 +609,12 @@ object GeoTraining {
                .map{case (vectorsCol, langCodeCol) =>
                  Some((row.getAs[String](langCodeCol), row.getAs[Seq[Row]](vectorsCol).map(r => r.getAs[DenseVector]("vector"))))
                    .map{case(langCode, vectors) =>
-                     if(!rawPredict.contains(s"B.$langCode")) {
-                       vectors.zipWithIndex.map{case(_, i) => if(i==0) "B" else "I"}
+                     if(!rawPredict.contains(s"I.$langCode")) {
+                       vectors.zipWithIndex.map{case(_, i) => if(i==0) "I" else "I"}
                      }
                      else 
                        GeoTraining.getContextVectors(vectors, nBefore, nAfter).map{vector => 
-                         Seq("B", "I").flatMap{ t =>
+                         Seq("I").flatMap{ t =>
                            rawPredict.get(s"$t.$langCode")
                              .map{case (model, method) =>
                                if(vector == null)

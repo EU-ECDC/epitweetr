@@ -178,7 +178,7 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         //Setting models to unchanged 
         
         conf.languages.get.foreach{ l => 
-          st.isUnchanged(path = Some(l.vectorsPath), checkPath = Some(s"${l.vectorsPath}.stamp"), updateStamp = true) 
+          st.isUnchanged(path = Some(l.vectorsPath), checkPath = Some(s"${l.vectorsPath}.txt"), updateStamp = true) 
         }
         ret
           .foreach{line =>

@@ -43,8 +43,8 @@ trait FSNode {
   def move(to:FSNode, writeMode:WriteMode) = {this.storage.move(this, to, writeMode)}
   def setContent(content:InputStream, writeMode:WriteMode) = {this.storage.setContent(this, content, writeMode);this}
   def setContent(content:InputStream) = {this.storage.setContent(this, content, WriteMode.failIfExists);this}
-  def setContent(content:String, writeMode:WriteMode) = {this.storage.setContent(this, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), writeMode);this}
-  def setContent(content:String) = {this.storage.setContent(this, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), WriteMode.failIfExists);this}
+  def setContent(content:String, writeMode:WriteMode) = {this.storage.setContent(this, content, writeMode);this}
+  def setContent(content:String) = {this.storage.setContent(this, content, WriteMode.failIfExists);this}
   def getFileModificationTime(recurse:Boolean = true) = 
     storage.getFileModificationTime(
       path = if(this.path!=null) Some(this.path) else throw new Exception("getModificationTime requires a non empty hash")
@@ -109,7 +109,10 @@ trait Storage {
   }
   def getContentAsJson(node:FSNode) = scala.util.parsing.json.JSON.parseFull(getContentAsString(node))
   
-  def setContent(node:FSNode, data:InputStream, writeMode:WriteMode = WriteMode.failIfExists)
+  def setContent(node:FSNode, data:InputStream, writeMode:WriteMode):Unit
+  def setContent(node:FSNode, data:InputStream):Unit = this.setContent(node, data,  WriteMode.failIfExists)
+  def setContent(node:FSNode, content:String, writeMode:WriteMode):Unit
+  def setContent(node:FSNode, content:String):Unit = this.setContent(node, content, WriteMode.failIfExists)
   def list(node:FSNode, recursive:Boolean):Seq[FSNode]
   def last(path:Option[String], attrPattern:Map[String, String]):Option[FSNode]
   def getNode(path:String, attrs:Map[String, String]=Map[String, String]()):FSNode
@@ -238,6 +241,25 @@ case class LocalStorage(override val sparkCanRead:Boolean=false, override val tm
   
   def getContent(node:FSNode)
        = node match { case lNode:LocalNode => Files.newInputStream(lNode.jPath)               case _ => throw new Exception(s"HDFS Storage cannot manage ${node.getClass.getName} nodes")}
+  def setContent(node:FSNode, content:String, writeMode:WriteMode) 
+       = node match { case lNode:LocalNode => 
+                          writeMode match {
+                            case WriteMode.overwrite => 
+                              Files.write(
+                                lNode.jPath, 
+                                content.getBytes(StandardCharsets.UTF_8), 
+                                StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING
+                              )
+                            case WriteMode.ignoreIfExists => if(!this.exists(node)) Files.write(lNode.jPath, content.getBytes(StandardCharsets.UTF_8))
+                            case WriteMode.failIfExists => 
+                              Files.write(
+                                lNode.jPath, 
+                                content.getBytes(StandardCharsets.UTF_8), 
+                                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE
+                              )
+                          } 
+                      case _ => throw new Exception(s"Local Storage cannot manage ${node.getClass.getName} nodes")
+       }
   def setContent(node:FSNode, data:InputStream, writeMode:WriteMode)
        = node match { case lNode:LocalNode => 
                           writeMode match {
@@ -355,6 +377,7 @@ case class EpiFileStorage(vooUrl:String, user:String, pwd:String) extends Storag
        = node match { case eNode:EpiFileNode => { EpiFiles.download(id = eNode.path, vooUrl = this.vooUrl, user = this.user, pwd = this.pwd) }
                       case _ => throw new Exception(s"HDFS Storage cannot manage ${node.getClass.getName} nodes")
        }
+  def setContent(node:FSNode, content:String, writeMode:WriteMode) = {this.setContent(node, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), writeMode)}
   def setContent(node:FSNode, data:InputStream, writeMode:WriteMode)
        = node match { case eNode:EpiFileNode => {
                           writeMode match {
@@ -433,6 +456,7 @@ case class HDFSStorage(hadoopConf:Configuration, override val tmpPrefix:String="
     }
   def getContent(node:FSNode)
        = node match { case hNode:HDFSNode => fs.open(hNode.hPath)            case _ => throw new Exception(s"HDFS Storage cannot manage ${node.getClass.getName} nodes")}
+  def setContent(node:FSNode, content:String, writeMode:WriteMode) = {this.setContent(node, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), writeMode)}
   def setContent(node:FSNode, data:InputStream, writeMode:WriteMode)
        = node match { 
          case hNode:HDFSNode => 

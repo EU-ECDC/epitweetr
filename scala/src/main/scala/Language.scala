@@ -65,7 +65,7 @@ case class Language(name:String, code:String, vectorsPath:String) {
        .select(col("word"), col("_score_"), lit(0.0).as("label"), col("vector").as("feature"))
    }
 
-   def areVectorsNew()(implicit storage:Storage) = !storage.isUnchanged(path = Some(this.vectorsPath), checkPath = Some(s"${this.vectorsPath}.stamp"), updateStamp = false) 
+   def areVectorsNew()(implicit storage:Storage) = !storage.isUnchanged(path = Some(this.vectorsPath), checkPath = Some(s"${this.vectorsPath}.txt"), updateStamp = false) 
 
  }
 
