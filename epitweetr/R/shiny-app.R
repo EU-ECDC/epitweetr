@@ -138,7 +138,7 @@ epitweetr_app <- function(data_dir = NA) {
           ######### ALERTS FILTERS #######################
           ################################################
           shiny::fluidRow(
-            shiny::column(4, 
+            shiny::column(3, 
               shiny::h4("Detection date") 
             ),
             shiny::column(2, 
@@ -150,15 +150,16 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(2, 
               shiny::h4("Display")
             ),
-            shiny::column(2
+            shiny::column(1, 
+              shiny::h4("Limit")
             ),
           ), 
           shiny::fluidRow(
-            shiny::column(4, 
-              shiny::dateRangeInput("alerts_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
+            shiny::column(3, 
+              shiny::dateRangeInput("alerts_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month") 
             ),
             shiny::column(2, 
-              shiny::selectInput("alerts_topics", label = NULL, multiple = TRUE, choices = d$topics[d$topics!=""]),
+              shiny::selectInput("alerts_topics", label = NULL, multiple = TRUE, choices = d$topics[d$topics!=""])
             ),
             shiny::column(2, 
               shiny::selectInput("alerts_countries", label = NULL, multiple = TRUE, choices = d$countries)
@@ -166,13 +167,27 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(2, 
               shiny::radioButtons("alerts_display", label = NULL, choices = list("Tweets"="tweets", "Parameters"="parameters"), selected = "parameters", inline = TRUE),
             ),
+            shiny::column(1, 
+              shiny::selectInput("alerts_limit", label = NULL, multiple = FALSE, choices =  list("None"="0", "10"="10", "50"="50", "100"="100", "500"="500"))
+            ),
+          ), 
+          shiny::fluidRow(
+            ################################################
+            ######### GEO TAG FILTERS #######################
+            ################################################
             shiny::column(2,
-              shiny::actionButton("alerts_search", "search"),
+              shiny::actionButton("alerts_search", "Search alerts"),
+            ),
+            shiny::column(2, shiny::actionButton("alertdb_add", "Add alerts to annotations")),
+            shiny::column(2,
+              shiny::actionButton("alerts_close", "Hide search"),
               shiny::conditionalPanel(
                 condition = "false",
                 shiny::textInput("alerts_show_search", value = "false", label = NULL)
               )
             ),
+            shiny::column(2, shiny::downloadButton("alertdb_download", "Download annotations")),
+            shiny::column(2, shiny::fileInput("alertdb_upload", label = NULL, buttonLabel = "Upload & evaluate annotations"))
           ), 
           shiny::fluidRow(
             shiny::column(12, 
@@ -182,9 +197,26 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::conditionalPanel(
                 condition = "input.alerts_show_search == 'true'",
                 DT::dataTableOutput("alerts_table"),
-                shiny::actionButton("alerts_close", "hide")
               )
-          ))
+          )),
+          shiny::h3("Alerts annotations"),
+          shiny::fluidRow(
+            shiny::conditionalPanel(
+              condition = "input.alerts_show_annotations == 'true'",
+              shiny::column(12, 
+                ################################################
+                ######### ALERT ANNOTATIONS EVALUATION #########
+                ################################################ 
+                shiny::h4("Performance evaluation of alert classification algorithm"),
+                DT::dataTableOutput("alertdb_eval_df"),
+                ################################################
+                ######### ANNOTATED ALERTS #####################
+                ################################################ 
+                shiny::h4("Database used for training the alert classification algorithm"),
+                DT::dataTableOutput("alertdb_table")
+            ))
+         )
+       
   ) 
   # Defining configuration
   ################################################
@@ -402,9 +434,9 @@ epitweetr_app <- function(data_dir = NA) {
             ######### GEO TAG FILTERS #######################
             ################################################
             shiny::column(4, shiny::numericInput("geotraining_tweets2add", label = shiny::h4("Tweets to add"), value = 100)),
-            shiny::column(2, shiny::actionButton("geotraining_update", "Update")),
-            shiny::column(2, shiny::downloadButton("geotraining_update_download", "Update & Download")),
-            shiny::column(4, shiny::fileInput("geotraining_upload", label = NULL, buttonLabel = "Upload"))
+            shiny::column(2, shiny::actionButton("geotraining_update", "Geolocate annotations")),
+            shiny::column(2, shiny::downloadButton("geotraining_download", "Download annotations")),
+            shiny::column(4, shiny::fileInput("geotraining_upload", label = NULL, buttonLabel = "Upload & evaluate annotations"))
           ), 
           shiny::fluidRow(
             shiny::column(12, 
@@ -1363,17 +1395,37 @@ epitweetr_app <- function(data_dir = NA) {
     ######### ALERTS LOGIC ##################
     # rendering the alerts 
     # updates are launched automatically when any input value changes
-    
+       
+    # setting default value for number of alerts to return depending on wether we are displaying tweets or not
+    shiny::observe({
+      # Can also set the label and select items
+      shiny::updateSelectInput(session, "alerts_limit",
+        selected = if(input$alerts_display == "tweets") "10" else "0" 
+      )
+    })
+
+  
     shiny::observeEvent(input$alerts_search, {
       shiny::updateTextInput(session, "alerts_show_search", label = NULL, value = "true")
       output$alerts_table <- DT::renderDataTable({
         `%>%` <- magrittr::`%>%`
-        toptweets <- if(input$alerts_display == "tweets") 10 else 0
-        alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]], toptweets = toptweets)
-        shiny::validate(
-          shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
-        )
-        if(toptweets == 0) {
+        shiny::isolate({
+          toptweets <- if(input$alerts_display == "tweets") 10 else 0
+          progress_start("Getting alerts") 
+          alerts <- get_alerts(
+            topic = input$alerts_topics, 
+            countries = as.numeric(input$alerts_countries), 
+            from = input$alerts_period[[1]], 
+            until = input$alerts_period[[2]], 
+            toptweets = toptweets,
+            limit = as.integer(input$alerts_limit),
+            progress = function(value, message) {progress_set(value = value, message = message)}
+          )
+        })
+        #shiny::validate(
+        #  shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
+        #)
+        dt <- if(toptweets == 0) {
           alerts %>%
             dplyr::select(
               "date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", 
@@ -1404,6 +1456,38 @@ epitweetr_app <- function(data_dir = NA) {
               escape = TRUE
             )
         } else {
+          alerts$toptweets <- sapply(alerts$toptweets, function(jsontweets) {
+            tweetsbylang <- jsonlite::fromJSON(jsontweets)
+            if(length(tweetsbylang) == 0)
+              ""
+            else {
+              paste(
+                "<UL>",
+                lapply(1:length(tweetsbylang), function(i) {
+                  paste(
+                   "<LI>",
+                   names(tweetsbylang)[[i]],
+                   "<OL>",
+                   paste(
+                     lapply(tweetsbylang[[i]], function(t) {
+                       paste0(
+                         "<LI>",
+                         htmltools::htmlEscape(t),
+                         "</LI>"
+                       )
+                     }),
+                     collapse = ""
+                   ),
+                   "</OL>",
+                   "</LI>"
+                  )
+                }),
+                "</UL>",
+                collapse = ""
+             )
+            }
+          })
+
           alerts %>%
             dplyr::select("date", "hour", "topic", "country", "topwords", "number_of_tweets", "toptweets") %>%
             DT::datatable(
@@ -1417,9 +1501,11 @@ epitweetr_app <- function(data_dir = NA) {
                 "Top tweets" = "toptweets"
               ),
               filter = "top",
-              escape = TRUE
+              escape = FALSE
             )
         }
+        progress_close()
+        dt
       })
     })
 
@@ -1518,14 +1604,16 @@ epitweetr_app <- function(data_dir = NA) {
       )
     })
     
-    # update & download geotraining data
-    output$geotraining_update_download <- shiny::downloadHandler(
+    # download geotraining data
+    output$geotraining_download <- shiny::downloadHandler(
       filename = function() "geo-training.xlsx",
       content = function(file) {
         progress_start("updating geo training dataset for download")
         #updating geotraining file before downloading
         tryCatch({
-           update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
+           if(get_geotraining_path() == get_default_geotraining_path()) {
+             update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
+           }
            file.copy(get_geotraining_path(), file) 
            cd$geotraining_refresh_flag(Sys.time())
           },
@@ -1573,7 +1661,6 @@ epitweetr_app <- function(data_dir = NA) {
 
   # Functions for managing calculation progress
   progress_start <- function(start_message = "processing", env = cd) {
-    message("starting progress")
     progress_close(env = env)
     env$progress <- shiny::Progress$new()
     env$progress$set(message = start_message, value = 0)

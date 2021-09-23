@@ -2,9 +2,10 @@ package org.ecdc.epitweetr.fs
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.analysis.custom.CustomAnalyzer
-import org.apache.lucene.search.{IndexSearcher, Query, TermQuery}
+import org.apache.lucene.search.{IndexSearcher, Query, TermQuery, TermRangeQuery}
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search.{ScoreDoc, Sort}
+import org.apache.lucene.util.BytesRef
 import java.nio.file.{Files, Paths, Path}
 import org.apache.lucene.store.{ FSDirectory, MMapDirectory}
 import org.apache.lucene.index.{IndexWriter, IndexReader, DirectoryReader,IndexWriterConfig}
@@ -349,7 +350,34 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   def parseQuery(query:String) = {
     val analyzer = new StandardAnalyzer()
     val parser = new QueryParser("text", analyzer)
-    parser.parse(query)
+    val ret = smarterQuery(parser.parse(query))
+    ret
+  }
+  def smarterQuery(q:Query):Query = {
+    q match  {
+      case bq:BooleanQuery => 
+        val bqb = new BooleanQuery.Builder()
+        bq.clauses.asScala.foreach{c => bqb.add(smarterQuery(c.getQuery), c.getOccur)}
+        bqb.build
+      case tq:TermQuery =>
+        val field = tq.getTerm.field
+        val text = 
+          if(field.endsWith("country_code")) tq.getTerm.text.toUpperCase
+          else tq.getTerm.text.toLowerCase
+        new TermQuery(new Term(field, text))
+      case tr:TermRangeQuery =>
+        val field = tr.getField
+        val (from, to) = 
+          if(field.endsWith("country_code")) 
+            (Try(tr.getLowerTerm.utf8ToString).getOrElse(tr.getLowerTerm.toString).toUpperCase, 
+            Try(tr.getUpperTerm.utf8ToString).getOrElse(tr.getUpperTerm.toString).toUpperCase)
+          else 
+            (Try(tr.getLowerTerm.utf8ToString).getOrElse(tr.getLowerTerm.toString), 
+            Try(tr.getUpperTerm.utf8ToString).getOrElse(tr.getUpperTerm.toString))
+        new TermRangeQuery(tr.getField, new BytesRef(from), new BytesRef(to), tr.includesLower, tr.includesUpper) 
+      case _ => 
+        throw new Exception(s"Query is from an unmanaged query type: ${q.getClass}")
+    }
   }
   def search(query:String)(implicit searcher:IndexSearcher):TopDocs  = {
     search(query, 100, None) 

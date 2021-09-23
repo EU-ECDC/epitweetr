@@ -84,9 +84,9 @@ search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, ma
   if(!is.null(max)) {
     u <- paste(u, "&max=", max , sep = "") 
   }
-
+  #message(paste("searching for:", u))
   u <- url(u)
-  tweets <- jsonlite::stream_in(u)
+  tweets <- jsonlite::stream_in(u, verbose = FALSE)
   tweets
 }
 
