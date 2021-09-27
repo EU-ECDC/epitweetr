@@ -17,10 +17,24 @@ get_plans_path <- function() file.path(conf$data_dir, "topics.json")
 # Get task path (written by detect pipeline)
 get_tasks_path <- function() file.path(conf$data_dir, "tasks.json")
 
-# Get default languages file path
-get_default_geotraining_path <- function() system.file("extdata", "geo-training.xlsx", package = get_package_name())
 
-# Get available languages file path (writter by shiny app)
+# Get available alert training file path 
+get_alert_training_path <- function() {
+  path <- get_user_alert_training_path()
+  if(!file.exists(path))
+    path <- get_default_alert_training_path()
+  path
+}
+
+# Get default languages file path
+get_default_alert_training_path <- function() system.file("extdata", "alert-training.xlsx", package = get_package_name())
+
+# Get user alert training file
+get_user_alert_training_path <- function() {
+  paste(conf$data_dir, "alert-training.xlsx", sep = "/")
+}
+
+# Get available geotraining file path
 get_geotraining_path <- function() {
   path <- get_user_geotraining_path()
   if(!file.exists(path))
@@ -28,12 +42,15 @@ get_geotraining_path <- function() {
   path
 }
 
+# Get default languages file path
+get_default_geotraining_path <- function() system.file("extdata", "geo-training.xlsx", package = get_package_name())
+
 # Get user geo training file
 get_user_geotraining_path <- function() {
   paste(conf$data_dir, "geo-training.xlsx", sep = "/")
 }
 
-# Get user geo training file
+# Get geo training evaluation file
 get_geotraining_evaluation_path <- function() {
   paste(conf$data_dir, "geo-training-evaluation.json", sep = "/")
 }

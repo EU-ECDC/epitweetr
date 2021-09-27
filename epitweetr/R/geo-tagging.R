@@ -513,9 +513,9 @@ get_geotraining_df <- function() {
   current
 }
 
-updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
+updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b) {}) {
   `%>%` <- magrittr::`%>%`
-  if(is.function(progress)) progress(0.1, "getting current training file")
+  progress(0.1, "getting current training file")
   current <- get_geotraining_df()
   locations <- current %>% dplyr::filter(Type == "Location" & `Location OK/KO` == "OK")
   add_locations <- if(nrow(locations) == 0) "&locationSamples=true" else "&locationSamples=false" 
@@ -523,7 +523,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   non_location_langs <- unique(non_locations$Lang)
   excl_langs <- if(length(non_location_langs) > 0) paste("&excludedLangs=", paste(non_location_langs, collapse = "&excludedLangs="), sep = "") else "" 
 
-  if(is.function(progress)) progress(0.3, "obtaining locations from downloaded models and geonames")
+  progress(0.3, "obtaining locations from downloaded models and geonames")
   geo_training_uri <- paste(get_scala_geotraining_url(), "?jsonnl=true", add_locations, excl_langs, sep = "")
   geo_training_url <- url(geo_training_uri)
   geo_training <- jsonlite::stream_in(geo_training_url) 
@@ -552,7 +552,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   to_add <- if(tweets_to_add > untagged) tweets_to_add else 0
 
 
-  if(is.function(progress)) progress(0.6, "adding new tweets")
+  progress(0.6, "adding new tweets")
   to_tag <- search_tweets(query = paste("lang:", lapply(conf$languages, function(l) l$code), collapse = " ", sep = ""), max = to_add)
   if(nrow(to_tag) > 0) {
     to_tag$text <- stringr::str_trim(to_tag$text)
@@ -639,7 +639,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
     Lang = ifelse(!is.na(.data$`Associate with`), "all", .data$Lang)
   ) 
   #getting current geolocation evaluation
-  if(is.function(progress)) progress(0.7, "geolocating all items")
+  progress(0.7, "geolocating all items")
   tryCatch({
       geoloc = geolocate_text(df = text_togeo, text_col="Text", lang_col = "Lang")
       ret$`Epitweetr match` <- geoloc$geo_name
@@ -658,7 +658,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
 }
 
 
-update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
+update_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b) {}) {
   `%>%` <- magrittr::`%>%`
   training_df <- updated_geotraining_df(tweets_to_add = 100, progress = progress)
   update_topic_keywords()
@@ -666,7 +666,6 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
   update_forced_geo_codes()
   if(is.function(progress)) progress(0.9, "writing result file")
   wb <- openxlsx::createWorkbook()
-  # we have to remove the existing worksheet since writing on the same was producing a corrupted file
   openxlsx::addWorksheet(wb, "geolocation")
   # writing data to the worksheet
   openxlsx::writeDataTable(wb, sheet = "geolocation", training_df, colNames = TRUE, startRow = 1, startCol = "A")
@@ -728,6 +727,7 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = NULL) {
 }
 
 retrain_languages <- function() {
+  `%>%` <- magrittr::`%>%`
   body <- get_geotraining_df() %>% jsonlite::toJSON()
   post_result <- httr::POST(url=get_scala_geotraining_url(), httr::content_type_json(), body=body, encode = "raw", encoding = "UTF-8")
   if(httr::status_code(post_result) != 200) {
@@ -740,6 +740,7 @@ retrain_languages <- function() {
 }
 
 update_topic_keywords <- function() {
+  `%>%` <- magrittr::`%>%`
    keywords <- lapply(strsplit(gsub("\\-\\w*\\b|\"", "", unlist(lapply(conf$topics, function(t) t$query))), "OR|AND|NOT|\\(|\\)"), function(t) {x <- gsub("^ *| *$", "", t); x[x != ""]} )
    topicKeywords <- setNames(keywords, sapply(conf$topics, function(t) t$topic))
    ret <- list()
@@ -750,6 +751,7 @@ update_topic_keywords <- function() {
 }
 
 update_forced_geo <- function() {
+  `%>%` <- magrittr::`%>%`
   df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(`Location in text`), `Text`, `Location in text`), to = `Associate with`) %>% dplyr::filter(!is.na(to))
   ret <- list()
   if(nrow(df) > 0) {
@@ -765,6 +767,7 @@ update_forced_geo <- function() {
 }
 
 update_forced_geo_codes <- function() {
+  `%>%` <- magrittr::`%>%`
   df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(`Location in text`), `Text`, `Location in text`), to = `Associate country code`) %>% dplyr::filter(!is.na(to))
   ret <- list()
   if(nrow(df) > 0) {

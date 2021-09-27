@@ -1,7 +1,8 @@
 package org.ecdc.epitweetr
 
-import org.ecdc.epitweetr.fs.{LuceneActor, TopicTweetsV1}
+import org.ecdc.epitweetr.fs.{LuceneActor, TopicTweetsV1, AlertClassification, TaggedAlert, AlertRun}
 import org.ecdc.epitweetr.geo.{GeonamesActor, GeoTrainings }
+import org.ecdc.epitweetr.geo.{AlertActor}
 import akka.actor.{ActorSystem, Actor, Props}
 import akka.stream.ActorMaterializer
 import akka.pattern.{ask, pipe}
@@ -47,7 +48,9 @@ object API {
     oConf = Some(conf)
     val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor], conf))
     val geonamesRunner = actorSystem.actorOf(Props(classOf[GeonamesActor], conf))
+    val alertRunner = actorSystem.actorOf(Props(classOf[AlertActor], conf))
     oLuceneRunner = Some(luceneRunner)
+
     removeLockFiles()
     val route =
       extractUri { uri =>
@@ -357,6 +360,37 @@ object API {
                   case Failure(e) =>
                     println(s"Cannot interpret the provided body as a value to geolocate:\n $e, ${e.getStackTrace.mkString("\n")}") 
                     complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a value to geolocate:\n $e")) 
+                } 
+              } ~ 
+                entity(as[String]) { value  => 
+                logThis(value)
+                complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
+              }
+            }
+          }
+        } ~ path("evaluate-alerts") {
+          post {
+            parameters("train".as[Boolean]?false, "jsonnl".as[Boolean]?false) { (train, jsonnl) => 
+              entity(as[JsValue]) { json  =>
+                implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
+                Try(alertClassificationFormat.read(json)) match {
+                  case Success(AlertClassification(alerts, runs)) =>
+                    val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
+                      ackMessage = ByteString("ok")
+                      , completionMatcher = {case Done => CompletionStrategy.immediately}
+                      , failureMatcher = PartialFunction.empty
+                    )
+                    val (actorRef, matSource) = source.preMaterialize()
+                    alertRunner ! AlertActor.ClassifyAlertsRequest(alerts, runs, train, jsonnl, actorRef) 
+                    complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
+                      if(m.startsWith(ByteString(s"[Stream--error]:"))) 
+                        throw new Exception(m.decodeString("UTF-8"))
+                      else 
+                        m
+                    }))
+                  case Failure(e) =>
+                    println(s"Cannot interpret the provided body as a value to train classifier:\n $e, ${e.getStackTrace.mkString("\n")}") 
+                    complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a value to train classifier:\n $e")) 
                 } 
               } ~ 
                 entity(as[String]) { value  => 

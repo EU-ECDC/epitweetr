@@ -173,12 +173,11 @@ epitweetr_app <- function(data_dir = NA) {
           ), 
           shiny::fluidRow(
             ################################################
-            ######### GEO TAG FILTERS #######################
+            ######### ALERTS FILTERS #######################
             ################################################
             shiny::column(2,
               shiny::actionButton("alerts_search", "Search alerts"),
             ),
-            shiny::column(2, shiny::actionButton("alertdb_add", "Add alerts to annotations")),
             shiny::column(2,
               shiny::actionButton("alerts_close", "Hide search"),
               shiny::conditionalPanel(
@@ -186,8 +185,8 @@ epitweetr_app <- function(data_dir = NA) {
                 shiny::textInput("alerts_show_search", value = "false", label = NULL)
               )
             ),
-            shiny::column(2, shiny::downloadButton("alertdb_download", "Download annotations")),
-            shiny::column(2, shiny::fileInput("alertdb_upload", label = NULL, buttonLabel = "Upload & evaluate annotations"))
+            shiny::column(2, shiny::actionButton("alertdb_add", "Add alerts to annotations")),
+            shiny::column(6)
           ), 
           shiny::fluidRow(
             shiny::column(12, 
@@ -201,19 +200,31 @@ epitweetr_app <- function(data_dir = NA) {
           )),
           shiny::h3("Alerts annotations"),
           shiny::fluidRow(
+            shiny::column(2, shiny::actionButton("alertsdb_search", "Show annotations")),
+            shiny::column(2, shiny::actionButton("alertsdb_close", "Hide annotations")),
+            shiny::column(2, shiny::downloadButton("alertsdb_download", "Download annotations")),
+            shiny::column(4, shiny::fileInput("alertsdb_upload", label = NULL, buttonLabel = "Upload & evaluate annotations")),
+            shiny::column(2,
+              shiny::conditionalPanel(
+                condition = "false",
+                shiny::textInput("alertsdb_show", value = "false", label = NULL)
+              )
+            )
+          ),
+          shiny::fluidRow(
             shiny::conditionalPanel(
-              condition = "input.alerts_show_annotations == 'true'",
+              condition = "input.alertsdb_show == 'true'",
               shiny::column(12, 
                 ################################################
                 ######### ALERT ANNOTATIONS EVALUATION #########
                 ################################################ 
                 shiny::h4("Performance evaluation of alert classification algorithm"),
-                DT::dataTableOutput("alertdb_eval_df"),
+                DT::dataTableOutput("alertsdb_runs_table"),
                 ################################################
                 ######### ANNOTATED ALERTS #####################
                 ################################################ 
                 shiny::h4("Database used for training the alert classification algorithm"),
-                DT::dataTableOutput("alertdb_table")
+                DT::dataTableOutput("alertsdb_table")
             ))
          )
        
@@ -1422,9 +1433,9 @@ epitweetr_app <- function(data_dir = NA) {
             progress = function(value, message) {progress_set(value = value, message = message)}
           )
         })
-        #shiny::validate(
-        #  shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
-        #)
+        shiny::validate(
+          shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
+        )
         dt <- if(toptweets == 0) {
           alerts %>%
             dplyr::select(
@@ -1456,8 +1467,7 @@ epitweetr_app <- function(data_dir = NA) {
               escape = TRUE
             )
         } else {
-          alerts$toptweets <- sapply(alerts$toptweets, function(jsontweets) {
-            tweetsbylang <- jsonlite::fromJSON(jsontweets)
+          alerts$toptweets <- sapply(alerts$toptweets, function(tweetsbylang) {
             if(length(tweetsbylang) == 0)
               ""
             else {
@@ -1513,6 +1523,109 @@ epitweetr_app <- function(data_dir = NA) {
       shiny::updateTextInput(session, "alerts_show_search", label = NULL, value = "false")
     })
 
+    shiny::observeEvent(input$alertsdb_search, {
+      shiny::updateTextInput(session, "alertsdb_show", label = NULL, value = "true")
+      output$alertsdb_table <- DT::renderDataTable(get_alertsdb_html() %>%
+        DT::datatable(
+          colnames = c(
+            "Date" = "date", 
+            "Topic" = "topic",  
+            "Region" = "country",
+            "Top words" = "topwords", 
+            "Tweets" = "number_of_tweets", 
+            "Top tweets" = "toptweets",
+            "Given Category" = "given_category",
+            "Epitweetr Category" = "epitweetr_category"
+          ),
+          filter = "top",
+          escape = FALSE
+        )
+      )
+        
+      output$alertsdb_runs_table <- DT::renderDataTable(get_alertsdb_runs_html() %>%
+        DT::datatable(
+          colnames = c(
+            "Ranking" = "ranking",
+            "Models" = "models", 
+            "Runs" = "runs", 
+            "TP" = "tp", 
+            "FP" = "fp", 
+            "TN" = "tn", 
+            "FN" = "fn",
+            "Precision" = "precision",
+            "Sensitivity" = "sensitivity",
+            "F1Score" = "f1_score",
+            "Last run" = "last_run",
+            "Active" = "active",
+            "Documentation" = "documentation",
+            "Custom Parameters" = "custom_parameters"
+          ),
+          filter = "top",
+          escape = FALSE
+        )
+      )
+    })
+    shiny::observeEvent(input$alertsdb_close, {
+      shiny::updateTextInput(session, "alertsdb_show", label = NULL, value = "false")
+    })
+    output$alertsdb_download <- shiny::downloadHandler(
+      filename = function() "alert-training.xlsx",
+      content = function(file) {
+        progress_start("updating geo training dataset for download")
+        #updating geotraining file before downloading
+        tryCatch({
+           if(get_alert_training_path() == get_default_alert_training_path()) {
+             alerts <- get_alerts(
+               topic = input$alerts_topics, 
+               countries = as.numeric(input$alerts_countries), 
+               from = input$alerts_period[[1]], 
+               until = input$alerts_period[[2]], 
+               toptweets = 10,
+               limit = if(as.integer(input$alerts_limit) > 0 ) as.integer(input$alerts_limit) else 20,
+               progress = function(value, message) {progress_set(value = value, message = message)}
+             )
+             write_alert_training_db(alerts)
+           }
+           file.copy(get_alert_training_path(), file) 
+           cd$alert_training_refresh_flag(Sys.time())
+          },
+          error = function(w) {app_error(w, env = cd)}
+        )
+      }
+    )
+    
+    # uploading alerts training file
+    shiny::observe({
+      df <- input$alertsdb_upload
+      if(!is.null(df) && nrow(df)>0) {
+        progress_start("processing new training set")
+        uploaded <- df$datapath[[1]]
+        #copying file and making a backup of existing one
+        if(file.exists(get_user_alert_training_path()))
+          file.copy(get_user_alert_training_path(), paste(get_user_alert_training_path(), ".bak", sep = ""), overwrite=TRUE) 
+        file.copy(uploaded, get_user_alert_training_path(), overwrite=TRUE) 
+        #updating geotraining df taking in condideration new uploaded file
+        
+        tryCatch({
+           progress_set(value = 0.5, message = "Retraining models and evaluating")
+           retrain_alert_classifier()
+           #update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = 0.5 + value/2, message = message)})
+           cd$alert_training_refresh_flag(Sys.time())
+           #TO DO : afficher les résultats + observe qui met à jour si de nouveelles données sont uploadées
+          },
+          error = function(w) {app_error(w, env = cd)}
+        )
+      }
+    })
+
+    # updating geotraining table on change of geotraining file
+    shiny::observe({
+      # Adding a dependency to alert refresh
+      cd$alert_training_refresh_flag()
+      DT::replaceData(DT::dataTableProxy('alertsdb_table'),get_alertsdb_html())
+      DT::replaceData(DT::dataTableProxy('alertsdb_runs_table'), get_alertsdb_runs_html())
+      progress_close()
+    })
     ######### GEOTRAINING EVALUATION DATAFRAME ####
     # rendering a dataframe showing evaluation metrics 
     output$geotraining_eval_df <- DT::renderDataTable({
@@ -1755,6 +1868,10 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   if(!exists("geotraining_refresh_flag", where = e)) {
     e$geotraining_refresh_flag <- shiny::reactiveVal()
   }
+  #Creating the flag for alert training refresh
+  if(!exists("alert_training_refresh_flag", where = e)) {
+    e$alert_training_refresh_flag <- shiny::reactiveVal()
+  }
   #Creating the flag for countries refresh
   if(!exists("countries_refresh_flag", where = e)) {
     e$countries_refresh_flag <- shiny::reactiveVal()
@@ -1858,4 +1975,68 @@ chart_not_empty <- function(chart) {
      shiny::need(!("waiver" %in% class(chart$data)), chart$labels$title)
   )
 } 
- 
+
+
+get_alertsdb_html <- function() {
+  alerts <- get_alert_training_df() 
+  shiny::validate(
+    shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
+  )
+  alerts$toptweets <- sapply(alerts$toptweets, function(tweetsbylang) {
+    if(length(tweetsbylang) == 0)
+      ""
+    else {
+      paste(
+        "<UL>",
+        lapply(1:length(tweetsbylang), function(i) {
+          paste(
+           "<LI>",
+           names(tweetsbylang)[[i]],
+           "<OL>",
+           paste(
+             lapply(tweetsbylang[[i]], function(t) {
+               paste0(
+                 "<LI>",
+                 htmltools::htmlEscape(t),
+                 "</LI>"
+               )
+             }),
+             collapse = ""
+           ),
+           "</OL>",
+           "</LI>"
+          )
+        }),
+        "</UL>",
+        collapse = ""
+     )
+    }
+  })
+  alerts
+} 
+
+get_alertsdb_runs_html <- function(){
+  runs <- get_alert_training_runs_df() 
+  runs$custom_parameters <- sapply(runs$custom_parameters, function(params) {
+    if(length(params) == 0)
+      ""
+    else {
+      paste(
+        "<UL>",
+        lapply(1:length(params), function(i) {
+          paste(
+           "<LI>",
+           names(params)[[i]],
+           ":",
+           params[[i]],
+           "</LI>"
+          )
+        }),
+        "</UL>",
+        collapse = ""
+     )
+    }
+  })
+  runs
+}
+

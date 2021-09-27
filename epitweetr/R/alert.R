@@ -561,7 +561,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #' @importFrom dplyr filter arrange group_by mutate ungroup bind_rows
 #' @importFrom stats reorder sd qt
 #' @importFrom utils head
-get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01", toptweets = 0, limit = 0, progress = function(a, b) {}) {
+get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01", toptweets = 0, limit = 0, duplicates = "all", progress = function(a, b) {}) {
   `%>%` <- magrittr::`%>%`
   # preparing filers and renaming variables with names as column on dataframe to avoid conflicts
   regions <- get_country_items()
@@ -602,59 +602,74 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
        dplyr::group_by(.data$topic, .data$country) %>%
        dplyr::mutate(rank = rank(.data$hour, ties.method = "first")) %>%
        dplyr::ungroup()
-      if(limit > 0) {
-        df <- head(df, limit)
-      }
-      # Adding top tweets if required
-      if(toptweets > 0) {
-        codes <- get_country_codes_by_name()
-        topwords <- sapply(strsplit(df$topwords, "\\W+|[0-9]\\W"), function(v) v[nchar(v)>0])
 
-        df$toptweets <- if(nrow(df)==0) character() else { 
-          sapply(1:nrow(df), function(i) { 
-            created_from = (
-              if(df$hour[i] == 23) { df$date[[i]]
-              } else if(df$hour[i] < 9) { paste0(as.character(as.Date(df$date[[i]]) - 1), "T0", df$hour[i] + 1)
-              } else paste0(as.character(as.Date(df$date[[i]]) - 1), "T", df$hour + 1)
-            )
-            created_to = (
-              if(df$hour[i] == 23) { paste0(df$date[[i]], "TZ") 
-              } else if(df$hour[i] < 10) { paste0(df$date[[i]], "T0", df$hour[i],"Z")
-              } else paste0(df$date[[i]], "T", df$hour[i], "Z")
-            )
-            match_codes <- codes[[df$country[[i]]]]
-            if(is.null(match_codes))
-              ""
-            else {
-              progress(i/nrow(df), "Getting alerts tweets")
-              tweets <- lapply(conf$languages, function(lang) {
-                search_tweets(
-                  query = paste0(
-                    "created_at:%5B",created_from ,"%20TO%20", created_to,"%5D%20AND%20",
-                    paste0("lang:", lang$code,"%20AND%20"),
-                    (if(length(codes)==0) "" else paste0("text_loc.geo_country_code:", paste0(match_codes, collapse=";"),"%20AND%20" )),
-                    (if(length(topwords[[i]]) == 0) "" else paste0("%28", paste0(topwords[[i]], collapse="%20OR%20"),"%29%20AND%20" )),
-                    "is_retweet:false"
-                  ), 
-                  topic = df$topic[[i]], 
-                  from = as.character(as.Date(df$date[[i]])-1), 
-                  to = df$date[[i]], 
-                  max = toptweets
-                )$text
-              })
-              jsonlite::toJSON(setNames(
-                tweets, 
-                lapply(conf$languages, function(l) l$code)), 
-                auto_unbox=FALSE
-              )
-            }
-          })
-        }
+      if(duplicates == "last") {
+        df <- df %>% 
+          dplyr::arrange(.data$topic, .data$country, dplyr::desc(.data$hour)) %>%
+          dplyr::distinct(.data$topic, .data$country, .keep_all = TRUE)
+      } else if(duplicates == "first") {
+        df <- df %>% dplyr::filter(.data$rank == 1)
       }
-      progress(1, "Alerts obtained")
       df
     })
-    Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
+  
+    df <- Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
+    if(limit > 0 && limit < nrow(df)) {
+      set.seed(26062012)
+      df <- df[sample(nrow(df), limit),]
+    }
+    # Adding top tweets if required
+    if(toptweets > 0) {
+      codes <- get_country_codes_by_name()
+      topwords <- sapply(strsplit(df$topwords, "\\W+|[0-9]\\W"), function(v) v[nchar(v)>0])
+
+      df$toptweets <- if(nrow(df)==0) character() else { 
+        sapply(1:nrow(df), function(i) { 
+          created_from = (
+            if(df$hour[[i]] == 23) { df$date[[i]]
+            } else if(df$hour[[i]] < 9) { paste0(as.character(as.Date(df$date[[i]]) - 1), "T0", df$hour[[i]] + 1)
+            } else paste0(as.character(as.Date(df$date[[i]]) - 1), "T", df$hour[[i]] + 1)
+          )
+          created_to = (
+            if(df$hour[[i]] == 23) { paste0(df$date[[i]], "TZ") 
+            } else if(df$hour[[i]] < 10) { paste0(df$date[[i]], "T0", df$hour[[i]],"Z")
+            } else paste0(df$date[[i]], "T", df$hour[[i]], "Z")
+          )
+          match_codes <- codes[[df$country[[i]]]]
+          if(is.null(match_codes))
+            ""
+          else {
+            progress(i/nrow(df), "Getting alerts tweets")
+            tweets <- lapply(conf$languages, function(lang) {
+              res <- search_tweets(
+                query = paste0(
+                  "created_at:[",created_from ," TO ", created_to,"] AND ",
+                  paste0("lang:", lang$code," AND "),
+                  (if(length(match_codes)==0) "" else paste0("text_loc.geo_country_code:", paste0(match_codes, collapse=";")," AND " )),
+                  (if(length(topwords[[i]]) == 0) "" else paste0("(", paste0(topwords[[i]], collapse=" OR "),") AND " )),
+                  "is_retweet:false"
+                ), 
+                topic = df$topic[[i]], 
+                from = as.character(as.Date(df$date[[i]])-1), 
+                to = df$date[[i]], 
+                max = toptweets
+              )
+              if(length(res) == 0)
+                character(0)
+              else
+                res$text
+            })
+            jsonlite::toJSON(setNames(
+              tweets, 
+              lapply(conf$languages, function(l) l$code)
+            )) 
+          }
+        })
+      }
+      df$toptweets <- lapply(df$toptweets, function(json) jsonlite::fromJSON(json))
+    }
+    progress(1, "Alerts obtained")
+    tibble::as_tibble(df)
   }
 }
 
@@ -935,3 +950,178 @@ send_alert_emails <- function(tasks = get_tasks()) {
   tasks
 }
 
+
+get_alert_training_df <- function() {
+  `%>%` <- magrittr::`%>%`
+  data_types<-c("text","text", "text", "text", "numeric", "text", "text", "text")
+  current <- readxl::read_excel(get_alert_training_path(), col_types = data_types, sheet = "Alerts")
+  current <- current %>% dplyr::transmute(
+    date  = .data$`Date`, 
+    topic  = .data$`Topic`, 
+    country = .data$`Region`, 
+    topwords = .data$`Top words`, 
+    number_of_tweets = .data$`Tweets`, 
+    toptweets = .data$`Top Tweets`, 
+    given_category = .data$`Given Category`, 
+    epitweetr_category= .data$`Epitweetr Category`
+  )
+  current$`toptweets` <- lapply(current$`toptweets`, function(json) jsonlite::fromJSON(json))
+  current
+}
+get_alert_training_runs_df <- function() {
+  data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "text", "logical", "text", "text")
+  current <- readxl::read_excel(get_alert_training_path(), col_types = data_types, sheet = "Runs")
+  current <- current %>% dplyr::transmute(
+    ranking  = .data$`Ranking`,
+    models  = .data$`Models`, 
+    runs = .data$`Runs`, 
+    tp = .data$`TP`, 
+    fp = .data$`FP`, 
+    tn = .data$`TN`, 
+    fn = .data$`FN`,
+    precision = .data$`Precision`,
+    sensitivity = .data$`Sensitivity`,
+    f1_score = .data$`F1Score`,
+    last_run = .data$`Last run`,
+    active = .data$`Active`,
+    documentation = .data$`Documentation`,
+    custom_parameters= .data$`Custom Parameters`
+  )
+  current$`custom_parameters` <- lapply(current$`custom_parameters`, function(json) jsonlite::fromJSON(json))
+  current
+}
+
+add_alert_training_df <- function(n = 50, topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01", toptweets = 10, retrain = FALSE, progress = function(a, b) {}) {
+  current <- get_alert_training_df()
+  new <- get_alerts(topic = topic, countries = countries, from = from, until = until, toptweets = toptweets, limit = n, duplicates = "last", progress = function(a, b) {progress(a/2, b)})
+  `%>%` <- magrittr::`%>%`
+  new <- new %>% dplyr::transmute(
+   `date` = .data$date, 
+   `topic`=.data$topic, 
+   `country` = .data$country, 
+   `topwords` = .data$topwords, 
+   `number_of_tweets` = .data$number_of_tweets, 
+   `toptweets` = .data$toptweets, 
+   `given_category` = "?", 
+   `epitweetr_category` = "?"
+  )
+  alerts <- dplyr::bind_rows(current, new) %>%
+    dplyr::distinct(.data$date, .data$topic, .data$country, .keep_all = TRUE)
+
+  alerts
+}
+
+classify_alerts <- function(alerts, retrain = FALSE) {
+  if(is.null(alerts) || nrow(alerts) == 0)
+    alerts
+  else {
+    runs <- get_alert_training_runs_df()
+  
+    body = jsonlite::toJSON(list(
+        alerts = alerts %>% dplyr::mutate(`id`=as.character(1:nrow(alerts))),
+        runs = runs
+      ), pretty = T
+    )
+    post_result <- httr::POST(url=get_scala_alert_training_url(), httr::content_type_json(), body=body, encode = "raw", encoding = "UTF-8")
+    if(httr::status_code(post_result) != 200) {
+      stop(paste("retrain web service failed with the following output: ", substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100), sep  = "\n"))
+    } else {
+      message(httr::content(post_result, "text", encoding = "UTF-8"))
+    }
+  }
+}
+
+
+retrain_alert_classifier <- function() {
+  `%>%` <- magrittr::`%>%`
+  alerts = get_alert_training_df()
+  classify_alerts(alerts, retrain = TRUE)
+}
+
+
+write_alert_training_db <- function(alerts, runs = get_alert_training_runs_df()) {
+  `%>%` <- magrittr::`%>%`
+  wb <- openxlsx::createWorkbook()
+  openxlsx::addWorksheet(wb, "Alerts")
+  openxlsx::addWorksheet(wb, "Runs")
+  # writing data to the worksheet
+  openxlsx::writeDataTable(
+    wb, 
+    sheet = "Alerts", 
+    alerts %>% dplyr::transmute(
+      `Date` = .data$date, 
+      `Topic` = .data$topic, 
+      `Region` = .data$country, 
+      `Top words` = .data$topwords, 
+      `Tweets` = .data$number_of_tweets, 
+      `Top Tweets` =  lapply(.data$toptweets, function(l) jsonlite::toJSON(l)), 
+      `Given Category` = .data$given_category, 
+      `Epitweetr Category` = .data$epitweetr_category
+    ),
+    colNames = TRUE, 
+    startRow = 1, 
+    startCol = "A"
+  )
+  openxlsx::writeDataTable(
+    wb, 
+    sheet = "Runs", 
+    runs %>% dplyr::transmute(
+      `Ranking` = .data$ranking,
+      `Models` = .data$models, 
+      `Runs` = .data$runs, 
+      `TP` = .data$tp, 
+      `FP` = .data$fp, 
+      `TN` = .data$tn, 
+      `FN` = .data$fn,
+      `Precision` = .data$precision,
+      `Sensitivity` = .data$sensitivity,
+      `F1Score` = .data$f1_score,
+      `Last run` = .data$last_run,
+      `Active` = .data$active,
+      `Documentation` = .data$documentation,
+      `Custom Parameters` = lapply(.data$custom_parameters, function(l) jsonlite::toJSON(l))
+    ),
+    colNames = TRUE, 
+    startRow = 1, 
+    startCol = "A"
+  )
+  # setting some minimal formatting
+  openxlsx::setColWidths(wb, "Alerts", cols = c(4, 6), widths = c(50))
+  openxlsx::setRowHeights(wb, "Alerts", rows = 1, heights = 20)
+  openxlsx::setRowHeights(wb, "Runs", rows = 1, heights = 20)
+  openxlsx::addStyle(
+    wb, 
+    sheet = "Alerts", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ff860d", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
+    rows = 1, 
+    cols = 1:ncol(alerts), 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "Runs", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ffde59", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
+    rows = 1, 
+    cols = 1:ncol(runs), 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "Alerts", 
+    style = openxlsx:: createStyle(fontSize = 10, border = c("top", "bottom", "left", "right")), 
+    rows = 1:nrow(alerts)+1, 
+    cols = 1:ncol(alerts), 
+    gridExpand = TRUE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "Runs", 
+    style = openxlsx:: createStyle(fontSize = 10, border = c("top", "bottom", "left", "right")), 
+    rows = 1:nrow(runs)+1, 
+    cols = 1:ncol(runs), 
+    gridExpand = TRUE
+  )
+  openxlsx::freezePane(wb, "Alerts",firstActiveRow = 2)
+  openxlsx::freezePane(wb, "Runs",firstActiveRow = 2)
+  openxlsx::saveWorkbook(wb, get_user_alert_training_path() ,overwrite = T) 
+}

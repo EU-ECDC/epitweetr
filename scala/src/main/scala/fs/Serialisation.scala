@@ -13,6 +13,31 @@ import org.apache.lucene.index.IndexableField
 import scala.collection.JavaConverters._
 import java.net.URLDecoder
 
+case class AlertClassification(alerts:Seq[TaggedAlert], runs:Seq[AlertRun])
+case class TaggedAlert(
+  id:String,
+  topic:String,
+  country:String,
+  number_of_tweets:Int, 
+  topwords:Option[String],
+  toptweets:Map[String, Seq[String]],
+  given_category:String,
+  epitweetr_category:String
+)
+
+case class AlertRun(
+  ranking:Int,
+  models:String,
+  runs:Int,
+  tp:Int,
+  fp:Int,
+  tn:Int,
+  fn:Int,
+  precision:Double,
+  sensitivity:Double,
+  f1_score:Double 
+)
+
 case class TopicKeyWords(items:Map[String, Set[String]])
 case class ForcedGeo(items:Map[String, String])
 case class ForcedGeoCodes(items:Map[String, String])
@@ -146,6 +171,9 @@ object EpiSerialisation
     implicit val includesV2Format = jsonFormat3(IncludesV2.apply)
     implicit val tweetsV2Format = jsonFormat3(TweetsV2.apply)
     implicit val textToGeoFormat = jsonFormat3(TextToGeo.apply)
+    implicit val taggedAlertsFormat = jsonFormat8(TaggedAlert.apply)
+    implicit val alertRunFormat = jsonFormat10(AlertRun.apply)
+    implicit val alertClassificationFormat = jsonFormat2(AlertClassification.apply)
 
 
     implicit object tweetV1Format extends RootJsonFormat[TweetV1] {
