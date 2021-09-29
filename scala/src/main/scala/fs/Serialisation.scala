@@ -28,14 +28,17 @@ case class TaggedAlert(
 case class AlertRun(
   ranking:Int,
   models:String,
+  alerts:Int,
   runs:Int,
-  tp:Int,
-  fp:Int,
-  tn:Int,
-  fn:Int,
-  precision:Double,
-  sensitivity:Double,
-  f1_score:Double 
+  f1:Double,
+  accuracy:Doouble, 
+  precisionByLabel:Double
+  recallByLabel:Double,
+  fMeasureByLabel:Double,
+  last_run:Option[String],
+  active:Option[Boolean],
+  documentation:Option[String],
+  custom_parameters:Option[Map[String, String]] 
 )
 
 case class TopicKeyWords(items:Map[String, Set[String]])
@@ -172,7 +175,7 @@ object EpiSerialisation
     implicit val tweetsV2Format = jsonFormat3(TweetsV2.apply)
     implicit val textToGeoFormat = jsonFormat3(TextToGeo.apply)
     implicit val taggedAlertsFormat = jsonFormat8(TaggedAlert.apply)
-    implicit val alertRunFormat = jsonFormat10(AlertRun.apply)
+    implicit val alertRunFormat = jsonFormat13(AlertRun.apply)
     implicit val alertClassificationFormat = jsonFormat2(AlertClassification.apply)
 
 

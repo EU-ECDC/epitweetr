@@ -1,6 +1,6 @@
 package org.ecdc.epitweetr.geo
 
-import org.ecdc.twitter.{JavaBridge, Language}
+import org.ecdc.twitter.{Language}
 import Geonames.Geolocate
 import demy.util.{log => l, util}
 import org.ecdc.epitweetr.{Settings, EpitweetrActor}
@@ -30,8 +30,8 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
   def receive = {
     case GeonamesActor.TrainingSetRequest(excludedLangs, locationSamples, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
-      implicit val s = GeonamesActor.getSparkSession
-      implicit val st = GeonamesActor.getSparkStorage
+      implicit val s = conf.getSparkSession
+      implicit val st = conf.getSparkStorage
       import s.implicits._
       var sep = ""
       Future {
@@ -81,16 +81,16 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
       }
     case GeonamesActor.GeolocateTextsRequest(toGeo, minScore, forcedGeo, forcedGeoCodes, topics, jsonnl, caller) =>
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
-      implicit val s = GeonamesActor.getSparkSession
-      implicit val st = GeonamesActor.getSparkStorage
+      implicit val s = conf.getSparkSession
+      implicit val st = conf.getSparkStorage
       import s.implicits._
       var sep = ""
       Future {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
-        implicit val s = GeonamesActor.getSparkSession
-        implicit val st = GeonamesActor.getSparkStorage
+        implicit val s = conf.getSparkSession
+        implicit val st = conf.getSparkStorage
         import s.implicits._
         val readyLangs = GeoTraining.trainedLanguages()
         if(conf.languages.size > readyLangs.size) println(s"only ${readyLangs.size} of ${conf.languages.size} are ready")
@@ -135,8 +135,8 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
       }
     case GeonamesActor.TrainLanguagesRequest(trainingSet, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
-      implicit val s = GeonamesActor.getSparkSession
-      implicit val st = GeonamesActor.getSparkStorage
+      implicit val s = conf.getSparkSession
+      implicit val st = conf.getSparkStorage
       import s.implicits._
       //Ensuring languages models are up to date
       Language.updateLanguageIndexes(conf.languages.get, conf.geonames, indexPath=conf.langIndexPath)
@@ -147,8 +147,8 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
         if(!jsonnl) { 
           Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
         }
-        implicit val s = GeonamesActor.getSparkSession
-        implicit val st = GeonamesActor.getSparkStorage
+        implicit val s = conf.getSparkSession
+        implicit val st = conf.getSparkStorage
         import s.implicits._
         val readyLangs = GeoTraining.trainedLanguages()
         if(conf.languages.size > readyLangs.size) println(s"only ${readyLangs.size} of ${conf.languages.size} are ready")
@@ -205,7 +205,6 @@ class GeonamesActor(conf:Settings) extends Actor with ActorLogging {
 
  
 object GeonamesActor {
-  var spark:Option[SparkSession] = None
   case class TrainingSetRequest(excludedLangs:Seq[String], locationSamples:Boolean, jsonnl:Boolean, caller:ActorRef)
   case class TrainLanguagesRequest(trainingSet:Seq[GeoTraining], jsonnl:Boolean, caller:ActorRef)
   case class GeolocateTextsRequest(
@@ -218,24 +217,6 @@ object GeonamesActor {
     caller:ActorRef
   )
   case class LanguagesTrained(msg:String)
-  def closeSparkSession() = {
-    spark match{
-      case Some(spark) =>
-        spark.stop()
-      case _ =>
-    }
-  }
-
-  def getSparkSession()(implicit conf:Settings) = {
-    GeonamesActor.synchronized {
-      conf.load()
-      if(GeonamesActor.spark.isEmpty) {
-        GeonamesActor.spark =  Some(JavaBridge.getSparkSession(conf.sparkCores.getOrElse(0))) 
-      }
-    }
-    GeonamesActor.spark.get
-  }
-  def getSparkStorage = Storage.getSparkStorage
 }
 
 

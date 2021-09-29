@@ -2,9 +2,11 @@ package org.ecdc.epitweetr
 
 import spray.json._
 import java.nio.file.{Paths, Files}
-import org.ecdc.twitter.Language
+import org.ecdc.twitter.{JavaBridge, Language}
 import org.ecdc.epitweetr.geo.Geonames
 import org.ecdc.epitweetr.fs.EpiSerialisation
+import org.apache.spark.sql.{SparkSession}
+import demy.storage.{Storage, FSNode}
 
 case class Settings(epiHome:String) {
   var _properties:Option[JsObject] = None
@@ -74,8 +76,26 @@ case class Settings(epiHome:String) {
   def forcedGeo = this.loadJson("geo/forced-geo.json").map(json => EpiSerialisation.forcedGeoFormat.read(json)) 
   def forcedGeoCodes = this.loadJson("geo/forced-geo-codes.json").map(json => EpiSerialisation.forcedGeoCodesFormat.read(json)) 
   def topicKeyWords = this.loadJson("geo/topic-keywords.json").map(json => EpiSerialisation.topicKeyWordsFormat.read(json)) 
+  def getSparkSession() = {
+    Settings.synchronized {
+      this.load()
+      if(Settings.spark.isEmpty) {
+        Settings.spark =  Some(JavaBridge.getSparkSession(this.sparkCores.getOrElse(0))) 
+      }
+    }
+    Settings.spark.get
+  }
+  def closeSparkSession() = {
+    Settings.spark match{
+      case Some(spark) =>
+        spark.stop()
+      case _ =>
+    }
+  }
+  def getSparkStorage = Storage.getSparkStorage
 
 }
 object Settings {
+  var spark:Option[SparkSession] = None
   def defaultSplitter = "(http|https|HTTP|HTTPS|ftp|FTP)://(\\S)+|[^\\p{L}]|@+|#+|\\bRT\\b+|\\bvia\\b+|\\bvía\\b+|((?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z]))+"
 }

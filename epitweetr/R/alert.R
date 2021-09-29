@@ -1017,10 +1017,11 @@ classify_alerts <- function(alerts, retrain = FALSE) {
   else {
     runs <- get_alert_training_runs_df()
   
-    body = jsonlite::toJSON(list(
-        alerts = alerts %>% dplyr::mutate(`id`=as.character(1:nrow(alerts))),
-        runs = runs
-      ), pretty = T
+    body = paste("{",
+      paste("\"alerts\":", jsonlite::toJSON(alerts %>% dplyr::mutate(`id`=as.character(1:nrow(alerts))), pretty = T, auto_unbox = FALSE)),
+      paste(",\"runs\":", jsonlite::toJSON(runs, pretty = T, auto_unbox = TRUE)),
+      "}",
+      sep = "\n"  
     )
     post_result <- httr::POST(url=get_scala_alert_training_url(), httr::content_type_json(), body=body, encode = "raw", encoding = "UTF-8")
     if(httr::status_code(post_result) != 200) {

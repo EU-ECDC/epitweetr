@@ -2,7 +2,7 @@ package org.ecdc.epitweetr
 
 import org.ecdc.epitweetr.fs.{LuceneActor, TopicTweetsV1, AlertClassification, TaggedAlert, AlertRun}
 import org.ecdc.epitweetr.geo.{GeonamesActor, GeoTrainings }
-import org.ecdc.epitweetr.geo.{AlertActor}
+import org.ecdc.epitweetr.alert.{AlertActor}
 import akka.actor.{ActorSystem, Actor, Props}
 import akka.stream.ActorMaterializer
 import akka.pattern.{ask, pipe}
