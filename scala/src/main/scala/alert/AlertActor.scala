@@ -1,6 +1,7 @@
 package org.ecdc.epitweetr.alert
 
-import org.apache.spark.ml.classification.{Classifier, ClassificationModel, OneVsRest}
+import org.ecdc.epitweetr.fs.{AlertClassification}
+import org.apache.spark.ml.classification.{Classifier, ClassificationModel, OneVsRest, OneVsRestModel}
 import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorIndexer, StringIndexerModel, VectorAssembler}
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import demy.util.{log => l, util}
@@ -29,7 +30,7 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
   implicit val executionContext = context.system.dispatchers.lookup("lucene-dispatcher")
   implicit val cnf = conf
   def receive = {
-    case AlertActor.ClassifyAlertsRequest(alerts, runs, train, jsonnl, caller) => 
+    case AlertActor.ClassifyAlertsRequest(alerts, oRuns) => 
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
       implicit val s = conf.getSparkSession
       implicit val st = conf.getSparkStorage
@@ -38,39 +39,44 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
 
       var sep = ""
       Future {
-        if(!jsonnl) { 
-          Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
-        }
         implicit val s = conf.getSparkSession
         implicit val st = conf.getSparkStorage
         import s.implicits._
         
-        val r = new Random(197912)
-        import s.implicits._
-        val ret = Seq("{\"todo\":\"Bien!!\"}")
+	    val alertsdf =  AlertActor.alerts2modeldf(alerts = alerts, reuseLabels = oRuns.isEmpty) 
+      val retRuns = 
+	      oRuns.map{case runs =>
+	        val newRuns = 
+	          runs
+	            .map{r =>
+	              if(!r.active.getOrElse(true))
+	                r
+	              else {
+	                l.msg(s"Running ${r.models} on ${alerts.size} alerts ${r.runs} times, customized with ${r.custom_parameters}")
+                        AlertActor.trainTest(alertsdf = alertsdf, run = r, trainRatio = 0.75)
+	                  .setCount(alerts.size)
+	              }
+              }
+	            .sortWith{(a, b) => 
+	              (a.f1score - (if(!a.active.getOrElse(true)) 1.0 else 0.0)) > (b.f1score - (if(!b.active.getOrElse(true)) 1.0 else 0.0))
+	            }
+	            .zipWithIndex
+	            .map{case (r, i) => r.setRanking(i)}
+                if(newRuns.size > 0 && newRuns(0).active.getOrElse(true)) {
+                  l.msg(s"Retraining with full data for best run ${runs(0).models}, ${runs(0).custom_parameters}")
+	                AlertActor.finalTrain(alertsdf = alertsdf, run = runs(0))
+	              } else {
+                  l.msg(s"No training was performed since ")
+	              }
+	              newRuns
+	      }
 
-        AlertActor.train(alerts, runs(0))
-        l.msg(s"todo bien")
-        
-
-        ret
-          .foreach{line =>
-             Await.result(caller ? ByteString(
-               s"${sep}${line.toString}\n", 
-               ByteString.UTF_8
-             ), Duration.Inf)
-             if(!jsonnl) sep = ","
-          }
-        
-        if(!jsonnl) { 
-          Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
-        }
-        caller ! Done
+        val retAlerts = AlertActor.classifyAlerts(alertsdf).collect.toSeq
+	      AlertClassification(retAlerts, retRuns)
       }.recover {
-        case e: Exception => 
-          caller ! ByteString(s"[Stream--error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
-      }.onComplete { case  _ =>
-      }
+        case e: Exception =>
+          EpitweetrActor.Failure(s"[Job-error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}")
+      }.pipeTo(sender())
     case b => 
       Future(EpitweetrActor.Failure(s"Cannot understund $b of type ${b.getClass.getName} as message")).pipeTo(sender())
   }
@@ -80,10 +86,7 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
 object AlertActor {
   case class ClassifyAlertsRequest(
     alerts:Seq[TaggedAlert], 
-    runs:Seq[AlertRun], 
-    train:Boolean, 
-    jsonnl:Boolean, 
-    caller:ActorRef
+    runs:Option[Seq[AlertRun]], 
   )
   def getModel[F, E <: Classifier[F, E, M], M <: ClassificationModel[F, M]](run:AlertRun) = {
     val classifier = 
@@ -124,18 +127,25 @@ object AlertActor {
       .setFeaturesCol("features")
       .setLabelCol("category_vector")
       .setPredictionCol("predicted_vector")
-
-
   }
 
   def classificationPath()(implicit conf:Settings) = s"${conf.epiHome}/alert-ml"
   def labelIndexerPath()(implicit conf:Settings) = s"${AlertActor.classificationPath()}/label-indexer.ml"
+  def alertClassifierPath()(implicit conf:Settings) = s"${AlertActor.classificationPath()}/classifier.ml"
   def ensureFolderExists()(implicit conf:Settings) = {
     val st = conf.getSparkStorage
     st.ensurePathExists(AlertActor.classificationPath)
   }
 
   def getLabelIndexer()(implicit conf:Settings) = StringIndexerModel.load(AlertActor.labelIndexerPath()) 
+  
+  def getAlertClassifier()(implicit conf:Settings) = {
+    val storage = conf.getSparkStorage
+    if(!storage.getNode(AlertActor.alertClassifierPath()).exists)
+      throw new Exception(s"Cannot find alert classification model. Please train alerts")
+    else
+      OneVsRestModel.load(AlertActor.alertClassifierPath()) 
+  }
   
   def fitLabelIndexer(alerts:Seq[TaggedAlert])(implicit conf:Settings)  = {
     val spark = conf.getSparkSession
@@ -154,57 +164,91 @@ object AlertActor {
        getLabelIndexer()
    }
 
+  def finalTrain(alertsdf:DataFrame, run:AlertRun)(implicit conf:Settings) = {
+    val r = new Random(20121205)
+    val model = AlertActor.getModel(run)
+    AlertActor.ensureFolderExists()
+    model.fit(alertsdf)
+     .write.overwrite()
+     .save(AlertActor.alertClassifierPath())
+    
+    getAlertClassifier()
+  }
 
+  def classifyAlerts(alerts:Seq[TaggedAlert])(implicit conf:Settings):Seq[TaggedAlert] = {
+    val df = AlertActor.alerts2modeldf(alerts, reuseLabels = true) 
+    classifyAlerts(df)
+      .collect
+      .toSeq
+  }
+  def classifyAlerts(alertdf:DataFrame)(implicit conf:Settings) = {
+    val spark = conf.getSparkSession
+    import spark.implicits._
+    val model = getAlertClassifier()
+    val predicted = model.transform(alertdf)
 
-   def trainiTest(alertsdf:Dataframe, run:AlertRun, trainRatio:Double)(implicit conf:Settings) {
-     val r = new Random(20121205)
-     val joinedPredictions = Seq.range(0, run.runs)
-       .map(i => r.nextLong)
-       .map{seed =>
-          val Array(training, test) = alertsdf.randomSplit(Array(trainRatio, testRatio)i, seed)
-          val model = AlertActor.getModel(run)
+    val labelIndexer = AlertActor.getLabelIndexer()
+    val labelConverter = new IndexToString()
+      .setInputCol("predicted_vector")
+      .setOutputCol("epitweetr_category")
+      .setLabels(labelIndexer.labelsArray(0))
 
-          val m = model.fit(training)
-          val res = m.transform(test)
-        }
-	.reduce(_.union(_)
-	)
-      
-      val evaluator = new MulticlassClassificationEvaluator()
-            .setLabelCol("category_vector")
-            .setPredictionCol("predicted_vector")
-            
-      val f1 = 
+    labelConverter.transform(predicted)
+      .select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "epitweetr_category")
+      .as[TaggedAlert]
+  }
+  def trainTest(alertsdf:DataFrame, run:AlertRun, trainRatio:Double)(implicit conf:Settings) = {
+    val r = new Random(20121205)
+    val joinedPredictions = 
+      Seq.range(0, run.runs)
+        .map(i => r.nextLong)
+        .map{seed =>
+           val Array(training, test) = alertsdf.randomSplit(Array(trainRatio, 1-trainRatio), seed)
+           val model = AlertActor.getModel(run)
+
+           val m = model.fit(training)
+           m.transform(test)
+         }
+         .reduce(_.union(_))
      
-      AlertRun(
-        ranking: = 0,
-        models = run.model,
-        alerts = alertsdf.count,
-        runs = run.runs,
-        f1 = evaluator.setMetricName("f1").evaluate(joindedPredictions),
-	accuracy = evaluator.setMetricName("accuracy").evaluate(joindedPredictions), 
-	precisionByLabel = evaluator.setMetricName("precisionByLabel").evaluate(joindedPredictions),
-        recallByLabel = evaluator.setMetricName("recallByLabel").evaluate(joindedPredictions),
-        fMeasureByLabel = evaluator.setMetricName("fMeasureByLabel").evaluate(joindedPredictions),
-        last_run = {
-          val sdfDate = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-          val now = new java.util.Date();
-          sdfDate.format(now);
-	},
-        active = run.active,
-        documentation = run.documentation,
-        custom_parameters = run.custom_parameter 
-      )
-   }
-   def alerts2TrainingSet(alerts:Seq[TaggedAlert])(implicit conf:Settings) {
+     val evaluator = 
+       new MulticlassClassificationEvaluator()
+         .setLabelCol("category_vector")
+         .setPredictionCol("predicted_vector")
+           
+     AlertRun(
+       ranking = 0,
+       models = run.models,
+       alerts = None,
+       runs = run.runs,
+       f1score = evaluator.setMetricName("f1").evaluate(joinedPredictions),
+       accuracy = evaluator.setMetricName("accuracy").evaluate(joinedPredictions), 
+       precision_by_class = evaluator.setMetricName("precisionByLabel").evaluate(joinedPredictions),
+       sensitivity_by_class = evaluator.setMetricName("recallByLabel").evaluate(joinedPredictions),
+       fscore_by_class = evaluator.setMetricName("fMeasureByLabel").evaluate(joinedPredictions),
+       last_run = {
+         val sdfDate = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+         val now = new java.util.Date()
+         Some(sdfDate.format(now))
+       },
+       active = run.active,
+       documentation = run.documentation,
+       custom_parameters = run.custom_parameters 
+     )
+  }
+  def alerts2modeldf(alerts:Seq[TaggedAlert], reuseLabels:Boolean)(implicit conf:Settings) =  {
      val spark = conf.getSparkSession
      implicit val storage = conf.getSparkStorage
      import spark.implicits._
-     val indexer = AlertActor.fitLabelIndexer(alerts)
-     
+     val indexer = 
+       if(reuseLabels)
+         AlertActor.getLabelIndexer()
+       else 
+         AlertActor.fitLabelIndexer(alerts)
+
      
      //Preparing Data
-     val data = Some(alerts)
+     Some(alerts)
        //Finding top words language
        .map{ case(alerts) => (alerts, 
          alerts.map{ta => 
@@ -216,14 +260,16 @@ object AlertActor {
            }
        )}
        //Transforming into data frame
-       .map{case (alerts, topwordlangs) => alerts.zip(topwordlangs).map{
-             case (TaggedAlert(id, topic, country, number_of_tweets, topwords, toptweets, given_category, _), twlang)
-               => (id, topic, country, number_of_tweets.toDouble, topwords, twlang, toptweets, given_category)
-       }.toDF("id", "topic", "country", "count", "tw", "twlang", "toptweets", "given_category")}
+       .map{case (alerts, topwordlangs) => 
+          alerts.zip(topwordlangs).map{
+            case (TaggedAlert(id, date, topic, country, number_of_tweets, topwords, toptweets, given_category, _), twlang)
+               => (id, date, topic, country, number_of_tweets, topwords, twlang, toptweets, given_category)
+          }.toDF("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "toptweets", "given_category")
+       }
        //Text vectorisation
        .map{df => 
          val langs = conf.languages.get.map(_.code)
-         val baseCols = Seq("id", "topic", "country", "count", "tw", "twlang", "given_category")
+         val baseCols = Seq("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "given_category", "toptweets")
          //Splitting tweets in different columns by language
          df.select((
            baseCols.map(c => col(c)) ++  
@@ -237,28 +283,29 @@ object AlertActor {
            languages = conf.languages.get, 
            reuseIndex = true, 
            indexPath = conf.langIndexPath, 
-           textLangCols = Map("topic" -> Some("topic_lang"), "country"-> Some("country_lang"), "tw"-> Some("twlang")) ++ Map(langs.map(lang => (s"top_$lang", Some(s"toplang_$lang"))):_*), 
+           textLangCols = Map("topic" -> Some("topic_lang"), "country"-> Some("country_lang"), "topwords"-> Some("twlang")) ++ Map(langs.map(lang => (s"top_$lang", Some(s"toplang_$lang"))):_*), 
            tokenizerRegex = conf.splitter
          )
 	 //Adding all vectors on a single vector (translation to english of all vectors could be interesting for future)
-         .select(
-           col("id"),
-           udf((row:Seq[Row]) => {
-               row.map(vectors => vectors.getAs[MLVector](0)).reduceOption(_.sum(_)).getOrElse(null)
-             })
-             .apply(
-       	     concat(
-       	       (Seq("topic_vec", "country_vec", "tw_vec") ++ 
-       	         langs.map(lang => s"top_${lang}_vec")
-                 ).map(c => col(c))
-       	       :_*
-       	     )
-             ).as("word_vec"),
-           udf((count:Int)=> 1 - Math.pow(Math.E, -1.0*count/1000.0)).apply(col("count")).as("count"),
-           col("given_category")
+         .select((
+           baseCols.map(c => col(c)) ++
+           Seq(
+	     udf((row:Seq[Row]) => {
+                 row.map(vectors => vectors.getAs[MLVector](0)).reduceOption(_.sum(_)).getOrElse(null)
+               })
+               .apply(
+       	         concat(
+       	           (Seq("topic_vec", "country_vec", "topwords_vec") ++ 
+       	             langs.map(lang => s"top_${lang}_vec")
+                   ).map(c => col(c))
+       	           :_*
+       	         )
+               ).as("word_vec"),
+             udf((count:Int)=> 1 - Math.pow(Math.E, -1.0*count/1000.0)).apply(col("number_of_tweets")).as("adjusted_count")
+	   )):_*
          )
 	 //Removing potentially empty alerts
-         .where(col("word_vec").isNotNull)
+         //.where(col("word_vec").isNotNull)
        }
        //Indexing text categories as multiclass vector
        .map{df => 
@@ -266,19 +313,14 @@ object AlertActor {
        //Joining vectors with the numver of tweets
        .map{df => 
            (new VectorAssembler())
-             .setInputCols(Array("word_vec", "count"))
+             .setInputCols(Array("word_vec", "adjusted_count"))
              .setOutputCol("features")
              .transform(df)
         }
 	.get
-	.select("id", "features", "category_vector")
-	.as[(String, MLVector, Double)]
-	.collect
+	.select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "features", "category_vector")
+	.as[(String, String, String, String, Int, String, Map[String, Seq[String]], String, MLVector, Double)]
 	.toDF
-  }
-
-  def predict(train:Seq[TaggedAlert], run:AlertRun) {
-    //val predictions = ovrModel.transform(test)
   }
 }
 

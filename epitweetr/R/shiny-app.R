@@ -1310,6 +1310,7 @@ epitweetr_app <- function(data_dir = NA) {
             "Immediate topics" = "Real time Topics", 
             "Regions" = "Regions", 
             "Immediate regions" = "Real time Regions", 
+            "Alert category" = "Alert category",
             "Alert slots" = "Alert Slots"
           ),
           filter = "top",
@@ -1439,7 +1440,7 @@ epitweetr_app <- function(data_dir = NA) {
         dt <- if(toptweets == 0) {
           alerts %>%
             dplyr::select(
-              "date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", 
+              "date", "hour", "topic", "country", "epitweetr_category", "topwords", "number_of_tweets", "known_ratio", "limit", 
               "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type",
               "alpha", "alpha_outlier", "k_decay"
             ) %>%
@@ -1449,6 +1450,7 @@ epitweetr_app <- function(data_dir = NA) {
                 "Hour" = "hour", 
                 "Topic" = "topic",  
                 "Region" = "country",
+                "Category" = "epitweetr_category",
                 "Top words" = "topwords", 
                 "Tweets" = "number_of_tweets", 
                 "% important user" = "known_ratio",
@@ -1499,13 +1501,14 @@ epitweetr_app <- function(data_dir = NA) {
           })
 
           alerts %>%
-            dplyr::select("date", "hour", "topic", "country", "topwords", "number_of_tweets", "toptweets") %>%
+            dplyr::select("date", "hour", "topic", "country", "epitweetr_category", "topwords", "number_of_tweets", "toptweets") %>%
             DT::datatable(
               colnames = c(
                 "Date" = "date", 
                 "Hour" = "hour", 
                 "Topic" = "topic",  
                 "Region" = "country",
+                "Category" = "epitweetr_category",
                 "Top words" = "topwords", 
                 "Tweets" = "number_of_tweets", 
                 "Top tweets" = "toptweets"
@@ -1547,14 +1550,13 @@ epitweetr_app <- function(data_dir = NA) {
           colnames = c(
             "Ranking" = "ranking",
             "Models" = "models", 
+            "Alerts" = "alerts", 
             "Runs" = "runs", 
-            "TP" = "tp", 
-            "FP" = "fp", 
-            "TN" = "tn", 
-            "FN" = "fn",
-            "Precision" = "precision",
-            "Sensitivity" = "sensitivity",
-            "F1Score" = "f1_score",
+            "F1Score" = "f1score",
+            "Accuracy" = "accuracy",
+            "Precision By Class" = "precision_by_class",
+            "Sensitivity By Class" = "sensitivity_by_class",
+            "FScore By Class" = "fscore_by_class",
             "Last run" = "last_run",
             "Active" = "active",
             "Documentation" = "documentation",
@@ -1609,16 +1611,14 @@ epitweetr_app <- function(data_dir = NA) {
         tryCatch({
            progress_set(value = 0.5, message = "Retraining models and evaluating")
            retrain_alert_classifier()
-           #update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = 0.5 + value/2, message = message)})
            cd$alert_training_refresh_flag(Sys.time())
-           #TO DO : afficher les résultats + observe qui met à jour si de nouveelles données sont uploadées
           },
           error = function(w) {app_error(w, env = cd)}
         )
       }
     })
 
-    # updating geotraining table on change of geotraining file
+    # updating alerts table on change of geotraining file
     shiny::observe({
       # Adding a dependency to alert refresh
       cd$alert_training_refresh_flag()
@@ -1795,6 +1795,7 @@ epitweetr_app <- function(data_dir = NA) {
   }
 
   app_error <- function(e, env = cd) {
+    message(e)
     progress_close(env = env)
     showNotification(paste(e), type = "error")
   }

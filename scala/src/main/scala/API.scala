@@ -370,24 +370,19 @@ object API {
           }
         } ~ path("evaluate-alerts") {
           post {
-            parameters("train".as[Boolean]?false, "jsonnl".as[Boolean]?false) { (train, jsonnl) => 
+            withRequestTimeout(conf.fsBatchTimeout.seconds) {
               entity(as[JsValue]) { json  =>
-                implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
+                implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
                 Try(alertClassificationFormat.read(json)) match {
                   case Success(AlertClassification(alerts, runs)) =>
-                    val source: Source[akka.util.ByteString, ActorRef] = Source.actorRefWithBackpressure(
-                      ackMessage = ByteString("ok")
-                      , completionMatcher = {case Done => CompletionStrategy.immediately}
-                      , failureMatcher = PartialFunction.empty
-                    )
-                    val (actorRef, matSource) = source.preMaterialize()
-                    alertRunner ! AlertActor.ClassifyAlertsRequest(alerts, runs, train, jsonnl, actorRef) 
-                    complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
-                      if(m.startsWith(ByteString(s"[Stream--error]:"))) 
-                        throw new Exception(m.decodeString("UTF-8"))
-                      else 
-                        m
-                    }))
+                     val fut = (alertRunner ? AlertActor.ClassifyAlertsRequest(alerts, runs))
+                       .map{
+                         case ac:AlertClassification => ac
+                         case EpitweetrActor.Failure(m) => {
+                           throw new Exception(m)
+                         }
+                       }
+                     complete(fut) 
                   case Failure(e) =>
                     println(s"Cannot interpret the provided body as a value to train classifier:\n $e, ${e.getStackTrace.mkString("\n")}") 
                     complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"Cannot interpret the provided body as a value to train classifier:\n $e")) 
@@ -397,7 +392,7 @@ object API {
                 logThis(value)
                 complete(StatusCodes.NotAcceptable, EpitweetrActor.Failure(s"This endpoint expects json, got this instead: \n$value")) 
               }
-            }
+            }  
           }
         } ~ {
           complete(StatusCodes.NotAcceptable,  EpitweetrActor.Failure(s"Cannot find a route for uri $uri")) 

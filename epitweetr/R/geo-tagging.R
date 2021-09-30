@@ -517,9 +517,9 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
   `%>%` <- magrittr::`%>%`
   progress(0.1, "getting current training file")
   current <- get_geotraining_df()
-  locations <- current %>% dplyr::filter(Type == "Location" & `Location OK/KO` == "OK")
+  locations <- current %>% dplyr::filter(Type == "Location" & `Location yes/no` %in% c("yes", "OK"))
   add_locations <- if(nrow(locations) == 0) "&locationSamples=true" else "&locationSamples=false" 
-  non_locations <- current %>% dplyr::filter(Type == "Location" & `Location OK/KO` == "KO")
+  non_locations <- current %>% dplyr::filter(Type == "Location" & `Location yes/no` %in% c("KO", "no"))
   non_location_langs <- unique(non_locations$Lang)
   excl_langs <- if(length(non_location_langs) > 0) paste("&excludedLangs=", paste(non_location_langs, collapse = "&excludedLangs="), sep = "") else "" 
 
@@ -533,7 +533,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
         Type = "Location", 
         `Text` = .data$word, 
         `Location in text` = NA, 
-        `Location OK/KO` = ifelse(.data$isLocation, "OK", "KO"), 
+        `Location yes/no` = ifelse(.data$isLocation, "yes", "no"), 
         `Associate country code` = NA, 
         `Associate with`=NA, 
         `Source` = "Epitweetr model", 
@@ -548,7 +548,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
     geo_training <- geo_training %>%  dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
   }
   # Adding new tweets
-  untagged <- unique(length((current %>% dplyr::filter(`Tweet part` == 'text' & `Location OK/KO` == '?'))$`Tweet Id`))
+  untagged <- unique(length((current %>% dplyr::filter(`Tweet part` == 'text' & `Location yes/no` == '?'))$`Tweet Id`))
   to_add <- if(tweets_to_add > untagged) tweets_to_add else 0
 
 
@@ -563,7 +563,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
         Type = "Text", 
         `Text`=.data$text,
         `Location in text` = NA, 
-        `Location OK/KO` = "?", 
+        `Location yes/no` = "?", 
         `Associate country code` = NA, 
         `Associate with`=NA, 
         `Source` = "Tweet", 
@@ -583,7 +583,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
         Type = "Text", 
         `Text`=.data$user_description,
         `Location in text` = NA, 
-        `Location OK/KO` = "?", 
+        `Location yes/no` = "?", 
         `Associate country code` = NA, 
         `Associate with`= NA, 
         `Source` = "Tweet", 
@@ -603,7 +603,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
         Type = "Location",
         `Text`=.data$user_location,
         `Location in text` = NA, 
-        `Location OK/KO` = "?", 
+        `Location yes/no` = "?", 
         `Associate country code` = NA, 
         `Associate with`=NA, 
         `Source` = "Tweet", 
@@ -645,7 +645,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
       ret$`Epitweetr match` <- geoloc$geo_name
       ret$`Epitweetr country match` <- geoloc$geo_country
       ret$`Epitweetr country code match` <- geoloc$geo_country_code
-      ret$`Location in text` <- ifelse((is.na(ret$`Location OK/KO`) | ret$`Location OK/KO`=="?") & ret$Type == "Text", geoloc$tags, ret$`Location in text`)
+      ret$`Location in text` <- ifelse((is.na(ret$`Location yes/no`) | ret$`Location yes/no`=="?") & ret$Type == "Text", geoloc$tags, ret$`Location in text`)
     }
     ,error = function(e) {
       message("Models are not trained, getting geotraining dataset without evaluation")

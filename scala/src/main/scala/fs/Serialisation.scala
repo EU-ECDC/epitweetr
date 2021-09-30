@@ -13,33 +13,80 @@ import org.apache.lucene.index.IndexableField
 import scala.collection.JavaConverters._
 import java.net.URLDecoder
 
-case class AlertClassification(alerts:Seq[TaggedAlert], runs:Seq[AlertRun])
+case class AlertClassification(alerts:Seq[TaggedAlert], runs:Option[Seq[AlertRun]])
 case class TaggedAlert(
   id:String,
+  date:String,
   topic:String,
   country:String,
   number_of_tweets:Int, 
   topwords:Option[String],
   toptweets:Map[String, Seq[String]],
-  given_category:String,
-  epitweetr_category:String
-)
+  given_category:Option[String],
+  epitweetr_category:Option[String]
+) {
+  def setEpitweetrCategory(cat:String) =  
+    TaggedAlert(
+      id = id,
+      date = date,
+      topic = topic,
+      country = country,
+      number_of_tweets = number_of_tweets, 
+      topwords = topwords,
+      toptweets = toptweets,
+      given_category = given_category,
+      epitweetr_category = Some(cat)
+    )
+}
 
 case class AlertRun(
   ranking:Int,
   models:String,
-  alerts:Int,
+  alerts:Option[Int],
   runs:Int,
-  f1:Double,
-  accuracy:Doouble, 
-  precisionByLabel:Double
-  recallByLabel:Double,
-  fMeasureByLabel:Double,
+  f1score:Double,
+  accuracy:Double, 
+  precision_by_class:Double,
+  sensitivity_by_class:Double,
+  fscore_by_class:Double,
   last_run:Option[String],
   active:Option[Boolean],
   documentation:Option[String],
   custom_parameters:Option[Map[String, String]] 
-)
+) {
+  def setRanking(rank:Int) = 
+     AlertRun(
+       ranking = rank,
+       models = models,
+       alerts = alerts,
+       runs = runs,
+       f1score = f1score,
+       accuracy = accuracy, 
+       precision_by_class = precision_by_class,
+       sensitivity_by_class = sensitivity_by_class,
+       fscore_by_class = fscore_by_class,
+       last_run = last_run,
+       active = active,
+       documentation = documentation,
+       custom_parameters = custom_parameters 
+     ) 
+  def setCount(count:Int) = 
+     AlertRun(
+       ranking = ranking,
+       models = models,
+       alerts = Some(count),
+       runs = runs,
+       f1score = f1score,
+       accuracy = accuracy, 
+       precision_by_class = precision_by_class,
+       sensitivity_by_class = sensitivity_by_class,
+       fscore_by_class = fscore_by_class,
+       last_run = last_run,
+       active = active,
+       documentation = documentation,
+       custom_parameters = custom_parameters 
+     ) 
+}
 
 case class TopicKeyWords(items:Map[String, Set[String]])
 case class ForcedGeo(items:Map[String, String])
@@ -174,7 +221,7 @@ object EpiSerialisation
     implicit val includesV2Format = jsonFormat3(IncludesV2.apply)
     implicit val tweetsV2Format = jsonFormat3(TweetsV2.apply)
     implicit val textToGeoFormat = jsonFormat3(TextToGeo.apply)
-    implicit val taggedAlertsFormat = jsonFormat8(TaggedAlert.apply)
+    implicit val taggedAlertsFormat = jsonFormat9(TaggedAlert.apply)
     implicit val alertRunFormat = jsonFormat13(AlertRun.apply)
     implicit val alertClassificationFormat = jsonFormat2(AlertClassification.apply)
 
@@ -363,7 +410,7 @@ object EpiSerialisation
                 category = fields("Type").asInstanceOf[JsString].value,  
                 text = fields("Text").asInstanceOf[JsString].value,  
                 locationInText = fields.get("Location in text").map(v => v.asInstanceOf[JsString].value), 
-                isLocation = fields.get("Location OK/KO")
+                isLocation = fields.get("Location yes/no")
                   .map(v => v.asInstanceOf[JsString].value.toLowerCase match { 
                     case "ok" => Some(true)
                     case "ko" => Some(false)
