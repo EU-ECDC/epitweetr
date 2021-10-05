@@ -389,9 +389,9 @@ plan_tasks <-function(statuses = list()) {
         } else if(tasks[[i]]$end_on >= tasks[[i]]$scheduled_for) { #if the task has ended after the last schedule (which should always be the case)
           # the last schedule was already executed a new schedule has to be set
           day_slots <- get_task_day_slots(tasks[[i]]) #Getting all day slots ( times where the detect loop can be executed
-          next_slot <- day_slots[day_slots > tasks[[i]]$scheduled_for][[1]] #getting the first execution slot after the last scheduled time
+          next_slots <- day_slots[day_slots > tasks[[i]]$scheduled_for] #getting the future execution slots
           #if next slot is in future set it. If it is in past, set now
-          tasks[[i]]$scheduled_for <- if(next_slot > now) next_slot else now + (i - 1)/1000
+          tasks[[i]]$scheduled_for <- if(length(next_slots)>0 && next_slots[[1]] > now) next_slots[[1]] else now + (i - 1)/1000
         }
         change <- TRUE
         break # only first task is set to scheduled
