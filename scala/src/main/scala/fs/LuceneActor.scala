@@ -99,9 +99,16 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         EpitweetrActor.Success(s"$c Commit done processed")
       }
       .pipeTo(sender())
-    case LuceneActor.SearchRequest(query, topic, from, to, max, jsonnl, caller) => 
+    case LuceneActor.SearchRequest(query, topics, from, to, countryCodes, mentions, users, estimatecount, hideUsers, action, max, jsonnl, caller) => 
+
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
-      implicit val holder = LuceneActor.readHolder
+      implicit val holder = 
+        if(action.isEmpty) {
+          LuceneActor.readHolder } 
+        else {
+          LuceneActor.writeHolder
+        }
+
       val indexes = LuceneActor.getReadIndexes("tweets", from, to).toSeq
       var sep = ""
       Future {
@@ -117,18 +124,65 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             query.map{q => 
               qb.add(i.parseQuery(q), Occur.MUST)
             }
-            topic.map{t =>
-              qb.add(new TermQuery(new Term("topic", t)), Occur.MUST) 
+            topics.map{tts =>
+              val tb = new BooleanQuery.Builder()
+              tts.map(t => tb.add(new TermQuery(new Term("topic", t)), Occur.SHOULD))
+              qb.add(tb.build, Occur.MUST)
             }
-            qb.add(TermRangeQuery.newStringRange("created_date", from.map(d => d.toString.take(10)).getOrElse("0"), to.map(d => d.toString.take(10)).getOrElse("9"), true, true), Occur.MUST) 
-            val tweets = i.searchTweets(qb.build, Some(left)).toSeq
+            countryCodes.map{ccds =>
+              val cb = new BooleanQuery.Builder()
+              ccds.map(cc => cb.add(new TermQuery(new Term("text_loc.geo_country_code", cc.toUpperCase)), Occur.SHOULD)) 
+              qb.add(cb.build, Occur.MUST)
+            }
+            if(!mentions.isEmpty || !users.isEmpty) {
+              val ub = new BooleanQuery.Builder()
+              mentions.map{mtns =>
+                mtns.map{u => 
+                  ub.add(new TermQuery(new Term("text", s"${u.toLowerCase}")), Occur.SHOULD) 
+                  ub.add(new TermQuery(new Term("linked_text", s"${u.toLowerCase}")), Occur.SHOULD)
+                }
+              }
+              users.map{us =>
+                us.map{u => 
+                  ub.add(new TermQuery(new Term("screen_name", s"$u")), Occur.SHOULD) 
+                  ub.add(new TermQuery(new Term("linked_screen_name", s"$u")), Occur.SHOULD)
+                }
+              }
+              qb.add(ub.build, Occur.MUST)
+            }
+            qb.add(TermRangeQuery.newStringRange("created_date", from.map(d => d.toString.take(10)).getOrElse("0"), to.map(d => d.toString.take(10)).getOrElse("9"), true, true), Occur.MUST)
+            val q = qb.build
+            val tweets = i.searchTweets(qb.build, Some(left), doCount = estimatecount).toSeq
             left = left - tweets.size
             if(left < 0)
-              tweets.take(tweets.size + left)
+              tweets.take(tweets.size + left).map(p => (p, i))
             else 
-              tweets
+              tweets.map(p => (p, i))
           }
-          .map(doc => EpiSerialisation.luceneDocFormat.customWrite(doc, forceString=Set("tweet_id", "user_id")))
+          .map{case ((doc, totalCount), index) => 
+            val anoMap = Map(
+              "text" -> ("@(\\w){1,15}", "@user"),
+              "linked_text" -> ("@(\\w){1,15}", "@user"),
+              "screen_name" -> (".+", "user"),
+              "linked_screen_name" -> (".+", "user")
+            )
+            val ret = EpiSerialisation.luceneDocFormat.customWrite(
+              doc, 
+              forceString=Set("tweet_id", "user_id"), 
+              if(estimatecount) Some(totalCount) else None, 
+              transform = ( 
+                if(hideUsers)
+                 anoMap 
+                else Map[String, (String, String)]()
+              )
+            )
+            if(action == Some("delete")) {
+              index.deleteDoc(doc, "topic_tweet_id")  
+            } else if(action == Some("anonymise")) {
+              index.searchReplaceInDoc(doc, pkName = "topic_tweet_id", updateMap = anoMap, textFields = Set("text", "linked_text"))
+            }
+            ret
+          }
           .take(max)
           .foreach{line => 
             Await.result(caller ? ByteString(
@@ -137,7 +191,10 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             ), Duration.Inf)
             if(!jsonnl) sep = ","
           }
-        if(!jsonnl) { 
+        if(!action.isEmpty) {
+          LuceneActor.commit()
+        }
+        if(!jsonnl) {
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
         }
         caller ! Done
@@ -176,8 +233,8 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
               filters.foreach{case(field, value) => qb.add(new TermQuery(new Term(field, value)), Occur.MUST)}
               var first = true
-              i.searchTweets(qb.build)
-                .map(doc => EpiSerialisation.luceneDocFormat.write(doc))
+              i.searchTweets(qb.build, doCount = false)
+                .map{case (doc, totalCount) => EpiSerialisation.luceneDocFormat.write(doc)}
                 .foreach{line =>
                   if(first == true) {
                     first = false
@@ -382,7 +439,21 @@ object LuceneActor {
   case class GeolocateTweetsRequest(items:TopicTweetsV1)
   case class CommitRequest()
   case class CloseRequest()
-  case class SearchRequest(query:Option[String], topic:Option[String], from:Option[Instant], to:Option[Instant], max:Int, jsonnl:Boolean, caller:ActorRef)
+  case class SearchRequest(
+    query:Option[String], 
+    topics:Option[Seq[String]], 
+    from:Option[Instant], 
+    to:Option[Instant], 
+    countryCodes:Option[Seq[String]], 
+    mentions:Option[Seq[String]], 
+    users:Option[Seq[String]], 
+    estimatecount:Boolean, 
+    hideUsers:Boolean,
+    action:Option[String],
+    max:Int, 
+    jsonnl:Boolean, 
+    caller:ActorRef
+  )
   case class AggregateRequest(items:TopicTweetsV1)
   case class AggregatedRequest(collection:String, topic:String, from:Instant, to:Instant, filters:Seq[(String, String)], jsonnl:Boolean, caller:ActorRef)
   case class AggregationRequest(
@@ -768,8 +839,8 @@ object LuceneActor {
            val pkName = col.pks.mkString("_")
            val ind  = LuceneActor.getReadIndexes(collection = col.name, from = None, to = None)
            ind.foreach{i => 
-             i.searchTweets(new org.apache.lucene.search.MatchAllDocsQuery(), max = None)
-               .foreach{ case doc =>
+             i.searchTweets(new org.apache.lucene.search.MatchAllDocsQuery(), max = None, doCount = false)
+               .foreach{ case (doc, totalHits) =>
                   i.updateHash(doc = doc, pkName = pkName) 
                }
            }

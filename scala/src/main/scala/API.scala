@@ -60,9 +60,15 @@ object API {
               "topic".?,
               "from".?, 
               "to".?, 
+              "country_code".?, 
+              "mentioning".?, 
+              "user".?, 
+              "estimatecount".as[Boolean]?false, 
+              "hide_users".as[Boolean]?false, 
+              "action".?, 
               "jsonnl".as[Boolean]?false, 
               "max".as[Int]?100
-            ) { (query, topic, oFromStr, oToStr, jsonnl, max) => 
+            ) { (query, topic, oFromStr, oToStr, countryCode, mentioning, user, estimatecount, hideUsers, action, jsonnl, max) => 
               implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
               val mask = "YYYY-MM-DDT00:00:00.000Z"
               val from = oFromStr.map(fromStr => Instant.parse(s"$fromStr${mask.substring(fromStr.size)}"))
@@ -72,8 +78,12 @@ object API {
                 , completionMatcher = {case Done => CompletionStrategy.immediately}
                 , failureMatcher = PartialFunction.empty
               )
+              val topics = topic.map(cc => cc.split("(\\s|;)+").toSeq)
+              val countryCodes = countryCode.map(cc => cc.split("(\\s|;)+").toSeq)
+              val mentions = mentioning.map(cc => cc.split("(\\s|;|@)+").toSeq)
+              val users = user.map(cc => cc.split("(\\s|;|@)+").toSeq)
               val (actorRef, matSource) = source.preMaterialize()
-              luceneRunner ! LuceneActor.SearchRequest(query, topic, from, to, max, jsonnl, actorRef) 
+              luceneRunner ! LuceneActor.SearchRequest(query, topics, from, to, countryCodes, mentions, users, estimatecount, hideUsers, action, max, jsonnl, actorRef) 
               complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
                 if(m.startsWith(ByteString(s"[Stream--error]:"))) 
                   throw new Exception(m.decodeString("UTF-8"))

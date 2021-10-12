@@ -50,7 +50,8 @@ fs_loop <-  function(data_dir = NA) {
     setup_config_if_not_already()
   else
     setup_config(data_dir = data_dir)
-  
+ 
+
   # Registering the fs runner using current PID and ensuring no other instance of the search is actually running.
   register_fs_runner()
   
@@ -71,13 +72,19 @@ fs_loop <-  function(data_dir = NA) {
 }
 
 #' @export
-search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, max = 100) {
-  u <- paste(get_scala_tweets_url(), "?jsonnl=true", sep = "")
+search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, countries = NULL, mentioning = NULL, users = NULL, hide_users = FALSE, action = NULL, max = 100) {
+  u <- paste(get_scala_tweets_url(), "?jsonnl=true&estimatecount=true", sep = "")
+  if(hide_users) {
+    u <- paste(u, "&hide_users=true", sep = "") 
+  }
+  if(!is.null(action)) {
+    u <- paste(u, "&action=", action, sep = "") 
+  }
   if(!is.null(query)) {
     u <- paste(u, "&q=", URLencode(query, reserved=T), sep = "") 
   }
   if(!is.null(topic)) {
-    u <- paste(u, "&topic=", URLencode(topic, reserved=T), sep = "") 
+    u <- paste(u, "&topic=", URLencode(paste(topic, sep ="", collapse = ";"), reserved=T), sep = "", collapse = "") 
   }
   if(!is.null(from)) {
     u <- paste(u, "&from=",strftime(from, format="%Y-%m-%d") , sep = "") 
@@ -85,6 +92,23 @@ search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, ma
   if(!is.null(to)) {
     u <- paste(u, "&to=",strftime(to, format="%Y-%m-%d") , sep = "") 
   }
+  if(!is.null(countries)  && length(countries) > 0 && (is.character(countries) || any(countries != 1))) {
+    # getting all regions
+    regions <- get_country_items()
+    # If countries are names they have to be changes to region indexes
+    if(is.character(countries)) {
+      countries = (1:length(regions))[sapply(1:length(regions), function(i) regions[[i]]$name %in% countries)]
+    }
+    country_codes <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(as.integer(countries), function(i) unlist(regions[[i]]$codes)))
+    u <- paste(u, "&country_code=", paste(country_codes, collapse = ";", sep = ""), sep = "", collapse = "") 
+  }
+  if(!is.null(mentioning)) {
+    u <- paste(u, "&mentioning=",paste(mentioning, sep = "", collapse = ";") , sep = "") 
+  }
+  if(!is.null(users)) {
+    u <- paste(u, "&user=",paste(users, sep = "", collapse = ";") , sep = "") 
+  }
+
   if(!is.null(max)) {
     u <- paste(u, "&max=", max , sep = "") 
   }

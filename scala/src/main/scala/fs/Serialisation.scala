@@ -461,9 +461,10 @@ object EpiSerialisation
     }
     implicit val topicTweetsFormat = jsonFormat2(TopicTweetsV1.apply)
     implicit object luceneDocFormat extends RootJsonFormat[Document] {
-      def write(doc: Document) = writeField(fields = doc.getFields.asScala.toSeq)
-      def customWrite(doc: Document, forceString:Set[String]=Set[String]()) = writeField(fields = doc.getFields.asScala.toSeq, forceString=forceString)
-      def writeField(fields:Seq[IndexableField], forceString:Set[String] = Set[String](), path:Option[String] = None):JsValue = {
+      def write(doc: Document) = writeField(fields = doc.getFields.asScala.toSeq, totalCount = None, transform  = Map[String, (String, String)]())
+      def customWrite(doc: Document, forceString:Set[String]=Set[String](), totalCount:Option[Long]=None, transform:Map[String, (String, String)] = Map[String, (String, String)]()) 
+        = writeField(fields = doc.getFields.asScala.toSeq, forceString=forceString, totalCount = totalCount, transform = transform)
+      def writeField(fields:Seq[IndexableField], forceString:Set[String] = Set[String](), path:Option[String] = None, totalCount:Option[Long] = None, transform:Map[String, (String, String)]):JsValue = {
         val (baseFields, childrenNames) = path match {
           case Some(p) => (
             fields.filter(f => f.name.startsWith(p) && !f.name.substring(p.size).contains(".")), 
@@ -487,7 +488,7 @@ object EpiSerialisation
           (baseFields.map{f =>
             val fname = f.name.substring(path.getOrElse("").size)
             if(forceString.contains(f.name) && f.stringValue != null)
-              (fname, JsString(f.stringValue))
+              (fname, JsString(transform.get(fname).map{case (s, r) =>f.stringValue.replaceAll(s, r)}.getOrElse(f.stringValue)))
             else if(f.numericValue != null && !forceString.contains(f.name))
               (fname, f.numericValue match {
                 case v:java.lang.Integer => JsNumber(v)
@@ -498,13 +499,14 @@ object EpiSerialisation
                 case _ => throw new NotImplementedError("I do not know how convert ${v.getClass.getName} into JsNumber")
               })
             else if(f.stringValue != null)
-              (fname, JsString(f.stringValue))
+              (fname, JsString(transform.get(fname).map{case (s, r) =>f.stringValue.replaceAll(s, r)}.getOrElse(f.stringValue)))
             else if(f.binaryValue != null && f.binaryValue.length == 1)
               (fname, JsBoolean(f.binaryValue.bytes(0) == 1.toByte))
             else 
               throw new NotImplementedError(f"Serializing lucene field is only supported for boolean, number and string so far and got $f")
           } ++
-            childrenNames.map(c => (c, writeField(fields = fields, path = Some(f"${path.map(p => p+".").getOrElse("")}$c."))))
+            childrenNames.map(c => (c, writeField(fields = fields, path = Some(f"${path.map(p => p+".").getOrElse("")}$c."), totalCount = None, transform = transform))) ++
+            (if(path.isEmpty && !totalCount.isEmpty) Seq("totalCount" -> JsNumber(totalCount.get)) else Seq[(String, JsNumber)]())
           ):_*
         ))
       }

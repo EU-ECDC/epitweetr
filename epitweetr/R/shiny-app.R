@@ -435,14 +435,14 @@ epitweetr_app <- function(data_dir = NA) {
   ) 
   # Defining geo tuning page UI
   ################################################
-  ######### GEOTRAINING PAGE ##########################
+  ######### GEOTRAINING PAGE #####################
   ################################################
   geotraining_page <- 
     shiny::fluidPage(
           shiny::h3("Geo tagging training"),
           shiny::fluidRow(
             ################################################
-            ######### GEO TAG FILTERS #######################
+            ######### GEO TAG FILTERS ######################
             ################################################
             shiny::column(4, shiny::numericInput("geotraining_tweets2add", label = shiny::h4("Tweets to add"), value = 100)),
             shiny::column(2, shiny::actionButton("geotraining_update", "Geolocate annotations")),
@@ -464,7 +464,54 @@ epitweetr_app <- function(data_dir = NA) {
           ))
   ) 
   ################################################
-  ######### TROUBLESHOOT PAGE ##########################
+  ######### DATA PROTECTION PAGE #################
+  ################################################
+  dataprotection_page <- 
+    shiny::fluidPage(
+          shiny::h3("Data protection"),
+          shiny::fluidRow(
+            ################################################
+            ######### TWEET SEARCH FILTERS #################
+            ################################################
+            shiny::column(2, shiny::h4("Topic")),
+            shiny::column(2, shiny::h4("Period")),
+            shiny::column(2, shiny::h4("Countries & regions")),
+            shiny::column(2, 
+              shiny::h4("Users"),
+              shiny::radioButtons("data_mode", label = NULL, choices = list("Mentioning"="mentioning", "From User"="users", "Both"="all"), selected = "all", inline = TRUE),
+            ),
+            shiny::column(1, shiny::h4("Limit")),
+            shiny::column(3, shiny::h4("Action"))
+          ), 
+          shiny::fluidRow(
+            shiny::column(2, shiny::selectInput("data_topics", label = NULL, multiple = TRUE, choices = d$topics[d$topics!=""])),
+            shiny::column(2, shiny::dateRangeInput("data_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month")),
+            shiny::column(2, shiny::selectInput("data_countries", label = NULL, multiple = TRUE, choices = d$countries)),
+            shiny::column(2, shiny::textInput("data_users", label = NULL, value = NULL)),
+            shiny::column(1, 
+              shiny::selectInput("data_limit", label = NULL, multiple = FALSE, choices =  list("50"="50", "100"="100", "500"="500"), selected = "50")
+            ),
+            shiny::column(3, 
+              shiny::actionButton("data_search", "Search"),
+              shiny::actionButton("data_search_ano", "Anonym Search"),
+              shiny::actionButton("data_anonymise", "Anonymize"),
+              shiny::actionButton("data_delete", "Delete"),
+            ),
+          ), 
+          shiny::fluidRow(
+            shiny::column(12,
+              shiny::htmlOutput("data_message")
+          )),
+          shiny::fluidRow(
+            shiny::column(12, 
+              ################################################
+              ######### TWEET SEARCH RESULTS #################
+              ################################################ 
+              DT::dataTableOutput("data_search_df")
+          ))
+  ) 
+  ################################################
+  ######### TROUBLESHOOT PAGE ####################
   ################################################
   troubleshoot_page <- 
     shiny::fluidPage(
@@ -490,6 +537,7 @@ epitweetr_app <- function(data_dir = NA) {
       , shiny::tabPanel("Dashboard", dashboard_page)
       , shiny::tabPanel("Alerts", alerts_page)
       , shiny::tabPanel("Geotag training/evaluation", geotraining_page)
+      , shiny::tabPanel("Data protection", dataprotection_page)
       , shiny::tabPanel("Configuration", config_page)
       , shiny::tabPanel("Troubleshoot", troubleshoot_page)
     )
@@ -1404,6 +1452,8 @@ epitweetr_app <- function(data_dir = NA) {
         cd$countries_refresh_flag(Sys.time())
       }
     }) 
+
+
     ######### ALERTS LOGIC ##################
     # rendering the alerts 
     # updates are launched automatically when any input value changes
@@ -1743,6 +1793,123 @@ epitweetr_app <- function(data_dir = NA) {
       DT::replaceData(DT::dataTableProxy('geotraining_eval_df'), get_geotraining_eval_df())
       progress_close()
     })
+
+    ######### DATA PROTECTION LOGIC ##################
+    # rendering the data protection search table
+    shiny::observeEvent(input$data_anonymise, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Warning",
+        "Please confirm you want to anonymise the tweets matching this search criteria, this action cannot be undone",
+        footer = shiny::tagList(shiny::actionButton("data_perform_anonymise", "Yes anonymise tweets"), shiny::modalButton("Cancel"))
+      ))
+    })
+
+    shiny::observeEvent(input$data_delete, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Warning",
+        "Please confirm you want to delete the tweets matching this search criteria, this action cannot be undone",
+        footer = shiny::tagList(shiny::actionButton("data_perform_delete", "Yes delete tweets"), shiny::modalButton("Cancel"))
+      ))
+    })
+
+    shiny::observeEvent(input$data_perform_delete, {
+      search_tweets_exp(hide_users = FALSE, action = "delete") 
+
+    })
+    shiny::observeEvent(input$data_perform_anonymise, {
+      search_tweets_exp(hide_users = FALSE, action = "anonymise") 
+
+    })
+
+    shiny::observeEvent(input$data_search_ano, {
+      search_tweets_exp(hide_users = TRUE) 
+    })
+
+    shiny::observeEvent(input$data_search, {
+      search_tweets_exp(hide_users = FALSE)
+    })
+    search_tweets_exp <- function(hide_users, action = NULL) { 
+      output$data_message <- shiny::renderText("")
+      output$data_search_df <- DT::renderDataTable({
+        `%>%` <- magrittr::`%>%`
+        shiny::removeModal()
+        query <- (if(!is.null(action) && action == "anonymise") "created_at:[0 TO Z] NOT screen_name:user" else NULL)
+        progress_start("Searching") 
+        shiny::isolate({
+          tweets <- search_tweets(
+            query = query,
+            topic = input$data_topics, 
+            from = input$data_period[[1]], 
+            to = input$data_period[[2]], 
+            countries = as.numeric(input$data_countries), 
+            mentioning = if(input$data_mode %in% c("all", "mentioning") && input$data_users != "") strsplit(input$data_users, "\\s+")[[1]] else NULL,
+            users = if(input$data_mode %in% c("all", "users") && input$data_users != "") strsplit(input$data_users, "\\s+")[[1]] else NULL,
+            hide_users = hide_users,
+            action = action,
+            max = as.integer(input$data_limit)
+          )
+        })
+
+        if(!is.null(action) && nrow(tweets)> 0 ) {
+          processed <- 0
+          while(nrow(tweets)> 0) {
+            processed <- processed + nrow(tweets) 
+            progress_set(value = 0.5, message = paste("Performing", action, processed, "tweets processed"))
+
+            shiny::isolate({
+              tweets <- search_tweets(
+                query = query,
+                topic = input$data_topics, 
+                from = input$data_period[[1]], 
+                to = input$data_period[[2]], 
+                countries = as.numeric(input$data_countries), 
+                mentioning = if(input$data_mode %in% c("all", "mentioning") && input$data_users != "") strsplit(input$data_users, "\\s+")[[1]] else NULL,
+                users = if(input$data_mode %in% c("all", "users") && input$data_users != "") strsplit(input$data_users, "\\s+")[[1]] else NULL,
+                hide_users = hide_users,
+                action = action,
+                max = as.integer(input$data_limit)
+              )
+            })
+          }
+          progress_close()
+        }
+
+        shiny::validate(
+          shiny::need(!is.null(tweets) && nrow(tweets) > 0, 'No tweets found for the provided filters')
+        )
+        output$data_message <- if(tweets$totalCount[[1]] > 1000) {
+          shiny::renderText(paste("more than ", tweets$totalCount[[1]], " tweets found"))
+        } else {  shiny::renderText(paste(tweets$totalCount[[1]], " tweets found"))}
+
+        dt <- {
+          tweets$country_code <- if("text_loc" %in% colnames(tweets)) tweets$text_loc$geo_country_code else ""
+          tweets$geo_name <-  if("text_loc" %in% colnames(tweets)) tweets$text_loc$geo_name else ""
+          tweets %>%
+            dplyr::select(
+              "tweet_id", "topic",  "country_code", "geo_name", "created_at", "text","screen_name", "linked_text", "linked_screen_name"
+            ) %>%
+            DT::datatable(
+              colnames = c(
+                "Tweet Id" = "tweet_id",
+                "Topic" = "topic",
+                "Created" = "created_at",
+                "Country in text" = "country_code",
+                "Location in text" = "geo_name",
+                "User" = "screen_name", 
+                "Text" = "text", 
+                "Retweet/Quoted text" = "linked_text", 
+                "Retweet/Quoted user" = "linked_screen_name"
+              ),
+              filter = "top",
+              escape = TRUE
+            )
+
+        }
+        progress_close()
+        dt
+      })
+    }
+
 
     ######## DIAGNOSTIC LOGIC ############
     # running the diagnostics when the button is clicked

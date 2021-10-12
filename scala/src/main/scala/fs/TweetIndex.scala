@@ -407,16 +407,16 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     }
     docs
   } 
-  def searchTweets(query:String, max:Option[Int]):Iterator[Document]  = {
-    searchTweets(parseQuery(query), max)
+  def searchTweets(query:String, max:Option[Int], doCount:Boolean):Iterator[(Document, Long)]  = {
+    searchTweets(parseQuery(query), max, doCount = doCount)
   }
-  def searchTweets(query:String):Iterator[Document]  = {
-    searchTweets(parseQuery(query), None)
+  def searchTweets(query:String, doCount:Boolean):Iterator[(Document, Long)]  = {
+    searchTweets(parseQuery(query), max = None, doCount = doCount)
   }
-  def searchTweets(query:Query):Iterator[Document]  = {
-    searchTweets(query, None)
+  def searchTweets(query:Query, doCount:Boolean):Iterator[(Document, Long)]  = {
+    searchTweets(query, None, doCount = doCount)
   }
-  def searchTweets(query:Query, max:Option[Int]):Iterator[Document]  = {
+  def searchTweets(query:Query, max:Option[Int], doCount:Boolean):Iterator[(Document, Long)]  = {
    Seq(query)
       .flatMap{q => 
         var after:Option[ScoreDoc] = None
@@ -425,7 +425,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
         var searcher:Option[IndexSearcher]=None
         Iterator.continually{
           if(left.map(l => l == 0).getOrElse(false))
-            Array[Document]()
+            Array[(Document, Long)]()
           else {
             if(first) {
               searcher = Some(this.useSearcher()) 
@@ -433,7 +433,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
             }
             val res = search(query = q, after = after)(searcher.get)
             val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
-            
+            val count = if(doCount) res.totalHits.value else 0L
             if(res.scoreDocs.size > 0) {
               after = Some(res.scoreDocs.last)
               left  = left.map(l => l -  res.scoreDocs.size)
@@ -443,15 +443,15 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
             }
             left.map{l => 
              if(l < 0) 
-               ret.take(ret.size+l)
+               ret.take(ret.size+l).map(d => (d, count))
              else 
-               ret
+               ret.map(d => (d, count))
             }.getOrElse{
-              ret
+              ret.map(d => (d, count))
             }
           }
         }.takeWhile(_.size > 0)
-        .flatMap(docs => docs)
+        .flatMap{docs => docs}
       }.toIterator
   }
 
@@ -508,6 +508,21 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       searcher.getIndexReader.decRef()
     }
   }
+  def deleteDoc(doc:Document, pkName:String){
+    val pk = doc.getField(pkName).stringValue 
+    this.writer.get.deleteDocuments(new Term(pkName, pk))
+  }
+  def searchReplaceInDoc(doc:Document, pkName:String, updateMap:Map[String, (String, String)], textFields:Set[String] = Set[String]()){
+    val pk = doc.getField(pkName).stringValue 
+    updateMap.foreach{case (field, (s, r)) =>
+      if(doc.get(field)!=null) {
+        val old = doc.getField(field).stringValue 
+        doc.removeField(field)
+        doc.add(new StringField(field, old.replaceAll(s, r), Field.Store.YES ))
+      }
+    }
+    this.writer.get.updateDocument(new Term(pkName, pk), rebuildDoc(doc, textFields))
+  }
   def updateHash(doc:Document, pkName:String){
     val pk = doc.getField(pkName).stringValue 
     val hash = Math.abs(pk.hashCode).toInt.toString
@@ -516,10 +531,12 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     this.writer.get.updateDocument(new Term(pkName, pk), rebuildDoc(doc))
   }
 
-  def rebuildDoc(doc:Document) = {
+  def rebuildDoc(doc:Document, textFields:Set[String] = Set[String]()) = {
     val ndoc = new Document()
     doc.getFields.asScala.toSeq.foreach{f =>
-      if(f.binaryValue != null) {
+      if(textFields.contains(f.name)) {
+        ndoc.add(new TextField(f.name, f.stringValue, Field.Store.YES))  
+      } else if(f.binaryValue != null) {
         ndoc.add(new StringField(f.name, if(f.binaryValue == 1.toByte) "true" else "false", Field.Store.NO ))
         ndoc.add(new StoredField(f.name, f.binaryValue))
       } else if(f.numericValue != null) {
