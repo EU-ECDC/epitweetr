@@ -80,7 +80,7 @@ search_loop <-  function(data_dir = NA) {
                   plan$since_id <- NULL
                   plan$since_target <- NULL
                   conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
-                }
+                } else stop(e)
               }
             )
           req2Commit <- req2Commit + 1
@@ -155,7 +155,7 @@ search_topic <- function(plan, query, topic) {
     if(httr::status_code(post_result) != 200) {
       print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
       stop()
-    }
+    } 
     # evaluating if rows are obtained if not rows are obtained it means that the plan is finished 
     # plan end can be because all tweets were already collected no more tweets are available because of twitter history limits
     got_rows <- (

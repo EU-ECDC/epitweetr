@@ -55,6 +55,10 @@ case class Settings(epiHome:String) {
     case fakse => None
   }
   def langIndexPath =  Paths.get(epiHome, "geo","lang_vectors.index").toString 
+  def togeolocatePath =  Paths.get(epiHome, "geo","togeolocate.json").toString 
+  def geolocatingPath =  Paths.get(epiHome, "geo","geolocating.json").toString 
+  def toaggregatePath =  Paths.get(epiHome, "geo","toaggregate.json").toString 
+  def aggregatingPath =  Paths.get(epiHome, "geo","aggregating.json").toString 
   def collectionPath =  Paths.get(epiHome, "collections").toString 
   def geolocationThreshold = properties.fields.get("geolocation_threshold").map(v => v.asInstanceOf[JsString].value.toInt)
   def geolocationStrategy = Some("demy.mllib.index.PredictStrategy")

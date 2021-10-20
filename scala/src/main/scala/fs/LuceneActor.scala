@@ -21,7 +21,7 @@ import java.time.{Instant, ZoneOffset, LocalDateTime}
 import java.nio.file.{Paths, Files}
 import org.apache.spark.sql.{SparkSession, Column, Dataset, Row, DataFrame}
 import org.apache.spark.sql.functions.{col, udf, input_file_name, explode, coalesce, when, lit, concat, struct, expr, lower}
-import demy.storage.{Storage, FSNode}
+import demy.storage.{Storage, FSNode, WriteMode}
 import org.apache.lucene.document.{Document, TextField, StringField, IntPoint, BinaryPoint, LongPoint, DoublePoint, FloatPoint, Field, StoredField}
 import org.apache.lucene.search.{Query, TermQuery, BooleanQuery, PrefixQuery, TermRangeQuery}
 import org.apache.lucene.search.BooleanClause.Occur
@@ -57,8 +57,8 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
     case LuceneActor.GeolocateTweetsRequest(TopicTweetsV1(topic, ts)) =>
       implicit val holder = LuceneActor.writeHolder
       Future{
-        implicit val spark = LuceneActor.getSparkSession()
-        implicit val storage = LuceneActor.getSparkStorage
+        implicit val spark = conf.getSparkSession()
+        implicit val storage = conf.getSparkStorage
         LuceneActor.add2Geolocate(TopicTweetsV1(topic, ts), conf.forcedGeo.map(_.items), conf.forcedGeoCodes.map(_.items), conf.topicKeyWords.map(_.items(topic)))  
       }.onComplete {
         case Success(_) =>
@@ -425,10 +425,10 @@ case class IndexHolder(
   val dirs:HashMap[String, String] = HashMap[String, String](),
   val indexes:HashMap[String, TweetIndex] = HashMap[String, TweetIndex](),
   val writeEnabled:Boolean = false,
-  var toGeolocate:ArrayBuffer[TopicTweetsV1] = ArrayBuffer[TopicTweetsV1](),
-  var toAggregate:ArrayBuffer[TopicTweetsV1] = ArrayBuffer[TopicTweetsV1](),
+  var toAggregate:HashMap[String, DataFrame] = HashMap[String, DataFrame](),
   var geolocating:Boolean = false,
-  var aggregating:Boolean = false 
+  var aggregating:Boolean = false,
+  var toGeolocate:Option[Dataset[Int]] = None
 )
  
 object LuceneActor {
@@ -476,7 +476,11 @@ object LuceneActor {
     commit(closeDirectory = true)
   }
   def commit(closeDirectory:Boolean= true)(implicit holder:IndexHolder)  {
-    holder.dirs.synchronized {
+    holder.synchronized {
+      while(holder.geolocating) {
+        l.msg("Waiting geolocation to finish before commiting")
+        Thread.sleep(1000) 
+      }
       var now:Option[Long] = None 
       holder.dirs.foreach{ case (key, path) =>
           now = now.orElse(Some(System.nanoTime))
@@ -504,16 +508,6 @@ object LuceneActor {
     }
   }
 
-  def getSparkSession()(implicit conf:Settings, holder:IndexHolder) = {
-    holder.dirs.synchronized {
-      conf.load()
-      if(holder.spark.isEmpty) {
-        holder.spark =  Some(JavaBridge.getSparkSession(conf.sparkCores.getOrElse(0))) 
-      }
-    }
-    holder.spark.get
-  }
-  def getSparkStorage = Storage.getSparkStorage
   def getIndex(collection:String, forInstant:Instant)(implicit conf:Settings, holder:IndexHolder):TweetIndex = {
     getIndex(collection, getIndexKey(collection, forInstant))
   }
@@ -532,7 +526,6 @@ object LuceneActor {
     }
     holder.indexes(path)
   }
-
   def getIndexKey(collection:String, forInstant:Instant) = {
     val timing = collection match {
       case "tweets" => "week"
@@ -582,63 +575,77 @@ object LuceneActor {
   def add2Geolocate(tweets:TopicTweetsV1, forcedGeo:Option[Map[String, String]], forcedGeoCodes:Option[Map[String, String]], topics:Option[Set[String]])
     (implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = 
   {
-    val toGeo = holder.toGeolocate.synchronized { 
-      holder.toGeolocate += tweets
-      if(!holder.geolocating) {
-        println(s"Go geo!!!!!! ${holder.toGeolocate.size}")
-        holder.geolocating = true
-        val r =  holder.toGeolocate.clone
-        holder.toGeolocate.clear
-        r
-      } else {
-        ArrayBuffer[TopicTweetsV1]()
+    var goGeo = false
+    implicit val st = conf.getSparkStorage
+    holder.synchronized {
+      val toGeo = st.getNode(conf.togeolocatePath)
+      if(tweets.tweets.items.size > 0) {
+        if(toGeo.exists) toGeo.setContent("\n", WriteMode.append)
+        toGeo.setContent(EpiSerialisation.topicTweetsFormat.write(tweets).toString, WriteMode.append)
       }
-    }
-    
+      val geolocating = st.getNode(conf.geolocatingPath)
+
+      if(toGeo.exists && !geolocating.exists) {
+        toGeo.move(geolocating, WriteMode.failIfExists)
+      }
+      if(!holder.geolocating) {
+        holder.geolocating = true
+        goGeo = true
+      }
+    } 
     Future{
-      if(toGeo.size > 0) {
-        implicit val spark = LuceneActor.getSparkSession()
-        implicit val storage = LuceneActor.getSparkStorage
-        LuceneActor.geolocateTweets(toGeo, forcedGeo, forcedGeoCodes, topics)
+      if(goGeo) {
+        implicit val spark = conf.getSparkSession()
+        LuceneActor.geolocateTweets(forcedGeo, forcedGeoCodes, topics)
+        holder.toGeolocate.synchronized { 
+          LuceneActor.add2Aggregate() 
+          val geolocating = st.getNode(conf.togeolocatePath)
+        }
+        val geolocating = st.getNode(conf.geolocatingPath)
+        geolocating.delete()
         holder.geolocating = false
-        LuceneActor.add2Aggregate(toGeo) 
       }
     }.onComplete{
        case scala.util.Success(_) =>
        case scala.util.Failure(t) =>
-         holder.toGeolocate.synchronized { 
-           println(s"Error during geolocalisation: Retrying on next request ${t.getMessage} ${t.getStackTrace.mkString("\n")}" )
-           holder.toGeolocate ++= toGeo
-           holder.geolocating = false
-       }
+         println(s"Error during geolocalisation: Retrying on next request ${t.getMessage} ${t.getStackTrace.mkString("\n")}" )
+         holder.geolocating = false
     }
   }
-  def add2Aggregate(tweets:ArrayBuffer[TopicTweetsV1])(implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = {
-    val toAggr = holder.toAggregate.synchronized { 
-      holder.toAggregate ++= tweets
-      if(!holder.aggregating) {
-        println(s"Go Aggr!!!!!! ${holder.toAggregate.size}")
-        holder.aggregating = true
-        val r =  holder.toAggregate.clone
-        holder.toAggregate.clear
-        r
-      } else {
-        ArrayBuffer[TopicTweetsV1]()
-      }
+  def add2Aggregate()(implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = {
+    var goAggr = false
+    implicit val st = conf.getSparkStorage
+    val toAggr = st.getNode(conf.toaggregatePath)
+    val aggregating = st.getNode(conf.aggregatingPath)
+    val geolocating = st.getNode(conf.geolocatingPath)
+    
+    if(geolocating.exists) {
+      if(toAggr.exists) toAggr.setContent("\n", WriteMode.append)
+      toAggr.setContent(geolocating.getContentAsString, WriteMode.append)
+    }
+
+    if(toAggr.exists && !aggregating.exists) {
+      toAggr.move(aggregating, WriteMode.failIfExists)
+    }
+
+    if(!holder.aggregating) {
+      holder.aggregating = true
+      goAggr = true
     }
     
     Future{
-      if(toAggr.size > 0) {
-        implicit val spark = LuceneActor.getSparkSession()
-        implicit val storage = LuceneActor.getSparkStorage
+      if(goAggr) {
+        implicit val spark = conf.getSparkSession()
         Files.list(Paths.get(conf.collectionPath)).iterator.asScala.foreach{p =>
            val content = Files.lines(p, StandardCharsets.UTF_8).iterator.asScala.mkString("\n")
            Some(EpiSerialisation.collectionFormat.read(JsonParser(content)))
             .map{
              case collection =>
-               LuceneActor.aggregateTweets(toAggr, collection)
+               LuceneActor.aggregateTweets(collection)
            }
         } 
+        val aggregating = st.getNode(conf.aggregatingPath)
+        aggregating.delete()
         holder.aggregating = false
       }
     }.onComplete{
@@ -646,7 +653,6 @@ object LuceneActor {
        case scala.util.Failure(t) =>
          holder.toAggregate.synchronized { 
            println(s"Error during aggregating: Retrying on next request ${t.getMessage} ${t.getStackTrace.mkString("\n")} ")
-           holder.toAggregate ++= toAggr
            holder.aggregating = false
        }
     }
@@ -663,96 +669,108 @@ object LuceneActor {
       , "place_full_name"->None.asInstanceOf[Option[String]]
       , "linked_place_full_name"->None.asInstanceOf[Option[String]]
     )
-  def geolocateTweets(
-    tweets:ArrayBuffer[TopicTweetsV1], 
+  def geolocateTweets( 
     forcedGeo:Option[Map[String, String]], 
     forcedGeoCodes:Option[Map[String, String]], 
     topics:Option[Set[String]]
-  )(implicit spark:SparkSession, conf:Settings, storage:Storage) {
+  )(implicit spark:SparkSession, conf:Settings, storage:Storage, holder:IndexHolder) {
     import spark.implicits._
     val sc = spark.sparkContext
     val startTime = System.nanoTime
-    var x =
-      sc.parallelize(tweets.flatMap{ case(TopicTweetsV1(topic, tweets)) => tweets.items.map(t => (topic, t))})
-        .repartition(conf.sparkCores.get)
-        .toDF
-        .as[(String, TweetV1)].toDF("topic", "tweet")
-        .select(col("topic"), col("tweet.*"))
-        .geolocate(
-          textLangCols = defaultTextLangCols
-          , minScore = conf.geolocationThreshold.get
-          , maxLevDistance = 0
-          , nBefore = conf.geoNBefore
-          , nAfter = conf.geoNAfter
-          , tokenizerRegex = conf.splitter
-          , langs = conf.languages.get
-          , geonames = conf.geonames
-          , reuseGeoIndex = true
-          , langIndexPath=conf.langIndexPath
-          , reuseLangIndex = true
-          , forcedGeo = forcedGeo
-          , forcedGeoCodes = forcedGeoCodes
-          , closestTo = topics
-        )
-        .select((
-          Seq(col("topic"), col("lang"), col("tweet_id").as("id"), col("created_at"))
-            ++  defaultTextLangCols.keys.toSeq
-                .map(c => s"${c}_loc")
-                .map(c => when(col(s"$c.geo_id").isNotNull, struct(Seq("geo_id","geo_name", "geo_code","geo_type","geo_country_code", "geo_longitude", "geo_latitude").map(cc => col(s"$c.$cc")):_*)).as(c))
-          ):_*
-        )
-        .withColumn("is_geo_located"
-          , when(defaultTextLangCols.keys.toSeq.map(c => col(s"${c}_loc").isNull).reduce( _ && _)
-           , false
-           ).otherwise(true)
-        )
-
-       val midTime = System.nanoTime
-       println(s"${(midTime - startTime)/1e9d} secs for getting ds")
-       val numGeo = 
-         x.select(struct(
-            col("topic"), 
-              col("id"), 
-              col("is_geo_located"), 
-              col("lang"),
-              col("linked_place_full_name_loc"), 
-              col("linked_text_loc"), 
-              col("place_full_name_loc"), 
-              col("text_loc"), 
-              col("user_description_loc"), 
-              col("user_location_loc")
-            ).as("geo"), 
-            col("created_at")
-          )
-          .as[(GeolocatedTweet, Instant)]
-          .mapPartitions{iter =>
-            val indexes = HashMap[String, TweetIndex]()
-            iter.map{case (geo, createdAt) =>
-              val iKey = LuceneActor.getIndexKey("tweets", createdAt)
-              implicit val holder = LuceneActor.writeHolder
-              if(!indexes.contains(iKey)) {
-                indexes(iKey) = LuceneActor.getIndex("tweets", iKey)
-                indexes(iKey).refreshReader()
+    holder.toGeolocate = {
+      holder.toGeolocate match {
+        case Some(df) => holder.toGeolocate
+        case None => 
+          val par =  conf.sparkCores.get
+          Some(
+            spark.sparkContext.parallelize(Seq.range(0, par))
+              .mapPartitions{iter => iter.flatMap{ i =>
+                val st = conf.getSparkStorage
+                val geoNode = st.getNode(conf.geolocatingPath)
+                val tweets  = if(geoNode.exists) {
+                  geoNode.getContentAsString.split("\n").map(json => EpiSerialisation.topicTweetsFormat.read(JsonParser(json))).toSeq
+                } else {
+                  Seq[TopicTweetsV1]()
+                }
+                val r = tweets.flatMap{case TopicTweetsV1(topic, ts) => ts.items.filter(t => t.tweet_id % par == i).map(t => (topic, t))}
+                r
+              }}
+              .toDF
+              .as[(String, TweetV1)].toDF("topic", "tweet")
+              .select(col("topic"), col("tweet.*"))
+              .geolocate(
+                textLangCols = defaultTextLangCols
+                , minScore = conf.geolocationThreshold.get
+                , maxLevDistance = 0
+                , nBefore = conf.geoNBefore
+                , nAfter = conf.geoNAfter
+                , tokenizerRegex = conf.splitter
+                , langs = conf.languages.get
+                , geonames = conf.geonames
+                , reuseGeoIndex = true
+                , langIndexPath=conf.langIndexPath
+                , reuseLangIndex = true
+                , forcedGeo = forcedGeo
+                , forcedGeoCodes = forcedGeoCodes
+                , closestTo = topics
+              )
+              .select((
+                Seq(col("topic"), col("lang"), col("tweet_id").as("id"), col("created_at"))
+                  ++  defaultTextLangCols.keys.toSeq
+                      .map(c => s"${c}_loc")
+                      .map(c => when(col(s"$c.geo_id").isNotNull, struct(Seq("geo_id","geo_name", "geo_code","geo_type","geo_country_code", "geo_longitude", "geo_latitude").map(cc => col(s"$c.$cc")):_*)).as(c))
+                ):_*
+              )
+              .withColumn("is_geo_located"
+                , when(defaultTextLangCols.keys.toSeq.map(c => col(s"${c}_loc").isNull).reduce( _ && _)
+                 , false
+                 ).otherwise(true)
+              )
+              .select(struct(
+                col("topic"), 
+                  col("id"), 
+                  col("is_geo_located"), 
+                  col("lang"),
+                  col("linked_place_full_name_loc"), 
+                  col("linked_text_loc"), 
+                  col("place_full_name_loc"), 
+                  col("text_loc"), 
+                  col("user_description_loc"), 
+                  col("user_location_loc")
+                ).as("geo"), 
+                col("created_at")
+              )
+              .as[(GeolocatedTweet, Instant)]
+              .mapPartitions{iter =>
+                val indexes = HashMap[String, TweetIndex]()
+                iter.map{case (geo, createdAt) =>
+                  val iKey = LuceneActor.getIndexKey("tweets", createdAt)
+                  implicit val holder = LuceneActor.writeHolder
+                  if(!indexes.contains(iKey)) {
+                    indexes(iKey) = LuceneActor.getIndex("tweets", iKey)
+                    indexes(iKey).refreshReader()
+                  }
+                  indexes(iKey).indexGeolocated(geo)
+                  1
+                }
               }
-              indexes(iKey).indexGeolocated(geo)
-              1
-            }
-          }
-          .collect
-          .sum //TODO: Find a way to avoid collect and manage 0 rows (reduce will throw an error on that case
+          )
+      }
+    }
 
-       val endTime = System.nanoTime
-       println(s"${(endTime - midTime)/1e9d} secs for geolocating ${numGeo} tweets")
+    val midTime = System.nanoTime
+    val numGeo = holder.toGeolocate.get.unpersist.collect.sum
+    val endTime = System.nanoTime
+    println(s"${(endTime - midTime)/1e9d} secs for geolocating ${numGeo} tweets")
   }
-  def aggregateTweets(tweets:ArrayBuffer[TopicTweetsV1], collection:Collection)(implicit spark:SparkSession, conf:Settings, storage:Storage) {
+
+
+  def aggregateTweets(collection:Collection)(implicit spark:SparkSession, conf:Settings) {
     import spark.implicits._
     val startTime = System.nanoTime
-    
-    implicit val holder = LuceneActor.readHolder
     val sc = spark.sparkContext
-    val sorted = tweets
-      .flatMap{case TopicTweetsV1(topic, tts) => tts.items.map(t => (topic, t.tweet_id, LuceneActor.getIndexKey(collection.name, t.created_at)))}
-      .sortWith(_._3 < _._3)
+    val holder = LuceneActor.readHolder
+    
     val epiHome = conf.epiHome
     val aggr = collection.aggregation
     val columns = aggr.columns.map(v => aggr.params.map(qPars => qPars.foldLeft(v)((curr, iter) => curr.replace(s"@${iter._1}", iter._2))).getOrElse(v))
@@ -763,73 +781,99 @@ object LuceneActor {
     val pks = collection.pks
     val collName = collection.name
     val dateCol = collection.dateCol
-    Some(sorted.toDS)
-      .map(df => df.repartition(conf.sparkCores.get))
-      .map{df => df.mapPartitions{iter => 
-        implicit val holder = LuceneActor.writeHolder
-        implicit val conf = Settings(epiHome)
-        conf.load()
-        var lastKey = ""
-        var index:TweetIndex=null 
-        (for((topic, id, key) <- iter) yield {  
-          if(lastKey != key) {
-            index = LuceneActor.getIndex("tweets", key)
-            index.refreshReader
+    val par =  conf.sparkCores.get
+    
+    if(!holder.toAggregate.contains(collection.name)) {
+      holder.toAggregate(collection.name) = 
+        Some(
+           spark.sparkContext.parallelize(Seq.range(0, par))
+            .mapPartitions{iter => iter.flatMap{ i =>
+               val st = conf.getSparkStorage
+               val aggrNode = st.getNode(conf.aggregatingPath)
+               val tweets  = if(aggrNode.exists) {
+                 aggrNode.getContentAsString.split("\n").map(json => EpiSerialisation.topicTweetsFormat.read(JsonParser(json))).toSeq
+               } else {
+                 Seq[TopicTweetsV1]()
+               }
+               val sorted = (tweets
+                 .flatMap{case TopicTweetsV1(topic, tts) => tts.items.filter(t => t.tweet_id % par == i).map(t => (topic, t))}
+                 .map{case (topic, t) => (topic, t.tweet_id, LuceneActor.getIndexKey(collection.name, t.created_at))}
+                 .sortWith(_._3 < _._3)
+               )
+               sorted
+            }}
+          )
+          .map{rdd =>
+            rdd.mapPartitions{iter => 
+              val h = LuceneActor.writeHolder
+              val c = Settings(epiHome)
+              conf.load()
+              var lastKey = ""
+              var index:TweetIndex=null 
+              (for((topic, id, key) <- iter) yield {  
+                if(lastKey != key) {
+                  index = LuceneActor.getIndex("tweets", key)(c, h)
+                  index.refreshReader
+                }
+                index.searchTweet(id, topic) match {
+                  case Some(s) => Some(s)
+                  case _ => 
+                    println(s"Cannot find tweet to aggregate $key, $id, $topic")
+                    None
+                }
+              }).flatMap(ot => ot)
+            }
           }
-          index.searchTweet(id, topic) match {
-            case Some(s) => Some(s)
-            case _ => 
-              println(s"Cannot find tweet to aggregate $key, $id, $topic")
-              None
+          .map(rdd => spark.read.schema(schemas.geoLocatedTweetSchema).json(rdd))
+          .map{df => df.where(col("lang").isin(conf.languages.get.map(_.code):_*))}
+          .map{
+            case df if(sourceExp.size > 0) => 
+              df.select(sourceExp.map(s => expr(s) ):_*)
+            case df => df
           }
-        }).flatMap(ot => ot)
-      }}
-      .map(rdd => spark.read.schema(schemas.geoLocatedTweetSchema).json(rdd))
-      .map{df => df.where(col("lang").isin(conf.languages.get.map(_.code):_*))}
-      .map{
-        case df if(sourceExp.size > 0) => 
-          df.select(sourceExp.map(s => expr(s) ):_*)
-        case df => df
-      }
-      .map{
-        case df if(filterBy.size > 0) => 
-          df.where(filterBy.map(w => expr(w)).reduce(_ && _))
-        case df => df
-      }
-      .map{
-        case df if(groupBy.size == 0) => 
-          df.select(columns.map(c => expr(c)):_*) 
-        case df => 
-          df.groupBy(groupBy.map(gb => expr(gb)):_*)
-            .agg(expr(columns.head), columns.drop(1).map(c => expr(c)):_*)
-      }
-      .map{
-        case df if(sortBy.size == 0) => 
-          df 
-        case df =>
-          df.orderBy(sortBy.map(ob => expr(ob)):_*)
-      }
-      .map{df =>
-        //println(df.collect.size)
-        df.mapPartitions{iter => 
-          implicit val holder = LuceneActor.writeHolder
-          implicit val conf = Settings(epiHome)
-          conf.load()
-          var lastKey = ""
-          var index:TweetIndex=null 
-          (for(row <- iter) yield {
-            val key =  Instant.parse(s"${row.getAs[String](dateCol)}T00:00:00.000Z")
-            if(lastKey != key)
-              index = LuceneActor.getIndex(collName, key)
-            index.indexSparkRow(row = row, pk = pks, aggr = collection.aggr)
-            1
-          })
-        }.as[Int].reduce(_ + _)
-      }.map{numAggr =>
-        val endTime = System.nanoTime
-        println(s"${(endTime - startTime)/1e9d} secs for aggregating ${numAggr} tweets in ${collection.name}")
-      }
+          .map{
+            case df if(filterBy.size > 0) => 
+              df.where(filterBy.map(w => expr(w)).reduce(_ && _))
+            case df => df
+          }
+          .get
+    }   
+    val ds = Some(holder.toAggregate(collection.name))
+          .map(df => df.unpersist)
+          .map{
+            case df if(groupBy.size == 0) => 
+              df.select(columns.map(c => expr(c)):_*) 
+            case df => 
+              df.groupBy(groupBy.map(gb => expr(gb)):_*)
+                .agg(expr(columns.head), columns.drop(1).map(c => expr(c)):_*)
+          }
+          .map{
+            case df if(sortBy.size == 0) => 
+              df 
+            case df =>
+              df.orderBy(sortBy.map(ob => expr(ob)):_*)
+          }
+          .map{df =>
+            df.mapPartitions{iter => 
+              implicit val holder = LuceneActor.writeHolder
+              implicit val conf = Settings(epiHome)
+              conf.load()
+              var lastKey = ""
+              var index:TweetIndex=null 
+              var s = System.nanoTime
+              (for(row <- iter) yield { 
+                val key =  Instant.parse(s"${row.getAs[String](dateCol)}T00:00:00.000Z")
+                if(lastKey != key)
+                  index = LuceneActor.getIndex(collName, key)
+                index.indexSparkRow(row = row, pk = pks, aggr = collection.aggr)
+                1
+              })
+            }
+          }.get
+    val numAggr = ds.collect.sum 
+    println(s"${(System.nanoTime - startTime)/1e9d} secs for aggregating ${numAggr} tweets in ${collection.name}")
   }
+
   def recalculateHash()(implicit holder:IndexHolder, conf:Settings){
     Files.list(Paths.get(conf.collectionPath)).iterator.asScala.foreach{p =>
       Some(Files.lines(p, StandardCharsets.UTF_8).iterator.asScala.mkString("\n"))

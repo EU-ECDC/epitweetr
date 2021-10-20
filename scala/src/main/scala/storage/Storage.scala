@@ -13,10 +13,12 @@ import java.nio.file.{Files, Paths, Path => LPath}
 import java.nio.file.{StandardCopyOption,StandardOpenOption }
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
-case class WriteMode(name:String) {
-} 
+
+case class WriteMode(name:String) {}
+
 object WriteMode {
   object overwrite extends WriteMode("overwrite")
+  object append extends WriteMode("append")
   object ignoreIfExists extends WriteMode("ignoreIfExists")
   object failIfExists extends WriteMode("failIfExists")
 }
@@ -103,9 +105,8 @@ trait Storage {
   }
   def getContent(node:FSNode):InputStream
   def getContentAsString(node:FSNode) = {
-    val s = new java.util.Scanner(this.getContent(node), "UTF-8").useDelimiter("\\A") 
-    if(s.hasNext())  s.next()
-    else "";
+    val is = this.getContent(node)
+    IOUtils.toString(is, StandardCharsets.UTF_8.name())
   }
   def getContentAsJson(node:FSNode) = scala.util.parsing.json.JSON.parseFull(getContentAsString(node))
   
@@ -250,6 +251,12 @@ case class LocalStorage(override val sparkCanRead:Boolean=false, override val tm
                                 content.getBytes(StandardCharsets.UTF_8), 
                                 StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING
                               )
+                            case WriteMode.append => 
+                              Files.write(
+                                lNode.jPath, 
+                                content.getBytes(StandardCharsets.UTF_8), 
+                                StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND
+                              )
                             case WriteMode.ignoreIfExists => if(!this.exists(node)) Files.write(lNode.jPath, content.getBytes(StandardCharsets.UTF_8))
                             case WriteMode.failIfExists => 
                               Files.write(
@@ -263,6 +270,7 @@ case class LocalStorage(override val sparkCanRead:Boolean=false, override val tm
   def setContent(node:FSNode, data:InputStream, writeMode:WriteMode)
        = node match { case lNode:LocalNode => 
                           writeMode match {
+                            case WriteMode.append => throw new Exception("This procedure is not yet implemented")
                             case WriteMode.overwrite => Files.copy(data, lNode.jPath, StandardCopyOption.REPLACE_EXISTING)
                             case WriteMode.ignoreIfExists => if(!this.exists(node)) Files.copy(data, lNode.jPath)
                             case WriteMode.failIfExists => Files.copy(data, lNode.jPath)  
