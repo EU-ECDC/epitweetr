@@ -15,7 +15,7 @@ import akka.util.ByteString
 import akka.util.{Timeout}
 import java.time.LocalDateTime
 import scala.collection.JavaConverters._
-import scala.collection.mutable.{HashMap, ArrayBuffer}
+import scala.collection.mutable.{HashMap, ArrayBuffer, HashSet}
 import java.time.temporal.{IsoFields, ChronoUnit}
 import java.time.{Instant, ZoneOffset, LocalDateTime}
 import java.nio.file.{Paths, Files}
@@ -41,7 +41,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
   implicit val cnf = conf
   def receive = {
     case TopicTweetsV1(topic, ts) =>
-      implicit val holder = LuceneActor.writeHolder
+      implicit val holder = LuceneActor.holder
       Future{
         val dateMap = ts.items.groupBy(t => t.created_at.toString.take(10))
         dateMap.foreach{case (date, tweets) =>
@@ -55,7 +55,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       }
       .pipeTo(sender())
     case LuceneActor.GeolocateTweetsRequest(TopicTweetsV1(topic, ts)) =>
-      implicit val holder = LuceneActor.writeHolder
+      implicit val holder = LuceneActor.holder
       Future{
         implicit val spark = conf.getSparkSession()
         implicit val storage = conf.getSparkStorage
@@ -65,7 +65,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         case Failure(t) => println("Error during geolocalisation: " + t.getMessage)
       }
     case LuceneActor.GeolocatedTweetsCreated(GeolocatedTweets(items), dates) =>
-      implicit val holder = LuceneActor.writeHolder
+      implicit val holder = LuceneActor.holder
       Future{
         val indexes = dates.flatMap(d => LuceneActor.getReadIndexes("tweets", Some(d), Some(d)))
         items.foreach{g =>
@@ -81,16 +81,16 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       }
       .pipeTo(sender())
     case ts:LuceneActor.CommitRequest =>
-      implicit val holder = LuceneActor.writeHolder
+      implicit val holder = LuceneActor.holder
       Future{
-        LuceneActor.commit()
+        LuceneActor.commitRequest()
       }
       .map{c =>
         EpitweetrActor.Success(s"$c Commit done processed")
       }
       .pipeTo(sender())
     case LuceneActor.CloseRequest =>
-      implicit val holder = LuceneActor.writeHolder
+      implicit val holder = LuceneActor.holder
       Future {
         LuceneActor.commit(closeDirectory = true)
         LuceneActor.closeSparkSession()
@@ -102,12 +102,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
     case LuceneActor.SearchRequest(query, topics, from, to, countryCodes, mentions, users, estimatecount, hideUsers, action, max, jsonnl, caller) => 
 
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
-      implicit val holder = 
-        if(action.isEmpty) {
-          LuceneActor.readHolder } 
-        else {
-          LuceneActor.writeHolder
-        }
+      implicit val holder = LuceneActor.holder 
 
       val indexes = LuceneActor.getReadIndexes("tweets", from, to).toSeq
       var sep = ""
@@ -192,7 +187,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             if(!jsonnl) sep = ","
           }
         if(!action.isEmpty) {
-          LuceneActor.commit()
+          LuceneActor.commitRequest()
         }
         if(!jsonnl) {
           Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
@@ -205,7 +200,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       }
     case LuceneActor.AggregatedRequest(collection, topic, from, to, filters, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
-      implicit val holder = LuceneActor.readHolder
+      implicit val holder = LuceneActor.holder
       val indexes = LuceneActor.getReadIndexes(collection, Some(from), Some(to)).toSeq
       var sep = ""
       val chunkSize = 500
@@ -375,7 +370,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           caller ! ByteString(s"[Stream--error]: ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }*/
     case LuceneActor.PeriodRequest(collection) =>
-      implicit val holder = LuceneActor.readHolder
+      implicit val holder = LuceneActor.holder
       Future{
         val sPath = Paths.get(conf.fsRoot, collection)
         if(!Files.exists(sPath))
@@ -410,7 +405,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
       }
       .pipeTo(sender())
     case LuceneActor.RecalculateHashRequest() =>
-      implicit val holder = LuceneActor.writeHolder
+      implicit val holder = LuceneActor.holder
       Future {
         LuceneActor.recalculateHash()
         "Done!" 
@@ -428,12 +423,12 @@ case class IndexHolder(
   var toAggregate:HashMap[String, DataFrame] = HashMap[String, DataFrame](),
   var geolocating:Boolean = false,
   var aggregating:Boolean = false,
-  var toGeolocate:Option[Dataset[Int]] = None
+  var toGeolocate:Option[Dataset[Int]] = None,
+  val commitRequests:HashSet[String] = HashSet[String]()
 )
  
 object LuceneActor {
-  lazy val readHolder = LuceneActor.getHolder(writeEnabled = false)
-  lazy val writeHolder = LuceneActor.getHolder(writeEnabled = true)
+  lazy val holder = LuceneActor.getHolder(writeEnabled = true)
   case class DatesProcessed(msg:String, dates:Seq[String] = Seq[String]())
   case class GeolocatedTweetsCreated (geolocated:GeolocatedTweets, dates:Seq[Instant])
   case class GeolocateTweetsRequest(items:TopicTweetsV1)
@@ -472,15 +467,29 @@ object LuceneActor {
   case class PeriodResponse(first:Option[String], last:Option[String])
   case class RecalculateHashRequest()
   def getHolder(writeEnabled:Boolean) = IndexHolder(writeEnabled = writeEnabled)
+  def commitRequest()(implicit holder:IndexHolder, ec:ExecutionContext) {
+    Future{
+      holder.synchronized {
+        while(holder.geolocating) {
+          l.msg("Delaying commit request to finish before commiting")
+          Thread.sleep(5000) 
+        }
+        LuceneActor.commit()
+      }
+    }.onComplete {
+        case Success(_) => 
+          println("Commit request finished successfully")
+        case Failure(f) => 
+          println(s"Commit request failed with ${f.getMessage} \n ${f.getStackTrace.mkString("\n")} ")
+    }
+  }
+
   def commit()(implicit holder:IndexHolder)  {
     commit(closeDirectory = true)
   }
+
   def commit(closeDirectory:Boolean= true)(implicit holder:IndexHolder)  {
     holder.synchronized {
-      while(holder.geolocating) {
-        l.msg("Waiting geolocation to finish before commiting")
-        Thread.sleep(1000) 
-      }
       var now:Option[Long] = None 
       holder.dirs.foreach{ case (key, path) =>
           now = now.orElse(Some(System.nanoTime))
@@ -512,14 +521,15 @@ object LuceneActor {
     getIndex(collection, getIndexKey(collection, forInstant))
   }
   def getIndex(collection:String, key:String)(implicit conf:Settings, holder:IndexHolder):TweetIndex = {
+    /*println("indexes")
+    println(s"$collection - $key - ${holder.writeEnabled}")
+    holder.dirs.foreach(println _)*/
     val path = s"$collection.$key"
-    holder.dirs.synchronized {
+    holder.synchronized {
       if(!holder.dirs.contains(path)) {
         conf.load()
         holder.dirs(path) = Paths.get(conf.epiHome, "fs", collection,  key).toString()
       }
-    }
-    holder.dirs(path).synchronized {
       if(holder.indexes.get(path).isEmpty || !holder.indexes(path).isOpen) {
         holder.indexes(path) = TweetIndex(holder.dirs(path), holder.writeEnabled)
       }
@@ -745,7 +755,7 @@ object LuceneActor {
                 val indexes = HashMap[String, TweetIndex]()
                 iter.map{case (geo, createdAt) =>
                   val iKey = LuceneActor.getIndexKey("tweets", createdAt)
-                  implicit val holder = LuceneActor.writeHolder
+                  implicit val holder = LuceneActor.holder
                   if(!indexes.contains(iKey)) {
                     indexes(iKey) = LuceneActor.getIndex("tweets", iKey)
                     indexes(iKey).refreshReader()
@@ -769,7 +779,7 @@ object LuceneActor {
     import spark.implicits._
     val startTime = System.nanoTime
     val sc = spark.sparkContext
-    val holder = LuceneActor.readHolder
+    val holder = LuceneActor.holder
     
     val epiHome = conf.epiHome
     val aggr = collection.aggregation
@@ -805,7 +815,7 @@ object LuceneActor {
           )
           .map{rdd =>
             rdd.mapPartitions{iter => 
-              val h = LuceneActor.writeHolder
+              val h = LuceneActor.holder
               val c = Settings(epiHome)
               conf.load()
               var lastKey = ""
@@ -855,7 +865,7 @@ object LuceneActor {
           }
           .map{df =>
             df.mapPartitions{iter => 
-              implicit val holder = LuceneActor.writeHolder
+              implicit val holder = LuceneActor.holder
               implicit val conf = Settings(epiHome)
               conf.load()
               var lastKey = ""
@@ -874,7 +884,7 @@ object LuceneActor {
     println(s"${(System.nanoTime - startTime)/1e9d} secs for aggregating ${numAggr} tweets in ${collection.name}")
   }
 
-  def recalculateHash()(implicit holder:IndexHolder, conf:Settings){
+  def recalculateHash()(implicit holder:IndexHolder, conf:Settings, ec:ExecutionContext){
     Files.list(Paths.get(conf.collectionPath)).iterator.asScala.foreach{p =>
       Some(Files.lines(p, StandardCharsets.UTF_8).iterator.asScala.mkString("\n"))
          .map(content => EpiSerialisation.collectionFormat.read(JsonParser(content)))
@@ -893,7 +903,7 @@ object LuceneActor {
          }
 
     }
-    LuceneActor.commit()
+    LuceneActor.commitRequest()
   }
 
 }

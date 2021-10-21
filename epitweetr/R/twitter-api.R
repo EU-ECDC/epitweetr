@@ -161,11 +161,11 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
     #Liogging the obtained error
     writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
     return(twitter_get(urls, i = i + 1, retries = retries, tryed = tryed))
-  } else if(res$status_code >= 401 && res$status_code <= 403) {
+  } else if(res$status_code >= 401 && res$status_code <= 403 && i >= retries) {
     # Stopping if non authorized by twitter
     writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
     message(res$status_code)
-    stop(paste("Unauthorized by twitter API"))
+    stop(paste("Unauthorized by twitter APIi", res$status_code))
   } else if(last_get$api_ver == "2" && names((mess <- jsonlite::fromJSON(httr::content(res,as="text")))$errors$parameters) == "since_id") {
     #Special error on API 2 when query is too old
     message("Error interpreted as too old query on V2 API. Assuming empty result set")
