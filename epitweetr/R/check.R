@@ -422,6 +422,9 @@ check_move_from_temp <- function() {
   }
 }
 
+
+
+
 #' @title Run automatic sanity checks
 #' @description It runs a set of automated sanity checks for helping the user to troubleqhot issues 
 #' @return Dataframe containing the statuses of all realized checks
@@ -471,4 +474,95 @@ check_all <- function() {
         error = function(e) { as.character(e) }) 
   )
   data.frame(check = names(checks), passed = results == "ok", message = ifelse(results == "ok", "", results))  
-} 
+}
+
+#Environment for storing las admin email
+checks <- new.env()
+
+#' @title send email to administrator if a failure of epitweetr is detected 
+#' @description It validates if epitweetr is not collecting tweets, aggregating tweets or not calculating alerts
+#' @param send_mail Boolean. Whether an email should be sent to the defined administrator , default: TRUE
+#' @param one_per_day Boolean. Whether a limit of one email per day will be applied, default: TRUE
+#' @return 
+#' @details This function send an email to the defined administrator if epitweetr is not collecting tweets, aggregating tweets or not calculating alerts
+#' @examples 
+#' if(FALSE){
+#'    #importing epitweer
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    #sending the email to administrator if epitweetr componenets are not properly working
+#'    health_check()
+#' }
+#' @rdname health_check
+#' @export 
+
+health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
+  #health check is only done one_per_day limit is disabled or if not email was already sent since yesterday and is after 8AM.
+  start_of_day <- strptime(strftime(Sys.time(), "%Y-%m-%d"), "%Y-%m-%d")
+  alerts <- list()
+  if(!one_per_day || !exists("last_send", checks) || (checks$last_check < start_of_day) && as.numeric(strftime(Sys.time(), "%H")) >= 8) {
+    # check 01: last tweet collected date os more than 1 hore
+    last_collected <- file.mtime(get_tweet_togeo_path())
+    if(is.na(last_collected) || as.numeric(Sys.time() - last_collected, unit = "hours") >= 1 ) {
+      alerts <- append(alerts, paste("Tweets have not been collected for more than ", as.integer(as.numeric(Sys.time() - last_collected, unit = "hours")), "hours"))
+    }
+    
+    # Check 02: if geolocated tweets has not ben done during more than one hour
+    collection_times <- last_fs_updates("tweets")
+    last_geo <- collection_times$tweets
+    if(is.na(last_geo) || as.numeric(Sys.time() - last_geo, unit = "hours") >= 1 ) {
+      alerts <- append(alerts, paste("Tweets have not been geolocated for more than ", as.integer(as.numeric(Sys.time() - last_geo, unit = "hours")), "hours"))
+    }
+    # Check 03: if any time serie has not been processed in more than one hour
+    collection_times <- last_fs_updates(c("topwords", "country_counts", "geolocated"))
+    for(i in 1:length(collection_times)) {
+      serie <- names(collection_times)[[i]]
+      last_collect <- collection_times[[serie]]
+      if(is.na(last_collect) || as.numeric(Sys.time() - last_collect, unit = "hours") >= 1 ) {
+        alerts <- append(alerts, paste("Serie,", serie, "has not been produced for more than ", as.integer(as.numeric(Sys.time() - last_collect, unit = "hours")), "hours"))
+      }
+    }
+
+    # Check 04: if alert detection has not finished in more than 2 hours + schedule span
+    tasks <- get_tasks()
+    last_detect_end <- tasks$alert$end_on
+    if(is.na(last_detect_end) || as.numeric(Sys.time() - last_detect_end, unit = "hours") >= (2 + conf$schedule_span / 60) ) {
+      alerts <- append(alerts, paste("The alerts tasks has not been finished since", as.integer(as.numeric(Sys.time() - last_detect_end, unit = "hours")), "hours"))
+    }
+
+    # Check 05: if any task is on aborted status
+    for(i in 1:length(tasks)) {
+      if(tasks[[i]]$status == "aborted") {
+        alerts <- append(alerts, paste("Task,", tasks[[i]]$task, "is on aborted status"))
+      }
+    }
+    if(send_mail && length(alerts) > 1 && !is.null(conf$admin_email) && conf$admin_email != "" && conf$smtp_host != "") {
+      # creating the message to send
+      msg <- ( 
+        emayili::envelope() %>% 
+        emayili::from(conf$smtp_from) %>% 
+        emayili::to(conf$admin_email) %>% 
+        emayili::subject("Epitweetr may not be properly running") %>% 
+        emayili::html(
+          paste(
+            "<p>The following error were found during epitweetr health check, please check your epitweetr installation</p><p><ul><li>", 
+            paste(alerts, collapse = "</li><li>"),
+            "</li></ul></p>"
+          )
+        )
+      )
+      smtp <- ( 
+        if(is.na(conf$smtp_password) || is.null(conf$smtp_password) ||  conf$smtp_password == "") 
+          emayili::server(host = conf$smtp_host, port=conf$smtp_port, insecure=conf$smtp_insecure, reuse = FALSE)
+        else 
+          emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
+      )
+      message("Health check failed, sending email")
+      smtp(msg)
+      checks$last_check <- Sys.time()
+    }
+  }
+  alerts
+}
+

@@ -469,19 +469,34 @@ object LuceneActor {
   def getHolder(writeEnabled:Boolean) = IndexHolder(writeEnabled = writeEnabled)
   def commitRequest()(implicit holder:IndexHolder, ec:ExecutionContext) {
     Future{
-      holder.synchronized {
-        while(holder.geolocating) {
-          l.msg("Delaying commit request to finish before commiting")
-          Thread.sleep(5000) 
+      var geoStopped = false
+      var aggrStopped = false
+      while(!geoStopped || !aggrStopped) {
+        holder.dirs.synchronized {
+          if(!holder.geolocating) {
+            holder.geolocating = true
+            geoStopped = true
+          }
+          if(geoStopped && !holder.aggregating) {
+            holder.aggregating = true
+            aggrStopped = true
+          }
         }
-        LuceneActor.commit()
+        if(!geoStopped || !aggrStopped) {
+          l.msg(s"Delaying commit request to finish before. Waiting geolocation: ${!geoStopped}. Waiting aggregation ${!aggrStopped}")
+          Thread.sleep(5000)
+        }
       }
+      LuceneActor.commit()
+      holder.geolocating = false
+      holder.aggregating = false
     }.onComplete {
         case Success(_) => 
           println("Commit request finished successfully")
         case Failure(f) => 
           println(s"Commit request failed with ${f.getMessage} \n ${f.getStackTrace.mkString("\n")} ")
     }
+    Future("In progress")
   }
 
   def commit()(implicit holder:IndexHolder)  {
@@ -489,7 +504,7 @@ object LuceneActor {
   }
 
   def commit(closeDirectory:Boolean= true)(implicit holder:IndexHolder)  {
-    holder.synchronized {
+    holder.dirs.synchronized {
       var now:Option[Long] = None 
       holder.dirs.foreach{ case (key, path) =>
           now = now.orElse(Some(System.nanoTime))
@@ -525,7 +540,7 @@ object LuceneActor {
     println(s"$collection - $key - ${holder.writeEnabled}")
     holder.dirs.foreach(println _)*/
     val path = s"$collection.$key"
-    holder.synchronized {
+    holder.dirs.synchronized {
       if(!holder.dirs.contains(path)) {
         conf.load()
         holder.dirs(path) = Paths.get(conf.epiHome, "fs", collection,  key).toString()
@@ -587,7 +602,7 @@ object LuceneActor {
   {
     var goGeo = false
     implicit val st = conf.getSparkStorage
-    holder.synchronized {
+    holder.dirs.synchronized {
       val toGeo = st.getNode(conf.togeolocatePath)
       if(tweets.tweets.items.size > 0) {
         if(toGeo.exists) toGeo.setContent("\n", WriteMode.append)
@@ -607,10 +622,8 @@ object LuceneActor {
       if(goGeo) {
         implicit val spark = conf.getSparkSession()
         LuceneActor.geolocateTweets(forcedGeo, forcedGeoCodes, topics)
-        holder.toGeolocate.synchronized { 
-          LuceneActor.add2Aggregate() 
-          val geolocating = st.getNode(conf.togeolocatePath)
-        }
+        LuceneActor.add2Aggregate() 
+       
         val geolocating = st.getNode(conf.geolocatingPath)
         geolocating.delete()
         holder.geolocating = false
@@ -629,18 +642,20 @@ object LuceneActor {
     val aggregating = st.getNode(conf.aggregatingPath)
     val geolocating = st.getNode(conf.geolocatingPath)
     
-    if(geolocating.exists) {
-      if(toAggr.exists) toAggr.setContent("\n", WriteMode.append)
-      toAggr.setContent(geolocating.getContentAsString, WriteMode.append)
-    }
+    holder.dirs.synchronized { 
+      if(geolocating.exists) {
+        if(toAggr.exists) toAggr.setContent("\n", WriteMode.append)
+        toAggr.setContent(geolocating.getContentAsString, WriteMode.append)
+      }
 
-    if(toAggr.exists && !aggregating.exists) {
-      toAggr.move(aggregating, WriteMode.failIfExists)
-    }
+      if(toAggr.exists && !aggregating.exists) {
+        toAggr.move(aggregating, WriteMode.failIfExists)
+      }
 
-    if(!holder.aggregating) {
-      holder.aggregating = true
-      goAggr = true
+      if(!holder.aggregating) {
+        holder.aggregating = true
+        goAggr = true
+      }
     }
     
     Future{
@@ -792,7 +807,7 @@ object LuceneActor {
     val collName = collection.name
     val dateCol = collection.dateCol
     val par =  conf.sparkCores.get
-    
+    l.msg("going to aggregate") 
     if(!holder.toAggregate.contains(collection.name)) {
       holder.toAggregate(collection.name) = 
         Some(

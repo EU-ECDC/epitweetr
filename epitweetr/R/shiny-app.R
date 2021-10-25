@@ -354,6 +354,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Login"), shiny::column(9, shiny::textInput("smtp_login", label = NULL, value = conf$smtp_login))), 
           shiny::fluidRow(shiny::column(3, "Password"), shiny::column(9, shiny::passwordInput("smtp_password", label = NULL, value = conf$smtp_password))), 
           shiny::fluidRow(shiny::column(3, "Unsafe certificates"), shiny::column(9, shiny::checkboxInput("smtp_insecure", label = NULL, value = conf$smtp_insecure))), 
+          shiny::fluidRow(shiny::column(3, "Admin email"), shiny::column(9, shiny::textInput("admin_email", label = NULL, value = conf$admin_email))), 
           shiny::h2("Task registering"),
           shiny::fluidRow(shiny::column(3, "Custom date format"), shiny::column(9, shiny::textInput("force_date_format", label = NULL, value = conf$force_date_format))), 
           shiny::actionButton("save_properties", "Save settings")
@@ -1194,6 +1195,7 @@ epitweetr_app <- function(data_dir = NA) {
       conf$smtp_login <- input$smtp_login
       conf$smtp_insecure <- input$smtp_insecure
       conf$smtp_password <- input$smtp_password
+      conf$admin_email <- input$admin_email
       conf$force_date_format <- input$force_date_format
 
       # Saving properties.json

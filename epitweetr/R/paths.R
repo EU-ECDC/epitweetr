@@ -178,3 +178,7 @@ get_lang_stamp_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz.stamp", sep = "")) 
 }
 
+# get tweet collection path
+get_tweet_togeo_path <- function() {
+  file.path(conf$data_dir, "geo", "togeolocate.json")
+}

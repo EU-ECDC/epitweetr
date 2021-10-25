@@ -712,7 +712,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
   # Getting subscriber users
   subscribers <- get_subscribers()
   # iterating for each subscriber
-  if(nrow(subscribers)>0) {
+  if(nrow(subscribers)>0 && conf$smtp_host != "") {
     for(i in 1:nrow(subscribers)) {
       # getting values subsriber settings 
       user <- subscribers$User[[i]]
@@ -722,7 +722,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
       excluded <- if(is.na(subscribers$`Excluded Topics`[[i]])) NA else strsplit(subscribers$`Excluded Topics`[[i]], ";")[[1]]         
       realtime_topics <- if(is.na(subscribers$`Real time Topics`[[i]])) NA else strsplit(subscribers$`Real time Topics`[[i]], ";")[[1]]         
       realtime_regions <- if(is.na(subscribers$`Real time Regions`[[i]])) NA else strsplit(subscribers$`Real time Regions`[[i]], ";")[[1]]         
-      alert_categories <- if(colnames(subscribers) || is.na(subscribers$`Alert category`[[i]])) NA else strsplit(subscribers$`Alert category`[[i]], ";")[[1]]         
+      alert_categories <- if(!"Alert category" %in% colnames(subscribers) || is.na(subscribers$`Alert category`[[i]])) NA else strsplit(subscribers$`Alert category`[[i]], ";")[[1]]         
       slots <- as.integer(
         if(is.na(subscribers$`Alert Slots`[[i]])) 
           NA 

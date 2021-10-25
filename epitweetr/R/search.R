@@ -507,13 +507,6 @@ create_dirs <- function(topic = NA, year = NA) {
   }
 }
 
-# Get time difference since last request
-# This function is used from the shiny app to report when was the last tile that a request saved tweets
-# This is done by taking the last modified date of current year tweet files
 last_search_time <- function() {
-  files <- list.files(path=paste(conf$data_dir, "fs", "tweets", sep="/"), full.names=T)
-  if(length(files)>0)
-    max(file.mtime(files))
-  else
-    NA
+  last_fs_updates(c("tweets"))$tweets
 }

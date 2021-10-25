@@ -121,6 +121,7 @@ get_empty_config <- function(data_dir) {
   ret$fs_port <- 8080
   ret$fs_batch_timeout <- 60*60 
   ret$fs_query_timeout <- 60
+  ret$admin_email <- ""
   return(ret)
 }
 
@@ -250,6 +251,7 @@ setup_config <- function(
     conf$fs_port <- temp$fs_port
     conf$fs_batch_timeout <- temp$fs_batch_timeout
     conf$fs_query_timeout <- temp$fs_query_timeout
+    conf$admin_email <- temp$admin_email
 
   }
   if(!ignore_topics && exists("topics", where = paths)){
@@ -443,6 +445,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$fs_port <- conf$fs_port
     temp$fs_batch_timeout <- conf$fs_batch_timeout
     temp$fs_query_timeout <- conf$fs_query_timeout
+    temp$admin_email <- conf$admin_email
     # writing the json file
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }

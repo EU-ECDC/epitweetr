@@ -258,3 +258,21 @@ stream_post <- function(uri, body, handler = NULL) {
   }
 }
 
+# Get time difference since last request
+# This function is used from the shiny app to report when was the last tile that a request saved tweets
+# This is done by taking the last modified date of current year tweet files
+last_fs_updates <- function(collections = c("tweets", "topwords", "country_counts", "geolocated")) {
+  times <- lapply(collections,
+    function(collection) {
+      folders <- sort(list.files(path=paste(conf$data_dir, "fs", collection, sep="/"), full.names=T))
+      if(length(folders)>0) {
+        files <- list.files(tail(folders, 2), full.name = TRUE, recursive = TRUE)
+        files <- files[!grepl("write.lock$", files)]
+        max(file.mtime(files))
+      } else {
+        NA
+      }
+    }
+  )
+  setNames(times, collections)
+}
