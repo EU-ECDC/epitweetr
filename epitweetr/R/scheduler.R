@@ -505,6 +505,7 @@ detect_loop <- function(data_dir = NA) {
           tasks[[i_next]]$status = "aborted"
           tasks[[i_next]]$message = paste("Max number of retries reached", tasks[[i_next]]$message, sep = "\n")
           save_tasks(tasks)
+          health_check(one_per_day = FALSE)
         }
         else { 
           # if task is not aborted proceeding with execution
@@ -539,6 +540,8 @@ detect_loop <- function(data_dir = NA) {
       message(paste(Sys.time(), ": Nothing else todo. Going to sleep each 5 seconds until ", format(tasks[[i_next]]$scheduled_for, tz=Sys.timezone(),usetz=TRUE)))
       last_sleeping_message <- Sys.time()
     }
+    # epitweetr sanity check and sendig emain in case of issued
+    health_check()
     # updating config to capture changes coming from search loop or shiny app
     setup_config(data_dir = conf$data_dir)
     # sleep for 5 seconds

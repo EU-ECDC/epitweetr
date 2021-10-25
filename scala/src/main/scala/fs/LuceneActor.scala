@@ -423,6 +423,7 @@ case class IndexHolder(
   var toAggregate:HashMap[String, DataFrame] = HashMap[String, DataFrame](),
   var geolocating:Boolean = false,
   var aggregating:Boolean = false,
+  var commiting:Boolean = false,
   var toGeolocate:Option[Dataset[Int]] = None,
   val commitRequests:HashSet[String] = HashSet[String]()
 )
@@ -468,33 +469,54 @@ object LuceneActor {
   case class RecalculateHashRequest()
   def getHolder(writeEnabled:Boolean) = IndexHolder(writeEnabled = writeEnabled)
   def commitRequest()(implicit holder:IndexHolder, ec:ExecutionContext) {
-    Future{
-      var geoStopped = false
-      var aggrStopped = false
-      while(!geoStopped || !aggrStopped) {
-        holder.dirs.synchronized {
-          if(!holder.geolocating) {
-            holder.geolocating = true
-            geoStopped = true
+    var dismissCommit = false
+    holder.dirs.synchronized {
+      if(holder.commiting)
+        dismissCommit = true
+      else
+        holder.commiting = true
+    }
+    if(!dismissCommit) {
+      val thread = new Thread {
+        override def run {
+          Future{
+            var geoStopped = false
+            var aggrStopped = false
+            var messageShown = false
+            while(!geoStopped || !aggrStopped) {
+              holder.dirs.synchronized {
+                if(!holder.geolocating) {
+                  holder.geolocating = true
+                  geoStopped = true
+                }
+                if(geoStopped && !holder.aggregating) {
+                  holder.aggregating = true
+                  aggrStopped = true
+                }
+              }
+              if(!geoStopped || !aggrStopped) {
+                if(!messageShown) {
+                  l.msg(s"Delaying commit request to finish before. Waiting geolocation: ${!geoStopped}. Waiting aggregation ${!aggrStopped}")
+                  messageShown = true
+                }
+                Thread.sleep(1000)
+              }
+            }
+            LuceneActor.commit()
+            holder.geolocating = false
+            holder.aggregating = false
+            holder.commiting = false
+          }.onComplete {
+              case Success(_) => 
+                println("Commit request finished successfully")
+              case Failure(f) => 
+                println(s"Commit request failed with ${f.getMessage} \n ${f.getStackTrace.mkString("\n")} ")
           }
-          if(geoStopped && !holder.aggregating) {
-            holder.aggregating = true
-            aggrStopped = true
-          }
-        }
-        if(!geoStopped || !aggrStopped) {
-          l.msg(s"Delaying commit request to finish before. Waiting geolocation: ${!geoStopped}. Waiting aggregation ${!aggrStopped}")
-          Thread.sleep(5000)
         }
       }
-      LuceneActor.commit()
-      holder.geolocating = false
-      holder.aggregating = false
-    }.onComplete {
-        case Success(_) => 
-          println("Commit request finished successfully")
-        case Failure(f) => 
-          println(s"Commit request failed with ${f.getMessage} \n ${f.getStackTrace.mkString("\n")} ")
+      thread.start
+    } else {
+      println("Commit request dismissed since already requesteed")
     }
     Future("In progress")
   }
@@ -613,7 +635,7 @@ object LuceneActor {
       if(toGeo.exists && !geolocating.exists) {
         toGeo.move(geolocating, WriteMode.failIfExists)
       }
-      if(!holder.geolocating) {
+      if(!holder.geolocating && !holder.commiting) {
         holder.geolocating = true
         goGeo = true
       }
@@ -807,7 +829,6 @@ object LuceneActor {
     val collName = collection.name
     val dateCol = collection.dateCol
     val par =  conf.sparkCores.get
-    l.msg("going to aggregate") 
     if(!holder.toAggregate.contains(collection.name)) {
       holder.toAggregate(collection.name) = 
         Some(

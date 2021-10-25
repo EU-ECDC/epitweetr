@@ -416,30 +416,39 @@ do_next_alerts <- function(tasks = get_tasks()) {
   if(do_alerts) {
     # Getting region details
     regions <- get_country_items()
-    # Caching counts for all topics for the selected period the period to consider on cache will depend on  alert_same_weekday_baseline
-    #cc <- get_aggregates(
-    #  dataset = "country_counts", 
-    #  filter = list(
-    #    period = list(
-    #      get_alert_count_from(date = alert_to, baseline_size = conf$alert_history, same_weekday_baseline = conf$alert_same_weekday_baseline), 
-    #      alert_to
-    #    )
-    #  )
-    #)
-    # reassigning NULL to cc for allow garbage collecting
-    #cc <- NULL
-    #TODO: Using parallel package to calculate alerts on all available cores
-    #  cl <- parallel::makePSOCKcluster(as.numeric(conf$spark_cores), outfile="")
-    #  conf <- conf
+    cores <- as.numeric(conf$spark_cores)
+    cl <- parallel::makePSOCKcluster(cores, outfile="")
+    data_dir <- conf$data_dir
     topics <- unique(lapply(conf$topics, function(t) t$topic))
-    #  parallel::clusterExport(cl, list("conf", "topics", "regions", "alert_to", "calculate_regions_alerts", "get_country_items", "get_country_items", "calculate_alerts"), envir=environment())
-    #  alerts <- parallel::parLapply(cl, topics, function(topic) {
+    parallel::clusterExport(cl, 
+      list(
+        "setup_config",
+        "data_dir", 
+        "topics", 
+        "regions", 
+        "alert_to", 
+        "get_country_items", 
+        "update_alerts_task",
+        "cores",
+        "tasks",
+        "get_topics_alphas",
+        "get_topics_alpha_outliers",
+        "get_topics_k_decays",
+        "setup_config"
+      )
+      , envir=rlang::current_env()
+    )
     
     # calculating alerts per topic
-    alerts <- lapply(topics, function(topic) {
-      m <- paste("Getting alerts for",topic, alert_to) 
-      message(m)  
-      tasks <- update_alerts_task(tasks, "running", m , start = TRUE)
+    #alerts <- lapply(topics, function(topic) {
+    alerts <- parallel::parLapply(cl, 1:length(topics), function(i) {
+      topic == topics[[i]]
+      setup_config(data_dir)
+      m <- paste("Getting alerts for",topic, alert_to, (Sys.time())) 
+      message(m) 
+      if(i %% cores == 0) {
+        tasks <- update_alerts_task(tasks, "running", m , start = TRUE)
+      }
       calculate_regions_alerts(
         topic = topic,
         regions = 1:length(regions), 
@@ -458,7 +467,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
       dplyr::mutate(topic = topic) %>% 
       dplyr::filter(!is.na(.data$alert) & .data$alert == 1)
     })
-    #  parallel::stopCluster(cl)
+    parallel::stopCluster(cl)
     
     # Joining all day alerts on a single dataframe
     alerts <- Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})

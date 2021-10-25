@@ -45,30 +45,56 @@ get_scala_recalc_hash_url <- function() {
 
 #' @export 
 fs_loop <-  function(data_dir = NA) {
-  # Setting or reusing the data directory
-  if(is.na(data_dir) )
-    setup_config_if_not_already()
-  else
-    setup_config(data_dir = data_dir)
+  if(is.na(data_dir))
+    data_dir = conf$data_dir
+  cl <- parallel::makePSOCKcluster(2, outfile="")
+  parallel::clusterExport(cl, 
+    list(
+      "data_dir", 
+      "setup_config",
+      "health_check"
+    )
+    , envir=rlang::current_env()
+  )
+  
+  # calculating alerts per topic
+  parallel::parLapply(cl, 1:2, function(i) {
+    if(i == 1) {
+      message("Launching fs")
+      # Setting or reusing the data directory
+      setup_config(data_dir = data_dir)
  
 
-  # Registering the fs runner using current PID and ensuring no other instance of the search is actually running.
-  register_fs_runner()
-  
-  # Infinite loop calling the fs runner
-  while(TRUE) {
-    tryCatch({
-      spark_job(
-        paste(
-	        "fsService"
-          , "epiHome" , conf$data_dir
-        )
-      )
-    }, error = function(e) {
-      message(paste("The epitweetr scala API was stopped with the following error", e, "launching it again within 5 seconds", sep = "\n"))
-      Sys.sleep(5)
-    })
-  }
+      # Registering the fs runner using current PID and ensuring no other instance of the search is actually running.
+      register_fs_runner()
+      
+      # Infinite loop calling the fs runner
+      while(TRUE) {
+        tryCatch({
+          spark_job(
+            paste(
+	            "fsService"
+              , "epiHome" , conf$data_dir
+            )
+          )
+        }, error = function(e) {
+          message(paste("The epitweetr scala API was stopped with the following error", e, "launching it again within 5 seconds", sep = "\n"))
+          Sys.sleep(5)
+        })
+      }
+      i
+    } else {
+      message("Monitoring epitweetr") 
+      setup_config(data_dir = data_dir)
+      while(TRUE) {
+        health_check()
+        Sys.sleep(60)
+      }
+      i
+    }
+  })
+  parallel::stopCluster(cl)
+
 }
 
 #' @export

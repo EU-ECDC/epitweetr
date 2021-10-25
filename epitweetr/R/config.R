@@ -122,6 +122,8 @@ get_empty_config <- function(data_dir) {
   ret$fs_batch_timeout <- 60*60 
   ret$fs_query_timeout <- 60
   ret$admin_email <- ""
+  ret$dismiss_past_request <- "1971-01-01 00:00:00"
+  ret$dismiss_past_done <- "2000-01-01 00:00:00"
   return(ret)
 }
 
@@ -252,6 +254,7 @@ setup_config <- function(
     conf$fs_batch_timeout <- temp$fs_batch_timeout
     conf$fs_query_timeout <- temp$fs_query_timeout
     conf$admin_email <- temp$admin_email
+    conf$dismiss_past_request <- temp$dismiss_past_request
 
   }
   if(!ignore_topics && exists("topics", where = paths)){
@@ -326,6 +329,7 @@ setup_config <- function(
     #Loading topic related infomation on config file 
     conf$topics_md5 <- temp$topics_md5 
     conf$topics <- temp$topics
+    conf$dismiss_past_done <- temp$dismiss_past_done
     copy_plans_from(temp)  
   } 
   #Getting variables stored on keyring
@@ -446,6 +450,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$fs_batch_timeout <- conf$fs_batch_timeout
     temp$fs_query_timeout <- conf$fs_query_timeout
     temp$admin_email <- conf$admin_email
+    temp$dismiss_past_request <- conf$dismiss_past_request
     # writing the json file
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
@@ -454,6 +459,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp <- list()
     temp$topics <- conf$topics
     temp$topics_md5 <- conf$topics_md5
+    temp$dismiss_past_done <- conf$dismiss_past_done
     # Transforming Int64 to string to ensure not loosing precision on read
     for(i in 1:length(conf$topics)) {         
       for(j in 1:length(conf$topics[[i]]$plan)) {

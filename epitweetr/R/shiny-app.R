@@ -377,10 +377,14 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Topics"),
           shiny::fluidRow(
-            shiny::column(4, shiny::h5("Available topics")),
+            shiny::column(3, shiny::h5("Available topics")),
             shiny::column(2, shiny::downloadButton("conf_topics_download", "Download")),
             shiny::column(2, shiny::downloadButton("conf_orig_topics_download", "Download default")),
-            shiny::column(4, shiny::fileInput("conf_topics_upload", label = NULL, buttonLabel = "Upload")),
+            shiny::column(3, shiny::fileInput("conf_topics_upload", label = NULL, buttonLabel = "Upload")),
+            shiny::column(2, shiny::actionButton("conf_dismiss_past_tweets", "Dismiss past tweets"))
+          ),
+          shiny::fluidRow(
+            shiny::column(4, shiny::h5("Limit topic history"))
           ),
           DT::dataTableOutput("config_topics"),
           ################################################
@@ -1345,6 +1349,14 @@ epitweetr_app <- function(data_dir = NA) {
         refresh_config_data(e = cd, limit = list("topics"))
       }
     }) 
+    # action to dismiss past tweets
+    shiny::observeEvent(input$conf_dismiss_past_tweets, {
+      # Setting values on the configuration so the search loop knows history needs to be dismissed
+      conf$dismiss_past_request <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # saving configuration so the Requirements & alerts pipeline will see the changes
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      # refreshing the tasks data
+    })
 
     ######### SUBSCRIBERS LOGIC ##################
     # rendering subscribers (first run update on next statement)

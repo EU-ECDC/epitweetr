@@ -43,6 +43,14 @@ search_loop <-  function(data_dir = NA) {
       message("Epitweetr Database is not yet running waiting for 5 seconds")
       Sys.sleep(5)
     }
+    # Dismissing history if reqquired from shiny app
+    if(conf$dismiss_past_request  > conf$dismiss_past_done) {
+      message("dismiss history requested")
+      for(i in 1:length(conf$topics)) {
+        conf$topics[[i]]$plan <- finish_plans(plans = conf$topics[[i]]$plan)
+      }
+      conf$dismiss_past_done <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+    }
     # On each iteration this loop will perform one request for each active plans having the minimum number of requests 
     # Creating plans for each topic if collect span is expired and calculating next execution time for each plan.
     for(i in 1:length(conf$topics)) {
@@ -54,6 +62,7 @@ search_loop <-  function(data_dir = NA) {
     wait_for <- min(unlist(lapply(1:length(conf$topics), function(i) can_wait_for(plans = conf$topics[[i]]$plan))) )
     if(wait_for > 0) {
       message(paste(Sys.time(), ": All done! going to sleep for until", Sys.time() + wait_for, "during", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
+      commit_tweets()
       Sys.sleep(wait_for)
     }
     #getting only the next plan to execute for each topic (it could be a previous unfinished plan)
@@ -85,15 +94,17 @@ search_loop <-  function(data_dir = NA) {
             )
           req2Commit <- req2Commit + 1
           if(req2Commit > 100) {
-            Sys.sleep(5) #TODO:Implement a better way to wait until all aggregations are done
             commit_tweets()
             req2Commit <- 0
           }
         }
       }
     }
+    # epitweetr sanity check and sendig emain in case of issued
+    health_check()
     #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config)
     setup_config(data_dir = conf$data_dir, save_first = list("topics"))
+
   }
 }
 
@@ -428,6 +439,28 @@ next_plan <- function(plans) {
      return(NULL)
   } else {
     return(non_ended[[1]])
+  }
+}
+
+finish_plans <- function(plans = list()) {
+  # Testing if there are plans present
+  if(length(plans) == 0) {
+     list()
+  } else {
+    # creating a new plan if expected end has passed 
+    lapply(plans, function(p) {  
+      get_plan(
+        expected_end = strftime(p$expected_end, "%Y-%m-%d %H:%M:%S")
+        , scheduled_for = strftime(p$scheduled_for, "%Y-%m-%d %H:%M:%S")
+        , start_on = strftime(p$start_on, "%Y-%m-%d %H:%M:%S")
+        , end_on = strftime(if(is.null(p$end_on)) Sys.time() - conf$schedule_span*60 else p$end_on, "%Y-%m-%d %H:%M:%S")
+        , max_id = p$max_id
+        , since_id = p$since_target
+        , since_target = p$since_target
+        , requests = p$requests
+        , progress = 1.0
+        ) 
+    })
   }
 }
 
