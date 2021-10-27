@@ -448,25 +448,28 @@ object LuceneActor {
   }
 
   def commit(closeDirectory:Boolean= true)(implicit holder:IndexHolder)  {
+    val now = System.nanoTime
     holder.dirs.synchronized {
-      var now:Option[Long] = None 
       holder.dirs.foreach{ case (key, path) =>
-          now = now.orElse(Some(System.nanoTime))
           val i = holder.indexes(key)
           if(i.writeEnabled && i.writer.get.isOpen) {
             i.writer.get.commit()
-            i.writer.get.close()
+            if(closeDirectory)
+              i.writer.get.close()
           }
-          i.reader.close()
           if(closeDirectory) {
+            i.reader.close()
             i.index.close()
           }
         case _ =>
       }
-      holder.indexes.clear
-      holder.dirs.clear
-      now.map(n => l.msg(s"commit done on ${(System.nanoTime - n) / 1000000000} secs"))
+      if(closeDirectory) {
+        holder.indexes.clear
+        holder.dirs.clear
+      }
     }
+    if(closeDirectory)
+      l.msg(s"commit done on ${(System.nanoTime - now) / 1000000000} secs")
   }
   def closeSparkSession()(implicit holder:IndexHolder) = {
     holder.spark match{
@@ -650,9 +653,9 @@ object LuceneActor {
       holder.toGeolocate match {
         case Some(df) => holder.toGeolocate
         case None => 
-          val par =  conf.sparkCores.get
+          val par =  50//conf.sparkCores.get
           Some(
-            spark.sparkContext.parallelize(Seq.range(0, par))
+            spark.sparkContext.parallelize(Seq.range(0, par)).repartition(par).unpersist()
               .mapPartitions{iter => iter.flatMap{ i =>
                 val st = conf.getSparkStorage
                 val geoNode = st.getNode(conf.geolocatingPath)
@@ -730,6 +733,7 @@ object LuceneActor {
     val midTime = System.nanoTime
     val numGeo = holder.toGeolocate.get.unpersist.collect.sum
     val endTime = System.nanoTime
+    LuceneActor.commit(closeDirectory = false)
     l.msg(s"${(endTime - midTime)/1e9d} secs for geolocating ${numGeo} tweets")
   }
 
@@ -837,6 +841,7 @@ object LuceneActor {
             }
           }.get
     val numAggr = ds.collect.sum 
+    LuceneActor.commit(closeDirectory = false)(holder)
     l.msg(s"${(System.nanoTime - startTime)/1e9d} secs for aggregating ${numAggr} tweets in ${collection.name}")
   }
 

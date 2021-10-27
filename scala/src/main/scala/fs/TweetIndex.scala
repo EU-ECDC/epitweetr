@@ -419,7 +419,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
             val (res, ret) = Iterator.range(0, 3).map{iTry =>
               Try{
                 if(iTry > 0) {
-                  l.msg("Retrying failed search")
+                  l.msg(s"Retrying failed search $query on ${this.index.getDirectory}")
                   searcher = Some(this.useSearcher()) 
                 }
                 val r = search(query = q, after = after, sort = sort)(searcher.get)

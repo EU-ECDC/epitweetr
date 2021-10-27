@@ -476,7 +476,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
       # Adding top words
       m <- paste("Adding topwords") 
       message(m)  
-      tasks <- update_alerts_task(tasks, "running", m , start = TRUE)
+      tasks <- update_alerts_task(tasks, "running", m)
       codeMap <- get_country_codes_by_name()
       ts <- unique(alerts$topic)
       topwords <- get_aggregates("topwords", filter = list(topic = ts , period = c(alert_to, alert_to)))
@@ -527,8 +527,13 @@ do_next_alerts <- function(tasks = get_tasks()) {
         )
       if(length(unique(get_alert_training_df()$epitweetr_category))>1) {
         # Adding tweets to alerts
-        message("adding top tweets")
+        m <- paste("Adding toptweets") 
+        message(m)  
+        tasks <- update_alerts_task(tasks, "running", m)
         alerts <- add_toptweets(alerts, 10)
+        m <- paste("Classifying alerts toptweets") 
+        message(m)  
+        tasks <- update_alerts_task(tasks, "running", m)
         alerts <- classify_alerts(alerts, retrain = FALSE)
         # Removind top tweets
         alerts$toptweets <- NULL
