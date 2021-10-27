@@ -36,6 +36,7 @@ import spray.json.JsonParser
 import scala.collection.parallel.ForkJoinTaskSupport
 import java.util.concurrent.ForkJoinPool
 
+
 class LuceneActor(conf:Settings) extends Actor with ActorLogging {
   implicit val executionContext = context.system.dispatchers.lookup("lucene-dispatcher")
   implicit val cnf = conf

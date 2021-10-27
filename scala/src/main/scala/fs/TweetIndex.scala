@@ -20,13 +20,13 @@ import scala.collection.mutable.HashMap
 import org.ecdc.epitweetr.geo.Geonames.Geolocate
 import org.apache.spark.sql.{Row}
 import org.apache.spark.sql.types.{StructField, StringType, IntegerType, FloatType, BooleanType, LongType, DoubleType}
+import demy.util.{log => l}
 
 object QuerySort {
   val index =  Sort.INDEXORDER
   val relevance = Sort.RELEVANCE
   val creationDateHour = new Sort(Seq(new SortField("created_at", SortField.Type.STRING, true), new SortField("created_hour", SortField.Type.INT, true)):_*)
 }
-
 
 object TweetIndex {
   def apply(indexPath:String, writeEnabled:Boolean=false):TweetIndex = {
@@ -90,8 +90,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
         }
         catch {
           case e:org.apache.lucene.store.AlreadyClosedException =>
-            println("reader already closed")
-            Thread.dumpStack()
+            //println("reader already closed")
+            //Thread.dumpStack()
         }
       }
     }
@@ -416,8 +416,26 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
               searcher = Some(this.useSearcher()) 
               first = false
             }
-            val res = search(query = q, after = after, sort = sort)(searcher.get)
-            val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
+            val (res, ret) = Iterator.range(0, 3).map{iTry =>
+              Try{
+                if(iTry > 0) {
+                  l.msg("Retrying failed search")
+                  searcher = Some(this.useSearcher()) 
+                }
+                val r = search(query = q, after = after, sort = sort)(searcher.get)
+                val t = r.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
+                (r, t)
+              } match {
+                case Success(p) => Some(p)
+                case Failure(f) => 
+                  if(iTry >=2) {
+                    l.msg("Too many retries of tweet search")
+                    throw f
+                  }
+                  None
+              }
+            }.flatMap(e => e)
+             .next
             val count = if(doCount) res.totalHits.value else 0L
             if(res.scoreDocs.size > 0) {
               after = Some(res.scoreDocs.last)
@@ -493,7 +511,14 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     this.synchronized {
       //println(s"decreasing ${this.index.getDirectory} from release Sercher")
       //Thread.dumpStack()
-      searcher.getIndexReader.decRef()
+        try {
+          searcher.getIndexReader.decRef()
+        }
+        catch {
+          case e:org.apache.lucene.store.AlreadyClosedException =>
+            //println("reader already closed")
+            //Thread.dumpStack()
+        }
     }
   }
   def deleteDoc(doc:Document, pkName:String){
