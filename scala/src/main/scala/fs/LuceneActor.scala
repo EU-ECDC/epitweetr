@@ -62,7 +62,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         LuceneActor.add2Geolocate(TopicTweetsV1(topic, ts), conf.forcedGeo.map(_.items), conf.forcedGeoCodes.map(_.items), conf.topicKeyWords.map(_.items(topic)))  
       }.onComplete {
         case Success(_) =>
-        case Failure(t) => println("Error during geolocalisation: " + t.getMessage)
+        case Failure(t) => l.msg("Error during geolocalisation: " + t.getMessage)
       }
     case LuceneActor.GeolocatedTweetsCreated(GeolocatedTweets(items), dates) =>
       implicit val holder = LuceneActor.holder
@@ -99,7 +99,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         EpitweetrActor.Success(s"$c Commit done processed")
       }
       .pipeTo(sender())
-    case LuceneActor.SearchRequest(query, topics, from, to, countryCodes, mentions, users, estimatecount, hideUsers, action, max, jsonnl, caller) => 
+    case LuceneActor.SearchRequest(query, topics, from, to, countryCodes, mentions, users, estimatecount, hideUsers, action, max, byRelevance, jsonnl, caller) => 
 
       implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
       implicit val holder = LuceneActor.holder 
@@ -147,7 +147,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             }
             qb.add(TermRangeQuery.newStringRange("created_date", from.map(d => d.toString.take(10)).getOrElse("0"), to.map(d => d.toString.take(10)).getOrElse("9"), true, true), Occur.MUST)
             val q = qb.build
-            val tweets = i.searchTweets(qb.build, Some(left), doCount = estimatecount).toSeq
+            val tweets = i.searchTweets(qb.build, Some(left), doCount = estimatecount, if(byRelevance) QuerySort.relevance else QuerySort.index).toSeq
             left = left - tweets.size
             if(left < 0)
               tweets.take(tweets.size + left).map(p => (p, i))
@@ -228,7 +228,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
               filters.foreach{case(field, value) => qb.add(new TermQuery(new Term(field, value)), Occur.MUST)}
               var first = true
-              i.searchTweets(qb.build, doCount = false)
+              i.searchTweets(qb.build, doCount = false, sort = QuerySort.index)
                 .map{case (doc, totalCount) => EpiSerialisation.luceneDocFormat.write(doc)}
                 .foreach{line =>
                   if(first == true) {
@@ -264,128 +264,25 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           caller ! ByteString(s"[Stream--error]: ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
       }
-    /*case LuceneActor.AggregationRequest(query, from, to, columns, groupBy, filterBy, sortBy, sourceExpressions, jsonnl, caller) =>
-      implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
-      implicit val holder = LuceneActor.readHolder
-      val spark = LuceneActor.getSparkSession()
-      import spark.implicits._
-      val sc = spark.sparkContext
-      Future {
-        val keys = LuceneActor.getReadKeys("tweets", from, to).toSeq
-
-        //adding internal partition until we reach the expected level of parallelism
-        val nParts = conf.sparkCores.get * 2
-        val indexHashes:Seq[(Seq[String], Seq[Option[String]])] = if(keys.size > nParts) { //making sure that we will have enough partitions to satisfy the parallelism level
-          keys.map(k => (Seq(k), Seq(None.asInstanceOf[Option[String]])))
-        } else {
-          val prefixLength =  Math.ceil(Math.log10(nParts)).toInt 
-          val max = Math.pow(10, prefixLength).toInt
-          Range(0, max).map(i => (i % nParts, i)).groupBy(_._1).values.toSeq.map(s => (keys, s.map(i => Some(s"%0${prefixLength}d".format(i._2)))))
-        }
-        println(s"keys $from, $to : ${keys.toArray.mkString(",")}")
-        val epiHome = conf.epiHome
-        val rdd = sc.parallelize(indexHashes.toSeq)
-          .repartition(conf.sparkCores.get)
-          .mapPartitions{iter => 
-            implicit val holder = LuceneActor.readHolder
-            implicit val cnf = Settings(epiHome)
-            cnf.load()
-            var lastKey = ""
-            var index:TweetIndex=null 
-            (for((keys, hashes) <- iter; key <- keys) yield {  
-              if(lastKey != key)
-                index = LuceneActor.getIndex("tweets", key)
-              val qb = new BooleanQuery.Builder()
-              query.map{q => 
-                qb.add(index.parseQuery(q), Occur.MUST)
-              }
-              qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
-              if(!hashes.flatMap(o => o).isEmpty) {
-                val hQuery = new BooleanQuery.Builder()
-                hashes.flatMap(o => o).foreach(hash => hQuery.add(new PrefixQuery(new Term("hash", hash)), Occur.SHOULD))
-                qb.add(hQuery.build, Occur.MUST)
-              }
-              index.searchTweets(qb.build)
-                .map(doc => EpiSerialisation.luceneDocFormat.write(doc).toString)
-            }).flatMap(docs => docs)
-
-          }
-
-        if(!jsonnl) { 
-          Await.result(caller ?  ByteString("[", ByteString.UTF_8), Duration.Inf)
-        }
-
-        Some(spark.read.schema(schemas.geoLocatedTweetSchema).json(rdd))
-          .map(df => df.where(col("lang").isin(conf.languages.get.map(_.code):_*)))
-          .map{
-            case df if(sourceExpressions.size > 0) => 
-              df.select(sourceExpressions.map(s => expr(s) ):_*)
-            case df => df
-          }
-          .map{
-            case df if(filterBy.size > 0) => 
-              df.where(filterBy.map(w => expr(w)).reduce(_ && _))
-            case df => df
-          }
-          .map{
-            case df if(groupBy.size == 0) => 
-              df.select(columns.map(c => expr(c)):_*) 
-            case df => 
-              df.groupBy(groupBy.map(gb => expr(gb)):_*)
-                .agg(expr(columns.head), columns.drop(1).map(c => expr(c)):_*)
-          }
-          .map{
-            case df if(sortBy.size == 0) => 
-              df 
-            case df =>
-              df.orderBy(sortBy.map(ob => expr(ob)):_*)
-          }
-          .map{df =>
-            df.mapPartitions{iter => 
-              implicit val holder = LuceneActor.writeHolder
-              implicit val cnf = Settings(epiHome)
-              cnf.load()
-              var lastKey = ""
-              var index:TweetIndex=null 
-              (for(row <- iter) yield {
-                val pks = Seq("topic", "created_date", "created_hour")
-                val collection = "country_counts"
-                val key =  Instant.parse(s"${row.getAs[String]("created_date")}T00:00:00.000Z")
-                if(lastKey != key)
-                  index = LuceneActor.getIndex(collection, key)
-                index.indexSparkRow(row = row, pk = pks)
-                1
-              })
-            }.as[Int].reduce(_ + _)
-          }
-          .map(v => 
-            Await.result(caller ? ByteString(v.toString, ByteString.UTF_8), Duration.Inf)
-          ) 
-        if(!jsonnl) { 
-          Await.result(caller ?  ByteString("]", ByteString.UTF_8), Duration.Inf)
-        }
-        caller ! Done
-      }.recover {
-        case e: Exception => 
-          caller ! ByteString(s"[Stream--error]: ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
-      }*/
     case LuceneActor.PeriodRequest(collection) =>
       implicit val holder = LuceneActor.holder
       Future{
         val sPath = Paths.get(conf.fsRoot, collection)
         if(!Files.exists(sPath))
-          LuceneActor.PeriodResponse(None, None)
+          LuceneActor.PeriodResponse(None, None, None)
         else {
           val keys = Files.list(sPath).iterator.asScala.toSeq.map(p => p.getFileName.toString)
+          val maxkey = keys.max
+          var lastHour = None.asInstanceOf[Option[Int]]
           val dates = Seq(keys.min, keys.max)
             .distinct
             .flatMap(key => 
               Try (LuceneActor.getIndex(collection, key)) match {
-                case Success(i) => Some(i)
+                case Success(i) => Some((i, key))
                 case _ => None
               }
             )
-            .flatMap{index =>
+            .flatMap{case (index, key) =>
               val aDates = ArrayBuffer[String]()
               val searcher = index.useSearcher()
               val dateIter =  new LuceneDictionary(searcher.getIndexReader, "created_date").getEntryIterator()
@@ -395,12 +292,35 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
                 date = dateIter.next
               }
               index.releaseSearcher(searcher)
-              aDates.filter(d => d.contains("-")) //this filter is to prevent tokenized forms of dates to be returned 
+              val retdates = aDates.filter(d => d.contains("-"))
+              lastHour = (
+                if(collection == "country_counts" && key == maxkey) { //finding out what is the last aggregated hour
+                  Iterator.range(23, -1, -1)
+                    .map(i => s"0$i".takeRight(2))
+                    .map(hour => 
+                      index.parseAndSearchTweets(
+                        query = "created_date:[\""+aDates.last+"\" TO \""+aDates.last+"\"] AND created_hour:'"+hour+"'", 
+                        max = Some(1), 
+                        sort = QuerySort.index
+                      ).size match {
+                        case 0 => None 
+                        case _ => Some(hour)
+                      }
+                    )
+                    .flatMap(e => e)
+                    .toSeq
+                    .headOption
+                    .map(_.toInt)
+                } else {
+                  None
+                }
+              )
+              retdates
             }
           if(dates.size> 0)
-            LuceneActor.PeriodResponse(Some(dates.min), Some(dates.max))
+            LuceneActor.PeriodResponse(Some(dates.min), Some(dates.max), lastHour)
           else
-            LuceneActor.PeriodResponse(None, None)
+            LuceneActor.PeriodResponse(None, None, None)
         }
       }
       .pipeTo(sender())
@@ -447,6 +367,7 @@ object LuceneActor {
     hideUsers:Boolean,
     action:Option[String],
     max:Int, 
+    byRelevance:Boolean, 
     jsonnl:Boolean, 
     caller:ActorRef
   )
@@ -465,7 +386,7 @@ object LuceneActor {
     caller:ActorRef 
   )
   case class PeriodRequest(collection:String)
-  case class PeriodResponse(first:Option[String], last:Option[String])
+  case class PeriodResponse(first:Option[String], last:Option[String], last_hour:Option[Int])
   case class RecalculateHashRequest()
   def getHolder(writeEnabled:Boolean) = IndexHolder(writeEnabled = writeEnabled)
   def commitRequest()(implicit holder:IndexHolder, ec:ExecutionContext) {
@@ -508,15 +429,15 @@ object LuceneActor {
             holder.commiting = false
           }.onComplete {
               case Success(_) => 
-                println("Commit request finished successfully")
+                l.msg("Commit request finished successfully")
               case Failure(f) => 
-                println(s"Commit request failed with ${f.getMessage} \n ${f.getStackTrace.mkString("\n")} ")
+                l.msg(s"Commit request failed with ${f.getMessage} \n ${f.getStackTrace.mkString("\n")} ")
           }
         }
       }
       thread.start
     } else {
-      println("Commit request dismissed since already requesteed")
+      l.msg("Commit request dismissed since already requesteed")
     }
     Future("In progress")
   }
@@ -543,7 +464,7 @@ object LuceneActor {
       }
       holder.indexes.clear
       holder.dirs.clear
-      now.map(n => println(s"commit done on ${(System.nanoTime - n) / 1000000000} secs"))
+      now.map(n => l.msg(s"commit done on ${(System.nanoTime - n) / 1000000000} secs"))
     }
   }
   def closeSparkSession()(implicit holder:IndexHolder) = {
@@ -653,7 +574,7 @@ object LuceneActor {
     }.onComplete{
        case scala.util.Success(_) =>
        case scala.util.Failure(t) =>
-         println(s"Error during geolocalisation: Retrying on next request ${t.getMessage} ${t.getStackTrace.mkString("\n")}" )
+         l.msg(s"Error during geolocalisation: Retrying on next request ${t.getMessage} ${t.getStackTrace.mkString("\n")}" )
          holder.geolocating = false
     }
   }
@@ -699,7 +620,7 @@ object LuceneActor {
        case scala.util.Success(_) => 
        case scala.util.Failure(t) =>
          holder.toAggregate.synchronized { 
-           println(s"Error during aggregating: Retrying on next request ${t.getMessage} ${t.getStackTrace.mkString("\n")} ")
+           l.msg(s"Error during aggregating: Retrying on next request ${t.getMessage} ${t.getStackTrace.mkString("\n")} ")
            holder.aggregating = false
        }
     }
@@ -735,9 +656,9 @@ object LuceneActor {
                 val st = conf.getSparkStorage
                 val geoNode = st.getNode(conf.geolocatingPath)
                 val tweets  = if(geoNode.exists) {
-                  geoNode.getContentAsString.split("\n").map(json => EpiSerialisation.topicTweetsFormat.read(JsonParser(json))).toSeq
+                  geoNode.getContentAsLines.map(json => EpiSerialisation.topicTweetsFormat.read(JsonParser(json)))
                 } else {
-                  Seq[TopicTweetsV1]()
+                  Iterator[TopicTweetsV1]()
                 }
                 val r = tweets.flatMap{case TopicTweetsV1(topic, ts) => ts.items.filter(t => t.tweet_id % par == i).map(t => (topic, t))}
                 r
@@ -808,7 +729,7 @@ object LuceneActor {
     val midTime = System.nanoTime
     val numGeo = holder.toGeolocate.get.unpersist.collect.sum
     val endTime = System.nanoTime
-    println(s"${(endTime - midTime)/1e9d} secs for geolocating ${numGeo} tweets")
+    l.msg(s"${(endTime - midTime)/1e9d} secs for geolocating ${numGeo} tweets")
   }
 
 
@@ -837,16 +758,14 @@ object LuceneActor {
                val st = conf.getSparkStorage
                val aggrNode = st.getNode(conf.aggregatingPath)
                val tweets  = if(aggrNode.exists) {
-                 aggrNode.getContentAsString.split("\n").map(json => EpiSerialisation.topicTweetsFormat.read(JsonParser(json))).toSeq
+                 aggrNode.getContentAsLines.map(json => EpiSerialisation.topicTweetsFormat.read(JsonParser(json)))
                } else {
-                 Seq[TopicTweetsV1]()
+                 Iterator[TopicTweetsV1]()
                }
-               val sorted = (tweets
+               tweets
                  .flatMap{case TopicTweetsV1(topic, tts) => tts.items.filter(t => t.tweet_id % par == i).map(t => (topic, t))}
                  .map{case (topic, t) => (topic, t.tweet_id, LuceneActor.getIndexKey(collection.name, t.created_at))}
-                 .sortWith(_._3 < _._3)
-               )
-               sorted
+               
             }}
           )
           .map{rdd =>
@@ -864,7 +783,7 @@ object LuceneActor {
                 index.searchTweet(id, topic) match {
                   case Some(s) => Some(s)
                   case _ => 
-                    println(s"Cannot find tweet to aggregate $key, $id, $topic")
+                    l.msg(s"Cannot find tweet to aggregate $key, $id, $topic")
                     None
                 }
               }).flatMap(ot => ot)
@@ -917,7 +836,7 @@ object LuceneActor {
             }
           }.get
     val numAggr = ds.collect.sum 
-    println(s"${(System.nanoTime - startTime)/1e9d} secs for aggregating ${numAggr} tweets in ${collection.name}")
+    l.msg(s"${(System.nanoTime - startTime)/1e9d} secs for aggregating ${numAggr} tweets in ${collection.name}")
   }
 
   def recalculateHash()(implicit holder:IndexHolder, conf:Settings, ec:ExecutionContext){
@@ -929,7 +848,7 @@ object LuceneActor {
            val pkName = col.pks.mkString("_")
            val ind  = LuceneActor.getReadIndexes(collection = col.name, from = None, to = None)
            ind.foreach{i => 
-             i.searchTweets(new org.apache.lucene.search.MatchAllDocsQuery(), max = None, doCount = false)
+             i.searchTweets(new org.apache.lucene.search.MatchAllDocsQuery(), max = None, doCount = false, sort = QuerySort.index)
                .foreach{ case (doc, totalHits) =>
                   i.updateHash(doc = doc, pkName = pkName) 
                }

@@ -4,7 +4,7 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.analysis.custom.CustomAnalyzer
 import org.apache.lucene.search.{IndexSearcher, Query, TermQuery, TermRangeQuery}
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.{ScoreDoc, Sort}
+import org.apache.lucene.search.{ScoreDoc, Sort, SortField}
 import org.apache.lucene.util.BytesRef
 import java.nio.file.{Files, Paths, Path}
 import org.apache.lucene.store.{ FSDirectory, MMapDirectory}
@@ -20,6 +20,13 @@ import scala.collection.mutable.HashMap
 import org.ecdc.epitweetr.geo.Geonames.Geolocate
 import org.apache.spark.sql.{Row}
 import org.apache.spark.sql.types.{StructField, StringType, IntegerType, FloatType, BooleanType, LongType, DoubleType}
+
+object QuerySort {
+  val index =  Sort.INDEXORDER
+  val relevance = Sort.RELEVANCE
+  val creationDateHour = new Sort(Seq(new SortField("created_at", SortField.Type.STRING, true), new SortField("created_hour", SortField.Type.INT, true)):_*)
+}
+
 
 object TweetIndex {
   def apply(indexPath:String, writeEnabled:Boolean=false):TweetIndex = {
@@ -57,7 +64,6 @@ object TweetIndex {
   }
 }
 
-
 case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var searcher:IndexSearcher, index:FSDirectory, writeEnabled:Boolean){
   def isOpen = {
     if(writeEnabled)
@@ -79,12 +85,13 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
         this.searcher = new IndexSearcher(this.reader)
       } 
       finally {
-        try { 
+        try {
           oldReader.decRef() 
         }
         catch {
           case e:org.apache.lucene.store.AlreadyClosedException =>
             println("reader already closed")
+            Thread.dumpStack()
         }
       }
     }
@@ -246,7 +253,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   def searchTweetV1(id:Long, topic:String) = {
     implicit val searcher = this.useSearcher()
     Try{
-      val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
+      val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1, sort = QuerySort.index)
       val doc = if(res.scoreDocs.size == 0) {
         None
       } else {
@@ -268,7 +275,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   def searchTweet(id:Long, topic:String) = {
     implicit val searcher = this.useSearcher()
     Try{
-      val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1)
+      val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1, sort = QuerySort.index)
       val doc = if(res.scoreDocs.size == 0) {
         searchTweetV1(id, topic)
         None
@@ -306,7 +313,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
         }
       }
 
-      val res = search(qb.build, maxHits = 1)
+      val res = search(qb.build, maxHits = 1, sort = QuerySort.index)
       if(res.scoreDocs.size == 0) {
           None
       } else {
@@ -379,49 +386,27 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
         throw new Exception(s"Query is from an unmanaged query type: ${q.getClass}")
     }
   }
-  def search(query:String)(implicit searcher:IndexSearcher):TopDocs  = {
-    search(query, 100, None) 
+
+  def parseAndSearch(query:String, maxHits:Int = 100, after:Option[ScoreDoc] = None, sort:Sort)(implicit searcher:IndexSearcher):TopDocs  = {
+    search(query = parseQuery(query), maxHits = maxHits, after = after, sort = sort) 
   }
-  def search(query:String, maxHits:Int)(implicit searcher:IndexSearcher):TopDocs  = {
-    search(query, maxHits, None) 
-  }
-  def search(query:String, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
-    search(query, 100, after) 
-  }
-  def search(query:String, maxHits:Int, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
-    search(parseQuery(query), maxHits, after) 
-  }
-  def search(query:Query)(implicit searcher:IndexSearcher):TopDocs  = {
-    search(query, 100, None) 
-  }
-  def search(query:Query, maxHits:Int)(implicit searcher:IndexSearcher):TopDocs  = {
-    search(query, maxHits, None) 
-  }
-  def search(query:Query, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
-    search(query, 100, after) 
-  }
-  def search(query:Query, maxHits:Int, after:Option[ScoreDoc])(implicit searcher:IndexSearcher):TopDocs  = {
+  def search(query:Query, maxHits:Int= 100, after:Option[ScoreDoc]= None, sort:Sort)(implicit searcher:IndexSearcher):TopDocs  = {
     val docs = after match {
-      case Some(last) => searcher.searchAfter(last, query, maxHits, Sort.INDEXORDER, false)
-      case None => searcher.search(query, maxHits, Sort.INDEXORDER, false)
+      case Some(last) => searcher.searchAfter(last, query, maxHits, sort, false)
+      case None => searcher.search(query, maxHits, sort, false)
     }
     docs
-  } 
-  def searchTweets(query:String, max:Option[Int], doCount:Boolean):Iterator[(Document, Long)]  = {
-    searchTweets(parseQuery(query), max, doCount = doCount)
   }
-  def searchTweets(query:String, doCount:Boolean):Iterator[(Document, Long)]  = {
-    searchTweets(parseQuery(query), max = None, doCount = doCount)
+  def parseAndSearchTweets(query:String, max:Option[Int] = None, doCount:Boolean=false, sort:Sort=QuerySort.index):Iterator[(Document, Long)]  = {
+    searchTweets(parseQuery(query), max = max, doCount = doCount, sort = sort)
   }
-  def searchTweets(query:Query, doCount:Boolean):Iterator[(Document, Long)]  = {
-    searchTweets(query, None, doCount = doCount)
-  }
-  def searchTweets(query:Query, max:Option[Int], doCount:Boolean):Iterator[(Document, Long)]  = {
+  def searchTweets(query:Query, max:Option[Int] = None, doCount:Boolean=false, sort:Sort=QuerySort.index):Iterator[(Document, Long)]  = {
    Seq(query)
       .flatMap{q => 
         var after:Option[ScoreDoc] = None
         var left = max
         var first = true
+        var last = false
         var searcher:Option[IndexSearcher]=None
         Iterator.continually{
           if(left.map(l => l == 0).getOrElse(false))
@@ -431,15 +416,16 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
               searcher = Some(this.useSearcher()) 
               first = false
             }
-            val res = search(query = q, after = after)(searcher.get)
+            val res = search(query = q, after = after, sort = sort)(searcher.get)
             val ret = res.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
             val count = if(doCount) res.totalHits.value else 0L
             if(res.scoreDocs.size > 0) {
               after = Some(res.scoreDocs.last)
               left  = left.map(l => l -  res.scoreDocs.size)
             }
-            if(res.scoreDocs.size == 0 || left.map(l => l <= 0).getOrElse(false)) {
+            if(res.scoreDocs.size == 0 || left.map(l => l <= 0).getOrElse(false) && !last) {
               this.releaseSearcher(searcher.get)
+              last = true
             }
             left.map{l => 
              if(l < 0) 
@@ -457,15 +443,15 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
 
   def getLocationFields(field:String, loc:Location) = {
     Seq(
-      new StringField(s"$field.geo_code", loc.geo_code, Field.Store.YES), 
-      new StringField(s"$field.geo_country_code", loc.geo_country_code, Field.Store.YES),
-      new LongPoint(s"$field.geo_id", loc.geo_id),
-      new StoredField(s"$field.geo_id", loc.geo_id),
-      new StoredField(s"$field.geo_latitude", loc.geo_latitude), 
-      new StoredField(s"$field.geo_longitude", loc.geo_longitude), 
-      new StringField(s"$field.geo_name", loc.geo_name, Field.Store.YES),
-      new StringField(s"$field.geo_type", loc.geo_type, Field.Store.YES)
-    )
+      if(loc.geo_code !=null) Some(new StringField(s"$field.geo_code", loc.geo_code, Field.Store.YES)) else None,
+      if(loc.geo_country_code != null) Some(new StringField(s"$field.geo_country_code", loc.geo_country_code, Field.Store.YES)) else None,
+      Some(new LongPoint(s"$field.geo_id", loc.geo_id)),
+      Some(new StoredField(s"$field.geo_id", loc.geo_id)),
+      Some(new StoredField(s"$field.geo_latitude", loc.geo_latitude)),
+      Some(new StoredField(s"$field.geo_longitude", loc.geo_longitude)),
+      if(loc.geo_name != null) Some(new StringField(s"$field.geo_name", loc.geo_name, Field.Store.YES)) else None,
+      if(loc.geo_type != null) Some(new StringField(s"$field.geo_type", loc.geo_type, Field.Store.YES)) else None
+    ).flatMap(e => e)
   }
   def useSearcher() = {
     this.synchronized {
@@ -505,6 +491,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   }
   def releaseSearcher(searcher:IndexSearcher) {
     this.synchronized {
+      //println(s"decreasing ${this.index.getDirectory} from release Sercher")
+      //Thread.dumpStack()
       searcher.getIndexReader.decRef()
     }
   }

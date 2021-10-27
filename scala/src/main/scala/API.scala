@@ -66,9 +66,10 @@ object API {
               "estimatecount".as[Boolean]?false, 
               "hide_users".as[Boolean]?false, 
               "action".?, 
+              "by_relevance".as[Boolean]?false, 
               "jsonnl".as[Boolean]?false, 
               "max".as[Int]?100
-            ) { (query, topic, oFromStr, oToStr, countryCode, mentioning, user, estimatecount, hideUsers, action, jsonnl, max) => 
+            ) { (query, topic, oFromStr, oToStr, countryCode, mentioning, user, estimatecount, hideUsers, action, byRelevance, jsonnl, max) => 
               implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
               val mask = "YYYY-MM-DDT00:00:00.000Z"
               val from = oFromStr.map(fromStr => Instant.parse(s"$fromStr${mask.substring(fromStr.size)}"))
@@ -83,7 +84,7 @@ object API {
               val mentions = mentioning.map(cc => cc.split("(\\s|;|@)+").toSeq)
               val users = user.map(cc => cc.split("(\\s|;|@)+").toSeq)
               val (actorRef, matSource) = source.preMaterialize()
-              luceneRunner ! LuceneActor.SearchRequest(query, topics, from, to, countryCodes, mentions, users, estimatecount, hideUsers, action, max, jsonnl, actorRef) 
+              luceneRunner ! LuceneActor.SearchRequest(query, topics, from, to, countryCodes, mentions, users, estimatecount, hideUsers, action, max, byRelevance, jsonnl, actorRef) 
               complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
                 if(m.startsWith(ByteString(s"[Stream--error]:"))) 
                   throw new Exception(m.decodeString("UTF-8"))
@@ -225,10 +226,10 @@ object API {
               implicit val timeout: Timeout = conf.fsQueryTimeout.seconds //For ask property
               val fut = (luceneRunner ? LuceneActor.PeriodRequest(collection))
                 .map{
-                   case LuceneActor.PeriodResponse(min, max) => (StatusCodes.OK, LuceneActor.PeriodResponse(min, max))
+                   case LuceneActor.PeriodResponse(min, max, h) => (StatusCodes.OK, LuceneActor.PeriodResponse(min, max, h))
                    case akka.actor.Status.Failure(f)  => 
                      println(s"error found $f")
-                     (StatusCodes.InternalServerError, LuceneActor.PeriodResponse(None, None))
+                     (StatusCodes.InternalServerError, LuceneActor.PeriodResponse(None, None, None))
                  }
               complete(fut) 
             }

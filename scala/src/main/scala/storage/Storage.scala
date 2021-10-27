@@ -11,6 +11,7 @@ import java.io.{InputStream, ByteArrayInputStream, OutputStream, OutputStreamWri
 import java.util.ArrayDeque
 import java.nio.file.{Files, Paths, Path => LPath}
 import java.nio.file.{StandardCopyOption,StandardOpenOption }
+import java.io.{BufferedReader, InputStreamReader}
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 
@@ -40,6 +41,7 @@ trait FSNode {
   def deleteIfTemporary(recurse:Boolean = false) = storage.deleteIfTemporary(this, recurse) 
   def getContent = storage.getContent(this)
   def getContentAsString = storage.getContentAsString(this)
+  def getContentAsLines = storage.getContentAsLines(this)
   def getContentAsJson = storage.getContentAsJson(this)
   def list(recursive:Boolean = false) = storage.list(this, recursive)
   def move(to:FSNode, writeMode:WriteMode) = {this.storage.move(this, to, writeMode)}
@@ -107,6 +109,18 @@ trait Storage {
   def getContentAsString(node:FSNode) = {
     val is = this.getContent(node)
     IOUtils.toString(is, StandardCharsets.UTF_8.name())
+  }
+  def getContentAsLines(node:FSNode) = {
+    val is = this.getContent(node)
+    val br = new BufferedReader(new InputStreamReader(is, "UTF-8"))
+    Iterator.continually{
+      val line = br.readLine()
+      if(line==null) {
+        is.close
+        br.close
+      }
+      line
+    }.takeWhile(line => line != null)
   }
   def getContentAsJson(node:FSNode) = scala.util.parsing.json.JSON.parseFull(getContentAsString(node))
   

@@ -501,7 +501,7 @@ health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
   #health check is only done one_per_day limit is disabled or if not email was already sent since yesterday and is after 8AM.
   start_of_day <- strptime(strftime(Sys.time(), "%Y-%m-%d"), "%Y-%m-%d")
   alerts <- list()
-  if(!one_per_day || !exists("last_send", checks) || (checks$last_check < start_of_day) && as.numeric(strftime(Sys.time(), "%H")) >= 8) {
+  if(!one_per_day || !exists("last_check", checks) || (checks$last_check < start_of_day) && as.numeric(strftime(Sys.time(), "%H")) >= 8) {
     # check 01: last tweet collected date os more than 1 hore
     last_collected <- file.mtime(get_tweet_togeo_path())
     if(is.na(last_collected) || as.numeric(Sys.time() - last_collected, unit = "hours") >= 1 ) {

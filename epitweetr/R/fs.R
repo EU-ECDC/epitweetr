@@ -98,8 +98,8 @@ fs_loop <-  function(data_dir = NA) {
 }
 
 #' @export
-search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, countries = NULL, mentioning = NULL, users = NULL, hide_users = FALSE, action = NULL, max = 100) {
-  u <- paste(get_scala_tweets_url(), "?jsonnl=true&estimatecount=true", sep = "")
+search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, countries = NULL, mentioning = NULL, users = NULL, hide_users = FALSE, action = NULL, max = 100, by_relevance = FALSE) {
+  u <- paste(get_scala_tweets_url(), "?jsonnl=true&estimatecount=true&by_relevance=", tolower(by_relevance), sep = "")
   if(hide_users) {
     u <- paste(u, "&hide_users=true", sep = "") 
   }

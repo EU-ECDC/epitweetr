@@ -204,7 +204,7 @@ object EpiSerialisation
     implicit val luceneSuccessFormat = jsonFormat1(EpitweetrActor.Success.apply)
     implicit val luceneFailureFormat = jsonFormat1(EpitweetrActor.Failure.apply)
     implicit val datesProcessedFormat = jsonFormat2(LuceneActor.DatesProcessed.apply)
-    implicit val periodResponseFormat = jsonFormat2(LuceneActor.PeriodResponse.apply)
+    implicit val periodResponseFormat = jsonFormat3(LuceneActor.PeriodResponse.apply)
     implicit val commitRequestFormat = jsonFormat0(LuceneActor.CommitRequest.apply)
     implicit val locationRequestFormat = jsonFormat7(Location.apply)
     implicit val geolocatedTweetFormat = jsonFormat10(GeolocatedTweet.apply)

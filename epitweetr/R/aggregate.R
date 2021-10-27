@@ -345,8 +345,7 @@ get_aggregated_period_rds <- function(dataset) {
    list(first = NA, last = NA, last_hour = NA)
 }
 
-get_aggregated_period <- function(dataset) {
-  #TODO: add last hour!!
+get_aggregated_period <- function(dataset = "country_counts") {
   rds_period <- get_aggregated_period_rds(dataset)
   fs_period <- tryCatch({
      ret <- jsonlite::fromJSON(url(paste0(get_scala_period_url(),"?serie=",dataset)), simplifyVector = T)
@@ -357,6 +356,11 @@ get_aggregated_period <- function(dataset) {
        }
      ret$last <-  if(exists("last", where = ret)) {
          as.Date(strptime(ret$last, format = "%Y-%m-%d"))
+       } else {
+         NA
+       }
+     ret$last_hour <-  if(exists("last_hour", where = ret)) {
+         as.integer(ret$last_hour)
        } else {
          NA
        }
@@ -373,7 +377,7 @@ get_aggregated_period <- function(dataset) {
     list(
       first = min(c(as.Date(rds_period$first), as.Date(fs_period$first)), na.rm = T), 
       last = max(c(as.Date(rds_period$last), as.Date(fs_period$last)), na.rm = T),
-      last_hour = 23
+      last_hour = max(c(rds_period$last_hour, fs_period$last_hour), na.rm = T)
     )
 }
 

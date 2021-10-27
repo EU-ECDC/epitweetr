@@ -442,7 +442,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
     # calculating alerts per topic
     #alerts <- lapply(topics, function(topic) {
     alerts <- parallel::parLapply(cl, 1:length(topics), function(i) {
-      topic == topics[[i]]
+      topic <- topics[[i]]
       setup_config(data_dir)
       m <- paste("Getting alerts for",topic, alert_to, (Sys.time())) 
       message(m) 
@@ -527,6 +527,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
         )
       if(length(unique(get_alert_training_df()$epitweetr_category))>1) {
         # Adding tweets to alerts
+        message("adding top tweets")
         alerts <- add_toptweets(alerts, 10)
         alerts <- classify_alerts(alerts, retrain = FALSE)
         # Removind top tweets
@@ -679,7 +680,8 @@ add_toptweets <- function(df, toptweets, progress = function(a, b) {}) {
             topic = df$topic[[i]], 
             from = as.character(as.Date(df$date[[i]])-1), 
             to = df$date[[i]], 
-            max = toptweets
+            max = toptweets,
+            by_relevance = TRUE
           )
           if(length(res) == 0)
             character(0)
