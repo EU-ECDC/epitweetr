@@ -447,7 +447,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
       m <- paste("Getting alerts for",topic, alert_to, (Sys.time())) 
       message(m) 
       if(i %% cores == 0) {
-        tasks <- update_alerts_task(tasks, "running", m , start = TRUE)
+        tasks <- update_alerts_task(tasks, "running", m)
       }
       calculate_regions_alerts(
         topic = topic,
