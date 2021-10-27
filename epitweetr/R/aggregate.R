@@ -113,8 +113,8 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     }
 
     #measure_time <- function(f) {start.time <- Sys.time();ret <- f();end.time <- Sys.time();time.taken <- end.time - start.time;message(time.taken); ret}
-    message(q_url)
-    agg_df = jsonlite::stream_in(url(q_url))
+    #message(q_url)
+    agg_df = jsonlite::stream_in(url(q_url), verbose = FALSE)
     # Calculating the created week
     if(nrow(agg_df) > 0) {
       agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
