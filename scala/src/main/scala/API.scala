@@ -104,9 +104,16 @@ object API {
                          .map{
                             case LuceneActor.DatesProcessed(m, dates) => 
                               if(geolocate) {
-                                luceneRunner ! LuceneActor.GeolocateTweetsRequest(TopicTweetsV1(topic, tweets))
+                                if(LuceneActor.tooBigToGeolocate())
+                                  (StatusCodes.InternalServerError, 
+                                    LuceneActor.DatesProcessed("One of the geolocacing or aggregating files in geo folder is bigger than the predefined limit of 500MB, stopping for safety reasons")
+                                  )
+                                else {
+                                  luceneRunner ! LuceneActor.GeolocateTweetsRequest(TopicTweetsV1(topic, tweets))
+                                  (StatusCodes.OK, LuceneActor.DatesProcessed(m, dates))
+                                }
                               }
-                              (StatusCodes.OK, LuceneActor.DatesProcessed(m, dates))
+                              else (StatusCodes.OK, LuceneActor.DatesProcessed(m, dates))
                             case EpitweetrActor.Failure(m) => (StatusCodes.NotAcceptable, LuceneActor.DatesProcessed(m))
                             case o => (StatusCodes.InternalServerError, LuceneActor.DatesProcessed(s"Cannot interpret $o as a message"))
                           }

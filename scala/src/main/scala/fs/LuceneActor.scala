@@ -63,7 +63,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
         LuceneActor.add2Geolocate(TopicTweetsV1(topic, ts), conf.forcedGeo.map(_.items), conf.forcedGeoCodes.map(_.items), conf.topicKeyWords.map(_.items(topic)))  
       }.onComplete {
         case Success(_) =>
-        case Failure(t) => l.msg("Error during geolocalisation: " + t.getMessage)
+        case Failure(t) => l.msg(s"Error during geolocalisation: ${t.getMessage}: ${t.getStackTrace.mkString("\n")}")
       }
     case LuceneActor.GeolocatedTweetsCreated(GeolocatedTweets(items), dates) =>
       implicit val holder = LuceneActor.holder
@@ -582,6 +582,18 @@ object LuceneActor {
          holder.geolocating = false
     }
   }
+  def tooBigToGeolocate()(implicit conf:Settings) = {
+    val st = conf.getSparkStorage
+    val biggest = Seq(
+        Try(st.getNode(conf.toaggregatePath).getFileSize).toOption,
+        Try(st.getNode(conf.aggregatingPath).getFileSize).toOption,
+        Try(st.getNode(conf.geolocatingPath).getFileSize).toOption,
+        Try(st.getNode(conf.togeolocatePath).getFileSize).toOption
+      ).flatMap(e => e)
+      .reduceOption((a, b) => if(a > b) a else b)
+      .getOrElse(0L)
+    biggest > 1000 * 1024 * 1024
+  }
   def add2Aggregate()(implicit conf:Settings, holder:IndexHolder, ec: ExecutionContext) = {
     var goAggr = false
     implicit val st = conf.getSparkStorage
@@ -592,7 +604,11 @@ object LuceneActor {
     holder.dirs.synchronized { 
       if(geolocating.exists) {
         if(toAggr.exists) toAggr.setContent("\n", WriteMode.append)
-        toAggr.setContent(geolocating.getContentAsString, WriteMode.append)
+        var firstLine = true
+        for(line <- geolocating.getContentAsLines) {
+          toAggr.setContent(s"${if(!firstLine) "\n" else ""}$line", WriteMode.append)
+          firstLine = false
+        }
       }
 
       if(toAggr.exists && !aggregating.exists) {

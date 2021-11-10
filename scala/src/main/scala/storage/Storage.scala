@@ -49,6 +49,7 @@ trait FSNode {
   def setContent(content:InputStream) = {this.storage.setContent(this, content, WriteMode.failIfExists);this}
   def setContent(content:String, writeMode:WriteMode) = {this.storage.setContent(this, content, writeMode);this}
   def setContent(content:String) = {this.storage.setContent(this, content, WriteMode.failIfExists);this}
+  def getFileSize() = storage.getFileSize(this) 
   def getFileModificationTime(recurse:Boolean = true) = 
     storage.getFileModificationTime(
       path = if(this.path!=null) Some(this.path) else throw new Exception("getModificationTime requires a non empty hash")
@@ -173,6 +174,7 @@ trait Storage {
       moveWithin(from, to, writeMode)
     }
   }
+  def getFileSize(node:FSNode):Long
   def getFileModificationTime(path:Option[String], attrPattern:Map[String, String] = Map[String, String]()):Option[Long]
   def isUnchanged(path:Option[String], attrPattern:Map[String, String] = Map[String, String](), checkPath:Option[String], checkAttr:Map[String, String] = Map[String, String](), updateStamp:Boolean = true) = {
     //Getting stored Timestamp
@@ -371,6 +373,12 @@ case class LocalStorage(override val sparkCanRead:Boolean=false, override val tm
             
         }
     }
+  def getFileSize(node:FSNode) =  
+    node match { 
+      case lNode:LocalNode => Files.size(lNode.jPath)
+      case _ => throw new Exception(s"Local Storage cannot manage ${node.getClass.getName} nodes")
+    }
+    
   def getWriter(node:FSNode, writeMode:WriteMode)= node match { 
     case lNode:LocalNode => 
       writeMode match {
@@ -439,6 +447,7 @@ case class EpiFileStorage(vooUrl:String, user:String, pwd:String) extends Storag
        = EpiFileNode(path = path, storage = this, attrs=attrs)
   def ensurePathExists(path:String) = throw new Exception("Not implemented")
   def getFileModificationTime(path:Option[String], attrPattern:Map[String, String]) = last(path = path, attrPattern = attrPattern) match {case Some(n) => Some(n.attrs("date").toLong) case _ => None }
+  def getFileSize(node:FSNode) = throw new Exception("Not implemented") 
   def getWriter(node:FSNode, writeMode:WriteMode) = throw new Exception("Not implemented")
 }
 case class HDFSStorage(hadoopConf:Configuration, override val tmpPrefix:String="demy_") extends Storage {
@@ -561,6 +570,7 @@ case class HDFSStorage(hadoopConf:Configuration, override val tmpPrefix:String="
     }
     lastModified
   }
+  def getFileSize(node:FSNode) = throw new Exception("Not implemented") 
   def getWriter(node:FSNode, writeMode:WriteMode)
        = node match { 
          case hNode:HDFSNode => {
