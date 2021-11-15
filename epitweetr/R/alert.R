@@ -645,10 +645,13 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
     if(toptweets > 0) {
       df <- add_toptweets(df, toptweets, progress)
     }
-    if(!"epitweetr_category" %in% colnames(df))
+    if(!is.null(df) && nrow(df) > 0 && !"epitweetr_category" %in% colnames(df))
       df$epitweetr_category <- NA
     progress(1, "Alerts obtained")
-    tibble::as_tibble(df)
+    if(!is.null(df))
+      tibble::as_tibble(df)
+    else 
+      NULL
   }
 }
 

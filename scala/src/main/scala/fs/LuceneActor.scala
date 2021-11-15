@@ -294,28 +294,26 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               }
               index.releaseSearcher(searcher)
               val retdates = aDates.filter(d => d.contains("-"))
-              lastHour = (
-                if(collection == "country_counts" && key == maxkey) { //finding out what is the last aggregated hour
-                  Iterator.range(23, -1, -1)
-                    .map(i => s"0$i".takeRight(2))
-                    .map(hour => 
-                      index.parseAndSearchTweets(
-                        query = "created_date:[\""+aDates.last+"\" TO \""+aDates.last+"\"] AND created_hour:'"+hour+"'", 
-                        max = Some(1), 
-                        sort = QuerySort.index
-                      ).size match {
-                        case 0 => None 
-                        case _ => Some(hour)
-                      }
-                    )
-                    .flatMap(e => e)
-                    .toSeq
-                    .headOption
-                    .map(_.toInt)
-                } else {
-                  None
-                }
-              )
+              if(collection == "country_counts" && aDates.size > 0 && key == maxkey) { //finding out what is the last aggregated hour
+                lastHour = (
+                    Iterator.range(23, -1, -1)
+                      .map(i => s"0$i".takeRight(2))
+                      .map(hour => 
+                        index.parseAndSearchTweets(
+                          query = "created_date:[\""+aDates.last+"\" TO \""+aDates.last+"\"] AND created_hour:'"+hour+"'", 
+                          max = Some(1), 
+                          sort = QuerySort.index
+                        ).size match {
+                          case 0 => None 
+                          case _ => Some(hour)
+                        }
+                      )
+                      .flatMap(e => e)
+                      .toSeq
+                      .headOption
+                      .map(_.toInt)
+                )
+              }
               retdates
             }
           if(dates.size> 0)
