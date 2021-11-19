@@ -240,7 +240,12 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   }
   def indexSparkRow(row:Row, pk:Seq[String], textFields:Set[String]=Set[String](), aggr:Map[String, String] =Map[String, String]() ) = {
     val oldDoc = searchRow(row, pk)
+     
     val doc = this.sparkRowDoc(row = row, pk = Some(pk), textFields = textFields, oldDoc = oldDoc, aggr = aggr)
+    //if(pk.contains("token")) {
+    //  print(s"old $oldDoc \nnew $doc \n\n")
+    //}
+
     if(!writeEnabled)
        throw new Exception("Cannot index on a read only index")
     if(pk.isEmpty)

@@ -1203,6 +1203,8 @@ epitweetr_app <- function(data_dir = NA) {
       conf$force_date_format <- input$force_date_format
 
       # Saving properties.json
+      if(input$twitter_auth != "app")
+        conf$api_version = "1.1"
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
 
       # Forcing update on properties dependant refresh (e.g. time slots)
@@ -2000,7 +2002,7 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
     regions <- get_country_items()
     setNames(1:length(regions), sapply(regions, function(r) r$name))   
   }
-  agg_dates <- get_aggregated_period("country_counts") 
+  agg_dates <- get_aggregated_period() 
   e$date_min <- strftime(agg_dates$first, format = "%Y-%m-%d")
   e$date_max <- strftime(agg_dates$last, format = "%Y-%m-%d")
   collected_days <- agg_dates$last - agg_dates$first

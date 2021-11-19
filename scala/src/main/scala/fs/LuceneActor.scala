@@ -225,9 +225,16 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               val builder = StringBuilder.newBuilder
               var toAdd = chunkSize
               val qb = new BooleanQuery.Builder()
-              qb.add(new TermQuery(new Term("topic", topic)), Occur.MUST) 
+              val tqb = new BooleanQuery.Builder()
+              topic.split(";").foreach(t => tqb.add(new TermQuery(new Term("topic", t)), Occur.SHOULD))
+              qb.add(tqb.build, Occur.MUST)
               qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
-              filters.foreach{case(field, value) => qb.add(new TermQuery(new Term(field, value)), Occur.MUST)}
+              filters.foreach{
+                case(field, value) => 
+                  val fqb = new BooleanQuery.Builder()
+                  value.split(";").foreach(v => fqb.add(new TermQuery(new Term(field, v)), Occur.SHOULD))
+                  qb.add(fqb.build, Occur.MUST)
+              }
               var first = true
               i.searchTweets(qb.build, doCount = false, sort = QuerySort.index)
                 .map{case (doc, totalCount) => EpiSerialisation.luceneDocFormat.write(doc)}

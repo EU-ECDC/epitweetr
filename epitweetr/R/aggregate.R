@@ -57,11 +57,10 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
   # getting the name for cache lookup dataset dependant
   last_filter_name <- paste("last_filter", dataset, sep = "_")
 
-  # Setting a time out of 1 hour
-  if(is.null(cached[[last_filter_name]]$last_aggregate) ||  as.numeric(Sys.time() - cached[[last_filter_name]]$last_aggregate, unit = "secs") > 3600) { 
-    filter$last_aggregate <- Sys.time()
-  } else 
-    filter$last_aggregate <- cached[[last_filter_name]]$last_aggregate 
+  # Setting a the last aggregate filter
+  last_agg <- get_aggregated_period()
+  last_agg <- paste(last_agg$last,last_agg$last_hour)
+  filter$last_aggregate <- last_agg
 
 
   # checking wether we can reuse the cache
@@ -99,7 +98,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     # getting the aggregated dataframe from the storage system
     q_url <- paste0(get_scala_aggregate_url(), "?jsonnl=true&serie=", URLencode(dataset, reserved = T))
     for(field in names(filter)) {
-      if(field == "topic") q_url <- paste0(q_url, "&topic=", URLencode(filter$topic, reserved = T)) 
+      if(field == "topic") q_url <- paste0(q_url, "&topic=", URLencode(paste0(filter$topic, collapse=";"), reserved = T)) 
       else if(field == "period") 
         q_url <- paste0(
           q_url, 
@@ -109,11 +108,11 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
           URLencode(strftime(filter$period[[2]], format = "%Y-%m-%d"), reserved = T) 
         ) 
       else if(field != "last_aggregate")
-        q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(filter[[field]], reserved = T))
+        q_url <- paste0(q_url, "&filter=", URLencode(field, reserved = T), ":", URLencode(paste0(filter[[field]], collapse=";"), reserved = T))
     }
 
     #measure_time <- function(f) {start.time <- Sys.time();ret <- f();end.time <- Sys.time();time.taken <- end.time - start.time;message(time.taken); ret}
-    #message(q_url)
+    message(q_url)
     agg_df = jsonlite::stream_in(url(q_url), verbose = FALSE)
     # Calculating the created week
     if(nrow(agg_df) > 0) {
@@ -319,10 +318,10 @@ register_series <- function() {
 
 # getting last aggregation date or NA if first
 # date is obtained by sorting and reading first and last file
-get_aggregated_period_rds <- function(dataset) {
+get_aggregated_period_rds <- function() {
   # listing all aggregated files for given dataset 
   agg_files <- list.files(file.path(conf$data_dir, "series"), recursive=TRUE, full.names =TRUE)
-  agg_files <- agg_files[grepl(paste(".*", dataset, ".*\\.Rds", sep = ""), agg_files)] 
+  agg_files <- agg_files[grepl(paste(".*", "country_counts", ".*\\.Rds", sep = ""), agg_files)] 
   # sorting them alphabetically. This makes them sorted by date too because of namind convention
   agg_files <- sort(agg_files)
   if(length(agg_files) > 0) { 
@@ -331,11 +330,7 @@ get_aggregated_period_rds <- function(dataset) {
    first_df <- readRDS(first_file)
    last_file <- agg_files[[length(agg_files)]]
    last_df <- readRDS(last_file)
-   last_hour <- 
-     if(dataset == "country_counts") 
-       max(strptime(paste(strftime(last_df$created_date, format = "%Y-%m-%d"), " ", last_df$created_hour, ":00:00", sep=""), format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
-     else
-       max(strptime(paste(strftime(last_df$created_date, format = "%Y-%m-%d"), " ", "00:00:00", sep=""), format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+   last_hour <- max(strptime(paste(strftime(last_df$created_date, format = "%Y-%m-%d"), " ", last_df$created_hour, ":00:00", sep=""), format = "%Y-%m-%d %H:%M:%S", tz = "UTC"))
    list(
      first = min(first_df$created_date), 
      last = as.Date(last_hour),
@@ -345,10 +340,10 @@ get_aggregated_period_rds <- function(dataset) {
    list(first = NA, last = NA, last_hour = NA)
 }
 
-get_aggregated_period <- function(dataset = "country_counts") {
-  rds_period <- get_aggregated_period_rds(dataset)
+get_aggregated_period <- function() {
+  rds_period <- get_aggregated_period_rds()
   fs_period <- tryCatch({
-     ret <- jsonlite::fromJSON(url(paste0(get_scala_period_url(),"?serie=",dataset)), simplifyVector = T)
+     ret <- jsonlite::fromJSON(url(paste0(get_scala_period_url(),"?serie=country_counts")), simplifyVector = T)
      ret$first <- if(exists("first", where = ret)) {
          as.Date(strptime(ret$first, format = "%Y-%m-%d"))
        } else {
@@ -377,7 +372,12 @@ get_aggregated_period <- function(dataset = "country_counts") {
     list(
       first = min(c(as.Date(rds_period$first), as.Date(fs_period$first)), na.rm = T), 
       last = max(c(as.Date(rds_period$last), as.Date(fs_period$last)), na.rm = T),
-      last_hour = max(c(rds_period$last_hour, fs_period$last_hour), na.rm = T)
+      last_hour = (
+        if(is.na(fs_period$last))
+          rds_period$last_hour
+        else 
+          fs_period$last_hour
+      )
     )
 }
 

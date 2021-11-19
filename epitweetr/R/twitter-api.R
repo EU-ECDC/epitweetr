@@ -63,6 +63,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
     last_get$api_ver = toTry
     urls[[toTry]]
   } else {
+    last_get$api_ver = names(urls)[[1]]
     urls[[1]]
   }
   # Getting token if not set for current session
@@ -166,7 +167,13 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
     writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
     message(res$status_code)
     stop(paste("Unauthorized by twitter APIi", res$status_code))
-  } else if(last_get$api_ver == "2" && names((mess <- jsonlite::fromJSON(httr::content(res,as="text")))$errors$parameters) == "since_id") {
+  } else if(last_get$api_ver == "2" && {
+      mess <- jsonlite::fromJSON(httr::content(res,as="text"))
+      if(is.na(is.na(mess$errors$parameters) || is.na(names(mess$errors$parameters))))
+        FALSE
+      else 
+        names(mess$errors$parameters) == "since_id"
+    }) {
     #Special error on API 2 when query is too old
     message("Error interpreted as too old query on V2 API. Assuming empty result set")
     message(mess)
