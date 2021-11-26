@@ -1179,7 +1179,7 @@ write_alert_training_db <- function(alerts, runs = get_alert_training_runs_df())
     `Region` = .data$country, 
     `Top words` = .data$topwords, 
     `Tweets` = .data$number_of_tweets, 
-    `Top Tweets` =  lapply(.data$toptweets, function(l) jsonlite::toJSON(l)), 
+    `Top Tweets` =  lapply(.data$toptweets, function(l) gsub("\", \"", "\",\n        \"", jsonlite::toJSON(l, pretty = TRUE))), 
     `Given Category` = .data$given_category, 
     `Epitweetr Category` = .data$epitweetr_category
   )
