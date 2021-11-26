@@ -185,7 +185,7 @@ epitweetr_app <- function(data_dir = NA) {
                 shiny::textInput("alerts_show_search", value = "false", label = NULL)
               )
             ),
-            shiny::column(2, shiny::actionButton("alertdb_add", "Add alerts to annotations")),
+            shiny::column(2, shiny::actionButton("alertsdb_add", "Add alerts to annotations")),
             shiny::column(6)
           ), 
           shiny::fluidRow(
@@ -1649,19 +1649,56 @@ epitweetr_app <- function(data_dir = NA) {
                from = input$alerts_period[[1]], 
                until = input$alerts_period[[2]], 
                toptweets = 10,
-               limit = if(as.integer(input$alerts_limit) > 0 ) as.integer(input$alerts_limit) else 20,
+               limit = if(!is.na(input$alerts_limit) && as.integer(input$alerts_limit) > 0 ) as.integer(input$alerts_limit) else 20,
                progress = function(value, message) {progress_set(value = value, message = message)}
              )
-             write_alert_training_db(alerts)
+             if(!is.null(alerts)) {
+               alerts$given_category <- NA
+               write_alert_training_db(alerts)
+               cd$alert_training_refresh_flag(Sys.time())
+               progress_close()
+               file.copy(get_alert_training_path(), file) 
+             } else
+               app_error("Cannot download alerts since no alerts where found with the selected filters", env = cd)
            }
-           file.copy(get_alert_training_path(), file) 
-           cd$alert_training_refresh_flag(Sys.time())
+           else {  
+             progress_close()
+             file.copy(get_alert_training_path(), file) 
+           }
           },
           error = function(w) {app_error(w, env = cd)}
         )
       }
     )
     
+    shiny::observeEvent(input$alertsdb_add, {
+        progress_start("Adding new alerts to the alert database")
+        #updating geotraining file before downloading
+        tryCatch({
+            new_alerts <- get_alerts(
+              topic = input$alerts_topics, 
+              countries = as.numeric(input$alerts_countries), 
+              from = input$alerts_period[[1]], 
+              until = input$alerts_period[[2]], 
+              toptweets = 10,
+              limit = if(!is.na(input$alerts_limit) && as.integer(input$alerts_limit) > 0 ) as.integer(input$alerts_limit) else 20,
+              progress = function(value, message) {progress_set(value = value, message = message)}
+            )
+
+            existing_alerts <- get_alert_training_df()
+            if(!is.null(new_alerts) && nrow(new_alerts) > 0) {
+              new_alerts$given_category <- NA
+              alerts <- Reduce(x = list(existing_alerts, new_alerts), f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
+              write_alert_training_db(alerts)
+              cd$alert_training_refresh_flag(Sys.time())
+            } else {
+               app_error("Cannot add alerts to classify. No alerts where found with the selected filters", env = cd)
+            }
+          },
+          error = function(w) {app_error(w, env = cd)}
+        )
+    })
+
     # uploading alerts training file
     shiny::observe({
       df <- input$alertsdb_upload
@@ -1692,6 +1729,9 @@ epitweetr_app <- function(data_dir = NA) {
       DT::replaceData(DT::dataTableProxy('alertsdb_runs_table'), get_alertsdb_runs_html())
       progress_close()
     })
+
+
+
     ######### GEOTRAINING EVALUATION DATAFRAME ####
     # rendering a dataframe showing evaluation metrics 
     output$geotraining_eval_df <- DT::renderDataTable({
@@ -1736,7 +1776,7 @@ epitweetr_app <- function(data_dir = NA) {
       ret
     }
     
-     ######### GEOTEST LOGIC ##################
+    ######### GEOTEST LOGIC ##################
     # rendering geotest data, updates are done automatically whenever an input changes
     output$geotraining_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`

@@ -148,7 +148,18 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             }
             qb.add(TermRangeQuery.newStringRange("created_date", from.map(d => d.toString.take(10)).getOrElse("0"), to.map(d => d.toString.take(10)).getOrElse("9"), true, true), Occur.MUST)
             val q = qb.build
-            val tweets = i.searchTweets(qb.build, Some(left), doCount = estimatecount, if(byRelevance) QuerySort.relevance else QuerySort.index).toSeq
+            val noFilter = i.searchTweets(qb.build, Some(left), doCount = estimatecount, if(byRelevance) QuerySort.relevance else QuerySort.index).toSeq
+            
+            val tweets = if(!mentions.isEmpty) {
+              val reg = ("(?i)" + mentions.get.map(m => s"@$m\\b").mkString("|")).r
+              val filtered = noFilter.filter{case (doc, totalCount) => 
+                Seq(doc.getField("text").stringValue(), if(doc.getField("linked_text") ==null) null else doc.getField("linked_text").stringValue()).exists(t => t != null && !reg.findFirstIn(t).isEmpty)
+              }
+              filtered.map{case(doc, count) => (doc, (1.0*count*filtered.size/noFilter.size).toLong)}
+            }
+            else
+              noFilter
+
             left = left - tweets.size
             if(left < 0)
               tweets.take(tweets.size + left).map(p => (p, i))

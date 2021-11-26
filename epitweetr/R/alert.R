@@ -595,7 +595,6 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
     else 
       countries
   )
- 
   alert_files <- list.files(file.path(conf$data_dir, "alerts"), recursive=TRUE, full.names =TRUE)  
   if(length(alert_files)==0) {
     NULL
@@ -637,19 +636,20 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
     })
   
     df <- Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
-    if(limit > 0 && limit < nrow(df)) {
-      set.seed(26062012)
-      df <- df[sample(nrow(df), limit),]
-    }
-    # Adding top tweets if required
-    if(toptweets > 0) {
-      df <- add_toptweets(df, toptweets, progress)
-    }
-    if(!is.null(df) && nrow(df) > 0 && !"epitweetr_category" %in% colnames(df))
-      df$epitweetr_category <- NA
-    progress(1, "Alerts obtained")
-    if(!is.null(df))
+    if(!is.null(df)) {
+      if(limit > 0 && limit < nrow(df)) {
+        set.seed(26062012)
+        df <- df[sample(nrow(df), limit),]
+      }
+      # Adding top tweets if required
+      if(toptweets > 0) {
+        df <- add_toptweets(df, toptweets, progress)
+      }
+      if(nrow(df) > 0 && !"epitweetr_category" %in% colnames(df))
+        df$epitweetr_category <- NA
+      progress(1, "Alerts obtained")
       tibble::as_tibble(df)
+    }
     else 
       NULL
   }
@@ -1081,6 +1081,8 @@ get_alert_training_df <- function() {
   current$`toptweets` <- lapply(current$`toptweets`, function(json) jsonlite::fromJSON(json))
   current
 }
+
+
 get_alert_training_runs_df <- function() {
   data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric","text", "logical", "text", "text")
   current <- readxl::read_excel(get_alert_training_path(), col_types = data_types, sheet = "Runs")
