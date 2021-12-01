@@ -135,12 +135,12 @@ object API {
         } ~ path("aggregate") { // checks if path/url starts with model
           get {
             parameters("serie", 
-              "topic",
+              "topic".?,
               "from"?(Instant.now.toString().take(10)), 
               "to"?(Instant.now.toString().take(10)), 
               "filters".as[String].*, 
               "jsonnl".as[Boolean]?false 
-            ) { (collection, topic, fromStr, toStr, filtersStr, jsonnl) => 
+            ) { (collection, oTopic, fromStr, toStr, filtersStr, jsonnl) => 
               implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
               val mask = "YYYY-MM-DDT00:00:00.000Z"
               val from = Instant.parse(s"$fromStr${mask.substring(fromStr.size)}")
@@ -152,7 +152,7 @@ object API {
                 , failureMatcher = PartialFunction.empty
               )
               val (actorRef, matSource) = source.preMaterialize()
-              luceneRunner ! LuceneActor.AggregatedRequest(collection, topic, from, to, filters, jsonnl, actorRef) 
+              luceneRunner ! LuceneActor.AggregatedRequest(collection, oTopic, from, to, filters, jsonnl, actorRef) 
               complete(Chunked.fromData(ContentTypes.`application/json`, matSource.map{m =>
                 if(m.startsWith(ByteString(s"[Stream--error]:"))) 
                   throw new Exception(m.decodeString("UTF-8"))
