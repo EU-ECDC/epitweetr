@@ -575,6 +575,10 @@ object schemas {
         , StructField("text_loc", geoLocationSchema,true)
         , StructField("user_description_loc", geoLocationSchema,true)
         , StructField("user_location_loc", geoLocationSchema,true)
+        , StructField("hashtags", ArrayType(StringType, true),true)
+        , StructField("urls", ArrayType(StringType, true),true)
+        , StructField("entities", ArrayType(StringType, true),true)
+        , StructField("contexts", ArrayType(StringType, true),true)
         ))
     }
     val toIgnoreSchema = {

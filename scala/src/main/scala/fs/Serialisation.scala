@@ -103,13 +103,16 @@ case class TweetV1(tweet_id:Long, text:String, linked_text:Option[String],user_d
              linked_user_location:Option[String], created_at:Instant, lang:String, linked_lang:Option[String], tweet_longitude:Option[Float], tweet_latitude:Option[Float], 
              linked_longitude:Option[Float], linked_latitude:Option[Float], place_type:Option[String], place_name:Option[String], place_full_name:Option[String], 
              linked_place_full_name:Option[String], place_country_code:Option[String], place_country:Option[String], 
-             place_longitude:Option[Float], place_latitude:Option[Float],linked_place_longitude:Option[Float], linked_place_latitude:Option[Float])
+             place_longitude:Option[Float], place_latitude:Option[Float],linked_place_longitude:Option[Float], linked_place_latitude:Option[Float],
+             hashtags:Option[Seq[String]], urls:Option[Seq[String]], contexts:Option[Seq[String]], entities:Option[Seq[String]])
 
 case class TweetsV2(data:Option[Seq[TweetV2]], includes:Option[IncludesV2], meta:MetaV2) {
   def toV1 = TweetsV1(items = data.map(tts => tts.map(t => t.toV1()(includes.get))).getOrElse(Seq[TweetV1]()))
 }
 
-case class TweetV2(id:String, lang:String, author_id:String, text:String, possibly_sensitive:Boolean, created_at:String, referenced_tweets:Option[Seq[TweetRefV2]], geo:Option[PlaceRefV2]) {
+case class TweetV2(id:String, lang:String, author_id:String, text:String, possibly_sensitive:Boolean, created_at:String, 
+              referenced_tweets:Option[Seq[TweetRefV2]], geo:Option[PlaceRefV2], entities:Option[EntitiesV2], context_annotations:Option[Seq[AnnotationV2]]
+              ) {
   def toV1()(implicit includes:IncludesV2) = 
    TweetV1(
      tweet_id = this.id.toLong, 
@@ -141,7 +144,11 @@ case class TweetV2(id:String, lang:String, author_id:String, text:String, possib
      place_longitude = this.getPlace().flatMap(p => p.geo.map(g => g.getAvgLong)), 
      place_latitude = this.getPlace().flatMap(p => p.geo.map(g => g.getAvgLat)),
      linked_place_longitude = this.getLinkedTweet().flatMap(t => t.getPlace().flatMap(p => p.geo.map(g => g.getAvgLong))), 
-     linked_place_latitude =  this.getLinkedTweet().flatMap(t => t.getPlace().flatMap(p => p.geo.map(g => g.getAvgLat)))
+     linked_place_latitude =  this.getLinkedTweet().flatMap(t => t.getPlace().flatMap(p => p.geo.map(g => g.getAvgLat))),
+     hashtags = this.entities.toSeq.flatMap(ent => ent.hashtags.toSeq.flatMap(tags => tags.map(ts => ts.tag))) match {case a if a.size == 0 => None case a => Some(a)},
+     urls = this.entities.toSeq.flatMap(ent => ent.urls.toSeq.flatMap(us => us.map(u => u.expanded_url))) match {case a if a.size == 0 => None case a =>  Some(a)},
+     contexts = this.context_annotations.toSeq.flatMap(cas => cas.toSeq.flatMap(ann => ann.domain.map(d => d.name))) match {case a if a.size == 0 => None case a => Some(a)},
+     entities = this.context_annotations.toSeq.flatMap(cas => cas.toSeq.flatMap(ann => ann.entity.map(e => e.name))) match {case a if a.size == 0 => None case a => Some(a)}
    )
    def getAuthor()(implicit includes:IncludesV2) = includes.userMap(this.author_id)
    def getLinkedTweet()(implicit includes:IncludesV2) = this.referenced_tweets.flatMap(rfd => includes.tweetMap.get(rfd.head.id))
@@ -158,6 +165,11 @@ case class IncludesV2(users:Option[Seq[UserV2]], tweets:Option[Seq[TweetV2]], pl
 }
 case class TweetRefV2(`type`:String, id:String)
 case class PlaceRefV2(place_id:Option[String], coordinates:Option[CoordinatesV2])
+case class EntitiesV2(hashtags:Option[Seq[HashTagV2]], urls:Option[Seq[UrlV2]])
+case class HashTagV2(tag:String)
+case class UrlV2(url:String, expanded_url:String)
+case class AnnotationV2(domain:Option[AnnotatedItemV2], entity:Option[AnnotatedItemV2])
+case class AnnotatedItemV2(id:String, name:String) 
 case class CoordinatesV2(`type`:String, coordinates:Option[Seq[Float]])
 case class PlaceV2(full_name:String, id:String, contained_within:Option[Array[String]], country:String, country_code:String, geo:Option[GeoJson], name:String, place_type:String)
 case class GeoJson(`type`:String, bbox:Seq[Float]) {
@@ -217,7 +229,12 @@ object EpiSerialisation
     implicit val coordinatesV2Format = jsonFormat2(CoordinatesV2.apply)
     implicit val placeRefV2Format = jsonFormat2(PlaceRefV2.apply)
     implicit val tweetRefV2Format = jsonFormat2(TweetRefV2.apply)
-    implicit val tweetV2Format = jsonFormat8(TweetV2.apply)
+    implicit val urlV2 =  jsonFormat2(UrlV2.apply)
+    implicit val hashTagV2 =  jsonFormat1(HashTagV2.apply)
+    implicit val entitiesV2 =  jsonFormat2(EntitiesV2.apply)
+    implicit val annotatedItemV2 =  jsonFormat2(AnnotatedItemV2.apply)
+    implicit val annotationV2 =  jsonFormat2(AnnotationV2.apply)
+    implicit val tweetV2Format = jsonFormat10(TweetV2.apply)
     implicit val includesV2Format = jsonFormat3(IncludesV2.apply)
     implicit val tweetsV2Format = jsonFormat3(TweetsV2.apply)
     implicit val textToGeoFormat = jsonFormat3(TextToGeo.apply)
@@ -258,8 +275,12 @@ object EpiSerialisation
           "place_longitude" ->t.place_longitude.map(t => JsNumber(t)).getOrElse(JsNull), 
           "place_latitude" -> t.place_latitude.map(t => JsNumber(t)).getOrElse(JsNull),
           "linked_place_longitude" -> t.linked_place_longitude.map(t => JsNumber(t)).getOrElse(JsNull), 
-          "linked_place_latitude" -> t.linked_place_latitude.map(t => JsNumber(t)).getOrElse(JsNull)
-        ))
+          "linked_place_latitude" -> t.linked_place_latitude.map(t => JsNumber(t)).getOrElse(JsNull),
+          "hashtags" -> t.hashtags.map(tags => JsArray(tags.map(t => JsString(t)):_*)).getOrElse(JsNull), 
+          "urls" -> t.urls.map(urs => JsArray(urs.map(t => JsString(t)):_*)).getOrElse(JsNull), 
+          "contexts" -> t.contexts.map(conts => JsArray(conts.map(t => JsString(t)):_*)).getOrElse(JsNull), 
+          "entities" -> t.entities.map(ents => JsArray(ents.map(t => JsString(t)):_*)).getOrElse(JsNull)
+      ))
       
       val twitterDateFormat = "EEE MMM dd HH:mm:ss Z yyyy"
       val twitterDateParser = DateTimeFormatter.ofPattern(twitterDateFormat).withLocale(Locale.US)
@@ -337,7 +358,45 @@ object EpiSerialisation
                 place_longitude= placeFields(fields).map(pf => bboxAvg(pf, 0)).flatten, 
                 place_latitude= placeFields(fields).map(pf => bboxAvg(pf, 1)).flatten,
                 linked_place_longitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 0)).flatten).flatten, 
-                linked_place_latitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 1)).flatten).flatten
+                linked_place_latitude = linkedFields(fields).map(lf => placeFields(lf).map(pf => bboxAvg(pf, 1)).flatten).flatten,
+                hashtags = fields.get("entities").flatMap{
+                  case JsObject(entFields) =>
+                    Some(entFields.get("hashtags") match {
+                      case Some(JsArray(tags)) => 
+                        tags.toSeq.flatMap(tag => 
+                          (tag match {
+                            case JsObject(tagFields) =>
+                              tagFields.get("text") match {
+                                case Some(JsString(value)) => Some(value)
+                                case _ => None
+                              }
+                            case _ => None
+                          }).toSeq
+                        )
+                      case _ => Seq[String]()
+                    })
+                  case _ => None
+                }, 
+                urls = fields.get("entities").flatMap{
+                  case JsObject(entFields) =>
+                    Some(entFields.get("urls") match {
+                      case Some(JsArray(urls)) => 
+                        (urls.toSeq.flatMap(url => 
+                          url match {
+                            case JsObject(urlFields) =>
+                              urlFields.get("expanded_url") match {
+                                case Some(JsString(value)) => Some(value)
+                                case _ => None
+                              }
+                            case _ => None
+                          }).toSeq
+                        )
+                      case _ => Seq[String]()
+                    })
+                  case _ => None
+                }, 
+                contexts = None, 
+                entities = None
               )
             else // Object comming from serialized json
               TweetV1(
@@ -370,7 +429,16 @@ object EpiSerialisation
                 place_longitude= fields.get("place_longitude").map(f => if(f == JsNull) None else Some(f.asInstanceOf[JsNumber].value.toFloat)).flatten, 
                 place_latitude= fields.get("place_latitude").map(f => if(f == JsNull) None else Some(f.asInstanceOf[JsNumber].value.toFloat)).flatten,
                 linked_place_longitude = fields.get("linked_place_longitude").map(f => if(f == JsNull) None else Some(f.asInstanceOf[JsNumber].value.toFloat)).flatten, 
-                linked_place_latitude =fields.get("linked_placee_latitude").map(f => if(f == JsNull) None else Some(f.asInstanceOf[JsNumber].value.toFloat)).flatten
+                linked_place_latitude =fields.get("linked_placee_latitude").map(f => if(f == JsNull) None else Some(f.asInstanceOf[JsNumber].value.toFloat)).flatten,
+                hashtags = fields.get("hashtags").map(f => if(f == JsNull) None else 
+                  f match {
+                    case JsArray(elements) => Some(elements.toSeq.map(v => v.asInstanceOf[JsString].value))
+                    case f => throw new Exception(s"Unexpected type on Tweet Json hashtags (v1) $f")
+                  }
+                ).flatten, 
+                urls = fields.get("urls").map(f => if(f == JsNull) None else Some(f.asInstanceOf[JsArray].elements.toSeq.map(v => v.asInstanceOf[JsString].value))).flatten, 
+                contexts = fields.get("contexts").map(f => if(f == JsNull) None else Some(f.asInstanceOf[JsArray].elements.toSeq.map(v => v.asInstanceOf[JsString].value))).flatten, 
+                entities = fields.get("entities").map(f => if(f == JsNull) None else Some(f.asInstanceOf[JsArray].elements.toSeq.map(v => v.asInstanceOf[JsString].value))).flatten
               )
           case _ =>
             throw new Exception(s"@epi cannot deserialize $value to TweetV1")
@@ -461,10 +529,22 @@ object EpiSerialisation
     }
     implicit val topicTweetsFormat = jsonFormat2(TopicTweetsV1.apply)
     implicit object luceneDocFormat extends RootJsonFormat[Document] {
-      def write(doc: Document) = writeField(fields = doc.getFields.asScala.toSeq, totalCount = None, transform  = Map[String, (String, String)]())
-      def customWrite(doc: Document, forceString:Set[String]=Set[String](), totalCount:Option[Long]=None, transform:Map[String, (String, String)] = Map[String, (String, String)]()) 
-        = writeField(fields = doc.getFields.asScala.toSeq, forceString=forceString, totalCount = totalCount, transform = transform)
-      def writeField(fields:Seq[IndexableField], forceString:Set[String] = Set[String](), path:Option[String] = None, totalCount:Option[Long] = None, transform:Map[String, (String, String)]):JsValue = {
+      def write(doc: Document) = writeField(fields = doc.getFields.asScala.toSeq, totalCount = None, transform  = Map[String, (String, String)](), asArray =Set[String]())
+      def customWrite(
+        doc: Document, 
+        forceString:Set[String]=Set[String](), 
+        totalCount:Option[Long]=None, 
+        transform:Map[String, (String, String)] = Map[String, (String, String)](), 
+        asArray:Set[String]//=Set[String]()
+      ) = writeField(fields = doc.getFields.asScala.toSeq, forceString=forceString, totalCount = totalCount, transform = transform, asArray = asArray)
+      def writeField(
+        fields:Seq[IndexableField], 
+        forceString:Set[String] = Set[String](), 
+        path:Option[String] = None, 
+        totalCount:Option[Long] = None, 
+        transform:Map[String, (String, String)],
+        asArray:Set[String]
+      ):JsValue = {
         val (baseFields, childrenNames) = path match {
           case Some(p) => (
             fields.filter(f => f.name.startsWith(p) && !f.name.substring(p.size).contains(".")), 
@@ -487,7 +567,9 @@ object EpiSerialisation
         JsObject(Map(
           (baseFields.map{f =>
             val fname = f.name.substring(path.getOrElse("").size)
-            if(forceString.contains(f.name) && f.stringValue != null)
+            if(asArray.contains(f.name) && f.stringValue != null)
+              (fname, JsArray(f.stringValue.split("\n").map(v => JsString(transform.get(fname).map{case (s, r) =>v.replaceAll(s, r)}.getOrElse(v))):_*))
+            else if(forceString.contains(f.name) && f.stringValue != null)
               (fname, JsString(transform.get(fname).map{case (s, r) =>f.stringValue.replaceAll(s, r)}.getOrElse(f.stringValue)))
             else if(f.numericValue != null && !forceString.contains(f.name))
               (fname, f.numericValue match {
@@ -505,7 +587,7 @@ object EpiSerialisation
             else 
               throw new NotImplementedError(f"Serializing lucene field is only supported for boolean, number and string so far and got $f")
           } ++
-            childrenNames.map(c => (c, writeField(fields = fields, path = Some(f"${path.map(p => p+".").getOrElse("")}$c."), totalCount = None, transform = transform))) ++
+            childrenNames.map(c => (c, writeField(fields = fields, path = Some(f"${path.map(p => p+".").getOrElse("")}$c."), totalCount = None, transform = transform, asArray = asArray))) ++
             (if(path.isEmpty && !totalCount.isEmpty) Seq("totalCount" -> JsNumber(totalCount.get)) else Seq[(String, JsNumber)]())
           ):_*
         ))

@@ -319,7 +319,7 @@ twitter_search <- function(q, since_id = NULL, max_id = NULL, result_type = "rec
       , count
       , "&expansions=author_id,geo.place_id,referenced_tweets.id,referenced_tweets.id.author_id"
       , "&place.fields=country,country_code,full_name,name,place_type"
-      , "&tweet.fields=author_id,context_annotations,created_at,geo,id,in_reply_to_user_id,lang,possibly_sensitive,referenced_tweets,source,text" #,geo.coordinates
+      , "&tweet.fields=author_id,context_annotations,entities,created_at,geo,id,in_reply_to_user_id,lang,possibly_sensitive,referenced_tweets,source,text" #,geo.coordinates
       , "&user.fields=description,id,location,name,username"
       , sep = ""
     )

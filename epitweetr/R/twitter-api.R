@@ -66,6 +66,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
     last_get$api_ver = names(urls)[[1]]
     urls[[1]]
   }
+  # message(url)
   # Getting token if not set for current session
   if(is.null(conf$token) || !exists("token", where = conf)) conf$token <- get_token()
   # Trying to get the response quadratic waiting time is implemented if the URL fails 

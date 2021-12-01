@@ -139,6 +139,10 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
       tweet.place_latitude.map(value => doc.add(new StoredField("place_latitude", value)))
       tweet.linked_place_longitude.map(value => doc.add(new StoredField("linked_place_longitude", value))) 
       tweet.linked_place_latitude.map(value => doc.add(new StoredField("linked_place_latitude", value)))
+      tweet.hashtags.map(arr => {if(arr.size > 0) doc.add(new StoredField("hashtags", arr.mkString("\n")))})
+      tweet.urls.map(arr => {if(arr.size > 0) doc.add(new StoredField("urls", arr.mkString("\n")))})
+      tweet.contexts.map(arr => {if(arr.size > 0) doc.add(new StoredField("contexts", arr.mkString("\n")))})
+      tweet.entities.map(arr => {if(arr.size > 0) doc.add(new StoredField("entities", arr.mkString("\n")))})
       doc
   }
   def sparkRowDoc(row:Row, pk:Option[Seq[String]]=None, textFields:Set[String]=Set[String](), oldDoc:Option[Document], aggr:Map[String, String]) = {
@@ -170,6 +174,8 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
           case FloatType =>
             doc.add(new FloatPoint(name, applyFloatAggregation(row.getAs[Float](i), name, aggr, oldDoc)))
             doc.add(new StoredField(name, applyFloatAggregation(row.getAs[Float](i), name, aggr, oldDoc)))
+          //case ArrayType(StringType) =>
+          //  doc.add(new StringF
           case _ =>
             throw new NotImplementedError(f"Indexing automatic index of datatype $dataType is not supported")
            
@@ -265,7 +271,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
          Some(searcher.getIndexReader.document(res.scoreDocs(0).doc))
       }
       doc.map(d => (d, d.getField("topic").stringValue))
-        .map{case (d, t) => (EpiSerialisation.luceneDocFormat.write(d), t)}
+        .map{case (d, t) => (EpiSerialisation.luceneDocFormat.customWrite(d, asArray = Set("hashtags","urls", "contexts","entities")), t)}
         .map{case (json, t) => (EpiSerialisation.tweetV1Format.read(json), t)}
     } match {
       case Success(r) =>
@@ -282,12 +288,12 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
     Try{
       val res = search(new TermQuery(new Term("topic_tweet_id", s"${topic.toLowerCase}_${id}")), maxHits = 1, sort = QuerySort.index)
       val doc = if(res.scoreDocs.size == 0) {
-        searchTweetV1(id, topic)
+        //searchTweetV1(id, topic)
         None
       } else {
          Some(searcher.getIndexReader.document(res.scoreDocs(0).doc))
       }
-      doc.map(d => EpiSerialisation.luceneDocFormat.write(d).toString)
+      doc.map(d => EpiSerialisation.luceneDocFormat.customWrite(d, asArray = Set("hashtags","urls", "contexts","entities")).toString)
     } match {
       case Success(r) =>
         this.releaseSearcher(searcher)

@@ -181,7 +181,8 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
                 if(hideUsers)
                  anoMap 
                 else Map[String, (String, String)]()
-              )
+              ),
+              asArray = Set("hashtags","urls", "contexts","entities")
             )
             if(action == Some("delete")) {
               index.deleteDoc(doc, "topic_tweet_id")  
@@ -210,7 +211,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           caller ! ByteString(s"[Stream--error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
       }
-    case LuceneActor.AggregatedRequest(collection, topic, from, to, filters, jsonnl, caller) => 
+    case LuceneActor.AggregatedRequest(collection, oTopic, from, to, filters, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
       implicit val holder = LuceneActor.holder
       val indexes = LuceneActor.getReadIndexes(collection, Some(from), Some(to)).toSeq
@@ -236,9 +237,11 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               val builder = StringBuilder.newBuilder
               var toAdd = chunkSize
               val qb = new BooleanQuery.Builder()
-              val tqb = new BooleanQuery.Builder()
-              topic.split(";").foreach(t => tqb.add(new TermQuery(new Term("topic", t)), Occur.SHOULD))
-              qb.add(tqb.build, Occur.MUST)
+              oTopic.map{topic => 
+                val tqb = new BooleanQuery.Builder()
+                topic.split(";").foreach(t => tqb.add(new TermQuery(new Term("topic", t)), Occur.SHOULD))
+                qb.add(tqb.build, Occur.MUST)
+              }
               qb.add(TermRangeQuery.newStringRange("created_date", from.toString.take(10), to.toString.take(10), true, true), Occur.MUST) 
               filters.foreach{
                 case(field, value) => 
@@ -389,7 +392,7 @@ object LuceneActor {
     caller:ActorRef
   )
   case class AggregateRequest(items:TopicTweetsV1)
-  case class AggregatedRequest(collection:String, topic:String, from:Instant, to:Instant, filters:Seq[(String, String)], jsonnl:Boolean, caller:ActorRef)
+  case class AggregatedRequest(collection:String, topic:Option[String], from:Instant, to:Instant, filters:Seq[(String, String)], jsonnl:Boolean, caller:ActorRef)
   case class AggregationRequest(
     query:Option[String], 
     from:Instant, 
@@ -520,7 +523,7 @@ object LuceneActor {
       case "country_counts" => "week"
       case "topwords" => "week"
       case "geolocated" => "week"
-      case _ => throw new Exception(s"unknown collection $collection")
+      case _ => "week"
     }
     timing match {
       case "week" =>
