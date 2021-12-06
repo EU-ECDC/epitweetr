@@ -829,7 +829,7 @@ object LuceneActor {
               }).flatMap(ot => ot)
             }
           }
-          .map(rdd => spark.read.schema(schemas.geoLocatedTweetSchema).json(rdd))
+          .map(rdd => spark.read.schema(schemas.geoLocatedTweetSchema).json(spark.createDataset(rdd)))
           .map{df => df.where(col("lang").isin(conf.languages.get.map(_.code):_*))}
           .map{
             case df if(sourceExp.size > 0) => 

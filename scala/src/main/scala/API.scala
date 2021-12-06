@@ -54,6 +54,9 @@ object API {
     removeLockFiles()
     val route =
       extractUri { uri =>
+        path("ping") {
+          complete("pong")
+        } ~
         path("tweets") { // checks if path/url starts with model
           get {
             parameters("q".?, 

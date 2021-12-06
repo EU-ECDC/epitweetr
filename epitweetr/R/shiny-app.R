@@ -53,6 +53,7 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           ######### DASHBOARD FILTERS #####################
           ################################################
+          shiny::actionButton("run_dashboard", "Run"),
           shiny::selectInput("topics", label = shiny::h4("Topics"), multiple = FALSE, choices = d$topics),
           shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
           shiny::selectInput(
@@ -100,28 +101,71 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(12, 
               shiny::fluidRow(
-                shiny::column(1, shiny::downloadButton("download_line_data", "Data")),
-                shiny::column(1, shiny::downloadButton("export_line", "image"))
+                shiny::column(2, shiny::downloadButton("download_line_data", "Data")),
+                shiny::column(2, shiny::downloadButton("export_line", "image"))
 		          ),
               plotly::plotlyOutput("line_chart")
             )
-          )
-          ,shiny::fluidRow(
+          ),
+          shiny::fluidRow(
             shiny::column(6, 
-              shiny::fluidRow(
-                shiny::column(3, shiny::downloadButton("download_topword_data", "Data")),
-                shiny::column(3, shiny::downloadButton("export_topword", "image"))
-		          ),
-              plotly::plotlyOutput("topword_chart")
-            )
-            , shiny::column(6, 
               shiny::fluidRow(
                 shiny::column(3, shiny::downloadButton("download_map_data", "Data")),
                 shiny::column(3, shiny::downloadButton("export_map", "image"))
 		          ),
               plotly::plotlyOutput(
                 "map_chart" 
+              )
+            ),
+            shiny::column(6, 
+              shiny::fluidRow(
+                shiny::column(3, shiny::downloadButton("download_top1_data", "Data")),
+                shiny::column(3, shiny::downloadButton("export_top1", "image")),
+                shiny::column(6, 
+                  shiny::radioButtons("top_type1", label = NULL, choices = list(
+                      "Hashtags"="hashtags", 
+                      "Top words"="topwords" 
+                    ), selected = "hashtags", inline = TRUE
+                  ),
+		            )
               ),
+              plotly::plotlyOutput("top_chart1")
+            )
+          ),
+          shiny::fluidRow(
+            shiny::column(6, 
+              shiny::fluidRow(
+                shiny::column(3, shiny::downloadButton("download_top2_data", "Data")),
+                shiny::column(3, shiny::downloadButton("export_top2", "image")),
+                shiny::column(6, 
+                  shiny::radioButtons("top_type2", label = NULL, choices = list(
+                      "Entities"="entities", 
+                      "Contexts" = "contexts"
+                    ), selected = "entities", inline = TRUE
+                  ),
+		            )
+              ),
+              plotly::plotlyOutput("top_chart2")
+            ),
+            shiny::column(6, 
+              shiny::fluidRow(
+                shiny::column(3, shiny::downloadButton("download_top3_data", "Data")),
+              ),
+              shiny::fluidRow(
+                shiny::column(12,
+                  shiny::htmlOutput("top_table_title")
+                )
+              ),
+              shiny::fluidRow(
+                shiny::column(12,
+                  DT::dataTableOutput("top_table")
+                )
+              ),
+              shiny::fluidRow(
+                shiny::column(12,
+                  shiny::htmlOutput("top_table_disc")
+                )
+              )
             )
           )
         )
@@ -582,12 +626,13 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Defining top words chart from shiny app filters
-  topwords_chart_from_filters <- function(topics, fcountries, period, with_retweets, location_type, top) {
+  top_chart_from_filters <- function(topics, serie, fcountries, period, with_retweets, location_type, top) {
     fcountries= if(length(fcountries) == 0 || 1 %in%fcountries) c(1) else as.integer(fcountries)
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(fcountries, function(i) unlist(regions[[i]]$codes)))
-    create_topwords(
+    create_topchart(
       topic= topics
+      ,serie = serie     
       ,country_codes = countries
       ,date_min = period[[1]]
       ,date_max = period[[2]]
@@ -599,27 +644,51 @@ epitweetr_app <- function(data_dir = NA) {
   }
   # Rmarkdown dasboard export bi writing the dashboard on the provided file$
   # it uses the markdown template inst/rmarkdown/dashboard.Rmd
-  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, alpha_outlier, k_decay, no_historic, bonferroni_correction, same_weekday_baseline) {
-    rmarkdown::render(
-      system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
-      output_format = format, 
-      output_file = file,
-      params = list(
-        "topics" = topics
-        , "countries" = countries
-        , "period_type" = period_type
-        , "period" = period
-        , "with_retweets"= with_retweets
-        , "location_type" = location_type
-        , "alert_alpha" = alpha
-        , "alert_alpha_outlier" = alpha_outlier
-        , "alert_k_decay" = k_decay
-        , "alert_historic" = no_historic
-        , "bonferroni_correction" = bonferroni_correction
-        , "same_weekday_baseline" = same_weekday_baseline
-      ),
-      quiet = TRUE
-    ) 
+  export_dashboard <- function(
+    format, 
+    file, 
+    topics, 
+    countries, 
+    period_type, 
+    period, 
+    with_retweets, 
+    location_type, 
+    alpha, 
+    alpha_outlier,
+    k_decay, 
+    no_historic, 
+    bonferroni_correction, 
+    same_weekday_baseline, 
+    top_type1,
+    top_type2
+    ) {
+    tryCatch({
+        progress_start("Exporting dashboard") 
+        rmarkdown::render(
+          system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
+          output_format = format, 
+          output_file = file,
+          params = list(
+            "topics" = topics
+            , "countries" = countries
+            , "period_type" = period_type
+            , "period" = period
+            , "with_retweets"= with_retweets
+            , "location_type" = location_type
+            , "alert_alpha" = alpha
+            , "alert_alpha_outlier" = alpha_outlier
+            , "alert_k_decay" = k_decay
+            , "alert_historic" = no_historic
+            , "bonferroni_correction" = bonferroni_correction
+            , "same_weekday_baseline" = same_weekday_baseline
+            , "top_type1" = top_type1
+            , "top_type2" = top_type2
+          ),
+          quiet = TRUE
+        )
+      },
+      error = function(w) {app_error(w, env = cd)}
+    )
   }
   
   # Defining server logic
@@ -664,122 +733,188 @@ epitweetr_app <- function(data_dir = NA) {
     ################################################
     ######### DASHBOARD LOGIC ######################
     ################################################
-    # rendering line chart
-    output$line_chart <- plotly::renderPlotly({
-       # Validate if minimal requirements for rendering are met 
-       can_render(input, d)
-
-       # getting the chart
-       chart <- line_chart_from_filters(
-         input$topics, 
-         input$countries, 
-         input$period_type, 
-         input$period, 
-         input$with_retweets, 
-         input$location_type , 
-         input$alpha_filter, 
-         input$alpha_outlier_filter, 
-         input$k_decay_filter, 
-         input$history_filter, 
-         input$bonferroni_correction,
-         input$same_weekday_baseline
+    shiny::observeEvent(input$run_dashboard, {
+      # rendering line chart
+      rep = new.env()
+      progress_start("Generating report", rep) 
+      output$line_chart <- shiny::isolate({plotly::renderPlotly({
+         # Validate if minimal requirements for rendering are met 
+         can_render(input, d)
+         progress_set(value = 0.15, message = "Generating line chart", rep)
+         # getting the chart
+         chart <- line_chart_from_filters(
+           input$topics, 
+           input$countries, 
+           input$period_type, 
+           input$period, 
+           input$with_retweets, 
+           input$location_type , 
+           input$alpha_filter, 
+           input$alpha_outlier_filter, 
+           input$k_decay_filter, 
+           input$history_filter, 
+           input$bonferroni_correction,
+           input$same_weekday_baseline
          )$chart
-       
-       # Setting size based on container size
-       height <- session$clientData$output_line_chart_height
-       width <- session$clientData$output_line_chart_width
-	     
-       # returning empty chart if no data is found on chart
-       chart_not_empty(chart)
-       
-       # transforming chart on plotly
-       gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = FALSE) 
-       
-       # Fixing bad entries on ggplotly chart
-       for(i in 1:length(gg$x$data)) {
-         if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
-           gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
-         else 
-           gg$x$data[[i]]$name = "                        "
-         gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
-       }
-       gg
-    }) 
-     
-    # rendering map chart
-    output$map_chart <- plotly::renderPlotly({
-       # Validate if minimal requirements for rendering are met 
-       can_render(input, d)
-       
-       # Setting size based on container size
-       height <- session$clientData$output_map_chart_height
-       width <- session$clientData$output_map_chart_width
-       
-       # getting the chart 
-       chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
-       
-       # returning empty chart if no data is found on chart
-	     chart_not_empty(chart)
-       
-       # transforming chart on plotly
-       gg <- chart %>%
-         plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
-	       plotly::layout(
-           title=list(text= paste("<b>", chart$labels$title, "</b>")), 
-           margin = list(l = 5, r=5, b = 50, t = 80),
-           annotations = list(
-             text = chart$labels$caption,
-             font = list(size = 10),
-             showarrow = FALSE,
-             xref = 'paper', 
-             x = 0,
-             yref = 'paper', 
-             y = -0.15),
-           legend = list(orientation = 'h', x = 0.5, y = 0.08)
-         ) %>%
-         plotly::config(displayModeBar = FALSE) 
-    
+         
+         # Setting size based on container size
+         height <- session$clientData$output_line_chart_height
+         width <- session$clientData$output_line_chart_width
+	       
+         # returning empty chart if no data is found on chart
+         chart_not_empty(chart)
+         
+         # transforming chart on plotly
+         gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = FALSE) 
+         
          # Fixing bad entries on ggplotly chart
          for(i in 1:length(gg$x$data)) {
-           if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
-             gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
-           #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+           if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
+             gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
+           else 
+             gg$x$data[[i]]$name = "                        "
+           gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
          }
          gg
-    })
+      })}) 
+       
+      # rendering map chart
+      output$map_chart <- shiny::isolate({plotly::renderPlotly({
+         # Validate if minimal requirements for rendering are met 
+         can_render(input, d)
+         progress_set(value = 0.30, message = "Generating map chart", rep)
+         
+         # Setting size based on container size
+         height <- session$clientData$output_map_chart_height
+         width <- session$clientData$output_map_chart_width
+         
+         # getting the chart 
+         chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
+         
+         # returning empty chart if no data is found on chart
+	       chart_not_empty(chart)
+         
+         # transforming chart on plotly
+         gg <- chart %>%
+           plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
+	         plotly::layout(
+             title=list(text= paste("<b>", chart$labels$title, "</b>")), 
+             margin = list(l = 5, r=5, b = 50, t = 80),
+             annotations = list(
+               text = chart$labels$caption,
+               font = list(size = 10),
+               showarrow = FALSE,
+               xref = 'paper', 
+               x = 0,
+               yref = 'paper', 
+               y = -0.15),
+             legend = list(orientation = 'h', x = 0.5, y = 0.08)
+           ) %>%
+           plotly::config(displayModeBar = FALSE) 
+      
+           # Fixing bad entries on ggplotly chart
+           for(i in 1:length(gg$x$data)) {
+             if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
+               gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
+             #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+           }
+           gg
+      })})
 
-    output$topword_chart <- plotly::renderPlotly({
-       # Validate if minimal requirements for rendering are met 
-       can_render(input, d)
-       
-       # Setting size based on container size
-       height <- session$clientData$output_topword_chart_height
-       width <- session$clientData$output_topword_chart_width
-       
-       # getting the chart 
-       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
-       
-       # returning empty chart if no data is found on chart
-	     chart_not_empty(chart)
+      output$top_chart1 <- shiny::isolate({plotly::renderPlotly({
+         # Validate if minimal requirements for rendering are met 
+         can_render(input, d)
+         progress_set(value = 0.45, message = "Generating top chart 1", rep)
+         
+         # Setting size based on container size
+         height <- session$clientData$output_top_chart1_height
+         width <- session$clientData$output_top_chart1_width
+         
+         # getting the chart 
+         chart <- top_chart_from_filters(input$topics, input$top_type1, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
+         
+         # returning empty chart if no data is found on chart
+	       chart_not_empty(chart)
 
-       # transforming chart on plotly
-       chart %>%
-         plotly::ggplotly(height = height, width = width) %>% 
-	       plotly::layout(
-           title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
-           margin = list(l = 30, r=30, b = 100, t = 80),
-           annotations = list(
-             text = chart$labels$caption,
-             font = list(size = 10),
-             showarrow = FALSE,
-             xref = 'paper', 
-             x = 0,
-             yref = 'paper', 
-             y = -0.4)
-         ) %>%
-	       plotly::config(displayModeBar = FALSE)
+         # transforming chart on plotly
+         chart %>%
+           plotly::ggplotly(height = height, width = width) %>% 
+	         plotly::layout(
+             title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
+             margin = list(l = 30, r=30, b = 100, t = 80),
+             annotations = list(
+               text = chart$labels$caption,
+               font = list(size = 10),
+               showarrow = FALSE,
+               xref = 'paper', 
+               x = 0,
+               yref = 'paper', 
+               y = -0.4)
+           ) %>%
+	         plotly::config(displayModeBar = FALSE)
+      })})
+
+      output$top_chart2 <- shiny::isolate({plotly::renderPlotly({
+         # Validate if minimal requirements for rendering are met 
+         can_render(input, d)
+         progress_set(value = 0.7, message = "Generating top chart 2", rep)
+         
+         # Setting size based on container size
+         height <- session$clientData$output_top_chart2_height
+         width <- session$clientData$output_top_chart2_width
+         
+         # getting the chart 
+         chart <- top_chart_from_filters(input$topics, input$top_type2, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
+         
+         # returning empty chart if no data is found on chart
+	       chart_not_empty(chart)
+
+         # transforming chart on plotly
+         chart %>%
+           plotly::ggplotly(height = height, width = width) %>% 
+	         plotly::layout(
+             title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
+             margin = list(l = 30, r=30, b = 100, t = 80),
+             annotations = list(
+               text = chart$labels$caption,
+               font = list(size = 10),
+               showarrow = FALSE,
+               xref = 'paper', 
+               x = 0,
+               yref = 'paper', 
+               y = -0.4)
+           ) %>%
+	         plotly::config(displayModeBar = FALSE)
+      })})
+
+      output$top_table_title <- shiny::isolate({shiny::renderText({paste("<h4>Top URLS of tweets mentioning", input$topics, "from", input$periond[[1]], "to", input$period[[2]],"</h4>")})})
+      output$top_table <- shiny::isolate({DT::renderDataTable({
+          # Validate if minimal requirements for rendering are met 
+          can_render(input, d)
+          progress_set(value = 0.85, message = "Generating top links", rep)
+          
+          # Setting size based on container size
+          height <- session$clientData$output_top_chart2_height
+          width <- session$clientData$output_top_chart2_width
+          
+          # getting the chart to obtain the table 
+          chart <- top_chart_from_filters(input$topics, "urls", input$countries, input$period, input$with_retweets, input$location_type, 200)$chart
+          
+          # returning empty if no data is found on chart
+	        chart_not_empty(chart)
+
+          data <- chart$data %>%
+            dplyr::mutate(top = paste("<a href=\"",.data$top, "\"  target=\"_blank\">", .data$top, "</a>")) %>%
+            dplyr::rename(Url = .data$top, Frequency = .data$frequency) %>%
+          DT::datatable(escape = FALSE)
+
+      })})
+      output$top_table_disc <- shiny::isolate({shiny::renderText({
+         progress_close(rep)
+        "Top urls table only considers tweet location, ignoring the location type parameter"
+      })})
+      
     })
-    
     # Saving line chart as png and downloading it from shiny app
     output$export_line <- shiny::downloadHandler(
       filename = function() { 
@@ -885,10 +1020,10 @@ epitweetr_app <- function(data_dir = NA) {
       }
     )
      
-    # Saving top chart as CSV and downloading it from shiny app
-    output$download_topword_data <- shiny::downloadHandler(
+    # Saving top chart 1 as CSV and downloading it from shiny app
+    output$download_top1_data <- shiny::downloadHandler(
       filename = function() { 
-        paste("topword_dataset_", 
+        paste("top_dataset_",input$top_type1, 
           "_", paste(input$topics, collapse="-"), 
           "_", paste(input$countries, collapse="-"), 
           "_", input$period[[1]], 
@@ -899,16 +1034,54 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
+          top_chart_from_filters(input$topics, input$top_type1, input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
+          file, 
+          row.names = FALSE)
+      }
+    ) 
+    # Saving top chart 2 as CSV and downloading it from shiny app
+    output$download_top2_data <- shiny::downloadHandler(
+      filename = function() { 
+        paste("top_dataset_",input$top_type2, 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".csv", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        write.csv(
+          top_chart_from_filters(input$topics, input$top_type2, input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
+          file, 
+          row.names = FALSE)
+      }
+    ) 
+    # Saving top table as CSV and downloading it from shiny app
+    output$download_top3_data <- shiny::downloadHandler(
+      filename = function() { 
+        paste("top_dataset_", "urls" , 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".csv", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        write.csv(
+          top_chart_from_filters(input$topics, "urls", input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
           file, 
           row.names = FALSE)
       }
     ) 
     
-    # Saving top chart as png and downloading it from shiny app
-    output$export_topword <- shiny::downloadHandler(
+    # Saving top chart 1 as png and downloading it from shiny app
+    output$export_top1 <- shiny::downloadHandler(
       filename = function() { 
-        paste("topword_", 
+        paste("top_",input$top_type1, 
           "_", paste(input$topics, collapse="-"), 
           "_", paste(input$countries, collapse="-"), 
           "_", input$period[[1]], 
@@ -919,7 +1092,27 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         chart <-
-          topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 50)$chart
+          top_chart_from_filters(input$topics, input$top_type1, input$countries, input$period, input$with_retweets, input$location_type, 50)$chart
+        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
+        ggplot2::ggsave(file, plot = chart, device = device) 
+      }
+    )
+    
+    # Saving top chart 2 as png and downloading it from shiny app
+    output$export_top2 <- shiny::downloadHandler(
+      filename = function() { 
+        paste("top_",input$top_type2,
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".png", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        chart <-
+          top_chart_from_filters(input$topics, input$top_type2, input$countries, input$period, input$with_retweets, input$location_type, 50)$chart
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
       }
@@ -933,6 +1126,8 @@ epitweetr_app <- function(data_dir = NA) {
           "_", paste(input$countries, collapse="-"), 
           "_", input$period[[1]], 
           "_", input$period[[2]],
+          "_", input$top_type1,
+          "_", input$top_type2,
           ".pdf", 
           sep = ""
         )
@@ -952,7 +1147,9 @@ epitweetr_app <- function(data_dir = NA) {
            input$k_decay_filter, 
            input$history_filter,
            input$bonferroni_correction,
-           input$same_weekday_baseline
+           input$same_weekday_baseline,
+           input$top_type1,
+           input$top_type2
          )
       }
     ) 
@@ -964,6 +1161,8 @@ epitweetr_app <- function(data_dir = NA) {
           "_", paste(input$countries, collapse="-"), 
           "_", input$period[[1]], 
           "_", input$period[[2]],
+          "_", input$top_type1,
+          "_", input$top_type2,
           ".md", 
           sep = ""
         )
@@ -983,7 +1182,9 @@ epitweetr_app <- function(data_dir = NA) {
            input$k_decay_filter, 
            input$history_filter,
            input$bonferroni_correction,
-           input$same_weekday_baseline
+           input$same_weekday_baseline,
+           input$top_type1,
+           input$top_type2
          )
       }
     )
@@ -1503,10 +1704,11 @@ epitweetr_app <- function(data_dir = NA) {
         shiny::validate(
           shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
         )
+
         dt <- if(toptweets == 0) {
           alerts %>%
             dplyr::select(
-              "date", "hour", "topic", "country", "epitweetr_category", "topwords", "number_of_tweets", "known_ratio", "limit", 
+              "date", "hour", "topic", "country", "epitweetr_category", "tops", "number_of_tweets", "known_ratio", "limit", 
               "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type",
               "alpha", "alpha_outlier", "k_decay"
             ) %>%
@@ -1517,7 +1719,7 @@ epitweetr_app <- function(data_dir = NA) {
                 "Topic" = "topic",  
                 "Region" = "country",
                 "Category" = "epitweetr_category",
-                "Top words" = "topwords", 
+                "Tops" = "tops", 
                 "Tweets" = "number_of_tweets", 
                 "% important user" = "known_ratio",
                 "Threshold" = "limit",
@@ -1532,7 +1734,7 @@ epitweetr_app <- function(data_dir = NA) {
                 "Downweight strenght" = "k_decay"
               ),
               filter = "top",
-              escape = TRUE
+              escape = FALSE
             )
         } else {
           alerts$toptweets <- sapply(alerts$toptweets, function(tweetsbylang) {
@@ -1565,9 +1767,9 @@ epitweetr_app <- function(data_dir = NA) {
              )
             }
           })
-
+          
           alerts %>%
-            dplyr::select("date", "hour", "topic", "country", "epitweetr_category", "topwords", "number_of_tweets", "toptweets") %>%
+            dplyr::select("date", "hour", "topic", "country", "epitweetr_category", "tops", "number_of_tweets", "toptweets") %>%
             DT::datatable(
               colnames = c(
                 "Date" = "date", 
@@ -1575,7 +1777,7 @@ epitweetr_app <- function(data_dir = NA) {
                 "Topic" = "topic",  
                 "Region" = "country",
                 "Category" = "epitweetr_category",
-                "Top words" = "topwords", 
+                "Tops" = "tops", 
                 "Tweets" = "number_of_tweets", 
                 "Top tweets" = "toptweets"
               ),
@@ -2014,11 +2216,11 @@ epitweetr_app <- function(data_dir = NA) {
   }
   
   progress_set <- function(value, message  = "processing", env = cd) {
-    env$progress$set(value = value, detail = message) 
   }
 
   app_error <- function(e, env = cd) {
     message(e)
+    browser()
     progress_close(env = env)
     showNotification(paste(e), type = "error")
   }

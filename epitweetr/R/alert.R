@@ -440,11 +440,10 @@ do_next_alerts <- function(tasks = get_tasks()) {
     )
     
     # calculating alerts per topic
-    #alerts <- lapply(topics, function(topic) {
     alerts <- parallel::parLapply(cl, 1:length(topics), function(i) {
       topic <- topics[[i]]
       setup_config(data_dir)
-      m <- paste("Getting alerts for",topic, alert_to, (Sys.time())) 
+      m <- paste("Getting alerts for",topic,i,  alert_to, (Sys.time())) 
       message(m) 
       if(i %% cores == 0) {
         tasks <- update_alerts_task(tasks, "running", m)
@@ -473,44 +472,54 @@ do_next_alerts <- function(tasks = get_tasks()) {
     alerts <- Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
     # If alert prediction model has been trained, alerts can be predicted
     if(nrow(alerts)>0) {
-      # Adding top words
-      m <- paste("Adding topwords") 
-      message(m)  
-      tasks <- update_alerts_task(tasks, "running", m)
+      # Adding top items
       codeMap <- get_country_codes_by_name()
       ts <- unique(alerts$topic)
-      topwords <- get_aggregates("topwords", filter = list(topic = ts , period = c(alert_to, alert_to)))
-      topwords$frequency <- topwords$original
-      topwords <- mapply(
-        function(t, d, r) {
-          codes <- codeMap[[r]]
-          if(is.null(codes)) {
-            "" 
-          } else {
-            tws <- (topwords %>%
-              dplyr::filter(
-                .data$topic == t
-                & .data$created_date == d
-                & (if(length(codes)==0) TRUE else .data$tweet_geo_country_code %in% codes )
-              ) %>% 
-            dplyr::filter(!is.na(.data$frequency)) %>% 
-            dplyr::group_by(.data$token) %>%
-            dplyr::summarize(frequency = sum(.data$frequency)) %>%
-            dplyr::ungroup() %>%
-            dplyr::arrange(-.data$frequency) %>%
-            head(10) %>%
-            dplyr::mutate(token = reorder(.data$token, .data$frequency)))
-            if(nrow(tws) == 0) 
-              ""
-            else 
-              paste(paste(tws$token, " (", tws$frequency, ")", collapse = ", ", sep = ""))
-          }
-        }, 
-        alerts$topic, 
-        alerts$date,
-        alerts$country
-      )
-      alerts$topwords <- topwords
+      for(serie in list(
+        list(name = "topwords", col = "token"),
+        list(name = "hashtags", col = "hashtag"),
+        list(name = "urls", col = "url"),
+        list(name = "contexts", col = "context"),
+        list(name = "entities", col = "entity")
+        )) {
+        m <- paste("Adding",serie$name) 
+        message(m)  
+
+        data <- get_aggregates(serie$name, filter = list(topic = ts , period = c(alert_to, alert_to)))
+        data$frequency <- data$original
+        data$item <- data[[serie$col]]
+        new_col <- mapply(
+          function(t, d, r) {
+            codes <- codeMap[[r]]
+            if(is.null(codes)) {
+              "" 
+            } else {
+              tps <- (data %>%
+                dplyr::filter(
+                  .data$topic == t
+                  & .data$created_date == d
+                  & (if(length(codes)==0) TRUE else .data$tweet_geo_country_code %in% codes )
+                ) %>% 
+                dplyr::filter(!is.na(.data$frequency)) %>% 
+                dplyr::group_by(.data$item) %>%
+                dplyr::summarize(frequency = sum(.data$frequency)) %>%
+                dplyr::ungroup() %>%
+                dplyr::arrange(-.data$frequency) %>%
+                head(10) #%>%
+                #dplyr::mutate(item = reorder(.data$item, .data$frequency))
+              )
+              if(nrow(tps) == 0) 
+                ""
+              else 
+                paste(paste(tps$item, " (", tps$frequency, ")", collapse = ", ", sep = ""))
+            }
+          }, 
+          alerts$topic, 
+          alerts$date,
+          alerts$country
+        )
+        alerts[[serie$name]] <- new_col
+      }
       # Adding used parameters
       alerts <- alerts %>% 
         dplyr::mutate(
@@ -614,7 +623,18 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
       # Adding default value for k_decay if does not exists
       if(!("k_decay" %in% colnames(df)))
         df$k_decay <- as.numeric(sapply(df$topic, function(t) NA))
-
+      # Adding default hashtags
+      if(!("hashtags" %in% colnames(df)))
+        df$hashtags <- sapply(df$topic, function(t) NA)
+      # Adding default urls
+      if(!("urls" %in% colnames(df)))
+        df$urls <- sapply(df$topic, function(t) NA)
+      # Adding default entities
+      if(!("entities" %in% colnames(df)))
+        df$entities <- sapply(df$topic, function(t) NA)
+      # Adding default contexts
+      if(!("contexts" %in% colnames(df)))
+        df$contexts <- sapply(df$topic, function(t) NA)
 
       df <- df %>% dplyr::filter(
         (if(length(cnames)==0) TRUE else .data$country %in% cnames) &
@@ -645,6 +665,21 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
       if(toptweets > 0) {
         df <- add_toptweets(df, toptweets, progress)
       }
+      # Calculating top columns
+      df$tops <- paste(
+        "<UL>",
+        ifelse(!is.na(df$topwords), paste("<li><b>Top Words</b>: ", df$topwords, "</li>\n"), ""),
+        ifelse(!is.na(df$hashtags), paste("<li><b>Top Hashtags</b>: ", df$hashtags, "</li>\n"), ""),
+        ifelse(!is.na(df$entities), paste("<li><b>Top Entities</b>: ", df$entities, "</li>\n"), ""),
+        ifelse(!is.na(df$contexts), paste("<li><b>Top Contexts</b>: ", df$contexts, "</li>\n"), ""),
+        ifelse(!is.na(df$urls), paste("<li><b>Top Urls</b>: ", sapply(strsplit(df$urls, ", "), function(s) {
+            urls <- sapply(strsplit(s, " \\("), function(f) f[[1]])
+            counts <- sapply(strsplit(s, " \\("), function(f) paste(" (", f[[2]], sep = ""))
+            paste(sapply(1:length(urls), function(i) paste("<a target = \"_blank\" href = \"",urls[[i]], "\">",urls[[i]], counts[[i]],"</a>")), collapse = ", ")
+          }), "</li>\n"), ""),
+        "</UL>",
+        sep = ""
+      )
       if(nrow(df) > 0 && !"epitweetr_category" %in% colnames(df))
         df$epitweetr_category <- NA
       progress(1, "Alerts obtained")
@@ -971,7 +1006,14 @@ send_alert_emails <- function(tasks = get_tasks()) {
             else 
               emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
           )
-          smtp(msg)
+          tryCatch({
+            smtp(msg)
+            },
+            error = function(e) {
+              message(paste("Error when sending email", e))
+              stop(e)
+            }
+          )
           
           # Storing last day sending alerts for current user
           # If new dates resetting hours to 0
@@ -1031,7 +1073,7 @@ get_alert_tables <- function(alerts, group_topics = TRUE, ungrouped_title = "Ale
              `Hour` = .data$`hour`, 
              `Topic` = .data$`topic`,  
              `Region` = .data$`country`,
-             `Top words` = .data$`topwords`, 
+             `Tops` = .data$`tops`, 
              `Category` = .data$`epitweetr_category`, 
              `Tweets` = .data$`number_of_tweets`, 
              `% important user` = .data$`known_ratio`,
@@ -1047,7 +1089,7 @@ get_alert_tables <- function(alerts, group_topics = TRUE, ungrouped_title = "Ale
              `Location` = .data$`location_type`
             ) %>%
             xtable::xtable() %>%
-            print(type="html", file=tempfile())
+            print(type="html", file=tempfile(), sanitize.text.function = function(f) f)
         )
       })
       # Applying table inline format 

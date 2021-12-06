@@ -112,7 +112,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     }
 
     #measure_time <- function(f) {start.time <- Sys.time();ret <- f();end.time <- Sys.time();time.taken <- end.time - start.time;message(time.taken); ret}
-    message(q_url)
+    #message(q_url)
     agg_df = jsonlite::stream_in(url(q_url), verbose = FALSE)
     # Calculating the created week
     if(nrow(agg_df) > 0) {
@@ -551,6 +551,50 @@ add_missing <- function(df, dataset) {
     } else if(dataset == "topwords") {
       list(
         token = "char",
+        topic = "char",
+        created_date = "date",
+        tweet_geo_country_code = "char",
+        frequency = "int",
+        original = "int",
+        retweets = "int",
+        created_weeknum = "int"
+      )
+    } else if(dataset == "hashtags") {
+      list(
+        token = "char",
+        hashtag = "char",
+        created_date = "date",
+        tweet_geo_country_code = "char",
+        frequency = "int",
+        original = "int",
+        retweets = "int",
+        created_weeknum = "int"
+      )
+    } else if(dataset == "urls") {
+      list(
+        url = "char",
+        topic = "char",
+        created_date = "date",
+        tweet_geo_country_code = "char",
+        frequency = "int",
+        original = "int",
+        retweets = "int",
+        created_weeknum = "int"
+      )
+    } else if(dataset == "entities") {
+      list(
+        entity = "char",
+        topic = "char",
+        created_date = "date",
+        tweet_geo_country_code = "char",
+        frequency = "int",
+        original = "int",
+        retweets = "int",
+        created_weeknum = "int"
+      )
+    } else if(dataset == "contexts") {
+      list(
+        context = "char",
         topic = "char",
         created_date = "date",
         tweet_geo_country_code = "char",

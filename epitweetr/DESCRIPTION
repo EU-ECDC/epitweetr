@@ -1,6 +1,6 @@
 Package: epitweetr
 Title: Early Detection of Public Health Threats from Twitter Data
-Version: 1.0.26
+Version: 1.0.27
 Authors@R: c( 
      person(given = "Laura",
             family = "Espinosa",
@@ -60,6 +60,7 @@ Imports:
     httr,
     jsonlite,
     keyring,
+    knitr,
     emayili,
     ggplot2,
     janitor,
@@ -85,6 +86,5 @@ Imports:
     crul
 RoxygenNote: 7.1.1
 Suggests: 
-    knitr,
     taskscheduleR
 VignetteBuilder: knitr

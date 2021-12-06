@@ -43,7 +43,7 @@ search_loop <-  function(data_dir = NA) {
       message("Epitweetr Database is not yet running waiting for 5 seconds")
       Sys.sleep(5)
     }
-    # Dismissing history if reqquired from shiny app
+    # Dismissing history if required from shiny app
     if(conf$dismiss_past_request  > conf$dismiss_past_done) {
       message("dismiss history requested")
       for(i in 1:length(conf$topics)) {
@@ -89,7 +89,11 @@ search_loop <-  function(data_dir = NA) {
                   plan$since_id <- NULL
                   plan$since_target <- NULL
                   conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
-                } else stop(e)
+                } else if(e$message == "too-old") {
+                  message("Canceling too-old request")
+                  conf$topics[[i]]$plan[[j]]$end_on <-Sys.time()
+                } else
+                 stop(paste(e$message, e))
               }
             )
           req2Commit <- req2Commit + 1
@@ -162,11 +166,33 @@ search_topic <- function(plan, query, topic) {
     # interpreting is necesssary know the number of obtained tweets and the id of the oldest tweet found and to keep tweet collecting stats
     # Saving uninterpreted content as a gzip archive
     json <- jsonlite::fromJSON(content)
-    post_result <- httr::POST(url=paste0(get_scala_tweets_url(), "?topic=", curl::curl_escape(topic), "&geolocate=true"), httr::content_type_json(), body=content, encode = "raw", encoding = "UTF-8")
-    if(httr::status_code(post_result) != 200) {
-      print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
-      stop()
-    } 
+    tries <- 3
+    done <- FALSE
+    while(!done) {
+      tries <- tries - 1
+      tryCatch({
+          post_result <- httr::POST(
+            url=paste0(get_scala_tweets_url(), "?topic=", curl::curl_escape(topic), "&geolocate=true"), 
+            httr::content_type_json(), 
+            body=content, 
+            encode = "raw", 
+            encoding = "UTF-8",
+            httr::timeout((4 - tries) * 5)
+          )
+
+          if(httr::status_code(post_result) != 200) {
+            print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
+            stop()
+          }
+          done = TRUE
+        },
+        error = function(e) {
+          message(paste("Error found while sending tweets", e))
+          if(tries < 0)
+            stop("too many retries")
+        }
+      )
+    }
     # evaluating if rows are obtained if not rows are obtained it means that the plan is finished 
     # plan end can be because all tweets were already collected no more tweets are available because of twitter history limits
     got_rows <- (
