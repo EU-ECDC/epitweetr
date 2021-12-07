@@ -672,10 +672,13 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
         ifelse(!is.na(df$hashtags), paste("<li><b>Top Hashtags</b>: ", df$hashtags, "</li>\n"), ""),
         ifelse(!is.na(df$entities), paste("<li><b>Top Entities</b>: ", df$entities, "</li>\n"), ""),
         ifelse(!is.na(df$contexts), paste("<li><b>Top Contexts</b>: ", df$contexts, "</li>\n"), ""),
-        ifelse(!is.na(df$urls), paste("<li><b>Top Urls</b>: ", sapply(strsplit(df$urls, ", "), function(s) {
-            urls <- sapply(strsplit(s, " \\("), function(f) f[[1]])
-            counts <- sapply(strsplit(s, " \\("), function(f) paste(" (", f[[2]], sep = ""))
-            paste(sapply(1:length(urls), function(i) paste("<a target = \"_blank\" href = \"",urls[[i]], "\">",urls[[i]], counts[[i]],"</a>")), collapse = ", ")
+        ifelse(!is.na(df$urls) & nchar(df$urls) > 0, paste("<li><b>Top Urls</b>: ", sapply(strsplit(df$urls, ", "), function(s) {
+            if(!is.null(s) && !is.na(s) && length(s) > 0 && nchar(s) > 0) {
+              print(s)
+              urls <- sapply(strsplit(s, " \\("), function(f) f[[1]])
+              counts <- sapply(strsplit(s, " \\("), function(f) paste(" (", f[[2]], sep = ""))
+              paste(sapply(1:length(urls), function(i) paste("<a target = \"_blank\" href = \"",urls[[i]], "\">",urls[[i]], counts[[i]],"</a>")), collapse = ", ")
+            } else ""
           }), "</li>\n"), ""),
         "</UL>",
         sep = ""
@@ -1126,6 +1129,7 @@ get_alert_training_df <- function() {
 
 
 get_alert_training_runs_df <- function() {
+  `%>%` <- magrittr::`%>%`
   data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric","text", "logical", "text", "text")
   current <- readxl::read_excel(get_alert_training_path(), col_types = data_types, sheet = "Runs")
   current <- current %>% dplyr::transmute(

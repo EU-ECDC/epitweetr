@@ -157,6 +157,7 @@ object AlertActor {
     new StringIndexer()
       .setInputCol("given_category")
       .setOutputCol("category_vector")
+      .setHandleInvalid("skip")
       .fit(alerts.toDS)
       .write.overwrite()
       .save(AlertActor.labelIndexerPath())
@@ -205,7 +206,6 @@ object AlertActor {
         .map{seed =>
            val Array(training, test) = alertsdf.randomSplit(Array(trainRatio, 1-trainRatio), seed)
            val model = AlertActor.getModel(run)
-
            val m = model.fit(training)
            m.transform(test)
          }
@@ -263,7 +263,7 @@ object AlertActor {
        .map{case (alerts, topwordlangs) => 
           alerts.zip(topwordlangs).map{
             case (TaggedAlert(id, date, topic, country, number_of_tweets, topwords, toptweets, given_category, _), twlang)
-               => (id, date, topic, country, number_of_tweets, topwords, twlang, toptweets, given_category)
+               => (id, date, topic, country, number_of_tweets, topwords, twlang, toptweets, given_category.orElse(Some("?")))
           }.toDF("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "toptweets", "given_category")
        }
        //Text vectorisation
@@ -278,7 +278,7 @@ object AlertActor {
            langs.map(lang => lit(lang).as(s"toplang_$lang"))) 
            :_*
          )
-	 //Vectorizing all columns by language
+	       //Vectorizing all columns by language
          .vectorize(
            languages = conf.languages.get, 
            reuseIndex = true, 
@@ -286,11 +286,11 @@ object AlertActor {
            textLangCols = Map("topic" -> Some("topic_lang"), "country"-> Some("country_lang"), "topwords"-> Some("twlang")) ++ Map(langs.map(lang => (s"top_$lang", Some(s"toplang_$lang"))):_*), 
            tokenizerRegex = conf.splitter
          )
-	 //Adding all vectors on a single vector (translation to english of all vectors could be interesting for future)
+	       //Adding all vectors on a single vector (translation to english of all vectors could be interesting for future)
          .select((
            baseCols.map(c => col(c)) ++
            Seq(
-	     udf((row:Seq[Row]) => {
+	             udf((row:Seq[Row]) => {
                  row.map(vectors => vectors.getAs[MLVector](0)).reduceOption(_.sum(_)).getOrElse(null)
                })
                .apply(
@@ -302,9 +302,9 @@ object AlertActor {
        	         )
                ).as("word_vec"),
              udf((count:Int)=> 1 - Math.pow(Math.E, -1.0*count/1000.0)).apply(col("number_of_tweets")).as("adjusted_count")
-	   )):_*
+	         )):_*
          )
-	 //Removing potentially empty alerts
+	       //Removing potentially empty alerts
          //.where(col("word_vec").isNotNull)
        }
        //Indexing text categories as multiclass vector

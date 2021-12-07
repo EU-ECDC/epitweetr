@@ -257,14 +257,10 @@ check_series_present <- function(series = c("country_counts", "geolocated", "top
 
 # check if tweets files are present tweet collect has run
 check_tweets_present <- function() {
-  last_topic <- tail(list.dirs(path = file.path(conf$data_dir, "tweets", "search"), recursive = FALSE), n = 1)
-  last_year <- tail(list.dirs(path = last_topic, recursive = FALSE), n = 1)
-  last_file <- tail(list.files(path = last_year, pattern = "*.json.gz"), n = 1)
-  
-  if(length(last_file) > 0) {
+  if(!is.na(last_fs_updates("tweets"))) {
     TRUE
   } else {
-    warning("No tweet files found. Please execute the Data collection & processing pipeline")
+    warning("No tweets found on database. Please execute the Data collection")
     FALSE
   }
 }
@@ -326,6 +322,21 @@ check_search_running <- function() {
   else {
     warning(paste0(
       "Data collection & processing pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Data collection & processing button on the config page ",
+      "You can also manually run the Data collection & processing pipeline by executing the following command on a separate R session. epitweetr::search_loop('",
+      conf$data_dir,
+      "')"
+    ))
+    FALSE
+  }
+}
+
+# check fs is running
+check_fs_running <- function() {
+  if(is_fs_running())
+    TRUE
+  else {
+    warning(paste0(
+      "Embedded epitweetr database is not running. On Windows, you can activate it by clicking on the 'activate' epitweetr database button on the config page ",
       "You can also manually run the Data collection & processing pipeline by executing the following command on a separate R session. epitweetr::search_loop('",
       conf$data_dir,
       "')"
@@ -445,6 +456,7 @@ check_all <- function() {
     scheduler = check_scheduler,
     twitter_auth = check_twitter_auth,
     search_running = check_search_running,
+    database_running = check_fs_running,
     tweets = check_tweets_present, 
     os64 = check_64, 
     java = check_java_present, 
@@ -459,7 +471,6 @@ check_all <- function() {
     move_from_temp = check_move_from_temp, 
     geonames = check_geonames, 
     languages = check_languages, 
-    geotag = check_geolocated_present, 
     aggregate = check_series_present, 
     alerts = check_alerts_present,
     pandoc = check_pandoc,

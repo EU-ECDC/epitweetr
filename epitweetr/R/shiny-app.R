@@ -737,178 +737,188 @@ epitweetr_app <- function(data_dir = NA) {
       # rendering line chart
       rep = new.env()
       progress_start("Generating report", rep) 
-      output$line_chart <- shiny::isolate({plotly::renderPlotly({
+      output$line_chart <- plotly::renderPlotly({
          # Validate if minimal requirements for rendering are met 
          can_render(input, d)
          progress_set(value = 0.15, message = "Generating line chart", rep)
-         # getting the chart
-         chart <- line_chart_from_filters(
-           input$topics, 
-           input$countries, 
-           input$period_type, 
-           input$period, 
-           input$with_retweets, 
-           input$location_type , 
-           input$alpha_filter, 
-           input$alpha_outlier_filter, 
-           input$k_decay_filter, 
-           input$history_filter, 
-           input$bonferroni_correction,
-           input$same_weekday_baseline
-         )$chart
-         
-         # Setting size based on container size
-         height <- session$clientData$output_line_chart_height
-         width <- session$clientData$output_line_chart_width
-	       
-         # returning empty chart if no data is found on chart
-         chart_not_empty(chart)
-         
-         # transforming chart on plotly
-         gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = FALSE) 
-         
-         # Fixing bad entries on ggplotly chart
-         for(i in 1:length(gg$x$data)) {
-           if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
-             gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
-           else 
-             gg$x$data[[i]]$name = "                        "
-           gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
-         }
-         gg
-      })}) 
+         shiny::isolate({
+	         # getting the chart
+           chart <- line_chart_from_filters(
+             input$topics, 
+             input$countries, 
+             input$period_type, 
+             input$period, 
+             input$with_retweets, 
+             input$location_type , 
+             input$alpha_filter, 
+             input$alpha_outlier_filter, 
+             input$k_decay_filter, 
+             input$history_filter, 
+             input$bonferroni_correction,
+             input$same_weekday_baseline
+           )$chart
+           
+           # Setting size based on container size
+           height <- session$clientData$output_line_chart_height
+           width <- session$clientData$output_line_chart_width
+	         
+           # returning empty chart if no data is found on chart
+           chart_not_empty(chart)
+           
+           # transforming chart on plotly
+           gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = FALSE) 
+           
+           # Fixing bad entries on ggplotly chart
+           for(i in 1:length(gg$x$data)) {
+             if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
+               gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
+             else 
+               gg$x$data[[i]]$name = "                        "
+             gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+           }
+           gg
+        })
+      }) 
        
       # rendering map chart
-      output$map_chart <- shiny::isolate({plotly::renderPlotly({
+      output$map_chart <- plotly::renderPlotly({
          # Validate if minimal requirements for rendering are met 
          can_render(input, d)
          progress_set(value = 0.30, message = "Generating map chart", rep)
          
-         # Setting size based on container size
-         height <- session$clientData$output_map_chart_height
-         width <- session$clientData$output_map_chart_width
-         
-         # getting the chart 
-         chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
-         
-         # returning empty chart if no data is found on chart
-	       chart_not_empty(chart)
-         
-         # transforming chart on plotly
-         gg <- chart %>%
-           plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
-	         plotly::layout(
-             title=list(text= paste("<b>", chart$labels$title, "</b>")), 
-             margin = list(l = 5, r=5, b = 50, t = 80),
-             annotations = list(
-               text = chart$labels$caption,
-               font = list(size = 10),
-               showarrow = FALSE,
-               xref = 'paper', 
-               x = 0,
-               yref = 'paper', 
-               y = -0.15),
-             legend = list(orientation = 'h', x = 0.5, y = 0.08)
-           ) %>%
-           plotly::config(displayModeBar = FALSE) 
+         shiny::isolate({
+           # Setting size based on container size
+           height <- session$clientData$output_map_chart_height
+           width <- session$clientData$output_map_chart_width
+           
+           # getting the chart 
+           chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
+           
+           # returning empty chart if no data is found on chart
+	         chart_not_empty(chart)
+           
+           # transforming chart on plotly
+           gg <- chart %>%
+             plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
+	           plotly::layout(
+               title=list(text= paste("<b>", chart$labels$title, "</b>")), 
+               margin = list(l = 5, r=5, b = 50, t = 80),
+               annotations = list(
+                 text = chart$labels$caption,
+                 font = list(size = 10),
+                 showarrow = FALSE,
+                 xref = 'paper', 
+                 x = 0,
+                 yref = 'paper', 
+                 y = -0.15),
+               legend = list(orientation = 'h', x = 0.5, y = 0.08)
+             ) %>%
+             plotly::config(displayModeBar = FALSE) 
       
-           # Fixing bad entries on ggplotly chart
-           for(i in 1:length(gg$x$data)) {
-             if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
-               gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
-             #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
-           }
-           gg
-      })})
+             # Fixing bad entries on ggplotly chart
+             for(i in 1:length(gg$x$data)) {
+               if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
+                 gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
+               #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+             }
+             gg
+         })
+      })
 
-      output$top_chart1 <- shiny::isolate({plotly::renderPlotly({
+      output$top_chart1 <- plotly::renderPlotly({
          # Validate if minimal requirements for rendering are met 
          can_render(input, d)
          progress_set(value = 0.45, message = "Generating top chart 1", rep)
          
-         # Setting size based on container size
-         height <- session$clientData$output_top_chart1_height
-         width <- session$clientData$output_top_chart1_width
-         
-         # getting the chart 
-         chart <- top_chart_from_filters(input$topics, input$top_type1, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
-         
-         # returning empty chart if no data is found on chart
-	       chart_not_empty(chart)
+         shiny::isolate({
+           # Setting size based on container size
+           height <- session$clientData$output_top_chart1_height
+           width <- session$clientData$output_top_chart1_width
+           
+           # getting the chart 
+           chart <- top_chart_from_filters(input$topics, input$top_type1, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
+           
+           # returning empty chart if no data is found on chart
+	         chart_not_empty(chart)
 
-         # transforming chart on plotly
-         chart %>%
-           plotly::ggplotly(height = height, width = width) %>% 
-	         plotly::layout(
-             title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
-             margin = list(l = 30, r=30, b = 100, t = 80),
-             annotations = list(
-               text = chart$labels$caption,
-               font = list(size = 10),
-               showarrow = FALSE,
-               xref = 'paper', 
-               x = 0,
-               yref = 'paper', 
-               y = -0.4)
-           ) %>%
-	         plotly::config(displayModeBar = FALSE)
-      })})
+           # transforming chart on plotly
+           chart %>%
+             plotly::ggplotly(height = height, width = width) %>% 
+	           plotly::layout(
+               title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
+               margin = list(l = 30, r=30, b = 100, t = 80),
+               annotations = list(
+                 text = chart$labels$caption,
+                 font = list(size = 10),
+                 showarrow = FALSE,
+                 xref = 'paper', 
+                 x = 0,
+                 yref = 'paper', 
+                 y = -0.4)
+             ) %>%
+	           plotly::config(displayModeBar = FALSE)
+         })
+      })
 
-      output$top_chart2 <- shiny::isolate({plotly::renderPlotly({
+      output$top_chart2 <- plotly::renderPlotly({
          # Validate if minimal requirements for rendering are met 
          can_render(input, d)
          progress_set(value = 0.7, message = "Generating top chart 2", rep)
-         
-         # Setting size based on container size
-         height <- session$clientData$output_top_chart2_height
-         width <- session$clientData$output_top_chart2_width
-         
-         # getting the chart 
-         chart <- top_chart_from_filters(input$topics, input$top_type2, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
-         
-         # returning empty chart if no data is found on chart
-	       chart_not_empty(chart)
+         shiny::isolate({
+           # Setting size based on container size
+           height <- session$clientData$output_top_chart2_height
+           width <- session$clientData$output_top_chart2_width
+           
+           # getting the chart 
+           chart <- top_chart_from_filters(input$topics, input$top_type2, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
+           
+           # returning empty chart if no data is found on chart
+	         chart_not_empty(chart)
 
-         # transforming chart on plotly
-         chart %>%
-           plotly::ggplotly(height = height, width = width) %>% 
-	         plotly::layout(
-             title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
-             margin = list(l = 30, r=30, b = 100, t = 80),
-             annotations = list(
-               text = chart$labels$caption,
-               font = list(size = 10),
-               showarrow = FALSE,
-               xref = 'paper', 
-               x = 0,
-               yref = 'paper', 
-               y = -0.4)
-           ) %>%
-	         plotly::config(displayModeBar = FALSE)
-      })})
+           # transforming chart on plotly
+           chart %>%
+             plotly::ggplotly(height = height, width = width) %>% 
+	           plotly::layout(
+               title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
+               margin = list(l = 30, r=30, b = 100, t = 80),
+               annotations = list(
+                 text = chart$labels$caption,
+                 font = list(size = 10),
+                 showarrow = FALSE,
+                 xref = 'paper', 
+                 x = 0,
+                 yref = 'paper', 
+                 y = -0.4)
+             ) %>%
+	           plotly::config(displayModeBar = FALSE)
+         })
+      })
 
       output$top_table_title <- shiny::isolate({shiny::renderText({paste("<h4>Top URLS of tweets mentioning", input$topics, "from", input$periond[[1]], "to", input$period[[2]],"</h4>")})})
-      output$top_table <- shiny::isolate({DT::renderDataTable({
+      output$top_table <- DT::renderDataTable({
           # Validate if minimal requirements for rendering are met 
           can_render(input, d)
           progress_set(value = 0.85, message = "Generating top links", rep)
           
-          # Setting size based on container size
-          height <- session$clientData$output_top_chart2_height
-          width <- session$clientData$output_top_chart2_width
-          
-          # getting the chart to obtain the table 
-          chart <- top_chart_from_filters(input$topics, "urls", input$countries, input$period, input$with_retweets, input$location_type, 200)$chart
-          
-          # returning empty if no data is found on chart
-	        chart_not_empty(chart)
+          shiny::isolate({
+            # Setting size based on container size
+            height <- session$clientData$output_top_chart2_height
+            width <- session$clientData$output_top_chart2_width
+            
+            # getting the chart to obtain the table 
+            chart <- top_chart_from_filters(input$topics, "urls", input$countries, input$period, input$with_retweets, input$location_type, 200)$chart
+            
+            # returning empty if no data is found on chart
+	          chart_not_empty(chart)
 
-          data <- chart$data %>%
-            dplyr::mutate(top = paste("<a href=\"",.data$top, "\"  target=\"_blank\">", .data$top, "</a>")) %>%
-            dplyr::rename(Url = .data$top, Frequency = .data$frequency) %>%
-          DT::datatable(escape = FALSE)
+            data <- chart$data %>%
+              dplyr::mutate(top = paste("<a href=\"",.data$top, "\"  target=\"_blank\">", .data$top, "</a>")) %>%
+              dplyr::rename(Url = .data$top, Frequency = .data$frequency) %>%
+            DT::datatable(escape = FALSE)
 
-      })})
+          })
+      })
+      
       output$top_table_disc <- shiny::isolate({shiny::renderText({
          progress_close(rep)
         "Top urls table only considers tweet location, ignoring the location type parameter"
@@ -2216,11 +2226,11 @@ epitweetr_app <- function(data_dir = NA) {
   }
   
   progress_set <- function(value, message  = "processing", env = cd) {
+    env$progress$set(value = value, detail = message)
   }
 
   app_error <- function(e, env = cd) {
     message(e)
-    browser()
     progress_close(env = env)
     showNotification(paste(e), type = "error")
   }

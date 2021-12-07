@@ -506,6 +506,7 @@ geolocate_text <- function(df, text_col = "text", lang_col=NULL, min_score = NUL
 }
 
 get_geotraining_df <- function() {
+  `%>%` <- magrittr::`%>%`
   data_types<-c("text","text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text")
   current <- readxl::read_excel(get_geotraining_path(), col_types = data_types)
   current$Text <- stringr::str_trim(current$Text)
