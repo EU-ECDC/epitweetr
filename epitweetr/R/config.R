@@ -96,6 +96,7 @@ get_empty_config <- function(data_dir) {
     else all_cores
   }
   ret$spark_memory <- "4g"
+  ret$onthefly_api <-  .Platform$OS.type != "windows"
   ret$topics <- list()
   ret$topics_md5 <- ""
   ret$alert_alpha <- 0.025
@@ -230,6 +231,7 @@ setup_config <- function(
     conf$known_users <- temp$known_users
     conf$spark_cores <- temp$spark_cores
     conf$spark_memory <- temp$spark_memory
+    conf$onthefly_api <- temp$onthefly_api
     conf$geolocation_threshold <- temp$geolocation_threshold
     conf$alert_alpha <- temp$alert_alpha
     conf$alert_alpha_outlier <- temp$alert_alpha_outlier
@@ -425,6 +427,8 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$known_users <- conf$known_users
     temp$spark_cores <- conf$spark_cores
     temp$spark_memory <- conf$spark_memory
+    temp$onthefly_api <- conf$onthefly_api
+    temp$geolocation_threshold <- conf$geolocation_threshold
     temp$geolocation_threshold <- conf$geolocation_threshold
     temp$alert_alpha <- conf$alert_alpha
     temp$alert_alpha_outlier <- conf$alert_alpha_outlier

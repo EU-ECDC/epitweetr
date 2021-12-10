@@ -10,6 +10,7 @@ check_java_present <- function() {
     ))
   }
 }
+
 # check if java is installed
 is_java_present <- function() {
   programs <- "java"
@@ -378,14 +379,14 @@ check_fs_running <- function() {
 # check Twitter authentication
 check_twitter_auth <- function() {
   ok <- tryCatch({
+    got_token <- FALSE
     token <- get_token(request_new = FALSE)
-    "Token" %in% class(token) || "bearer" %in% class(token)
+    got_token <- "Token" %in% class(token) || "bearer" %in% class(token)
     }, 
-    warning = function(m) {FALSE}, 
+    warning = function(m) {got_token}, 
     error = function(e) { FALSE }
   ) 
   if(ok)
-    
     TRUE 
   else {
     warning("Cannot create a Twitter token, please choose an authentication method on the configuration page")
@@ -494,7 +495,7 @@ checks <- new.env()
 #' @description It validates if epitweetr is not collecting tweets, aggregating tweets or not calculating alerts
 #' @param send_mail Boolean. Whether an email should be sent to the defined administrator , default: TRUE
 #' @param one_per_day Boolean. Whether a limit of one email per day will be applied, default: TRUE
-#' @return 
+#' @return a list of health check errors found 
 #' @details This function send an email to the defined administrator if epitweetr is not collecting tweets, aggregating tweets or not calculating alerts
 #' @examples 
 #' if(FALSE){
@@ -507,7 +508,6 @@ checks <- new.env()
 #' }
 #' @rdname health_check
 #' @export 
-
 health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
   #health check is only done one_per_day limit is disabled or if not email was already sent since yesterday and is after 8AM.
   start_of_day <- strptime(strftime(Sys.time(), "%Y-%m-%d"), "%Y-%m-%d")

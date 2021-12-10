@@ -37,8 +37,6 @@
 #'  \code{\link{create_map}}
 #'  \code{\link{create_topwords}}
 #'  \code{\link{generate_alerts}}
-#'  \code{\link{aggregate_tweets}}
-#'  \code{\link{geotag_tweets}}
 #'  \code{\link{detect_loop}}
 #'  \code{\link{search_loop}}
 #' @rdname trend_line
@@ -317,8 +315,6 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @seealso 
 #'  \code{\link{trend_line}}
 #'  \code{\link{create_topwords}}
-#'  \code{\link{aggregate_tweets}}
-#'  \code{\link{geotag_tweets}}
 #'  \code{\link{detect_loop}}
 #'  \code{\link{search_loop}}
 #'  \code{\link[sp]{spTransform}},\code{\link[sp]{coordinates}},\code{\link[sp]{is.projected}},\code{\link[sp]{CRS-class}}
@@ -643,6 +639,7 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     axis.ticks = ggplot2::element_blank(),
     axis.title.x = ggplot2::element_blank(),
     axis.title.y = ggplot2::element_blank(),
+    legend.direction="horizontal",
     legend.position = "bottom"
   ))
 
@@ -711,7 +708,7 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' @param top numeric(1) Parameter indicating the number of words to show, default: 25
 #' @return A named list containing two elements: 'chart' with the ggplot2 figure and 'data' containing the dataframe that was used to build the map.
 #' @details Produces a bar chat showing the occurrences of the most popular words in the collected tweets based on the provided parameters.
-#' For performance reasons on the \code{\link{aggregate_tweets}} function, this report only shows tweet location and ignores the location_type parameter
+#' For performance reasons on tweet aggregation this report only shows tweet location and ignores the location_type parameter
 #' 
 #' This report may be empty for combinations of countries and topics with very few tweets since for performance reasons, the calculation of top words is an approximation using chunks of 10.000 tweets.
 #'
@@ -731,8 +728,6 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' @seealso 
 #'  \code{\link{trend_line}}
 #'  \code{\link{create_map}}
-#'  \code{\link{aggregate_tweets}}
-#'  \code{\link{geotag_tweets}}
 #'  \code{\link{detect_loop}}
 #'  \code{\link{search_loop}}
 #' @export 
@@ -758,7 +753,7 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
 #' @param top numeric(1) Parameter indicating the number of words to show, default: 25
 #' @return A named list containing two elements: 'chart' with the ggplot2 figure and 'data' containing the dataframe that was used to build the map.
 #' @details Produces a bar chat showing the occurrences of the most popular words in the collected tweets based on the provided parameters.
-#' For performance reasons on the \code{\link{aggregate_tweets}} function, this report only shows tweet location and ignores the location_type parameter
+#' For performance reasons on tweet aggregation, this report only shows tweet location and ignores the location_type parameter
 #' 
 #' This report may be empty for combinations of countries and topics with very few tweets since for performance reasons, the calculation of top words is an approximation using chunks of 10.000 tweets.
 #'
@@ -779,8 +774,6 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
 #' @seealso 
 #'  \code{\link{trend_line}}
 #'  \code{\link{create_map}}
-#'  \code{\link{aggregate_tweets}}
-#'  \code{\link{geotag_tweets}}
 #'  \code{\link{detect_loop}}
 #'  \code{\link{search_loop}}
 #' @export 
@@ -813,6 +806,9 @@ create_topchart <- function(topic, serie, country_codes=c(),date_min="1900-01-01
     if(serie == "topwords") "words"
     else serie
   )
+  if(nrow(df)==0) {
+    return(get_empty_chart("No data found for the selected topic, region and period"))
+  }
   #filtering data by countries
   df <- (df
       %>% dplyr::filter(

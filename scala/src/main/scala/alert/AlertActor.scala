@@ -43,7 +43,7 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
         implicit val st = conf.getSparkStorage
         import s.implicits._
         
-	    val alertsdf =  AlertActor.alerts2modeldf(alerts = alerts, reuseLabels = oRuns.isEmpty) 
+	    val alertsdf =  AlertActor.alerts2modeldf(alerts = alerts, reuseLabels = oRuns.isEmpty)
       val retRuns = 
 	      oRuns.map{case runs =>
 	        val newRuns = 
@@ -157,7 +157,7 @@ object AlertActor {
     new StringIndexer()
       .setInputCol("given_category")
       .setOutputCol("category_vector")
-      .setHandleInvalid("skip")
+      .setHandleInvalid("keep")
       .fit(alerts.toDS)
       .write.overwrite()
       .save(AlertActor.labelIndexerPath())
@@ -169,7 +169,7 @@ object AlertActor {
     val r = new Random(20121205)
     val model = AlertActor.getModel(run)
     AlertActor.ensureFolderExists()
-    model.fit(alertsdf)
+    model.fit(alertsdf.where(col("given_category")=!=lit("?")))
      .write.overwrite()
      .save(AlertActor.alertClassifierPath())
     
@@ -206,7 +206,7 @@ object AlertActor {
         .map{seed =>
            val Array(training, test) = alertsdf.randomSplit(Array(trainRatio, 1-trainRatio), seed)
            val model = AlertActor.getModel(run)
-           val m = model.fit(training)
+           val m = model.fit(training.where(col("given_category")=!=lit("?")))
            m.transform(test)
          }
          .reduce(_.union(_))

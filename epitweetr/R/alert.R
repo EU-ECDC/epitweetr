@@ -28,9 +28,6 @@
 #' @seealso 
 #'  \code{\link{detect_loop}}
 #'  
-#'  \code{\link{geotag_tweets}}
-#'  
-#'  \code{\link{aggregate_tweets}}
 #' @rdname generate_alerts
 #' @importFrom stats sd qt
 #' @export

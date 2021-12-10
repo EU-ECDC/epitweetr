@@ -331,6 +331,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Geolocation threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
           shiny::fluidRow(shiny::column(3, "GeoNames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
           shiny::fluidRow(shiny::column(3, "Simplified GeoNames"), shiny::column(9, shiny::checkboxInput("conf_geonames_simplify", label = NULL, value = conf$geonames_simplify))),
+          shiny::fluidRow(shiny::column(3, "Stream database results"), shiny::column(9, shiny::checkboxInput("conf_onthefly_api", label = NULL, value = conf$onthefly_api))),
           shiny::fluidRow(shiny::column(3, "Maven repository"), shiny::column(9,  shiny::textInput("conf_maven_repo", label = NULL, value = conf$maven_repo))),
           shiny::conditionalPanel(
             condition = "false",
@@ -739,9 +740,9 @@ epitweetr_app <- function(data_dir = NA) {
       progress_start("Generating report", rep) 
       output$line_chart <- plotly::renderPlotly({
          # Validate if minimal requirements for rendering are met 
-         can_render(input, d)
          progress_set(value = 0.15, message = "Generating line chart", rep)
          shiny::isolate({
+           can_render(input, d)
 	         # getting the chart
            chart <- line_chart_from_filters(
              input$topics, 
@@ -783,10 +784,10 @@ epitweetr_app <- function(data_dir = NA) {
       # rendering map chart
       output$map_chart <- plotly::renderPlotly({
          # Validate if minimal requirements for rendering are met 
-         can_render(input, d)
          progress_set(value = 0.30, message = "Generating map chart", rep)
          
          shiny::isolate({
+           can_render(input, d)
            # Setting size based on container size
            height <- session$clientData$output_map_chart_height
            width <- session$clientData$output_map_chart_width
@@ -818,8 +819,8 @@ epitweetr_app <- function(data_dir = NA) {
              # Fixing bad entries on ggplotly chart
              for(i in 1:length(gg$x$data)) {
                if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
-                 gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
-               #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+                 gg$x$data[[i]]$name <- substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
+                 #gg$x$data[[i]]$legendgroup <- gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
              }
              gg
          })
@@ -827,10 +828,10 @@ epitweetr_app <- function(data_dir = NA) {
 
       output$top_chart1 <- plotly::renderPlotly({
          # Validate if minimal requirements for rendering are met 
-         can_render(input, d)
          progress_set(value = 0.45, message = "Generating top chart 1", rep)
-         
+         it <- input$top_type1 #this is for allow refreshing the report on radio button update
          shiny::isolate({
+           can_render(input, d)
            # Setting size based on container size
            height <- session$clientData$output_top_chart1_height
            width <- session$clientData$output_top_chart1_width
@@ -862,9 +863,10 @@ epitweetr_app <- function(data_dir = NA) {
 
       output$top_chart2 <- plotly::renderPlotly({
          # Validate if minimal requirements for rendering are met 
-         can_render(input, d)
          progress_set(value = 0.7, message = "Generating top chart 2", rep)
+         it <- input$top_type2 #this is for allow refreshing the report on radio button update
          shiny::isolate({
+           can_render(input, d)
            # Setting size based on container size
            height <- session$clientData$output_top_chart2_height
            width <- session$clientData$output_top_chart2_width
@@ -894,13 +896,13 @@ epitweetr_app <- function(data_dir = NA) {
          })
       })
 
-      output$top_table_title <- shiny::isolate({shiny::renderText({paste("<h4>Top URLS of tweets mentioning", input$topics, "from", input$periond[[1]], "to", input$period[[2]],"</h4>")})})
+      output$top_table_title <- shiny::isolate({shiny::renderText({paste("<h4>Top URLS of tweets mentioning", input$topics, "from", input$period[[1]], "to", input$period[[2]],"</h4>")})})
       output$top_table <- DT::renderDataTable({
           # Validate if minimal requirements for rendering are met 
-          can_render(input, d)
           progress_set(value = 0.85, message = "Generating top links", rep)
           
           shiny::isolate({
+            can_render(input, d)
             # Setting size based on container size
             height <- session$clientData$output_top_chart2_height
             width <- session$clientData$output_top_chart2_width
@@ -921,7 +923,7 @@ epitweetr_app <- function(data_dir = NA) {
       
       output$top_table_disc <- shiny::isolate({shiny::renderText({
          progress_close(rep)
-        "Top urls table only considers tweet location, ignoring the location type parameter"
+        "<br/><br/>Top urls table only considers tweet location, ignoring the location type parameter"
       })})
       
     })
@@ -1376,6 +1378,7 @@ epitweetr_app <- function(data_dir = NA) {
       conf$keyring <- input$conf_keyring
       conf$spark_cores <- input$conf_spark_cores 
       conf$spark_memory <- input$conf_spark_memory
+      conf$onthefly_api <- input$conf_onthefly_api
       conf$geolocation_threshold <- input$geolocation_threshold 
       conf$geonames_url <- input$conf_geonames_url 
       conf$maven_repo <- input$conf_maven_repo 
@@ -1971,18 +1974,18 @@ epitweetr_app <- function(data_dir = NA) {
         df <- as.data.frame(df)
         if(nrow(df) > 0) {
           ret <- df %>%
-            dplyr::select(test,tp,tn,fp,fn)%>%
-            dplyr::group_by(test)%>%
-            dplyr::summarise(tp = sum(tp), fp=sum(fp), tn=sum(tn),  fn = sum(fn))%>%
+            dplyr::select(.data$test,.data$tp,.data$tn,.data$fp,.data$fn)%>%
+            dplyr::group_by(.data$test)%>%
+            dplyr::summarise(tp = sum(.data$tp), fp=sum(.data$fp), tn=sum(.data$tn),  fn = sum(.data$fn))%>%
             janitor:: adorn_totals("row")%>%
-            dplyr::mutate(Precision=round(tp/(tp+fp),3))%>%
-            dplyr::mutate(Sensitivity = round(tp/(tp +fn),3))%>%
-            dplyr::mutate(F1Score =round((2*tp)/(2*tp + fn + fp),3))%>%
-            dplyr::rename(Category=test)%>%
-            dplyr::rename("True positives"=tp)%>%
-            dplyr::rename("False positives"=fp)%>%
-            dplyr::rename("True negatives"=tn)%>%
-            dplyr::rename("False negatives"=fn)
+            dplyr::mutate(Precision=round(.data$tp/(.data$tp+.data$fp),3))%>%
+            dplyr::mutate(Sensitivity = round(.data$tp/(.data$tp +.data$fn),3))%>%
+            dplyr::mutate(F1Score =round((2*.data$tp)/(2*.data$tp + .data$fn + .data$fp),3))%>%
+            dplyr::rename(Category=.data$test)%>%
+            dplyr::rename("True positives"=.data$tp)%>%
+            dplyr::rename("False positives"=.data$fp)%>%
+            dplyr::rename("True negatives"=.data$tn)%>%
+            dplyr::rename("False negatives"=.data$fn)
         }
       }
       ret
@@ -2222,17 +2225,19 @@ epitweetr_app <- function(data_dir = NA) {
   }
   
   progress_inc <- function(value, message  = "processing", env = cd) {
-    env$progress$set(value = env$progress$getValue() + value, detail = message) 
+    if(!is.null(env$progress$set))
+      env$progress$set(value = env$progress$getValue() + value, detail = message) 
   }
   
   progress_set <- function(value, message  = "processing", env = cd) {
-    env$progress$set(value = value, detail = message)
+    if(!is.null(env$progress$set))
+      env$progress$set(value = value, detail = message)
   }
 
   app_error <- function(e, env = cd) {
     message(e)
     progress_close(env = env)
-    showNotification(paste(e), type = "error")
+    shiny::showNotification(paste(e), type = "error")
   }
 
 # Printing PID 
@@ -2452,7 +2457,12 @@ get_alertsdb_html <- function() {
 } 
 
 get_alertsdb_runs_html <- function(){
-  runs <- get_alert_training_runs_df() 
+  runs <- get_alert_training_runs_df()
+  runs$f1score <- format(runs$f1score, digits = 3) 
+  runs$accuracy <- format(runs$accuracy, digits = 3)
+  runs$precision_by_class <- format(runs$precision_by_class, digits = 3)
+  runs$sensitivity_by_class <- format(runs$sensitivity_by_class, digits = 3)
+  runs$fscore_by_class <- format(runs$fscore_by_class, digits = 3)
   runs$custom_parameters <- sapply(runs$custom_parameters, function(params) {
     if(length(params) == 0)
       ""

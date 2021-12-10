@@ -102,6 +102,7 @@ fs_loop <-  function(data_dir = NA) {
 }
 
 #' @export
+#' @importFrom utils URLencode
 search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, countries = NULL, mentioning = NULL, users = NULL, hide_users = FALSE, action = NULL, max = 100, by_relevance = FALSE) {
   u <- paste(get_scala_tweets_url(), "?jsonnl=true&estimatecount=true&by_relevance=", tolower(by_relevance), sep = "")
   if(hide_users) {
@@ -149,8 +150,7 @@ search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, co
 
 
 
-# Gets a dataframe with geolocated tweets requested varables stored on json files of search api and json file from geolocated tweets produced by geotag_tweets
-# this funtion is the entry point from gettin tweet information produced by SPARK
+# Registers a query to define custom aggregations on tweets
 # it is generic enough to choose variables, aggregation and filters
 # deals with tweet deduplication at topic level
 # regexp: regexp to limit the geolocation and search files to read
@@ -187,7 +187,6 @@ set_aggregated_tweets <- function(name, dateCol, pks, aggr, vars = list("*"), gr
     encoding = "UTF-8"
   )
   if(httr::status_code(post_result) != 200) {
-    migration_log(httr::content(post_result, "text", encoding = "UTF-8"))
     print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
     stop()
   }
@@ -295,7 +294,7 @@ last_fs_updates <- function(collections = c("tweets", "topwords", "country_count
     function(collection) {
       folders <- sort(list.files(path=paste(conf$data_dir, "fs", collection, sep="/"), full.names=T))
       if(length(folders)>0) {
-        files <- list.files(tail(folders, 2), full.name = TRUE, recursive = TRUE)
+        files <- list.files(tail(folders, 2), full.names = TRUE, recursive = TRUE)
         files <- files[!grepl("write.lock$", files)]
         max(file.mtime(files))
       } else {

@@ -64,7 +64,7 @@ json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
           lines <- readLines(con = con, n =  if(files[[j]]$type == "geo") 100 *  chunk_size else chunk_size)
           read_time <-  as.numeric(difftime(Sys.time(), read_time, units='secs'))
           # commiting each 60 secs
-          if(as.numeric(difftime(Sys.time(), last_commit, unit = "secs")) > 60) { 
+          if(as.numeric(difftime(Sys.time(), last_commit, units = "secs")) > 60) { 
             commit_tweets()
             last_commit <- Sys.time()
           }
@@ -95,8 +95,8 @@ get_folder_size <- function(path) {
   return( sum(file.size(files)))
 }
 
+
 archive_search_geo_file <- function(file) {
-  
   x <- file$path
   froms <- c(x, file.path(dirname(x), paste0(".", basename(x), ".crc")),  file.path(dirname(x), paste0("._SUCCESS.crc")), file.path(dirname(x), paste0("._SUCCESS.crc")))
   # renaming if destination files exists already
@@ -110,7 +110,7 @@ archive_search_geo_file <- function(file) {
     todir <- dirname(to)
     if (!isTRUE(file.info(todir)$isdir)) dir.create(todir, recursive=TRUE)
     if(file.exists(to)) {
-      to <-gsub(".json.gz", paste0(floor(runif(1, min=1, max=500)),".json.gz"), to)
+      to <-gsub(".json.gz", paste0(floor(stats::runif(1, min=1, max=500)),".json.gz"), to)
     }
     if(file.exists(from))
       file.rename(from = from,  to = to)
@@ -154,11 +154,9 @@ store_geo <- function(lines, created_dates, async = T, chunk_size = 100) {
         stop(async$parse()[status != 200 & status != 406])
 
     } else {
-      #migration_log(chunks[i])
       for( i in 1:length(chunks)) {
         post_result <- httr::POST(url=get_scala_geolocated_tweets_url(), httr::content_type_json(), body=chunks[i], encode = "raw", encoding = "UTF-8")
         if(httr::status_code(post_result) != 200) {
-          migration_log(httr::content(post_result, "text", encoding = "UTF-8"))
           stop(paste("Storage rejected ", length(status[status == 406]), "geolocation request for not having a valid content"))
         }
       }
@@ -184,7 +182,7 @@ store_v1_search <- function(lines, topic, async = T) {
       async$request()
       status <- async$status_code()
       if(length(status[status == 406])>0)
-        massage(paste(length(bad_lines), "of", length(lines), "bad line found!! they will be ignored"))
+        message(paste(length(bad_lines), "of", length(lines), "bad line found!! they will be ignored"))
        
 
       if(length(status[status != 200 & status != 406])>0)
@@ -192,7 +190,6 @@ store_v1_search <- function(lines, topic, async = T) {
       dates <- unique(unlist(lapply(async$parse()[status == 200], function(l) jsonlite::parse_json(l)$dates), recursive = T))
       return(dates)
     } else {
-      #migration_log(lines[i])
       for( i in 1:length(lines)) {
         post_result <- httr::POST(url=paste0(get_scala_tweets_url(), "?topic=", curl::curl_escape(topic), "&geolocate=false"), httr::content_type_json(), body=lines[i], encode = "raw", encoding = "UTF-8")
         if(httr::status_code(post_result) != 200) {

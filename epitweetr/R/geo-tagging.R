@@ -105,12 +105,10 @@ get_user_location_columns <- function(table) {
 #'
 #'  \code{\link{update_languages}}
 #'
-#'  \code{\link{geotag_tweets}}
-#'  
 #' @export 
 get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col = "lang") {
  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
- stop("Not implemented")
+ stop("This function was removed from on epitweer v1.0.1 please use search_tweets instead")
 }
 
 
@@ -518,9 +516,9 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
   `%>%` <- magrittr::`%>%`
   progress(0.1, "getting current training file")
   current <- get_geotraining_df()
-  locations <- current %>% dplyr::filter(Type == "Location" & `Location yes/no` %in% c("yes", "OK"))
+  locations <- current %>% dplyr::filter(.data$Type == "Location" & .data$`Location yes/no` %in% c("yes", "OK"))
   add_locations <- if(nrow(locations) == 0) "&locationSamples=true" else "&locationSamples=false" 
-  non_locations <- current %>% dplyr::filter(Type == "Location" & `Location yes/no` %in% c("KO", "no"))
+  non_locations <- current %>% dplyr::filter(.data$Type == "Location" & .data$`Location yes/no` %in% c("KO", "no"))
   non_location_langs <- unique(non_locations$Lang)
   excl_langs <- if(length(non_location_langs) > 0) paste("&excludedLangs=", paste(non_location_langs, collapse = "&excludedLangs="), sep = "") else "" 
 
@@ -549,7 +547,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
     geo_training <- geo_training %>%  dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
   }
   # Adding new tweets
-  untagged <- unique(length((current %>% dplyr::filter(`Tweet part` == 'text' & `Location yes/no` == '?'))$`Tweet Id`))
+  untagged <- unique(length((current %>% dplyr::filter(.data$`Tweet part` == 'text' & .data$`Location yes/no` == '?'))$`Tweet Id`))
   to_add <- if(tweets_to_add > untagged) tweets_to_add else 0
 
 
@@ -655,7 +653,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
       ret$`Epitweetr country code match` <- NA
     }
   )
-  ret %>% arrange(dplyr::desc(Type), `Tweet part`)
+  ret %>% arrange(dplyr::desc(.data$Type), .data$`Tweet part`)
 }
 
 
@@ -753,7 +751,7 @@ update_topic_keywords <- function() {
 
 update_forced_geo <- function() {
   `%>%` <- magrittr::`%>%`
-  df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(`Location in text`), `Text`, `Location in text`), to = `Associate with`) %>% dplyr::filter(!is.na(to))
+  df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(.data$`Location in text`), .data$`Text`, .data$`Location in text`), to = .data$`Associate with`) %>% dplyr::filter(!is.na(.data$to))
   ret <- list()
   if(nrow(df) > 0) {
     for(i in 1:nrow(df)) {
@@ -769,7 +767,7 @@ update_forced_geo <- function() {
 
 update_forced_geo_codes <- function() {
   `%>%` <- magrittr::`%>%`
-  df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(`Location in text`), `Text`, `Location in text`), to = `Associate country code`) %>% dplyr::filter(!is.na(to))
+  df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(.data$`Location in text`), .data$`Text`, .data$`Location in text`), to = .data$`Associate country code`) %>% dplyr::filter(!is.na(.data$to))
   ret <- list()
   if(nrow(df) > 0) {
     for(i in 1:nrow(df)) {

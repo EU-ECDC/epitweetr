@@ -45,13 +45,13 @@ cached <- new.env()
 #' }
 #' @seealso 
 #'  \code{\link{detect_loop}}
-#'  \code{\link{geotag_tweets}}
 #' @rdname get_aggregates
 #' @export 
 #' @importFrom magrittr `%>%`
 #' @importFrom dplyr filter
 #' @importFrom jsonlite rbind_pages
 #' @importFrom utils tail
+#' @importFrom utils URLencode
 get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
   `%>%` <- magrittr::`%>%`
   # getting the name for cache lookup dataset dependant
@@ -113,7 +113,16 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
 
     #measure_time <- function(f) {start.time <- Sys.time();ret <- f();end.time <- Sys.time();time.taken <- end.time - start.time;message(time.taken); ret}
     message(q_url)
-    agg_df = jsonlite::stream_in(url(q_url), verbose = TRUE)
+    agg_df = (
+      if(conf$onthefly_api)
+        jsonlite::stream_in(url(q_url), verbose = TRUE)
+      else {
+        dest = file.path(conf$data_dir, paste("aggregate_", as.integer(stats::runif(1, 1, 99999)), ".json"))
+        download.file(url = q_url, destfile = dest)
+        on.exit(if(file.exists(dest)) file.remove(dest))
+        jsonlite::stream_in(file(dest), verbose = TRUE)
+      }
+    )
     # Calculating the created week
     if(nrow(agg_df) > 0) {
       agg_df$created_week <- strftime(as.Date(agg_df$created_date, format = "%Y-%m-%d"), format = "%G.%V")
