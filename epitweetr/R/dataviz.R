@@ -789,18 +789,28 @@ create_topchart <- function(topic, serie, country_codes=c(),date_min="1900-01-01
   f_topic <- topic
   dataset <- serie
 
-  # getting the data from topwords series
-  df <- get_aggregates(dataset = dataset, filter = list(topic = f_topic, period = list(date_min, date_max)))
-  
-  # renaming the series depending column to "top"  
-  df <- (
-    if(serie == "topwords") df %>% dplyr::rename(top = .data$token)
-    else if(serie == "entities") df %>% dplyr::rename(top = .data$entity)
-    else if(serie == "hashtags") df %>% dplyr::rename(top = .data$hashtag)
-    else if(serie == "contexts") df %>% dplyr::rename(top = .data$context)
-    else if(serie == "urls") df %>% dplyr::rename(top = .data$url)
-    else df
+  # Getting the right top field depending on the serie 
+  top_field <- (
+    if(serie == "topwords") "token"
+    else if(serie == "entities") "entity"
+    else if(serie == "hashtags") "hashtag"
+    else if(serie == "contexts") "context"
+    else if(serie == "urls") "url"
+    else "top"
   )
+
+  # getting the data from topwords series
+  filter <- (
+    if(length(country_codes) > 0)
+      list(topic = f_topic, period = list(date_min, date_max), tweet_geo_country_code = country_codes)
+    else 
+      list(topic = f_topic, period = list(date_min, date_max))
+  )
+  df <- get_aggregates(dataset = dataset, filter =filter , top_field = top_field, top_freq = "frequency")
+
+  # renaming the series depending column to "top"  
+  df <- df %>% dplyr::rename(top = !!as.symbol(top_field))
+
   # getting the serues dependand title part  
   serie_title <- (
     if(serie == "topwords") "words"

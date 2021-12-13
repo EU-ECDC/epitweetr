@@ -211,7 +211,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
           caller ! ByteString(s"[Stream--error]: ${e.getCause} ${e.getMessage}: ${e.getStackTrace.mkString("\n")}", ByteString.UTF_8)
       }.onComplete { case  _ =>
       }
-    case LuceneActor.AggregatedRequest(collection, oTopic, from, to, filters, jsonnl, caller) => 
+    case LuceneActor.AggregatedRequest(collection, oTopic, from, to, filters, topFieldLimit, jsonnl, caller) => 
       implicit val timeout: Timeout = conf.fsBatchTimeout.seconds //For ask property
       implicit val holder = LuceneActor.holder
       val indexes = LuceneActor.getReadIndexes(collection, Some(from), Some(to)).toSeq
@@ -250,7 +250,14 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
                   qb.add(fqb.build, Occur.MUST)
               }
               var first = true
-              i.searchTweets(qb.build, doCount = false, sort = QuerySort.index)
+              var z = 0
+
+              i.searchTweets(
+                qb.build, 
+                doCount = false, 
+                sort = topFieldLimit match {case Some(_) => QuerySort.indexReverse case None => QuerySort.index}, 
+                topFieldLimit = topFieldLimit
+              )
                 .map{case (doc, totalCount) => EpiSerialisation.luceneDocFormat.write(doc)}
                 .foreach{line =>
                   if(first == true) {
@@ -392,19 +399,7 @@ object LuceneActor {
     caller:ActorRef
   )
   case class AggregateRequest(items:TopicTweetsV1)
-  case class AggregatedRequest(collection:String, topic:Option[String], from:Instant, to:Instant, filters:Seq[(String, String)], jsonnl:Boolean, caller:ActorRef)
-  case class AggregationRequest(
-    query:Option[String], 
-    from:Instant, 
-    to:Instant, 
-    columns:Seq[String], 
-    groupBy:Seq[String], 
-    filterBy:Seq[String], 
-    sortBy:Seq[String], 
-    sourceExpressions:Seq[String], 
-    jsonnl:Boolean, 
-    caller:ActorRef 
-  )
+  case class AggregatedRequest(collection:String, topic:Option[String], from:Instant, to:Instant, filters:Seq[(String, String)], topFieldLimit:Option[(String, String)], jsonnl:Boolean, caller:ActorRef)
   case class PeriodRequest(collection:String)
   case class PeriodResponse(first:Option[String], last:Option[String], last_hour:Option[Int])
   case class RecalculateHashRequest()

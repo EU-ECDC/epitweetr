@@ -1172,7 +1172,10 @@ classify_alerts <- function(alerts, retrain = FALSE) {
   `%>%` <- magrittr::`%>%`
   if(is.null(alerts) || nrow(alerts) == 0)
     alerts
-  else {
+  else if(min((df %>% dplyr::group_by(.data$given_category) %>% dplyr::summarise(n = dplyr::n()) %>% dplyr::filter(!is.na(.data$given_category)))$n) < 10 ) {
+    warning("In order to train an alerts classifier all categories must have at least 10 observation")
+    alerts
+  } else {
     runs <- get_alert_training_runs_df()
     alerts <- alerts %>% dplyr::mutate(`id`=as.character(1:nrow(alerts)))
     body = paste("{",

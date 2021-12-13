@@ -665,7 +665,7 @@ epitweetr_app <- function(data_dir = NA) {
     ) {
     tryCatch({
         progress_start("Exporting dashboard") 
-        rmarkdown::render(
+        r <- rmarkdown::render(
           system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
           output_format = format, 
           output_file = file,
@@ -687,6 +687,8 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           quiet = TRUE
         )
+        progress_close()
+        r
       },
       error = function(w) {app_error(w, env = cd)}
     )
@@ -1931,6 +1933,7 @@ epitweetr_app <- function(data_dir = NA) {
            retrain_alert_classifier()
            cd$alert_training_refresh_flag(Sys.time())
           },
+          warning = function(w) {app_error(w, env = cd)},
           error = function(w) {app_error(w, env = cd)}
         )
       }

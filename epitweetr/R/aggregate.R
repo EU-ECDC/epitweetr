@@ -52,7 +52,7 @@ cached <- new.env()
 #' @importFrom jsonlite rbind_pages
 #' @importFrom utils tail
 #' @importFrom utils URLencode
-get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list()) {
+get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list(), top_field = NULL, top_freq = NULL) {
   `%>%` <- magrittr::`%>%`
   # getting the name for cache lookup dataset dependant
   last_filter_name <- paste("last_filter", dataset, sep = "_")
@@ -70,8 +70,15 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     (!exists("topic", cached[[last_filter_name]]) || # all topics are cached or 
       (
         exists("topic", cached[[last_filter_name]]) && # there are some topic cached
-        exists("topic", filter) &&  # there is a topic on the current applied filter
+        exists("topic", filter) &&  # there is are some countries the current applied filter
         all(filter$topic %in% cached[[last_filter_name]]$topic) # all filtered topic is cached
+      )
+    ) && # AND
+    (!exists("tweet_geo_country_code", cached[[last_filter_name]]) || # all countries are cached or 
+      (
+        exists("tweet_geo_country_code", cached[[last_filter_name]]) && # there are some countries cached
+        exists("tweet_geo_country_code", filter) &&  # there are some countrie on the current applied filter
+        all(filter$tweet_geo_country_code %in% cached[[last_filter_name]]$tweet_geo_country_code) # all filtered countries are cached
       )
     ) && # AND
     (!exists("period", cached[[last_filter_name]]) || # all periods are cached or
@@ -90,13 +97,16 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     return (cached[[dataset]] %>% 
       dplyr::filter(
         (if(exists("topic", where = filter)) .data$topic %in% filter$topic else TRUE) & 
-        (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE)
+        (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE) &
+        (if(exists("tweet_geo_country_code", where = filter)) .data$tweet_geo_country_code %in% filter$tweet_geo_country_code else TRUE) 
       )
     )
   }
   else {
     # getting the aggregated dataframe from the storage system
     q_url <- paste0(get_scala_aggregate_url(), "?jsonnl=true&serie=", URLencode(dataset, reserved = T))
+    if(!is.null(top_field) && !is.null(top_freq))
+      q_url <- paste0(q_url, "&topField=", top_field, "&topFrequency=", top_freq) 
     for(field in names(filter)) {
       if(field == "topic") q_url <- paste0(q_url, "&topic=", URLencode(paste0(filter$topic, collapse=";"), reserved = T)) 
       else if(field == "period") 

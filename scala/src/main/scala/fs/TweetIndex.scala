@@ -26,6 +26,7 @@ object QuerySort {
   val index =  Sort.INDEXORDER
   val relevance = Sort.RELEVANCE
   val creationDateHour = new Sort(Seq(new SortField("created_at", SortField.Type.STRING, true), new SortField("created_hour", SortField.Type.INT, true)):_*)
+  val indexReverse = new Sort(new SortField(null, SortField.Type.DOC, true))
 }
 
 object TweetIndex {
@@ -401,7 +402,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   def parseAndSearch(query:String, maxHits:Int = 100, after:Option[ScoreDoc] = None, sort:Sort)(implicit searcher:IndexSearcher):TopDocs  = {
     search(query = parseQuery(query), maxHits = maxHits, after = after, sort = sort) 
   }
-  def search(query:Query, maxHits:Int= 100, after:Option[ScoreDoc]= None, sort:Sort)(implicit searcher:IndexSearcher):TopDocs  = {
+  def search(query:Query, maxHits:Int= 50000, after:Option[ScoreDoc]= None, sort:Sort)(implicit searcher:IndexSearcher):TopDocs  = {
     val docs = after match {
       case Some(last) => searcher.searchAfter(last, query, maxHits, sort, false)
       case None => searcher.search(query, maxHits, sort, false)
@@ -411,14 +412,19 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   def parseAndSearchTweets(query:String, max:Option[Int] = None, doCount:Boolean=false, sort:Sort=QuerySort.index):Iterator[(Document, Long)]  = {
     searchTweets(parseQuery(query), max = max, doCount = doCount, sort = sort)
   }
-  def searchTweets(query:Query, max:Option[Int] = None, doCount:Boolean=false, sort:Sort=QuerySort.index):Iterator[(Document, Long)]  = {
-   Seq(query)
-      .flatMap{q => 
+  def searchTweets(query:Query, max:Option[Int] = None, doCount:Boolean=false, sort:Sort=QuerySort.index, topFieldLimit:Option[(String, String)] = None):Iterator[(Document, Long)]  = {
+    val tops = HashMap[String, Double]()
+    var refinedQ = None.asInstanceOf[Option[Query]]
+
+    Seq(query)
+      .flatMap{qq => 
+        var q = qq
         var after:Option[ScoreDoc] = None
         var left = max
         var first = true
         var last = false
         var searcher:Option[IndexSearcher]=None
+        var topFilter = None.asInstanceOf[Option[Set[(String, String)]]]
         Iterator.continually{
           if(left.map(l => l == 0).getOrElse(false))
             Array[(Document, Long)]()
@@ -433,14 +439,43 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
                   l.msg(s"Retrying failed search $query on ${this.index.getDirectory}")
                   searcher = Some(this.useSearcher()) 
                 }
+
                 val r = search(query = q, after = after, sort = sort)(searcher.get)
                 val t = r.scoreDocs.map(doc => searcher.get.getIndexReader.document(doc.doc))
+
+                // Refining the query after 100k elements are obtained if the scope is only top Elements
+                topFieldLimit match { 
+                  case Some((topField, freqField)) =>
+                    if(refinedQ.isEmpty) { 
+                      t.map(t => (t.getField(topField).stringValue, t.getField(freqField).numericValue)).map{
+                        case (top, value) =>
+                          if(tops.size < 100000) {
+                            tops.get(top) match {
+                              case None =>
+                                tops(top) = value.doubleValue()
+                              case Some(v) =>
+                                tops(top) = value.doubleValue() + v
+                            }
+                          } else if(refinedQ.isEmpty) {
+                            val qparent = new BooleanQuery.Builder()
+                            val qtops = new BooleanQuery.Builder()
+                            tops.toSeq.sortWith(_._2 > _._2).take(500).foreach{case (top, v) => qtops.add(new TermQuery(new Term(topField, top)), Occur.SHOULD)}
+                            qparent.add(qq, Occur.MUST)
+                            qparent.add(qtops.build, Occur.MUST)
+                            refinedQ = Some(qparent.build)
+                            q = refinedQ.get
+                          }
+                      }
+                    }
+                  case _ => {}
+                }
+                
                 (r, t)
               } match {
                 case Success(p) => Some(p)
                 case Failure(f) => 
                   if(iTry >=2) {
-                    l.msg("Too many retries of tweet search")
+                    l.msg(s"Too many retries of tweet search\n ${f}")
                     throw f
                   }
                   None
