@@ -20,6 +20,27 @@ register_fs_runner <- function() {
   register_runner("fs")
 }
 
+ 
+#' @title Registers the fs_monitor for the current process or exits
+#' @description registers the fs_monitor (by writing detect.PID file) for the current process or stops if no configuration has been set or if it is already running
+#' @return Nothing
+#' @details Registers the fs_monitor (by writing detect.PID file) for the current process or stops if no configuration has been set or if it is already running
+#' this function is exported so it can be called nicely from using the future package, but it is not intended to be directly used by users
+#' @examples 
+#' if(FALSE){
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    register_fs_monitor()
+#' }
+#' @rdname register_fs_monitor
+#' @export 
+register_fs_monitor <- function() {
+  stop_if_no_config(paste("Cannot check running status for fs monitorwithout configuration setup")) 
+  register_runner("fs_mon")
+}
+
 # Registers the a task runner (by writing "name".PID file) for the current process 
 # or stops if no configuration has been set or if it is already running
 register_runner <- function(name) {
@@ -472,6 +493,7 @@ detect_loop <- function(data_dir = NA) {
     setup_config_if_not_already()
   else
     setup_config(data_dir = data_dir)
+
   # registering the search runner (search.PID) or stopping if it is already running
   register_detect_runner()  
 

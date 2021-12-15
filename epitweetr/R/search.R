@@ -468,6 +468,7 @@ next_plan <- function(plans) {
   }
 }
 
+# finish the provided plans
 finish_plans <- function(plans = list()) {
   # Testing if there are plans present
   if(length(plans) == 0) {
@@ -566,6 +567,7 @@ create_dirs <- function(topic = NA, year = NA) {
   }
 }
 
+# Last search time on stored on the embeded database
 last_search_time <- function() {
   last_fs_updates(c("tweets"))$tweets
 }

@@ -1,3 +1,23 @@
+#' @title Function used for migragting tweets from to old to the new file system
+#' @description migrates geolocated tweets from the old to the new file systam allowing full text search using Apache Lucene Indexes
+#' @param tasks named list, current tasks for logging and updating progress default: get_tasks()
+#' @param chunk_size, integer, the chunk size for indexing tweets, default: 400
+#' @return the updated tasks.
+#' @details iterates over existing tweets collectes with epitweetr v0.0.x series
+#' joins base tweets and geolocated tweets and then send thems to the lucee inex via the dedicated REST API.
+#' Migrated files will be moved to search_archive and geo_archive folders. Users can backuo and remove these folders when migration ends to gain disk space.
+#' Series folders are maintained for migrated tweets
+#' @examples
+#' if(FALSE){
+#'    library(epitweetr)
+#'    # setting up the data folder
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose()) 
+#'    # runnint the migration
+#'    json2lucene()
+#' }
+#' @rdname ears_t_reweighted
+#' @export
 json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
   stop_if_no_config(paste("Cannot migrate if no configuration is setup")) 
     
@@ -5,7 +25,7 @@ json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
   total_size <- get_folder_size(get_search_path())
   read_size <- 0
   total_lines <- 0
-  line_size = 70000 #Empiric observation set as initial value in bytes. It will be fixed later
+  line_size = 70000 #Empiric observation set as initial value in bytes. It will be recalculated later
   start.time <- Sys.time()
   tasks <- update_dep_task(tasks, "running", "Scanning dates to migrate")
   dates <- sort(unique(unlist(c(
@@ -84,18 +104,21 @@ json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
   }
   tasks
 }
+
+# Getting file names on a particular folder matching the provied pattern
 get_file_names <- function(path, ext, pattern) {
   files <- list.files(file.path(path), recursive=T, full.names=F, include.dirs = T, pattern = pattern)
   names <- unique(sapply(files, function(f) tail(strsplit(f, "/")[[1]], n = 1)))
   names
 }
 
+# Get folder size recursively
 get_folder_size <- function(path) {
   files <-list.files(path,full.names = T, recursive = T, include.dirs = F)
   return( sum(file.size(files)))
 }
 
-
+# Archive the provided file
 archive_search_geo_file <- function(file) {
   x <- file$path
   froms <- c(x, file.path(dirname(x), paste0(".", basename(x), ".crc")),  file.path(dirname(x), paste0("._SUCCESS.crc")), file.path(dirname(x), paste0("._SUCCESS.crc")))
@@ -127,6 +150,7 @@ archive_search_geo_file <- function(file) {
   }
 }
 
+# Store the geolocated tweets on the new embeded database
 store_geo <- function(lines, created_dates, async = T, chunk_size = 100) {
   valid_index <- unlist(lapply(lines, function(l) jsonlite::validate(l)))
   bad_lines <- lines[!valid_index]
@@ -164,6 +188,7 @@ store_geo <- function(lines, created_dates, async = T, chunk_size = 100) {
   }
 }
 
+# Store the tweets collected as kson data on the new embeded database
 store_v1_search <- function(lines, topic, async = T) {
   valid_index <- unlist(lapply(lines, function(l) jsonlite::validate(l)))
   bad_lines <- lines[!valid_index]
@@ -201,6 +226,7 @@ store_v1_search <- function(lines, topic, async = T) {
   }
 }
 
+# Commit the changes on the embeded database
 commit_tweets <- function() {
   post_result <- httr::POST(url=get_scala_commit_url(), httr::content_type_json(), encode = "raw", encoding = "UTF-8")
   if(httr::status_code(post_result) != 200) {
@@ -208,6 +234,7 @@ commit_tweets <- function() {
   }
 }
 
+# Print duration in seconds as duration on days, hours, minutes and seconds
 sec2hms <- function(seconds) {
   x <- abs(as.numeric(seconds))
   sprintf("%d days %02d:%02d:%02ds", x %/% 86400,  x %% 86400 %/% 3600, x %% 3600 %/% 60,  x %% 60 %/% 1)

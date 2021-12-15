@@ -1,6 +1,6 @@
 Package: epitweetr
 Title: Early Detection of Public Health Threats from Twitter Data
-Version: 1.0.30
+Version: 1.0.31
 Authors@R: c( 
      person(given = "Laura",
             family = "Espinosa",
@@ -54,9 +54,10 @@ LazyData: true
 Imports:
     bit64,
     dplyr,
+    crul,
     curl,
-    plyr,
     DT,
+    future,
     httpuv,
     httr,
     htmltools,
@@ -72,9 +73,10 @@ Imports:
     rtweet,
     readxl,
     rlang, 
-    openxlsx,
     rmarkdown,
     rnaturalearthdata, 
+    openxlsx,
+    plyr,
     shiny,
     sp,
     stringr,
@@ -86,8 +88,7 @@ Imports:
     tools,
     utils,
     xtable,
-    xml2,
-    crul
+    xml2
 RoxygenNote: 7.1.1
 Suggests: 
     taskscheduleR

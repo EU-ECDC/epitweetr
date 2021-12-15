@@ -4,13 +4,18 @@ cached <- new.env()
 
 #' @title Getting already aggregated time series produced by \code{\link{detect_loop}}
 #' @description Read and returns the required aggregated dataset for the selected period and topics defined by the filter.
-#' @param dataset A character(1) vector with the name of the series to request, it must be one of 'country_counts', 'geolocated' or 'topwords', default: 'country_counts'
+#' @param dataset A character(1) vector with the name of the series to request, it must be one of 'country_counts', 'geolocated', 'topwords', 'hashtags', 'entities', 'urls', 'contexts', default: 'country_counts'
 #' @param cache Whether to use the cache for lookup and storing the returned dataframe, default: TRUE
-#' @param filter A named list defining the filter to apply on the requested series, default: list()
+#' @param filter A named list defining the filter to apply on the requested series, it should be on the shape of a named list e.g. list(tweet_geo_country_code=list('FR', 'DE')) default: list()
+#' @param top_field Name of the top field used with top_frequency to enable optimisation for getting only most frequent elements. It will only keep top 500 items after first 50k lines on reverse index order
+#' @param top_freq character, Name of the frequency fiels used with top_field to enable optimisation for gettung only most frequent elements. 
+#' It will only keep top 500 itmes aftar first 50k rows on reverse index order
 #' @return A dataframe containing the requested series for the requested period
-#' @details This function will look in the 'series' folder, which contains Rds files per weekday and type of series. It will parse the names of file and folders to limit the files to be read.
-#' Then it will apply the filters on each dataset for finally joining the matching results in a single dataframe.
-#' If no filter is provided all data series are returned, which can end up with millions of rows depending on the time series. 
+#' @details This function returns data aggregated by epitweetr. The data is found on the 'series' folder, which contains Rds files per weekday and type of series. 
+#' starig on v 1.0.x it will also look on lucene indexes situated on fs folder. Names of files and folders are parsed to limit the files to be read.
+#' When using lucene indexes, filters are directly applied on read. This is an improvement compared 'series' folder where filters are applied 
+#' after read. All returned rows are joied in a single dataframe.
+#' If no filter is provided all data serie is returned, which can end up with millions of rows depending on the time series. 
 #' To limit by period, the filter list must have an element 'period' containing a date vector or list with two dates representing the start and end of the request.
 #'
 #' To limit by topic, the filter list must have an element 'topic' containing a non-empty character vector or list with the names of the topics to return.
@@ -45,6 +50,7 @@ cached <- new.env()
 #' }
 #' @seealso 
 #'  \code{\link{detect_loop}}
+#'  \code{\link{fs_loop}}
 #' @rdname get_aggregates
 #' @export 
 #' @importFrom magrittr `%>%`
@@ -204,6 +210,10 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
 
 } 
 
+# This function register the aggregated series that are computed by epitweetr.
+# Each serie is defined by a name a date column, primary keys columns, variables columns, group by columns and sources expressions
+# Each registered serie uses the set_aggregated_tweets function
+# This function is periodcally called bt the search loop.
 register_series <- function() {
   `%>%` <- magrittr::`%>%`
   #geolocated"
@@ -460,7 +470,8 @@ register_series <- function() {
 }
 
 # getting last aggregation date or NA if first
-# date is obtained by sorting and reading first and last file
+# date is obtained by sorting and reading first and last file on the series folder
+# this is used for data collected with epitweetr v0.0.x
 get_aggregated_period_rds <- function() {
   # listing all aggregated files for given dataset 
   agg_files <- list.files(file.path(conf$data_dir, "series"), recursive=TRUE, full.names =TRUE)
@@ -483,6 +494,8 @@ get_aggregated_period_rds <- function() {
    list(first = NA, last = NA, last_hour = NA)
 }
 
+# getting last aggregation date or NA if first
+# date is obtained by sorting and reading first and last file on the series folder and in the fs folde containing lucene inexes
 get_aggregated_period <- function() {
   rds_period <- get_aggregated_period_rds()
   fs_period <- tryCatch({
@@ -524,6 +537,9 @@ get_aggregated_period <- function() {
     )
 }
 
+# Utility function to ask epitweetr to recalculate hashes of stored twets in lucene indexes. 
+# This function is experimental for testing parallell scan of indexes
+# This function is deprecated since no significant performance gain was observed
 recalculate_hash <- function() {
   message("recalculating hashes")
   post_result <- httr::POST(url=get_scala_recalc_hash_url(), httr::content_type_json(), body="", encode = "raw", encoding = "UTF-8")
@@ -535,6 +551,9 @@ recalculate_hash <- function() {
 
 }
 
+# Adds possible missing columns on a dataset procuced by an aggregated serie
+# This is necesary to ensure that all expeced columns are present for data produced
+# on old epitweetr versions
 add_missing <- function(df, dataset) {
   cols <- colnames(df)
   defaults <- ( 

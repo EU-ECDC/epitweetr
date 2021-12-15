@@ -1,3 +1,5 @@
+# This script includes all dedicated logic for interacting with the spark/scala api via HTTP REST requests
+
 get_scala_api_endpoint <- function() {
   paste("http://localhost:", conf$fs_port, "/", sep = "")
 }
@@ -47,62 +49,134 @@ get_scala_recalc_hash_url <- function() {
   paste(get_scala_api_endpoint(), "recalculate-hash", sep = "")
 }
 
+
+#' @title Runs the epitweetr embeded datanase loop
+#' @description Infinite loop ensuring that the epitweetr embeded database is running (lucene + akka-http)
+#' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
+#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
+#' @return nothing
+#' @details Launches the epitweetr embedded database which is accessed via a REST API located on \url{http://localhost:8080}you can test that the dataase is running by accessing \url{http://localhost:8080/ping}
+#' the REST API provide epitweetr a way to send and retrieve data related with tweets and time series and to trigger geolocation or aggregation
+#' The database is implemented using Apache Lucene indexes allowing epitweetr to acces its data as a search engine but also as a tabular datanase.
+#' \code{\link{health_check}} called each 60 seconds on a background process to send alerts to the administrator if some epitweetr componenets fail.
+#' @examples 
+#' if(FALSE){
+#'    #Running the detect loop
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    fs_loop()
+#' }
+#' @rdname fs_loop
+#' @seealso
+#'  \code{\link{detect_loop}}
+#'  
+#'  \code{\link{search_loop}}
+#'
+#'  \code{\link{health_check}}
+#' @importFrom future multisession plan future
+#' @importFrom rlang current_env
 #' @export 
 fs_loop <-  function(data_dir = NA) {
-  if(is.na(data_dir))
-    data_dir = conf$data_dir
-  cl <- parallel::makePSOCKcluster(2, outfile="")
-  parallel::clusterExport(cl, 
-    list(
-      "data_dir", 
-      "setup_config",
-      "health_check"
-    )
-    , envir=rlang::current_env()
-  )
-  
+  if(is.na(data_dir) )
+    setup_config_if_not_already()
+  else
+    setup_config(data_dir = data_dir)
+  data_dir <- conf$data_dir
+
   # calculating alerts per topic
-  parallel::parLapply(cl, 1:2, function(i) {
-    if(i == 1) {
-      message("Launching fs")
-      # Setting or reusing the data directory
-      setup_config(data_dir = data_dir)
- 
-
-      # Registering the fs runner using current PID and ensuring no other instance of the search is actually running.
-      register_fs_runner()
-      
-      # Infinite loop calling the fs runner
-      while(TRUE) {
-        tryCatch({
-          spark_job(
-            paste(
-	            "fsService"
-              , "epiHome" , conf$data_dir
-            )
-          )
-        }, error = function(e) {
-          message(paste("The epitweetr scala API was stopped with the following error", e, "launching it again within 5 seconds", sep = "\n"))
-          Sys.sleep(5)
-        })
-      }
-      i
-    } else {
-      message("Monitoring epitweetr") 
-      setup_config(data_dir = data_dir)
-      while(TRUE) {
-        health_check()
-        Sys.sleep(60)
-      }
-      i
-    }
-  })
-  parallel::stopCluster(cl)
-
+  future::plan(future::multisession)
+  monitor <- future::future({
+       message("Monitoring epitweetr") 
+       setup_config(data_dir = data_dir)
+       x = 60
+       step = 2
+       while(TRUE) {
+         register_fs_monitor()
+         if(x == 0) {
+           health_check()
+           x = 60
+         }
+         x = x - step
+         Sys.sleep(step)
+       }
+       0
+   }
+   , globals = c(
+        "data_dir", 
+        "setup_config",
+        "health_check",
+        "register_fs_monitor"
+      )
+   ,envir=rlang::current_env()
+  )
+  #monitor #this is for debugging error on future
+  message("Launching fs")
+  # Registering the fs runner using current PID and ensuring no other instance of the search is actually running.
+  register_fs_runner()
+  
+  # Infinite loop calling the fs runner
+  while(TRUE) {
+    tryCatch({
+      spark_job(
+        paste(
+	        "fsService"
+          , "epiHome" , conf$data_dir
+        )
+      )
+    }, error = function(e) {
+      message(paste("The epitweetr scala API was stopped with the following error", e, "launching it again within 5 seconds", sep = "\n"))
+      Sys.sleep(5)
+    })
+  }
 }
 
-#' @export
+#' @title perform full text search on tweets collected with epitweetr
+#' @description  perform full text search on tweets collected with epitweetr (only tweets collected with epitwetr v>0.0.x are included on search
+#' @param query character. The query to be used if a text it will match the tweet text. To see how to match particular fields please see details, default:NULL
+#' @param topic character, Vector of topics to include on the search default:NULL
+#' @param from an object which can be converted to ‘"POSIXlt"’ only tweets posted after or on this date will be included, default:NULL
+#' @param to an object which can be converted to ‘"POSIXlt"’ only tweets posted before or on this date will be included, default:NULL
+#' @param countries character or numeric, the position or name of epitweetr regions to be included on the query, default:NULL
+#' @param mentioning character, limit the search to the tweets mentioning the given users, default:NULL
+#' @param users character, limit the search to the tweets created by the provided users, default:NULL
+#' @param hide_users logical, whether to hide user names on output replacing them by the USER keyword, default:FALSE
+#' @param action character, an action to be performed on the search results respecting the max parameter. Possible values are 'delete' or 'anonymise' , default:NULL
+#' @param max integer, maximum numver of tweets to be included on the search, default:100
+#' @param by_relevance logical, whether to sort the results by relevance of the matching query or by indexing order, default:FALSE
+#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
+#' @return a dataframe containing the tweets matching the selected filters, the dataframe contains the following coumns: linked_user_location, linked_user_name, linked_user_description, 
+#' screen_name, created_date, is_geo_located, user_location_loc, is_retweet, text, text_loc, user_id, hash, user_description, linked_lang, linked_screen_name, user_location, totalCount, 
+#' created_at, topic_tweet_id, topic, lang, user_name, linked_text, tweet_id, linked_text_loc, hashtags, user_description_loc
+#' @details 
+#' epitweetr translate the query provided by all parameters into a single query that will be executed on tweet indexes which are weekly indexes.
+#' The q parameter should respect the syntax of the lucene classic parser \url{https://lucene.apache.org/core/8_5_0/queryparser/org/apache/lucene/queryparser/classic/QueryParser.html} 
+#' So other than the provided parameters, multi field queries are supported by using the syntax field_name:value1;value2 
+#' AND, OR and -(for excluding terms) are supported on q parameter.
+#' Order by week is always applied before relevance so even if you provide by_relevance = TRUE all of the matching tweets of the first week will be returned first 
+#' @examples 
+#' if(FALSE){
+#'    #Running the detect loop
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    df <- search_tweets(
+#'         q = "vaccination", 
+#'         topic="COVID-19", 
+#'         countries=c("Chile", "Australia", "France"), 
+#'         from = Sys.Date(), 
+#'         to = Sys.Date()
+#'    )
+#'    df$text
+#' }
+#' @rdname fs_loop
+#' @seealso
+#'  \code{\link{search_loop}}
+#'  
+#'  \code{\link{detect_loop}}
 #' @importFrom utils URLencode
+#' @importFrom jsonlite stream_in
+#' @export 
 search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, countries = NULL, mentioning = NULL, users = NULL, hide_users = FALSE, action = NULL, max = 100, by_relevance = FALSE) {
   u <- paste(get_scala_tweets_url(), "?jsonnl=true&estimatecount=true&by_relevance=", tolower(by_relevance), sep = "")
   if(hide_users) {
@@ -112,10 +186,10 @@ search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, co
     u <- paste(u, "&action=", action, sep = "") 
   }
   if(!is.null(query)) {
-    u <- paste(u, "&q=", URLencode(query, reserved=T), sep = "") 
+    u <- paste(u, "&q=", utils::URLencode(query, reserved=T), sep = "") 
   }
   if(!is.null(topic)) {
-    u <- paste(u, "&topic=", URLencode(paste(topic, sep ="", collapse = ";"), reserved=T), sep = "", collapse = "") 
+    u <- paste(u, "&topic=", utils::URLencode(paste(topic, sep ="", collapse = ";"), reserved=T), sep = "", collapse = "") 
   }
   if(!is.null(from)) {
     u <- paste(u, "&from=",strftime(from, format="%Y-%m-%d") , sep = "") 
@@ -193,7 +267,7 @@ set_aggregated_tweets <- function(name, dateCol, pks, aggr, vars = list("*"), gr
 }
 
 
-
+# utility function to interact with a POST endpoint and process data on a streaming way provided by handler
 stream_post <- function(uri, body, handler = NULL) { 
   cum <- new.env()
   cum$tail <- c()

@@ -414,7 +414,7 @@ update_geonames <- function(tasks) {
 #'    message('Please choose the epitweetr data directory')
 #'    setup_config(file.choose())
 #'
-#'    # geolocating last tweets
+#'    # updating language tasks
 #'    tasks <- update_languages()
 #' }
 #' @rdname update_languages
@@ -483,8 +483,52 @@ update_languages <- function(tasks) {
   return(tasks)
 }
 
-#' @export
-# Returns a dataframe with geolocation columns based on a given text column and optionally a language col
+ 
+#' @title geolocate text in a dataframe given a text column and optionally a language column
+#' @description extracts geolocaion infromation on text on a column of he provided datafrarme and returns a new dataframe with geolocation informtion
+#' @param df A dataframe containing at least character column with text a column with the language name can be provided to improve geolocation quality
+#' @param text_col character, name of the column on the dataframe containing the text to geolocalize, default:text
+#' @param lang_col character, name of the column on the dataframe containing the language of textes, default: NULL
+#' @param min_score, numeric, the minimum score obtained on the lucene scoring function to accept matches on geonames. It has to be empirically set default: NULL
+#' @return A new dataframe containing the following geolocation columns: geo_code, geo_country_code, geo_country, geo_name, tags
+#' @details This functions perform a call to the epitweetr database which includes functionality for geolocating for languages activated and successfully processed on the shiny app.
+#' 
+#' The geolocation process tries to find the best match in geonames datanase \url{geonames.org} including all local aliases for words.
+#'
+#' If no language is associated to the text, all tokens will be sent as a query to the indexed geonames database.
+#'
+#' If a language code is associated to the text and this language is trained on epitweetr, entity recognition techniques will be used to identify the best candidate in text to contain a location
+#' and only these tokens will be sent to the geonames query.
+#'
+#' A custom scoring function is implemented to grant more weight to cities increasing with population to try to perform disambigüation.
+#'
+#' Rules for forcing the geolocation choices of the algorithms and for tunning performance with manual annotations can be performand on the geotag tab of the shiny app.
+#'
+#' A prerequisite to this function is that the tasks \code{\link{download_dependencies}} \code{\link{update_geonames}} and \code{\link{update_languages}} has been run successfully.
+#'
+#' This function is called from the shiny app on geolocation evaluation tab but can also be used for manually evaluate the epitweetr geolocation algorithm.
+#' @examples 
+#' if(FALSE){
+#'    library(epitweetr)
+#'    # setting up the data folder
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'
+#'    # creating a test dataframe
+#'    df <- data.frame(text = c("Viva Santiago es el mejor lugar del mundo"), lang = c("es"))
+#'    geo <- geolocate_text(df = df, text_col = "text", lang_col="lang") 
+#'    
+#' }
+#' @rdname geolocate_text
+#' @seealso
+#'  \code{\link{download_dependencies}}
+#'
+#'  \code{\link{update_geonames}}
+#'
+#'  \code{\link{detect_loop}}
+#' 
+#' @export 
+#' @importFrom utils download.file 
 geolocate_text <- function(df, text_col = "text", lang_col=NULL, min_score = NULL) {
   `%>%` <- magrittr::`%>%`
   if(is.null(lang_col)) df[[lang_col]] <- NA
@@ -503,6 +547,7 @@ geolocate_text <- function(df, text_col = "text", lang_col=NULL, min_score = NUL
   dplyr::select(ret, -which(names(ret) %in% c("text", "id", "lang")))
 }
 
+# returns the current geotraining annotations as a dataframe
 get_geotraining_df <- function() {
   `%>%` <- magrittr::`%>%`
   data_types<-c("text","text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text")
@@ -512,6 +557,7 @@ get_geotraining_df <- function() {
   current
 }
 
+# returns the current geotraininga annotation augmented of tweets_to_add tweets to annotate
 updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b) {}) {
   `%>%` <- magrittr::`%>%`
   progress(0.1, "getting current training file")
@@ -656,7 +702,7 @@ updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b
   ret %>% arrange(dplyr::desc(.data$Type), .data$`Tweet part`)
 }
 
-
+# returns the current geotraininga annotation augmented of tweets_to_add tweets to annotate and write the results to the geotraining spreadsheet 
 update_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b) {}) {
   `%>%` <- magrittr::`%>%`
   training_df <- updated_geotraining_df(tweets_to_add = 100, progress = progress)
@@ -725,6 +771,7 @@ update_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b)
   openxlsx::saveWorkbook(wb, get_user_geotraining_path() ,overwrite = T) 
 }
 
+# retrain the language classifiers for entity recognition with the current set of annotations
 retrain_languages <- function() {
   `%>%` <- magrittr::`%>%`
   body <- get_geotraining_df() %>% jsonlite::toJSON()
@@ -738,6 +785,7 @@ retrain_languages <- function() {
   }
 }
 
+# update the topic keywords json file when several location entities are found, the one closest to a topic is chosen 
 update_topic_keywords <- function() {
   `%>%` <- magrittr::`%>%`
    keywords <- lapply(strsplit(gsub("\\-\\w*\\b|\"", "", unlist(lapply(conf$topics, function(t) t$query))), "OR|AND|NOT|\\(|\\)"), function(t) {x <- gsub("^ *| *$", "", t); x[x != ""]} )
@@ -749,6 +797,7 @@ update_topic_keywords <- function() {
    write_json_atomic(ret, get_topic_keywords_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
 }
 
+# update the forced geo json file lisitng words that will be associated to particular location names ignoring tge geolocaion algorithm
 update_forced_geo <- function() {
   `%>%` <- magrittr::`%>%`
   df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(.data$`Location in text`), .data$`Text`, .data$`Location in text`), to = .data$`Associate with`) %>% dplyr::filter(!is.na(.data$to))
@@ -765,6 +814,7 @@ update_forced_geo <- function() {
   }
 }
 
+# update the forced geo codes json file lisitng words that will be associated to particular location codes ignoring tge geolocaion algorithm
 update_forced_geo_codes <- function() {
   `%>%` <- magrittr::`%>%`
   df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(.data$`Location in text`), .data$`Text`, .data$`Location in text`), to = .data$`Associate country code`) %>% dplyr::filter(!is.na(.data$to))
