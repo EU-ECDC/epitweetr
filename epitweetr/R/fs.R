@@ -132,7 +132,7 @@ fs_loop <-  function(data_dir = NA) {
 }
 
 #' @title perform full text search on tweets collected with epitweetr
-#' @description  perform full text search on tweets collected with epitweetr (only tweets collected with epitwetr v>0.0.x are included on search
+#' @description  perform full text search on tweets collected with epitweetr (tweets migrated from epitwetr v<1.0.x are also included)
 #' @param query character. The query to be used if a text it will match the tweet text. To see how to match particular fields please see details, default:NULL
 #' @param topic character, Vector of topics to include on the search default:NULL
 #' @param from an object which can be converted to ‘"POSIXlt"’ only tweets posted after or on this date will be included, default:NULL
@@ -169,7 +169,7 @@ fs_loop <-  function(data_dir = NA) {
 #'    )
 #'    df$text
 #' }
-#' @rdname fs_loop
+#' @rdname search_tweets
 #' @seealso
 #'  \code{\link{search_loop}}
 #'  

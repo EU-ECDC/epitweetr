@@ -16,7 +16,7 @@
 #'    # runnint the migration
 #'    json2lucene()
 #' }
-#' @rdname ears_t_reweighted
+#' @rdname json2lucene
 #' @export
 json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
   stop_if_no_config(paste("Cannot migrate if no configuration is setup")) 

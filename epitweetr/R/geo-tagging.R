@@ -76,17 +76,14 @@ get_user_location_columns <- function(table) {
       )
 }
 
-#' @title Get a sample of latest tweet geolocations
-#' @description Get a sample of today's tweets for evaluation of geolocation threshold
+#' @title Get a sample of latest tweet geolocations (removed)
+#' @description This function was removed from on epitweer v1.0.1 please use search_tweets instead
 #' @param limit Size of the sample, default: 100
 #' @param text_col Name of the tweet field to geolocate it should be one of the following ("text", "linked_text", "user_description", "user_location", "place_full_name", "linked_place_full_name"),
 #' default: 'text'
 #' @param lang_col Name of the tweet variable containing the language to evaluate. It should be one of the following ("lang", "linked_lang", NA), default: "lang"
 #' @return Dataframe containing the sampled tweets and the geolocation metrics
-#' @details This function will take a sample of tweets collected on the current date for testing the geolocation algorithm and giving the user the possibility to evaluate the optimal score.
-#'
-#' In order for this function to work the search loop will have had to run on the current day and the tasks \code{\link{download_dependencies}}, 
-#' \code{\link{update_geonames}} and \code{\link{update_languages}} will have had to successfully been run.
+#' @details This function was removed from on epitweer v1.0.1 please use search_tweets instead.
 #' @examples 
 #' if(FALSE){
 #'    library(epitweetr)
@@ -107,7 +104,6 @@ get_user_location_columns <- function(table) {
 #'
 #' @export 
 get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col = "lang") {
- stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
  stop("This function was removed from on epitweer v1.0.1 please use search_tweets instead")
 }
 
