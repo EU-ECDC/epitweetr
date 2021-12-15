@@ -181,11 +181,11 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
 # Getting alert daily counts taking in consideration a 24-hour sliding window since last full hour
 # the provided dataset is expected to be an hourly counts by date with the following columns: tweets, known_users, created_date, created_hour
 get_reporting_date_counts <- function(
-    df = get_aggregates("country_counts")
+    df
     , topic
-    , start = NA
-    , end = NA
-    , last_day = get_aggregated_period()$last
+    , start
+    , end
+    , last_day
   ) {
   `%>%` <- magrittr::`%>%`
   if(nrow(df)>0) {
@@ -271,7 +271,7 @@ calculate_region_alerts <- function(
        |  (.data$user_geo_country_code %in% country_codes) 
       )
     )
-    total_count <- sum((get_reporting_date_counts(total_df, topic, read_from_date, end) %>% dplyr::filter(.data$reporting_date >= start))$count)
+    total_count <- sum((get_reporting_date_counts(total_df, topic, read_from_date, end, end) %>% dplyr::filter(.data$reporting_date >= start))$count)
     logenv$total_count <- if(exists("total_count", logenv)) logenv$total_count + total_count else total_count
   }
   # filtering by country codes
@@ -282,7 +282,7 @@ calculate_region_alerts <- function(
     else stop("get geo count does not support more than two country code columns") 
   )
   # Getting univariate time series aggregatin by day
-  counts <- get_reporting_date_counts(df, topic, read_from_date, end)
+  counts <- get_reporting_date_counts(df, topic, read_from_date, end, end)
   if(nrow(counts)>0) {
     # filling missing values with zeros if any
     date_range <- as.numeric(read_from_date):as.numeric(end)
@@ -396,7 +396,6 @@ do_next_alerts <- function(tasks = get_tasks()) {
   last_agg <- get_aggregated_period()
   alert_to <- last_agg$last
   alert_to_hour <- last_agg$last_hour
-
   # Determining whether we should produce alerts for current hour (if aggregation has produced new records since last alert generation
   do_alerts <- FALSE
   alert_file <-get_alert_file(alert_to)
@@ -438,6 +437,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
     
     # calculating alerts per topic
     alerts <- parallel::parLapply(cl, 1:length(topics), function(i) {
+    #alerts <- lapply(1:length(topics), function(i) {
       topic <- topics[[i]]
       setup_config(data_dir)
       m <- paste("Getting alerts for",topic,i,  alert_to, (Sys.time())) 
@@ -1161,7 +1161,7 @@ classify_alerts <- function(alerts, retrain = FALSE) {
   `%>%` <- magrittr::`%>%`
   if(is.null(alerts) || nrow(alerts) == 0)
     alerts
-  else if(min((alerts %>% dplyr::group_by(.data$given_category) %>% dplyr::summarise(n = dplyr::n()) %>% dplyr::filter(!is.na(.data$given_category)))$n) < 10 ) {
+  else if(retrain && min((alerts %>% dplyr::group_by(.data$given_category) %>% dplyr::summarise(n = dplyr::n()) %>% dplyr::filter(!is.na(.data$given_category)))$n) < 10 ) {
     warning("In order to train an alerts classifier all categories must have at least 10 observation")
     alerts
   } else {

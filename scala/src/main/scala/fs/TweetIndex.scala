@@ -415,7 +415,6 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
   def searchTweets(query:Query, max:Option[Int] = None, doCount:Boolean=false, sort:Sort=QuerySort.index, topFieldLimit:Option[(String, String)] = None):Iterator[(Document, Long)]  = {
     val tops = HashMap[String, Double]()
     var refinedQ = None.asInstanceOf[Option[Query]]
-
     Seq(query)
       .flatMap{qq => 
         var q = qq
@@ -436,7 +435,7 @@ case class TweetIndex(var reader:IndexReader, writer:Option[IndexWriter], var se
             val (res, ret) = Iterator.range(0, 3).map{iTry =>
               Try{
                 if(iTry > 0) {
-                  l.msg(s"Retrying failed search $query on ${this.index.getDirectory}")
+                  l.msg(s"Retrying failed search $query $iTry $after on ${this.index.getDirectory}")
                   searcher = Some(this.useSearcher()) 
                 }
 

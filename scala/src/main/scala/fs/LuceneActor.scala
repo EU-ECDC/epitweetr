@@ -148,6 +148,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
             }
             qb.add(TermRangeQuery.newStringRange("created_date", from.map(d => d.toString.take(10)).getOrElse("0"), to.map(d => d.toString.take(10)).getOrElse("9"), true, true), Occur.MUST)
             val q = qb.build
+
             val noFilter = i.searchTweets(qb.build, Some(left), doCount = estimatecount, if(byRelevance) QuerySort.relevance else QuerySort.index).toSeq
             
             val tweets = if(!mentions.isEmpty) {
@@ -251,7 +252,6 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
               }
               var first = true
               var z = 0
-
               i.searchTweets(
                 qb.build, 
                 doCount = false, 
@@ -326,7 +326,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
                 lastHour = (
                     Iterator.range(23, -1, -1)
                       .map(i => s"0$i".takeRight(2))
-                      .map(hour => 
+                      .map{hour =>
                         index.parseAndSearchTweets(
                           query = "created_date:[\""+aDates.last+"\" TO \""+aDates.last+"\"] AND created_hour:'"+hour+"'", 
                           max = Some(1), 
@@ -335,7 +335,7 @@ class LuceneActor(conf:Settings) extends Actor with ActorLogging {
                           case 0 => None 
                           case _ => Some(hour)
                         }
-                      )
+                      }
                       .flatMap(e => e)
                       .toSeq
                       .headOption

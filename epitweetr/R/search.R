@@ -40,12 +40,12 @@ search_loop <-  function(data_dir = NA) {
   while(TRUE) {
     # Waiting until database system will be running
     while(!is_fs_running()) {
-      message("Epitweetr Database is not yet running waiting for 5 seconds")
+      msg("Epitweetr Database is not yet running waiting for 5 seconds")
       Sys.sleep(5)
     }
     # Dismissing history if required from shiny app
     if(conf$dismiss_past_request  > conf$dismiss_past_done) {
-      message("dismiss history requested")
+      msg("dismiss history requested")
       for(i in 1:length(conf$topics)) {
         conf$topics[[i]]$plan <- finish_plans(plans = conf$topics[[i]]$plan)
       }
@@ -61,8 +61,9 @@ search_loop <-  function(data_dir = NA) {
     # If waiting happens here, it means that epitweetr is able to collect all tweets under current twitter rate limits, so it could collect more topics or sooner.
     wait_for <- min(unlist(lapply(1:length(conf$topics), function(i) can_wait_for(plans = conf$topics[[i]]$plan))) )
     if(wait_for > 0) {
-      message(paste(Sys.time(), ": All done! going to sleep for until", Sys.time() + wait_for, "during", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
+      msg(paste(Sys.time(), ": All done! going to sleep for until", Sys.time() + wait_for, "during", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
       commit_tweets()
+      msg("tweets committed")
       Sys.sleep(wait_for)
     }
     #getting only the next plan to execute for each topic (it could be a previous unfinished plan)
@@ -85,12 +86,12 @@ search_loop <-  function(data_dir = NA) {
               }
               , error = function(e) {
                 if(j == 1 && e$message == "too-old") {
-                  message("Recovering from too-old request")
+                  msg("Recovering from too-old request")
                   plan$since_id <- NULL
                   plan$since_target <- NULL
                   conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
                 } else if(e$message == "too-old") {
-                  message("Canceling too-old request")
+                  msg("Canceling too-old request")
                   conf$topics[[i]]$plan[[j]]$end_on <-Sys.time()
                 } else
                  stop(paste(e$message, e))
@@ -98,7 +99,9 @@ search_loop <-  function(data_dir = NA) {
             )
           req2Commit <- req2Commit + 1
           if(req2Commit > 100) {
+            msg("committing tweets")
             commit_tweets()
+            msg("tweets committed")
             req2Commit <- 0
           }
         }
@@ -119,7 +122,7 @@ search_loop <-  function(data_dir = NA) {
 # topic: the topic to register the results on 
 # returns the updated plan after search
 search_topic <- function(plan, query, topic) {
-  message(paste("searching for topic", topic, "from", plan$since_target, "until", if(is.null(plan$since_id)) "(last tweet)" else plan$since_id))
+  msg(paste("searching for topic", topic, "from", plan$since_target, "until", if(is.null(plan$since_id)) "(last tweet)" else plan$since_id))
   # Tweets are stored on the following folder structure data_folder/tweets/search/topic/year
   # Ensuring that folders for storing tweets are created
   year <- format(Sys.time(), "%Y")
@@ -161,7 +164,9 @@ search_topic <- function(plan, query, topic) {
   # ensuring that query is smaller than 400 character (tweetr API limit) 
   if(nchar(query)< 400) {
     # doing the tweet search and storing the response object to obtain details on resp
+    msg("doing twitter search")
     content <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target) 
+    msg("twitter search done")
     # Interpreting the content as JSON and storing the results on json (nested list with dataframes)
     # interpreting is necesssary know the number of obtained tweets and the id of the oldest tweet found and to keep tweet collecting stats
     # Saving uninterpreted content as a gzip archive
@@ -171,6 +176,7 @@ search_topic <- function(plan, query, topic) {
     while(!done) {
       tries <- tries - 1
       tryCatch({
+          msg("sending tweets to database")
           post_result <- httr::POST(
             url=paste0(get_scala_tweets_url(), "?topic=", curl::curl_escape(topic), "&geolocate=true"), 
             httr::content_type_json(), 
@@ -179,7 +185,7 @@ search_topic <- function(plan, query, topic) {
             encoding = "UTF-8",
             httr::timeout((4 - tries) * 5)
           )
-
+          msg("tweets sent")
           if(httr::status_code(post_result) != 200) {
             print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
             stop()
@@ -187,7 +193,7 @@ search_topic <- function(plan, query, topic) {
           done = TRUE
         },
         error = function(e) {
-          message(paste("Error found while sending tweets", e))
+          msg(paste("Error found while sending tweets", e))
           if(tries < 0)
             stop("too many retries")
         }
@@ -570,4 +576,9 @@ create_dirs <- function(topic = NA, year = NA) {
 # Last search time on stored on the embeded database
 last_search_time <- function() {
   last_fs_updates(c("tweets"))$tweets
+}
+
+# prints message with date
+msg <- function(m) {
+  message(paste0(Sys.time(), " [INFO]: -------> " ,m))
 }

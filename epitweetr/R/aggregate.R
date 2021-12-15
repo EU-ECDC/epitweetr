@@ -133,9 +133,11 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
       if(conf$onthefly_api)
         jsonlite::stream_in(url(q_url), verbose = TRUE)
       else {
-        dest = file.path(conf$data_dir, paste("aggregate_", as.integer(stats::runif(1, 1, 99999)), ".json"))
+        if(!file.exists( file.path(conf$data_dir, "tmp")))
+          dir.create(file.path(conf$data_dir, "tmp"))
+        dest = file.path(conf$data_dir, "tmp", paste0("aggregate_", as.integer(stats::runif(1, 1, 99999)), ".json"))
         download.file(url = q_url, destfile = dest)
-        on.exit(if(file.exists(dest)) file.remove(dest))
+        #on.exit(if(file.exists(dest)) file.remove(dest))
         jsonlite::stream_in(file(dest), verbose = TRUE)
       }
     )
@@ -496,45 +498,52 @@ get_aggregated_period_rds <- function() {
 
 # getting last aggregation date or NA if first
 # date is obtained by sorting and reading first and last file on the series folder and in the fs folde containing lucene inexes
-get_aggregated_period <- function() {
-  rds_period <- get_aggregated_period_rds()
-  fs_period <- tryCatch({
-     ret <- jsonlite::fromJSON(url(paste0(get_scala_period_url(),"?serie=country_counts")), simplifyVector = T)
-     ret$first <- if(exists("first", where = ret)) {
-         as.Date(strptime(ret$first, format = "%Y-%m-%d"))
-       } else {
-         NA
-       }
-     ret$last <-  if(exists("last", where = ret)) {
-         as.Date(strptime(ret$last, format = "%Y-%m-%d"))
-       } else {
-         NA
-       }
-     ret$last_hour <-  if(exists("last_hour", where = ret)) {
-         as.integer(ret$last_hour)
-       } else {
-         NA
-       }
-     ret
-  }, warning = function(w) {
-     list(first= NA, last = NA)
-  }, error = function(e) {
-     list(first = NA, last = NA)
-  })
 
-  if(is.na(rds_period$first) && is.na(fs_period$first))
-    list(first = NA, last = NA, last_hour = NA)
-  else 
-    list(
-      first = min(c(as.Date(rds_period$first), as.Date(fs_period$first)), na.rm = T), 
-      last = max(c(as.Date(rds_period$last), as.Date(fs_period$last)), na.rm = T),
-      last_hour = (
-        if(is.na(fs_period$last))
-          rds_period$last_hour
-        else 
-          fs_period$last_hour
-      )
-    )
+get_aggregated_period <- function() {
+  if(!exists("last_agg_request", cached) || as.numeric(Sys.time() - cached$last_agg_request, units="secs") > 60) {
+    cached$last_agg_request_value <- {
+      rds_period <- get_aggregated_period_rds()
+      fs_period <- tryCatch({
+         ret <- jsonlite::fromJSON(url(paste0(get_scala_period_url(),"?serie=country_counts")), simplifyVector = T)
+         ret$first <- if(exists("first", where = ret)) {
+             as.Date(strptime(ret$first, format = "%Y-%m-%d"))
+           } else {
+             NA
+           }
+         ret$last <-  if(exists("last", where = ret)) {
+             as.Date(strptime(ret$last, format = "%Y-%m-%d"))
+           } else {
+             NA
+           }
+         ret$last_hour <-  if(exists("last_hour", where = ret)) {
+             as.integer(ret$last_hour)
+           } else {
+             NA
+           }
+         ret
+      }, warning = function(w) {
+         list(first= NA, last = NA)
+      }, error = function(e) {
+         list(first = NA, last = NA)
+      })
+
+      if(is.na(rds_period$first) && is.na(fs_period$first))
+        list(first = NA, last = NA, last_hour = NA)
+      else 
+        list(
+          first = min(c(as.Date(rds_period$first), as.Date(fs_period$first)), na.rm = T), 
+          last = max(c(as.Date(rds_period$last), as.Date(fs_period$last)), na.rm = T),
+          last_hour = (
+            if(is.na(fs_period$last))
+              rds_period$last_hour
+            else 
+              fs_period$last_hour
+          )
+        )
+    }
+    cached$last_agg_request <- Sys.time()
+  }
+  cached$last_agg_request_value
 }
 
 # Utility function to ask epitweetr to recalculate hashes of stored twets in lucene indexes. 

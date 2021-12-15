@@ -43,9 +43,9 @@ pkg_url <- package_desc$URL
 
 The `epitweetr` package allows you to automatically monitor trends of tweets by time, place and topic. This automated monitoring aims at early detecting public health threats through the detection of signals (e.g. an unusual increase in the number of tweets for a specific time, place and topic). The `epitweetr` package was designed to focus on infectious diseases, and it can be extended to all hazards or other fields of study by modifying the topics and keywords.
 
-The general principle behind `epitweetr` is that it collects tweets and related metadata from the Twitter Standard Search API version 1.1 (https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/overview/standard) according to specified topics and stores these tweets in a compressed form on your computer. `epitweetr` geolocalises the tweets and collects information on key words within a tweet. Tweets are aggregated according to topic and geographical location. Next, a signal detection algorithm identifies the number of tweets (by topic and geographical location) that exceeds what is expected for a given day. Then, `epitweetr` sends out email alerts to notify those who need to further investigate these signals following the epidemic intelligence processes (filtering, validation, analysis and preliminary assessment).
+The general principle behind `epitweetr` is that it collects tweets and related metadata from the Twitter Standard API versions 1.1 (https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/overview/standard) and 2.0 (https://developer.twitter.com/en/docs/twitter-api/tweets/search/api-reference/get-tweets-search-recent) according to specified topics and stores these tweets on your computer on a database that can operate to calculate statistics or as a search engine. `epitweetr` geolocalises the tweets and collects information on key words, urls, hashtags within a tweet but also entities and context detected by the twitter API 2.0. Tweets are aggregated according to topic and geographical location. Next, a signal detection algorithm identifies the number of tweets (by topic and geographical location) that exceeds what is expected for a given day. Then, `epitweetr` sends out email alerts to notify those who need to further investigate these signals following the epidemic intelligence processes (filtering, validation, analysis and preliminary assessment).
 
-The package includes  an interactive web application (Shiny app) with five pages: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts page, where you can view the current alerts and associated information (Fig 2), the geotag evaluation page, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold (Fig 3), the configuration page, where you can change settings and check the status of the underlying processes (Fig 4), and the troubleshoot page, with automatic checks and hints for using `epitweetr` with all its functionalities (Fig 5). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and the words most frequently found in these tweets. These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
+The package includes  an interactive web application (Shiny app) with six pages: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts page, where you can view the current alerts and train machine learning models for alert classification on user defined categories (Fig 2), the geotag page, where you can evaluate the geolocation algorithm and provide annotations for improve its performance (Fig 3), the data protection page, where you can search, anonymise and delete tweets from the epitweetr database to honor data deletion requests from third parties, the configuration page, where you can change settings and check the status of the underlying processes (Fig 4), and the troubleshoot page, with automatic checks and hints for using `epitweetr` with all its functionalities (Fig 5). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and different  most frequent elements found in these tweets (words, hashtags, urls, contexts and entities). These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
 
 More information on the methodology used is available [here](https://doi.org/10.1101/2021.03.25.21254342)
 
@@ -75,6 +75,13 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/ale
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/geotag_evaluation.png")
 ```
 
+**Shiny app data protection page:**
+
+<center>Fig 3: Shiny app data protection page</center>
+
+```{r echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/data_protection.png")
+```
 
 **Shiny app configuration page:**
 
@@ -172,7 +179,7 @@ The CPU and RAM usage can be configured on the Shiny app configuration page (see
 
     -   If using Linux, you need to plan the tasks manually
     
-    -   If using a Mac, you need to install the R package: cronR
+    -   If using a Mac, you need to plan the tasls manually
 
 ### Extra prerequisites for R developers
 
@@ -231,7 +238,7 @@ You can check that all requirements are properly installed in the troubleshoot p
 
 ### Setting up tweet collection and the alert detection loop
 
-In order to use `epitweetr`, you will need to collect tweets and run the alert detection loop (geonames, languages, geotag, aggregate and alerts). Further details are also available in subsequent sections of the user documentation. A summary of the steps needed is as follows:
+In order to use `epitweetr`, you will need to collect tweets and run the alert detection loop (geonames, languages and alerts). Further details are also available in subsequent sections of the user documentation. A summary of the steps needed is as follows:
 
 -   Launch the Shiny app (from the R console) 
 ```{r, eval=FALSE, echo=TRUE}
@@ -241,17 +248,28 @@ epitweetr_app("data_dir")
 -   On the configuration page of the Shiny app, in the manual tasks of the "Detection pipeline", click on "Run dependencies", "Run geonames" and "Run languages" (their status will change to “pending”). This allows the detection pipeline to download the elements needed. As long as no languages are added and no updates are available in geonames.org, these tasks have to be run only the first time you install `epitweetr`.
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/run_geonames.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/run_tasks.png")
 ```
 
 -   Set up the Twitter authentication using a Twitter account or a Twitter developer app, see section *Collection of tweets>Twitter authentication* for more details
 
--   Activate the tweet collection
+-   If you want to use the twitter api V2 you have to request access from the Twitter developer portal. More information on [*https://developer.twitter.com/en/docs/twitter-api/getting-started/getting-access-to-the-twitter-api*]
+
+-   Activate the embedded database 
+
+    -   Windows: Click on the “Epitweetr database” activate button
+
+    -   Other platforms: In a new R session run the following command
+    
+```{r, eval=FALSE, echo=TRUE}
+library(epitweetr)
+fs_loop("data_dir")
+```
+   -   You can confirm that the embeded database is running if the "Embeded database" status is "Running" in the Shiny app configuration page and "true" in the Shiny app troubleshoot page.
+
+-   Activate the tweet collection 
 
     -   Windows: Click on the “Tweet search” activate button
-```{r, echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/Activate_tweet_search.png")
-```
 
     -   Other platforms: In a new R session run the following command
     
@@ -265,9 +283,6 @@ search_loop("data_dir")
 -   Activate the detection pipeline:
 
     -   Windows: Click on the “Detection pipeline” activation button
-```{r echo=FALSE, fig.cap="", out.width = '80%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/Detection_pipeline_activate.png")
-```
     -   Other platforms: In a new R session run the following command
 ```{r, eval=FALSE, echo=TRUE}
 library(epitweetr)
@@ -276,7 +291,7 @@ detect_loop("data_dir")
 
    -   You can confirm that the detection pipeline is running if the "Detection pipeline" status is "Running" in the Shiny app configuration page and "true" in the Shiny app troubleshoot page.
 
--   You will be able to visualise tweets after the aggregate step in the detection pipeline table on the Shiny app configuration page is finished and if "Tweet search" is activated.
+-   You will be able to visualise tweets after "Tweet search" and "dataase" are activated and the languages task has finished successfully.
 
 -   You can start working with the generated signals. **Happy signal detection!**
 
@@ -290,9 +305,9 @@ The following sections describe in detail the above general principles. The sett
 ###  Collection of tweets
 
 
-#### Use of the Twitter Standard Search API version 1.1
+#### Use of the Twitter Standard Search API version 1.1 and 2.0
 
-`epitweetr` uses the Twitter Standard Search API version 1.1. The advantage of this API is that it is a free service provided by Twitter enabling users of `epitweetr` to access tweets free of charge. The search API is not meant to be an exhaustive source of tweets. It searches against a sample of recent tweets published in the past 7 days and it focuses on relevance and not completeness. This means that some tweets and users may be missing from search results.
+`epitweetr` uses the Twitter Standard Search API version 1.1 and/or 2.0. The advantage of these API is that it is a free service provided by Twitter enabling users of `epitweetr` to access tweets free of charge. The search API is not meant to be an exhaustive source of tweets. It searches against a sample of recent tweets published in the past 7 days and it focuses on relevance and not completeness. This means that some tweets and users may be missing from search results.
 
 While this may be a limitation in other fields of public health or research, the `epitweetr` development team believe that for the objective of signal detection a sample of tweets is sufficient to detect potential threats of importance in combination with other type of sources.
 
@@ -303,6 +318,19 @@ Other attributes of the Twitter Standard Search API version 1.1 include:
 -   A maximum of 180 requests every 15 minutes are supported by the Twitter Standard Search API (450 requests every 15 minutes if you are using the Twitter developer app credentials; see next section)
 
 -   Each request returns a maximum of 100 tweets and/or retweets
+
+Other attributes of the Twitter Recent Search API version 2.0  include:
+
+-   Only tweets from the last week days are indexed by Twitter
+
+-   A maximum of 300 requests every 15 minutes are supported
+
+-   Each request returns a maximum of 100 tweets and/or retweets
+
+-   500.000 twetts per month
+
+If you are using both endpoints epitweetr will alternate between them when the limits are hit.
+
 
 #### Twitter authentication
 
@@ -315,14 +343,15 @@ You can authenticate the collection of tweets by using a **Twitter account** (th
     -   The rtweet package will send a request to Twitter, so it can access your Twitter account on your behalf
 
     -   A pop-up window will appear where you can enter your Twitter user name and password to confirm that the application can access Twitter on your behalf. You will send this token each time you access tweets.
+    -   You can only use v1.1 API
 
 -   **Using a Twitter developer app:** via `epitweetr` (app authentication)
 
-    -   If you have not done so already, you will need to create a Twitter developer account: [*https://developer.twitter.com/en/apply-for-access*]
+    -   If you have not done so already, you will need to create a Twitter developer account: [*https://developer.twitter.com/en/docs/twitter-api/getting-started/getting-access-to-the-twitter-api*]
 
-    -   Create an app
+    -   Follow the instuctions, answer the questions to activate to the Twitter API v2 using Essential access.
 
-    -   For the access type, ensure you have read and write access
+    -   Next you will create a Project and an associated developer App during the onboarding process, which will provide you a set of credentials that you will use to authenticate all requests to the API. 
 
     -   Make a note of your OAuth settings
 
@@ -331,9 +360,11 @@ You can authenticate the collection of tweets by using a **Twitter account** (th
         -   With this information `epitweetr` can request a token at any time directly to Twitter. The advantage of this method is that the token is not connected to any user information and tweets are returned independently of any user context.
         
         -   With this app you can perform 450 requests every 15 minutes instead of the 180 requests every 15 minutes that a Twitter account allows.  
+
+        -   You can activate V2.0 API on the config page
         
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/Twitter_authentication_dev_app.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/twitter_authentication.png")
 ```
 
 #### Topics and tweet collection queries
@@ -379,7 +410,7 @@ When uploading your own file, please modify the topic and query fields, but do n
 
 #### Scheduled plans to collect tweets
 
-As a reminder, `epitweetr` is scheduled to make 180 requests (queries) to Twitter every 15 minutes (or 450 requests every 15 minutes if you are using Twitter developer app credentials). Each request can return 100 tweets. The requests return tweets and retweets. These are returned in JSON format, which is a light-weight data format.
+As a reminder, `epitweetr` is scheduled to make 180 requests (queries) to Twitter every 15 minutes with the user authentication (or 450 (v1.1) + 300 (v2) requests every 15 minutes if you are using Twitter developer app credentials depending on the API version you use). Each request can return 100 tweets. The requests return tweets and retweets. These are returned in JSON format, which is a light-weight data format.
 
 In order to collect the maximum number of tweets, given the Standard Search API limitations, and in order for popular topics not to prevent other topics from being adequately collected, `epitweetr` uses “search plans” for each query.
 
@@ -393,7 +424,7 @@ For example, if the “search plan” begins at 4 am on the 10^th^ of September 
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/Schedule_plan_image.png")
 ```
 
-However, if topics are very popular (e.g. COVID-19 in 2020), then the “search plan” for a query in a given four-hour window may not be completed. If this happens, `epitweetr` will move on to the “search plans” for the subsequent four-hour window, and put any previous incomplete “search plans” in a queue to execute when “search plans” for this new four-hour window are completed.
+However, if topics are very popular (e.g. COVID-19 in 2020 and 2021), then the “search plan” for a query in a given four-hour window may not be completed. If this happens, `epitweetr` will move on to the “search plans” for the subsequent four-hour window, and put any previous incomplete “search plans” in a queue to execute when “search plans” for this new four-hour window are completed.
 
 Each “search plan” stores the following information:
 
@@ -437,9 +468,11 @@ If search plans cannot be finished, several search plans per query may be in a q
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/Search_plan_queues.png")
 ```
 
+This design can have the draw back of slowing down big topics collection since epitweetr is trying to rebuil last 7 days of history. If you do not care about rebuilding history on a particular point of time you can click into the "Dismiss past tweets" button who will discard all plans and will start collecting new data.
+
 ### Geolocation
 
-In a parallel process to the collection of tweets, `epitweetr` attempts to geolocate all collected tweets using an unsupervised machine learning process. This process runs in the schedule window defined by "Detect span" property in the configuration page under "General settings" (e.g. if a four-hour window is set it will run every four hours and will geolocate all tweets collected since the last time it successfully ran).
+In a parallel process to the collection of tweets, `epitweetr` attempts to geolocate all collected tweets using an supervised machine learning process. This process runs in automatically after tweets are collected.
 
 `epitweetr` stores two types of geolocation for a tweet: tweet location, which is geolocation information within the text of a tweet (or a retweeted or quoted tweet), and user location from the available metadata. For signal detection, the best location is used while in the dashboard both types can be visualised. 
 
@@ -447,13 +480,11 @@ In a parallel process to the collection of tweets, `epitweetr` attempts to geolo
 
 The tweet location is extracted and stored by `epitweetr` based on the geolocation information found within a tweet text. In case of a retweet or quoted tweet, it will extract the geolocation information from the original tweet text that was retweeted or quoted. If neither is available, no tweet location is stored based on tweet text.
 
-`epitweetr` identifies if a tweet text contains reference to a particular location by breaking down the tweet text into sets of words and evaluating those which are more likely to be a location by using a machine learning model. The algorithm also adds further words (one by one) to the set and if the score grows by using more words, the algorithm tries to find a local maximum of the score with a bigger text. It then matches these words against a reference database, which is geonames.org. This is a geographical database available and accessible through various web services, under a Creative Commons attribution license. The GeoNames.org database contains over 25,000,000 geographical names. `epitweetr` uses by default those limited to currently existing ones and those with a known population (so just over 500,000 names). You can override this default on the Shiny app configuration page, by unchecking "Simplified geonames". The database also contains longitude and latitude attributes of localities and variant spellings (cross-references), which are useful for finding purposes, as well as non-Roman script spellings of many of these names.
+`epitweetr` identifies if a tweet text contains reference to a particular location by breaking down the tweet text into sets of words and evaluating those which are more likely to be a location by using a machine learning model. If several parts of the text are likely to be a location, epitweetr will chose the one closest to a topic. After the location candidate has been identified epitweetr matches these words against a reference database, which is geonames.org. This is a geographical database available and accessible through various web services, under a Creative Commons attribution license. The GeoNames.org database contains over 25,000,000 geographical names. `epitweetr` uses by default those limited to currently existing ones and those with a known population (so just over 500,000 names). You can override this default on the Shiny app configuration page, by unchecking "Simplified geonames". The database also contains longitude and latitude attributes of localities and variant spellings (cross-references), which are useful for finding purposes, as well as non-Roman script spellings of many of these names.
 
 The matches can be performed at any level of administrative hierarchy. The matching is powered by Apache Lucene, which is an open-source high-performance full-featured text search engine library.
 
-Some text may have several locations through the matching process.  However, only the location with the highest score will be selected.
-
-A higher score is associated with a greater probability that a match is correct. A score is:
+To validate the candidate against geonames a score is associated with a greater probability that a match is correct. A score is:
 
 -   Higher if unusual parts of the name are matched
 
@@ -474,15 +505,11 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/con
 ```
 
 In addition, you can unselect languages by selecting the language within the configuration page of the Shiny app and clicking on the "-"  icon:
-ADD IMAGE HERE
+
 
 A minimum score (the "geolocation threshold") can be globally set in the general settings on the configuration page to reduce the number of false positives (see image). All geolocations with a smaller score than the geolocation threshold will be discarded by the algorithm as tweet location. If there is more than one match over the minimum score, then the match with the highest score will be chosen.
 
 The threshold is empirically chosen and can be evaluated against a human read of tweets and tweet locations, on the geotag evaluation page.
-
-```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/geolocation_threshold.png")
-```
 
 #### Geolocation based on user location
 
@@ -501,36 +528,51 @@ With exact locations, the longitude and latitude are provided. If it is the esti
 
 If user location information provided by the API is not available, then `epitweetr` will calculate longitude and latitude from the user declared location or the place name given in the user “public profile”, using GeoNames.org.
 
+#### Improving and evaluating geolocation performance
+
+On the Geotag page, epitweetr will allow you to download the data that was used to build the classifiers for location identificaion. The predefined annotations are based on location vs non location words. Locations are extracted from geonames.org data base. Non location words are obtained from common words on the downloaded models that are not present on geonames. You will be able to add tweets to the annotation datanbase and to manually annotate them until you reach the expected level of performance.
+
+To help you on the evaluation process epitweetr will calculate standard machine learning metrics for evaluating its capacity to identify the right location in texts. These metrics are separately caculated by diferent type of texts: Tweet location, Tweet text, Tweet user description and total.
+
+
 #### Stored geolocated tweet information
 
 The geolocation of the match is stored as a country code (using the ISO 3166 standard) and a longitude and latitude associated with the exact geolocation in the aggregated data.
 
-### Most frequent words found in tweets
+### Most frequent elements found in tweets
 
-As the number of tweets and words can be very large, tweets are analysed for most frequent words in chunks of 10 000 tweets to get the top 500 words of each chunk for the same language, day and topic. 
+Epitweetr counts 5 types of elments on tweets
 
-To ensure reasonable performance of `epitweetr`, the 500 top words are first determined globally, and then these words are used to subset by country, to get the top words by country, day and topic. In very small locations with few number of tweets geolocated, there may be no frequent words available.
+  - Words: Word presents on tweets. Words are then aggregated on the topwords time series
 
-Note that, differently to the other visualisation figures, the most frequent words in tweets are always based on the geolocation related to “tweet location” and not to “user location” regardless of the filter selected in the dashboard.
+  - Hashtags: Tag present on tweets. Hashtags are then aggregated on the hashtags time series
+
+  - Urls: Urls presents on tweets. Urls are then aggregated on the urls time series
+
+  - Entities: Entities are automatically extracted and idetified by the twitter API v2. Thet are then aggregated on the entities time series. This information is only available when the V2 API is activated and properly configured. As per [*Twitter documentation*](https://developer.twitter.com/en/docs/labs/annotations) "Entities are comprised of people, places, products, and organizations... They are programmatically assigned based on what is explicitly mentioned in the Tweet text".  
+
+  - Context: Context are automatically extracted and idetified by the twitter API v2. Thet are then aggregated on the contexts time series. This information is only available when the V2 API is activated and properly configured. As per [*Twitter documentation*](https://developer.twitter.com/en/docs/labs/annotations) "(Context are) Derived from the analysis of a Tweet’s text and will include a domain and entity pairing which can be used to discover Tweets on topics that may have been previously difficult to surface... a list of 50+ domains to categorize Tweets".  
+
+Note that, differently to the other visualisation figures, the most frequent elemets in tweets are always based on the geolocation related to “tweet location” and not to “user location” regardless of the filter selected in the dashboard.
 
 #### Aggregation of data
 
-The aggregation process produces three Rds files (a native R format): geolocated, country_counts and topwords.
+The aggregation process produces data on five sub folder of "fs": geolocated, country\_counts, topwords, urls, hashtags, entities and contexts. These folders are splitted on week subfolders and each contains a lucene index with the aggregated information. This data can be extracted as a dataframe through the public package funcion 'get\_aggregates'
 
-In the geolocated Rds file, the number of tweets or retweets are stored by topic, date, tweet text geolocation longitude and latitude and user geolocation longitude and latitude. Each of these entries also has the country associated with the tweet text geolocation and the country associated with the user geolocation (see partial screenshot below). Note that tweets without geolocation information are also included.
+In the geolocated time series, the number of tweets or retweets are stored by topic, date, tweet text geolocation longitude and latitude and user geolocation longitude and latitude. Each of these entries also has the country associated with the tweet text geolocation and the country associated with the user geolocation (see partial screenshot below). Note that tweets without geolocation information are also included.
 
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/geolocated.png")
 ```
 
-The country\_counts Rds file is used to create the trendline in the Shiny app. This is a smaller Rds file, without the longitude and latitude information, and includes the number of tweets by hour within a day, by country (according to tweet location or user location), topic (see screenshot), and whether a tweet was a retweet or not. The known\_retweets and known\_original fields give the number of tweets or retweets from a list of “important users”. In this file, tweets without geolocation are also included. Including tweets without geolocation information enables you to view all tweets when selecting “world” as a region, regardless if geolocation was successful or not.
+The country\_counts Rds file is used to create the trendline in the Shiny app. This is a smaller time serie, without the longitude and latitude information, and includes the number of tweets by hour within a day, by country (according to tweet location or user location), topic (see screenshot), and whether a tweet was a retweet or not. The known\_retweets and known\_original fields give the number of tweets or retweets from a list of “important users”. In this file, tweets without geolocation are also included. Including tweets without geolocation information enables you to view all tweets when selecting “world” as a region, regardless if geolocation was successful or not.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/country_counts.png")
 ```
 
-The aggregation by top words is stored in the topwords.Rds file, and displays the number of tweets or retweets (or both) by topic, top word, date, country of tweet location and whether a tweet was a retweet or not (see screenshot).
+The aggregation by top element is stored in the topwords, urls, hashtags, contexts and entities fs subfomders, they containss the number of tweets or retweets (or both) by topic, top element, date, country of tweet location and whether a tweet was a retweet or not (see screenshot).
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/topwords.png")
@@ -609,13 +651,15 @@ The email alerts will include the following information on the signals for each 
 
 -   The geographical location(s) where the signal was detected
 
--   The most frequent words (top words) in the tweets
+-   The most frequent elements (top words, urls, hashtags, contexts and entities) in the tweets
 
 -   The number of tweets and the threshold
 
 -   The percentage of tweets from important users
 
 -   Information on the settings, such as: was the Bonferroni correction used, was the same weekday baseline used, were retweets included, etc.
+
+-   The alert category estimated by epitweetr based on user annotations
 
 This information is also available in the alerts page of the Shiny app. 
 
@@ -637,6 +681,10 @@ The subscribers can receive real-time alerts (i.e. as soon as the detection loop
 
   - “Alert Slots”: these are the detection loop slots after which the subscriber will receive the scheduled alert. Available slots can be taken from “Launch slots” in the “General” section of the configuration page. If no value is included, the subscriber will receive real-time alerts for all topics and regions, even if there are real-time topics or regions specified in the Excel spreadsheet.
 
+  - “One tweet alerts”: Whether the user subscrive to alerts including just one tweet
+  - “Topics ignoring one tweet alerts”: Topics that will be ignored for one tweet alerts 
+  - “Regions ignoring one tweet alerts”: Regions that will eb ignored for one tweet alerts
+
 When including more than one topic and/or region in the subscribers list, these should be separated by semi-colon (;) with no spaces (e.g. Ebola;infectious diseases;dengue). The names must match the column “Topics” in the list of topics and the column “Name” in the contry/region list from the configuration page.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
@@ -657,7 +705,11 @@ Within the **data** folder there are 3 JSON files:
 
 There are also the following subfolders:
 
--   "geo", which stores the GeoNames data as text and index files
+-   "fs", which stores the lucene indexes for storing tweets and aggregated time series
+
+-   "geo", which stores the GeoNames data as text, index files, tweets waiting to be geolocated and settings about the geolocation algorithm.
+
+-   "alert-ml", which stores the machine learning models used for alert classification
 
 -   "hadoop", which stores Spark dependencies for Windows operating systems
 
@@ -669,39 +721,28 @@ There are also the following subfolders:
 
 -   "alerts" that store json files of alerts detected by the detect loop.
 
--   "tweets" and "series" that are explained in more detail below.
+-   "collections" stores the aggregations that will be performed by epitweetr 
 
-#### Data folder &gt; tweets
-In the data folder, the subfolder “tweets” has two further subfolders: **search** and **geolocated**
 
-The *search folder* contains subfolders for each topic listed in the topics list:
+#### Fs folder &gt; tweets
+In the fs folder, the subfolder “tweets” has contains the lucene indexes storing the content of the collected tweets and the geolocation information.
+
+The *tweets* contains subfolders for each week:
 
 ```{r echo=FALSE, fig.cap="", out.width = '40%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/search_folder.png")
 ```
 
-Within each of these topics you have a year (e.g. 2020) and then a compressed json file containing the tweets by day for each year. The dates pertain to the dates the tweet was collected (not tweeted). There may be more than one file for one day if the file exceeds 100 MB.
-
-```{r echo=FALSE, fig.cap="", out.width = '40%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/anthrax.png")
-```
-
 The *geolocated folder* contains compressed json files with geolocated information produced by the geolocated algorithm.
 
-#### Data folder &gt; series
+#### Fs folder &gt; series
 
-In the *series* folder, `epitweetr` stores the aggregated data of the geolocated tweets as well as the top words.
+In the *series* folders, `epitweetr` stores the aggregated data of the geolocated tweets as well as the top elements identified.
 
-There is a folder for each ISO week of date of collection containing Rds files (a native R format file) for each day and series:
-
--   geolocated\_YYY.MM.DD.Rds contains daily tweet counts at finest possible location level
-
--   topwords\_YYY.MM.DD.Rds contains daily tweet top words counts at country level
-
--   country\_counts\_YYY.MM.DD.Rds contains hourly tweet counts at country level
+Each folder is named matchning the respective time series and smitted by ISO week of date of publication. Each weekly folder contains a Lucene Index.
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/series_folder.png")
+knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/fs_folder.png")
 ```
 
 This is the aggregate information as described in the section “How does it work? General architecture of epitweetr > Aggregation”.
@@ -723,17 +764,20 @@ The `epitweetr` interactive user application has five pages:
 
 -   The dashboard, where a user can visualise and explore tweets
 
+-   The alerts page, where you can view the current alerts and train machine learning algorithms for alert classification on user defined categories
+
+-   The geotag evaluation page, where you can evaluate the geolocation algorithm and provide annotations for improve its performance
+
+-   The data protection page, where you can search, anonymise and delete tweets from the epitweetr database to honor data deletion requests from third parties
+
 -   The configuration page, where you can change settings and check the status of the underlying processes
-
--   The alerts page, where you can view the current alerts and associated information
-
--   The geotag evaluation page, where you can evaluate the geolocation algorithm in different tweet fields to manually choose the geolocation threshold
 
 -   The troubleshoot page, with with automatic checks and hints for using `epitweetr` with all its functionalities
 
+
 ### Dashboard: The interactive user interface for visualisation
 
-The dashboard is where you can interactively explore visualisations of tweets. It includes a line graph (trend line) with alerts, a map and top words of tweets for a given topic. Please note that the first time a period is selected, you will need to **wait 1-2 minutes until you see the outputs**. Likewise, for any new selection (adding a region, changing topic, etc), `epitweetr` will start reading the corresponding data; so if several selections are done, you may need to wait 1-2 minutes until the last selection is shown in the dashboard. When `epitweetr` is reading new data, the outputs have less intensity giving you an indication that new data is being read and plotted.
+The dashboard is where you can interactively explore visualisations of tweets. It includes a line graph (trend line) with alerts, a map and top words, urls, hashtags, entiteis and contexts of tweets for a given topic. After selecting the expected parameters you have to press the 'Run' button in order to see or refresh the report.
 
 In order to interactively explore the data, you can select from several filters, such as topics, countries and regions, time period, time unit, signal confidence and days in baseline.
 

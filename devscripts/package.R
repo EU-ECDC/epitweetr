@@ -8,7 +8,7 @@ devtools::install_deps()
 devtools::document()
 devtools::build(binary=TRUE)
 devtools::build(binary=FALSE)
-devtools::build_manual()
+#devtools::build_manual()
 
 if(!file.exists(file.path("..", "install"))){
   dir.create(file.path("..", "install"), showWarnings = FALSE)
@@ -26,7 +26,6 @@ installer_name <- (
       paste("epitweetr_",packageVersion("epitweetr"),"_R_x86_64-pc-linux-gnu.tar.gz", sep = "") 
   )
 )
-#moving installer
 file.rename(file.path("..", installer_name), file.path("..", "install", installer_name))
 
 manual_name <- paste("epitweetr_",packageVersion("epitweetr"),".pdf", sep = "") 

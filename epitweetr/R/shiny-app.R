@@ -586,7 +586,7 @@ epitweetr_app <- function(data_dir = NA) {
     shiny::navbarPage("epitweetr"
       , shiny::tabPanel("Dashboard", dashboard_page)
       , shiny::tabPanel("Alerts", alerts_page)
-      , shiny::tabPanel("Geotag training/evaluation", geotraining_page)
+      , shiny::tabPanel("Geotag", geotraining_page)
       , shiny::tabPanel("Data protection", dataprotection_page)
       , shiny::tabPanel("Configuration", config_page)
       , shiny::tabPanel("Troubleshoot", troubleshoot_page)

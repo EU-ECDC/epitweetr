@@ -816,7 +816,7 @@ create_topchart <- function(topic, serie, country_codes=c(),date_min="1900-01-01
     if(serie == "topwords") "words"
     else serie
   )
-  if(nrow(df)==0) {
+  if(nrow(df)==0 || is.null(df)) {
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
   #filtering data by countries

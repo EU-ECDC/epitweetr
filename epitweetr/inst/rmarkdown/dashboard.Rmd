@@ -102,8 +102,7 @@ top_chart_from_filters(
 ### `r paste("Top URLS of tweets mentioning", params$topic, "from", params$periond[[1]], "to", params$period[[2]])`
 
 ```{r, echo = FALSE, message=FALSE, warning=FALSE}
-knitr::kable(
-  top_chart_from_filters(
+df <- top_chart_from_filters(
     params$topics,
     "urls",
     params$countries, 
@@ -112,7 +111,10 @@ knitr::kable(
     params$location_type,
     50
     )$data
-)
+if(is.data.frame(df)) { 
+  knitr::kable(df)
+} else
+  "No data found for the selected filters"
 ```
 Top urls table only considers tweet location, ignoring the location type parameter
 
