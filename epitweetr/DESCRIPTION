@@ -1,15 +1,15 @@
 Package: epitweetr
 Title: Early Detection of Public Health Threats from Twitter Data
-Version: 1.0.33
+Version: 1.0.35
 Authors@R: c( 
      person(given = "Laura",
             family = "Espinosa",
-            role = c("aut", "fnd"),
+            role = c("aut", "fnd", "cre"),
             email = "laura.espinosa@ecdc.europa.eu",
             comment = c(structure("0000-0003-0748-9657", .Names = "ORCID"), "Project manager, author of the design and concept of the package, and package maintainer")),
      person(given = "Francisco",
             family = "Orchard",
-            role = c("aut", "cre", "ctr"),
+            role = c("aut", "ctr"),
             email = "f.orchard@epiconcept.fr",
             comment = c(structure("0000-0001-5793-3301", .Names = "ORCID"), "Author of the package and original code")),
      person(given = "Ariana",

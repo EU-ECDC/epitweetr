@@ -8,7 +8,7 @@ devtools::install_deps()
 devtools::document()
 devtools::build(binary=TRUE)
 devtools::build(binary=FALSE)
-#devtools::build_manual()
+devtools::build_manual()
 
 if(!file.exists(file.path("..", "install"))){
   dir.create(file.path("..", "install"), showWarnings = FALSE)
