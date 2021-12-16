@@ -8,14 +8,14 @@ cached <- new.env()
 #' @param cache Whether to use the cache for lookup and storing the returned dataframe, default: TRUE
 #' @param filter A named list defining the filter to apply on the requested series, it should be on the shape of a named list e.g. list(tweet_geo_country_code=list('FR', 'DE')) default: list()
 #' @param top_field Name of the top field used with top_frequency to enable optimisation for getting only most frequent elements. It will only keep top 500 items after first 50k lines on reverse index order
-#' @param top_freq character, Name of the frequency fiels used with top_field to enable optimisation for gettung only most frequent elements. 
-#' It will only keep top 500 itmes aftar first 50k rows on reverse index order
-#' @return A dataframe containing the requested series for the requested period
+#' @param top_freq character, Name of the frequency fields used with top_field to enable optimisation for getting only most frequent elements. 
+#' It will only keep top 500 items after first 50k rows on reverse index order
+#' @return A data frame containing the requested series for the requested period
 #' @details This function returns data aggregated by epitweetr. The data is found on the 'series' folder, which contains Rds files per weekday and type of series. 
-#' starig on v 1.0.x it will also look on lucene indexes situated on fs folder. Names of files and folders are parsed to limit the files to be read.
-#' When using lucene indexes, filters are directly applied on read. This is an improvement compared 'series' folder where filters are applied 
-#' after read. All returned rows are joied in a single dataframe.
-#' If no filter is provided all data serie is returned, which can end up with millions of rows depending on the time series. 
+#' starting on v 1.0.x it will also look on Lucene indexes situated on fs folder. Names of files and folders are parsed to limit the files to be read.
+#' When using Lucene indexes, filters are directly applied on read. This is an improvement compared 'series' folder where filters are applied 
+#' after read. All returned rows are joined in a single dataframe.
+#' If no filter is provided all data series is returned, which can end up with millions of rows depending on the time series. 
 #' To limit by period, the filter list must have an element 'period' containing a date vector or list with two dates representing the start and end of the request.
 #'
 #' To limit by topic, the filter list must have an element 'topic' containing a non-empty character vector or list with the names of the topics to return.
@@ -24,7 +24,7 @@ cached <- new.env()
 #' \itemize{
 #'   \item{"country_counts" counting tweets and retweets by posted date, hour and country}
 #'   
-#'   \item{"geolocated" counting tweets and retweets by posted date and the smallest possible geolocated unit (city, adminitrative level or country)}
+#'   \item{"geolocated" counting tweets and retweets by posted date and the smallest possible geolocated unit (city, administrative level or country)}
 #'   
 #'   \item{"topwords" counting tweets and retweets by posted date, country and the most popular words, (this excludes words used in the topic search)}
 #' }
@@ -60,16 +60,16 @@ cached <- new.env()
 #' @importFrom utils URLencode
 get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = list(), top_field = NULL, top_freq = NULL) {
   `%>%` <- magrittr::`%>%`
-  # getting the name for cache lookup dataset dependant
+  # getting the name for cache lookup dataset dependency
   last_filter_name <- paste("last_filter", dataset, sep = "_")
 
-  # Setting a the last aggregate filter
+  # Setting the last aggregate filter
   last_agg <- get_aggregated_period()
   last_agg <- paste(last_agg$last,last_agg$last_hour)
   filter$last_aggregate <- last_agg
 
 
-  # checking wether we can reuse the cache
+  # checking whether we can reuse the cache
   reuse_filter <- 
     exists(last_filter_name, where = cached) && #cache entry exists for that dataset
     (exists("last_aggregate", where = cached[[last_filter_name]]) && cached[[last_filter_name]]$last_aggregate == filter$last_aggregate) && # No new aggregation has been finished
@@ -83,7 +83,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     (!exists("tweet_geo_country_code", cached[[last_filter_name]]) || # all countries are cached or 
       (
         exists("tweet_geo_country_code", cached[[last_filter_name]]) && # there are some countries cached
-        exists("tweet_geo_country_code", filter) &&  # there are some countrie on the current applied filter
+        exists("tweet_geo_country_code", filter) &&  # there are some countries on the current applied filter
         all(filter$tweet_geo_country_code %in% cached[[last_filter_name]]$tweet_geo_country_code) # all filtered countries are cached
       )
     ) && # AND
@@ -91,7 +91,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
       (
         exists("period", cached[[last_filter_name]]) &&  # there are some period cached
         exists("period", filter) && # there is a period on the filter
-        cached[[last_filter_name]]$period[[1]] <= filter$period[[1]] && # and filetered period is contained on cached period
+        cached[[last_filter_name]]$period[[1]] <= filter$period[[1]] && # and filtered period is contained on cached period
         cached[[last_filter_name]]$period[[2]] >= filter$period[[2]]
       )
     )
@@ -109,7 +109,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     )
   }
   else {
-    # getting the aggregated dataframe from the storage system
+    # getting the aggregated data frame from the storage system
     q_url <- paste0(get_scala_aggregate_url(), "?jsonnl=true&serie=", URLencode(dataset, reserved = T))
     if(!is.null(top_field) && !is.null(top_freq))
       q_url <- paste0(q_url, "&topField=", top_field, "&topFrequency=", top_freq) 
@@ -166,7 +166,7 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
   # No cache hit getting from aggregated files
   # starting by listing all series files
   `%>%` <- magrittr::`%>%`
-  # getting the name for cache lookup dataset dependant
+  # getting the name for cache lookup dataset dependancy
   files <- list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(dataset, ".*\\.Rds", sep=""))
   if(length(files) == 0) {
     return (data.frame(created_date=as.Date(character()),topic=character()))
@@ -198,7 +198,7 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
         )
     })
     
-    #Joining data extracts if any or returning empty dataset otherwise
+    #Joining data extracts if any or otherwise returning empty dataset
     ret <- 
       if(length(files) > 0)
         jsonlite::rbind_pages(dfs)
@@ -212,10 +212,10 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
 
 } 
 
-# This function register the aggregated series that are computed by epitweetr.
-# Each serie is defined by a name a date column, primary keys columns, variables columns, group by columns and sources expressions
-# Each registered serie uses the set_aggregated_tweets function
-# This function is periodcally called bt the search loop.
+# This function registers the aggregated series that are computed by epitweetr.
+# Each series is defined by a name a date column, primary keys columns, variables columns, group by columns and sources expressions
+# Each registered series uses the set_aggregated_tweets function
+# This function is periodically called bt the search loop.
 register_series <- function() {
   `%>%` <- magrittr::`%>%`
   #geolocated"
@@ -259,7 +259,7 @@ register_series <- function() {
       paste(conf$topics[[i]]$topic, "_", terms, sep = "")
     })) 
   lang_stop_words <- paste("'", unlist(lapply(conf$languages, function(l) lapply(get_stop_words(l$code), function(t) paste(l$code, t, sep = "_")))), "'", sep = "", collapse = ",")
-  # Getting top word aggregation
+  # Getting top words aggregation
   set_aggregated_tweets(
     name = "topwords"
     , dateCol = "created_date"
@@ -407,7 +407,7 @@ register_series <- function() {
       , paste(get_tweet_location_var("geo_country_code"), "as tweet_geo_country_code") 
     )
   )
-  # Getting Context aggregation
+  # Getting context aggregation
   set_aggregated_tweets(
     name = "contexts"
     , dateCol = "created_date"
@@ -478,10 +478,10 @@ get_aggregated_period_rds <- function() {
   # listing all aggregated files for given dataset 
   agg_files <- list.files(file.path(conf$data_dir, "series"), recursive=TRUE, full.names =TRUE)
   agg_files <- agg_files[grepl(paste(".*", "country_counts", ".*\\.Rds", sep = ""), agg_files)] 
-  # sorting them alphabetically. This makes them sorted by date too because of namind convention
+  # sorting them alphabetically. This makes them sorted by date too because of naming convention
   agg_files <- sort(agg_files)
   if(length(agg_files) > 0) { 
-   # getting date information from firt and last aggregated file
+   # getting date information from first and last aggregated file
    first_file <- agg_files[[1]]
    first_df <- readRDS(first_file)
    last_file <- agg_files[[length(agg_files)]]
@@ -497,7 +497,7 @@ get_aggregated_period_rds <- function() {
 }
 
 # getting last aggregation date or NA if first
-# date is obtained by sorting and reading first and last file on the series folder and in the fs folde containing lucene inexes
+# date is obtained by sorting and reading first and last file on the series folder and in the fs folder containing Lucene indexes
 
 get_aggregated_period <- function() {
   if(!exists("last_agg_request", cached) || as.numeric(Sys.time() - cached$last_agg_request, units="secs") > 60) {
@@ -546,8 +546,8 @@ get_aggregated_period <- function() {
   cached$last_agg_request_value
 }
 
-# Utility function to ask epitweetr to recalculate hashes of stored twets in lucene indexes. 
-# This function is experimental for testing parallell scan of indexes
+# Utility function to ask epitweetr to recalculate hashes of stored tweets in Lucene indexes. 
+# This function is experimental for testing parallel scan of indexes
 # This function is deprecated since no significant performance gain was observed
 recalculate_hash <- function() {
   message("recalculating hashes")
@@ -560,8 +560,8 @@ recalculate_hash <- function() {
 
 }
 
-# Adds possible missing columns on a dataset procuced by an aggregated serie
-# This is necesary to ensure that all expeced columns are present for data produced
+# Adds possible missing columns on a dataset produced by an aggregated series
+# This is necessary to ensure that all expected columns are present for data produced
 # on old epitweetr versions
 add_missing <- function(df, dataset) {
   cols <- colnames(df)
