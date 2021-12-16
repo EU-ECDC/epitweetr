@@ -38,6 +38,7 @@ search_loop <-  function(data_dir = NA) {
   # Infinite loop for getting tweets if it is successfully registered as the search runner
   req2Commit <- 0
   while(TRUE) {
+    loop_start <- Sys.time()
     # Waiting until database system will be running
     while(!is_fs_running()) {
       msg("Epitweetr Database is not yet running waiting for 5 seconds")
@@ -45,11 +46,16 @@ search_loop <-  function(data_dir = NA) {
     }
     # Dismissing history if required from shiny app
     if(conf$dismiss_past_request  > conf$dismiss_past_done) {
-      msg("dismiss history requested")
-      for(i in 1:length(conf$topics)) {
-        conf$topics[[i]]$plan <- finish_plans(plans = conf$topics[[i]]$plan)
+      if(length(conf$topics[sapply(conf$topics, function(t) length(t$plan) == 0 || t$plan[[1]]$requests == 0)]) > 0) {
+        msg("dismis history has to wait until all plans has at least one plan with one request")
+      } else {
+        msg("dismiss history requested")
+
+        for(i in 1:length(conf$topics)) {
+          conf$topics[[i]]$plan <- finish_plans(plans = conf$topics[[i]]$plan)
+        }
+        conf$dismiss_past_done <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       }
-      conf$dismiss_past_done <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
     }
     # On each iteration this loop will perform one request for each active plans having the minimum number of requests 
     # Creating plans for each topic if collect span is expired and calculating next execution time for each plan.
@@ -63,7 +69,6 @@ search_loop <-  function(data_dir = NA) {
     if(wait_for > 0) {
       msg(paste(Sys.time(), ": All done! going to sleep for until", Sys.time() + wait_for, "during", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
       commit_tweets()
-      msg("tweets committed")
       Sys.sleep(wait_for)
     }
     #getting only the next plan to execute for each topic (it could be a previous unfinished plan)
@@ -74,12 +79,12 @@ search_loop <-  function(data_dir = NA) {
     
     #updating series to aggregate
     register_series() 
-    
+    msg(paste("iterating in topics", length(conf$topics), min_requests))
     #performing search only for plans with a minimum number of requests (round robin)
     for(i in 1:length(conf$topics)) { 
-      for(j in 1:length(conf$topics[[i]]$plan)) { 
+      for(j in 1:length(conf$topics[[i]]$plan)) {
         plan <- conf$topics[[i]]$plan[[j]]
-        if(plan$requests == min_requests && is.null(plan$end_on)) {
+        if(plan$requests <= min_requests && (is.null(plan$end_on) || plan$requests == 0)) {
             #if search is performed on the first plan and we get an too old error, we will retry without time limit
             tryCatch({
                 conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
@@ -99,19 +104,26 @@ search_loop <-  function(data_dir = NA) {
             )
           req2Commit <- req2Commit + 1
           if(req2Commit > 100) {
-            msg("committing tweets")
             commit_tweets()
-            msg("tweets committed")
             req2Commit <- 0
           }
         }
       }
     }
-    # epitweetr sanity check and sendig emain in case of issued
-    health_check()
-    #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config)
-    setup_config(data_dir = conf$data_dir, save_first = list("topics"))
+    msg("iteration end")
+    #checking at most once per 10 minutes
+    if(difftime(Sys.time(),loop_start,units="mins") > 10) {
+      # epitweetr sanity check and sendig emain in case of issued
+      msg("health checked")
+      health_check()
+    }
 
+
+    #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config) at most once per 10 secinds
+    if(difftime(Sys.time(),loop_start,units="secs") > 10) {
+      setup_config(data_dir = conf$data_dir, save_first = list("topics"))
+      msg("config saved and refreshed")
+    }
   }
 }
 
@@ -164,9 +176,7 @@ search_topic <- function(plan, query, topic) {
   # ensuring that query is smaller than 400 character (tweetr API limit) 
   if(nchar(query)< 400) {
     # doing the tweet search and storing the response object to obtain details on resp
-    msg("doing twitter search")
     content <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target) 
-    msg("twitter search done")
     # Interpreting the content as JSON and storing the results on json (nested list with dataframes)
     # interpreting is necesssary know the number of obtained tweets and the id of the oldest tweet found and to keep tweet collecting stats
     # Saving uninterpreted content as a gzip archive
@@ -176,7 +186,6 @@ search_topic <- function(plan, query, topic) {
     while(!done) {
       tries <- tries - 1
       tryCatch({
-          msg("sending tweets to database")
           post_result <- httr::POST(
             url=paste0(get_scala_tweets_url(), "?topic=", curl::curl_escape(topic), "&geolocate=true"), 
             httr::content_type_json(), 
@@ -185,7 +194,6 @@ search_topic <- function(plan, query, topic) {
             encoding = "UTF-8",
             httr::timeout((4 - tries) * 5)
           )
-          msg("tweets sent")
           if(httr::status_code(post_result) != 200) {
             print(substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100))
             stop()
@@ -481,11 +489,11 @@ finish_plans <- function(plans = list()) {
      list()
   } else {
     # creating a new plan if expected end has passed 
-    lapply(plans, function(p) {  
+    lapply(plans, function(p) { 
       get_plan(
-        expected_end = strftime(p$expected_end, "%Y-%m-%d %H:%M:%S")
+        expected_end = strftime(if(is.null(p$end_on)) Sys.time() - conf$schedule_span*60 else p$end_on, "%Y-%m-%d %H:%M:%S")
         , scheduled_for = strftime(p$scheduled_for, "%Y-%m-%d %H:%M:%S")
-        , start_on = strftime(p$start_on, "%Y-%m-%d %H:%M:%S")
+        , start_on = strftime(if(is.null(p$start_on)) Sys.time() - conf$schedule_span*60 else p$start_on, "%Y-%m-%d %H:%M:%S")
         , end_on = strftime(if(is.null(p$end_on)) Sys.time() - conf$schedule_span*60 else p$end_on, "%Y-%m-%d %H:%M:%S")
         , max_id = p$max_id
         , since_id = p$since_target
