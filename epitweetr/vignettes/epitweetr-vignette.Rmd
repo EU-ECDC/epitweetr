@@ -45,7 +45,7 @@ The `epitweetr` package allows you to automatically monitor trends of tweets by 
 
 The general principle behind `epitweetr` is that it collects tweets and related metadata from the Twitter Standard API versions 1.1 (https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/overview/standard) and 2.0 (https://developer.twitter.com/en/docs/twitter-api/tweets/search/api-reference/get-tweets-search-recent) according to specified topics and stores these tweets on your computer on a database that can operate to calculate statistics or as a search engine. `epitweetr` geolocalises the tweets and collects information on key words, urls, hashtags within a tweet but also entities and context detected by the twitter API 2.0. Tweets are aggregated according to topic and geographical location. Next, a signal detection algorithm identifies the number of tweets (by topic and geographical location) that exceeds what is expected for a given day. Then, `epitweetr` sends out email alerts to notify those who need to further investigate these signals following the epidemic intelligence processes (filtering, validation, analysis and preliminary assessment).
 
-The package includes  an interactive web application (Shiny app) with six pages: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts page, where you can view the current alerts and train machine learning models for alert classification on user defined categories (Fig 2), the geotag page, where you can evaluate the geolocation algorithm and provide annotations for improve its performance (Fig 3), the data protection page, where you can search, anonymise and delete tweets from the epitweetr database to honor data deletion requests from third parties, the configuration page, where you can change settings and check the status of the underlying processes (Fig 4), and the troubleshoot page, with automatic checks and hints for using `epitweetr` with all its functionalities (Fig 5). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and different  most frequent elements found in these tweets (words, hashtags, urls, contexts and entities). These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
+The package includes  an interactive web application (Shiny app) with six pages: the dashboard, where a user can visualise and explore tweets (Fig 1), the alerts page, where you can view the current alerts and train machine learning models for alert classification on user defined categories (Fig 2), the geotag page, where you can evaluate the geolocation algorithm and provide annotations for improve its performance (Fig 3), the data protection page, where the user can search, anonymise and delete tweets from the epitweetr database to honor data deletion requests from third parties, the configuration page, where you can change settings and check the status of the underlying processes (Fig 4), and the troubleshoot page, with automatic checks and hints for using `epitweetr` with all its functionalities (Fig 5). On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and different  most frequent elements found in these tweets (words, hashtags, urls, contexts and entities). These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, or reports.
 
 More information on the methodology used is available [here](https://doi.org/10.1101/2021.03.25.21254342)
 
@@ -764,13 +764,13 @@ The `epitweetr` interactive user application has five pages:
 
 -   The dashboard, where a user can visualise and explore tweets
 
--   The alerts page, where you can view the current alerts and train machine learning algorithms for alert classification on user defined categories
+-   The alerts page, where a user can view the current alerts and train machine learning algorithms for alert classification on user defined categories
 
--   The geotag evaluation page, where you can evaluate the geolocation algorithm and provide annotations for improve its performance
+-   The geotag evaluation page, where a user can evaluate the geolocation algorithm and provide annotations for improve its performance
 
--   The data protection page, where you can search, anonymise and delete tweets from the epitweetr database to honor data deletion requests from third parties
+-   The data protection page, where a user can search, anonymise and delete tweets from the epitweetr database to honor data deletion requests from third parties
 
--   The configuration page, where you can change settings and check the status of the underlying processes
+-   The configuration page, where a user can change settings and check the status of the underlying processes
 
 -   The troubleshoot page, with with automatic checks and hints for using `epitweetr` with all its functionalities
 
@@ -915,32 +915,114 @@ When you hover over the map, you can get information on number of tweets and nam
 
 When selecting one country, the symbols show the geographical distribution of tweets at subnational level. When selecting two or more countries or other geographical entity (e.g. regions or continents), the symbols show the geographical distribution of tweets at national level. Note that if a tweet has a geotag at country level (e.g. France), it will not be displayed when selecting only that country since no subnational geotagging is available.
 
-#### Most frequent words found in tweets
+#### Most frequent words, hashtags, urls, context, entities found in tweets
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/top_words.png")
 ```
 
-Tweets are analysed globally to get the top 500 words of each chunk for the same language, day and topic. These 500 words are then subsetted by country.
-
-This graph then displays the top words of tweets by topic for the study period for the geographical units chosen, and according to the filter on tweet/retweet.
+This graph then displays the top elements of tweets by topic for the study period for the geographical units chosen, and according to the filter on tweet/retweet.
 
 Note that, differently to other visualisation figures, the most frequent words found in tweets is always related to “tweet location” and is not influenced by the filter option for choice of location (user or tweet location).
 
+In the case of urls the resuls are displayed as a tabme with the ability of clicking directly to the most important links
+
 ### The alerts page
 
-The alerts page summarises the signals detected within the specified study period. This summary includes the date, hour, topic and geographical unit of the signal, which top words are included, the number of tweets, the number of tweets from important users and the threshold. It additionally includes many of the settings specified in the configuration page, which were used for detecting signals. This is also the output received in the emails alerts.
+The alerts page summarises the signals detected within the specified study period and provide functionality for adding annotations for training machine learning algorithhms to classify alerts on user defined topics. This screen is splitte on two sections
+
+#### Find alerts
+
+The user can choose to filter alerts based on the following filters: Date, topics, countries/regions. These three filters will define the scope of alerts to search. Also two modifiers are available for search
+
+-   Display: Choose the columns to display on the search results
+    -    Tweets: Focused on showing relevant information of the alert. Including tweets that are more similar to top words of the alert on the associated period and countries. The following columns are displayed for alerts: Date, Hour, Topic, Region, Category, Tops, Tweets, Top tweets.
+    -    Parameters: Focused on showing the parameters of the alerts that were produced. The following columns are displayed for alerts: Date, Hour, Topic Region, Category, Tops, Tweets, % important user, Threshold Baseline, Bonf. corr., Same weekday baseline Day, rank,  With retweets Location,  Alert FPR (alpha), Outlier FPR (alpha). 
+-   Limit: Maximum number of alerts to be displayed.
+-   Hide Alerts, Search Alerts: Buttons to hide or display the alerts associated with the filters selected by the user.
+-   Add alerts to annotation: The alerts returned by the search are added to the annotations database so the user can classify them.
+
+#### Alerts annotations
+
+Epitwweetr classify alerts using topwords and toptweets using annotations provided ny end users using the alert annotation spreadsheet. The user can define different algorihms and its parameters and epitweetr will find the best algorithm to perform the classification. Epitweetr will random split of annotation letting 25% of alerts for evaluation and 75% for training. All the user requested algorithms will be tested and the best in terms of f1Score will be selected to classify new alerts. A final train is done with the best algorithm using all annotations.
+
+The user can show, hide, download and upload the alert annotation spreadsheet using the buttons available.
+
+The alert annotation spreadsheet has two sheets that will be used as explained below:
+-   Alerts sheet:
+    -    Date: Date when the alert was identified
+    -    Topic: Topics associated with the alert
+    -    Region: Region where the alert was detected
+    -    Top words: Top words identified for the alert
+    -    Tweets: Number of tweets onserved on the last 24 hours on the alert
+    -    Top Tweets: The tweets that contains the most of the topwords associated to the alerts on the alert period and geographical location
+    -    Given Category: The category provided by the user. *This is the only column that needs to be updated by the end user to classify alerts*
+    -    Epitweetr Category: The category associated by epitweetr using the last version of the alert classification algorithms. Please note that this is only a reference value that include overfitting since the final algoritms is trained with all annotated alerts.
+-   Runs sheet: A registry of algorithms to test including performance metrics on the last evaluation.
+    -    Ranking: The ranking of the algorithm in terms of f1score
+    -    Models: The name of the model, referenced by the Apache Spark class. It has no inherit from the classifier class [*https://spark.apache.org/docs/3.0.1/api/scala/org/apache/spark/ml/classification/Classifier.html*]
+    -    Alerts: The number of alerts used for the training.
+    -    Runs: The number of runs to perform to evaluate the algorithm. Each run will make a different random split.
+    -    F1Score: The F1score of all classes as provided by Apache Spark [*MulticlassClassificationEvaluator*](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/ml/evaluation/MulticlassClassificationEvaluator.html)
+    -    Accuracy: The Accuracy of all classes as provided by Apache Spark [*MulticlassClassificationEvaluator*](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/ml/evaluation/MulticlassClassificationEvaluator.html)
+    -    Precision by Class: The Precision by Class of all classes as provided by Apache Spark [*MulticlassClassificationEvaluator*](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/ml/evaluation/MulticlassClassificationEvaluator.html)
+    -    Sensitivity by Class: The Sensitivity by Class of all classes as provided by Apache Spark [*MulticlassClassificationEvaluator*](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/ml/evaluation/MulticlassClassificationEvaluator.html)
+    -    FScore by Class: The FScore by class of all classes as provided by Apache Spark [*MulticlassClassificationEvaluator*](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/ml/evaluation/MulticlassClassificationEvaluator.html)
+    -    Last run: The last time and date where this run was evaluated
+    -    Active: Whether the run is active (1) or not (0). Only active runs will be tryed to choose the best algorithm and parameters.
+    -    Documentation: A link to the algorithm documentation
+    -    Custom Parameters: A json object providing values for parameters for the given algorithm. The possibility to perform grid search strategies can be achieved by adding the same algoritm on several lines with different parameters.
+
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/alerts.png")
 ```
 
-### The geotag evaluation page
-This page supports the user in establishing the geolocation threshold in the configuration page. The user can choose the field of the tweets to test and the number of tweets to sample. This page is for visualization only and no changes in the geolocation detected by `epitweetr` is allowed.  
+### The geotag page
+This page supports the user in improving the geolocation algorithm. Epitweetr will allow the users to download the data that was used to build the classifiers for location identificaion. The predefined annotations are based on location vs non location words. Locations are extracted from geonames.org data base. Non location words are obtained from common words on the downloaded models that are not present on geonames. You will be able to add tweets to the annotation datanbase and to manually annotate them until you reach the expected level of performance.
+
+To help you on the evaluation process epitweetr will calculate standard machine learning metrics for evaluating its capacity to identify the right location in texts. These metrics are separately caculated by diferent type of texts: Tweet location, Tweet text, Tweet user description and total.
+
+The following controls are available
+-   Tweets to add: Choose the number of tweets to add to the geolocation spreadsheet
+-   Geolocate annotations: Pressing this button will add the selected number of annotations to the epitweetr geolocation spreaddsheet and evaluate the geoloation algorithm on the current annotations
+-   Download annotations: Download the current version of annotations
+-   Upload & evaluate annotations: Upload a new version of the geolocation annotations to improve annotations performance. The algorithms for location identification will be trained using the provided data. Also performance metrics will be calculated using 75% of the data for training and 25% for test. The final model is trained using all data.
+
+The geolocation spreadsheet has the following columns
+-   Type: This column is a reference for the user to understun the kind of annotation. It can be any of the following.
+    -   Text: A text that can contains locations inside it can be a tweet or a user description.
+    -   Location: A text containint a location.
+    -   Person: A known person e.g. presidents that can be used by epitweetr to detect countries. This data is not used for training, just for ovewriting the algorithm behavior.
+    -   Demonym: A known word to associate to a country e.g. chilean. This data is not used for training, just for ovewriting the algorithm behavior.
+-   Text: The text associated to this annotation.
+-   Location in text: The subpart of the text that contains a location. If many locations are present, the same line can be duplicated with different values on this column. If this column is empty epitweetr assumes that the annotation is associated with all the text.
+-   Location yes/no: whether the current text contains a location (demonym and people are not considered as location).
+-   Associate country code: Whether epitweetr should memorize the annotated text and bypass the machine learning algorithm to always associate the given text to the country (or geonames city) indicated by the provided code.
+-   Associate with: Whether epitweetr should memorize the annotated text and bypass the machine learning algorithm to always associate the given text to the country (or geonames city) indicated by the provided name.
+-   Source: The source of the annotation, it can be any of: Epitweeter database (provided by epitweetr team), Epitweetr model (obtained automatically by epitweetr) or Tweet (obtained from a tweet).
+-   Tweet Id: The tweet id if the text is associated to a tweet.
+-   Lang: The language associated to the annotation.
+-   Tweet part: The tweet part if associated to a tweet. It can be any of: "text", "user desctiption" or "user location".
+-   Epitweetr match: The location found by epitweetr.
+-   Epitweetr country match: The country of the location found by epitweer.
+-   Epitweetr country code match: The country code of the location found by epitweetr.
+
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/geotag_evaluation.png")
 ```
+### The data protcetion page
+In the data protection page, the user can search, anonymise and delete tweets from the epitweetr database to honor data deletion requests from third parties.
+
+The following search filters are available: Topic, period, country & regions, mentioning (for selecting only mentions of the provided users), from users (for selecting only tweets from the provided users) and both (for getting tweets either metnioning of from the provided user)
+
+The folliwing controls ara available:
+-   Limit: Limit the perimeter of the search to the first "limit" tweets
+-   Search: Performq the search and show the results on the screen.
+-   Anonym search: Perforp the search and show anonymized results on the screen. User mentions and authors are replaced by a mention USER.
+-   Anonymize: Permanantly replace all matching tweets user mentions and authors  by USER.
+-   Delete: Permanently deletea all the matching tweets.
 
 ### The configuration page
 
@@ -950,7 +1032,6 @@ In the configuration page, you can change settings of the tool, you can check th
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/config.png")
 ```
 
-
 **Status**
 
 The status section enables you to quickly assess the latest time point and/or status of the processes for tweet collection (Tweet Search), and geolocation, aggregation and signal detection (Detection pipeline).
@@ -959,7 +1040,7 @@ The status section enables you to quickly assess the latest time point and/or st
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/status.png")
 ```
 
-In the status section, you can tell if both the search pipeline and the detect pipeline processes are running. If you are running Windows, you can click on “activate” to register these processes as scheduled tasks and run them manually from the Windows task scheduler.
+In the status section, you can tell if the embedded database, the search pipeline and the detect pipeline processes are running. If you are running Windows, you can click on “activate” to register these processes as scheduled tasks and run them manually from the Windows task scheduler.
 
 
 **Detection pipeline**
@@ -970,7 +1051,7 @@ The “Run geotag”, “Run aggregate” and “Run alerts” buttons can be us
 
 The detection pipeline gives more information about the status of the processes of `epitweetr`. This is useful for troubleshooting any issues arising and monitoring progress. It contains the five tasks that are running in the background. Geoames and languages are tasks that will download and update the local copies of these. This will only be triggered if we add a language or update GeoNames. The start and end dates will generally be much older than those of geotag, aggregate and alerts.
 
-Geotag, aggregate and alerts dates should be more recent if the search and detection pipelines are active and running. They are scheduled according to the detect span. The status can include running, scheduled, pending, failed or aborted (if it has failed more than three times).
+Alerts dates should be more recent if the search and detection pipelines are active and running. They are scheduled according to the detect span. The status can include running, scheduled, pending, failed or aborted (if it has failed more than three times).
 
 ```{r echo=FALSE, fig.cap="", out.width = '70%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/detection_pipeline.png")
@@ -1034,6 +1115,8 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/gen
 
 -   **Simplified geonames:** As GeoNames is a very large file, a simplified version of it is used by default, including only existing geographical locations where the population is known. You can uncheck this option if you wish to use the whole GeoNames database.
 
+-   **Stream database results:** Wether to store files on disk instead of peforming streaming evaluation of aggregated dataframes coming from the datanase..
+
 -   **Maven repository:** This is the URL of the maven repository that will be used to download the JAR dependencies for the detect loop, mainly Spark and Lucene.
 
 -   **Winutils URL:** This is the URL that will be used to download winutils.exe. This is a Windows binary necessary for running Spark locally on Windows. If you do not want to use this version you can produce it yourself by downloading Hadoop 2.8.4 or higher and compiling it on a Windows machine.
@@ -1042,7 +1125,11 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/gen
 
 **Twitter authentication**
 
-You have two options for authentication to collect tweets, using a Twitter account (utilising the rtweet package) and using a Twitter developer application. You can select which option you will use in the **Twitter authentication** section. See section *“How does it work? General architecture behind epitweetr > Collection of tweets > Twitter authentication”* for more details on how to do the Twitter authentication.
+You have two options for authentication to collect tweets, using a Twitter account (utilising the rtweet package) and using a Twitter developer application. You can select which option you will use in the **Twitter authentication** section. User can choose the Twitter apis to use.
+
+The admin email will receuve epitweetr notifications of regular sanity checks of the application indicating by example if some of the loop has failed.
+
+See section *“How does it work? General architecture behind epitweetr > Collection of tweets > Twitter authentication”* for more details on how to do the Twitter authentication.
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/twitter_authentication.png")
