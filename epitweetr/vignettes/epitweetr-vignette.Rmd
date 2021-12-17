@@ -173,7 +173,7 @@ The CPU and RAM usage can be configured on the Shiny app configuration page (see
 
     -   Open Blas (BLAS optimizer), which will speed up some of the geolocation processes: [*https://www.openblas.net/*] Installation instructions: [*https://github.com/fommil/netlib-Java*]
 
-    -   **or** Intel MKL ([*https://software.intel.com/content/www/us/en/develop/tools/math-kernel-library/choose-download.html*])
+    -   **or** Intel MKL ([*https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html*])
 
 -   A scheduler
 
@@ -199,7 +199,7 @@ If you would like to develop `epitweetr` further, then the following development
 
 - *CRAN JARs*: Transitive dependencies for running Spark, Lucene and embedded scala code. *[https://repo1.maven.org/maven2]*
 
-- *Winutils.exe* (Windows only) This is a Hadoop binary necessary for running SPARK locally on Windows *[https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe]*. 
+- *Winutils.exe* (Windows only) This is a Hadoop binary necessary for running SPARK locally on Windows *[https://github.com/steveloughran/winutils/raw/master/hadoop-3.0.0/bin/winutils.exe]*. 
 
 ### Installing epitweetr from CRAN
 
@@ -1445,11 +1445,11 @@ If you do not receive email alerts and you see an error in `epitweetr` referring
   [*https://miktex.org/download*]: https://miktex.org/download
   [*https://www.openblas.net/*]: https://www.openblas.net/
   [*https://github.com/fommil/netlib-Java*]: https://github.com/fommil/netlib-Java
-  [*https://software.intel.com/content/www/us/en/develop/tools/math-kernel-library/choose-download.html*]: https://software.intel.com/content/www/us/en/develop/tools/math-kernel-library/choose-download.html
+  [*https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html*]: https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html
   [*https://git-scm.com/downloads*]: https://git-scm.com/downloads
   [*https://www.scala-sbt.org/download.html*]: https://www.scala-sbt.org/download.html
   [*https://cran.r-project.org/bin/windows/Rtools/*]: https://cran.r-project.org/bin/windows/Rtools/
-  [*https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe*]: https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe
+  [*https://github.com/steveloughran/winutils/raw/master/hadoop-3.0.0/bin/winutils.exe*]: https://github.com/steveloughran/winutils/raw/master/hadoop-3.0.0/bin/winutils.exe
   [*https://developer.twitter.com/en/apply-for-access*]: https://developer.twitter.com/en/apply-for-access
   [*https://CRAN.R-project.org/package=keyring*]: https://CRAN.R-project.org/package=keyring
   [*Monitoring Count Time Series in R: Aberration Detection in Public Health Surveillance*]: https://www.jstatsoft.org/article/view/v070i10

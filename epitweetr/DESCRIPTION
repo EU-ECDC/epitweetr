@@ -47,10 +47,7 @@ Description: It allows you to automatically monitor trends of tweets by time, pl
 License: EUPL
 URL: https://github.com/EU-ECDC/epitweetr
 BugReports: https://github.com/EU-ECDC/epitweetr/issues 
-Discussions: https://github.com/EU-ECDC/epitweetr/discussions
-Reference: https://doi.org/10.1101/2021.03.25.21254342
 Encoding: UTF-8
-LazyData: true
 Imports:
     bit64,
     dplyr,
