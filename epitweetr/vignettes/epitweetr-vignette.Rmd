@@ -582,7 +582,7 @@ In the geolocated time series, the number of tweets or retweets are stored by to
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/geolocated.png")
 ```
 
-The country\_counts Rds file is used to create the trendline in the Shiny app. This is a smaller time serie, without the longitude and latitude information, and includes the number of tweets by hour within a day, by country (according to tweet location or user location), topic (see screenshot), and whether a tweet was a retweet or not. The known\_retweets and known\_original fields give the number of tweets or retweets from a list of “important users”. In this file, tweets without geolocation are also included. Including tweets without geolocation information enables you to view all tweets when selecting “world” as a region, regardless of whether geolocation was successful or not.
+The country\_counts serie is used to create the trendline in the Shiny app. This is a smaller time serie, without the longitude and latitude information, and includes the number of tweets by hour within a day, by country (according to tweet location or user location), topic (see screenshot), and whether a tweet was a retweet or not. The known\_retweets and known\_original fields give the number of tweets or retweets from a list of “important users”. In this file, tweets without geolocation are also included. Including tweets without geolocation information enables you to view all tweets when selecting “world” as a region, regardless of whether geolocation was successful or not.
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/country_counts.png")
@@ -711,7 +711,7 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/sub
 
 ###  Folder structure
 
-`epitweetr` stores tweets, aggregated tweets and the configuration in the “data folder” you have to designate when launching the application.
+`epitweetr` stores and aggregates tweets. When launching the application, you have to designate the  and the configuration in the “data folder” you have to designate when launching the application.
 
 Within the **data** folder there are three JSON files:
 
@@ -753,9 +753,9 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/sea
 
 The *geolocated folder* contains compressed JSON files with geolocated information produced by the geolocation algorithm.
 
-#### Fs folder &gt; series
+#### Fs folder &gt; country_counts, contexts, entities, geolocated, hashtags, topwords, urls
 
-In the *series* folders, `epitweetr` stores the aggregated data of the geolocated tweets as well as the top elements identified.
+In the folders *country_counts*, *contexts*,  *entities*, *geolocated*, *hashtags*, *topwords*, *urls*, `epitweetr` stores the aggregated data of the geolocated tweets as well as the top elements identified.
 
 Each folder is named matching the respective time series and emitted by ISO week of date of publication. Each weekly folder contains a Lucene index.
 
