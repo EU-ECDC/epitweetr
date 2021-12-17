@@ -1082,7 +1082,7 @@ get_alert_tables <- function(alerts, group_topics = TRUE, ungrouped_title = "Ale
              `Tops` = .data$`tops`, 
              `Category` = .data$`epitweetr_category`, 
              `Tweets` = .data$`number_of_tweets`, 
-             `% important user` = .data$`known_ratio`,
+             `% from important user` = .data$`known_ratio`,
              `Threshold` = .data$`limit`,
              `Baseline` = .data$`no_historic`, 
              `Alert confidence` = .data$`alpha`,
