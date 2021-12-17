@@ -71,7 +71,7 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           shiny::conditionalPanel(
             condition = "input.fixed_period == 'custom'",
-            shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month")
+            shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min, max = d$date_max, format = "yyyy-mm-dd", startview = "month")
           ), 
           shiny::radioButtons("period_type", label = shiny::h4("Time unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
           shiny::h4("Include retweets/quotes"),
@@ -2263,6 +2263,10 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
     setNames(1:length(regions), sapply(regions, function(r) r$name))   
   }
   agg_dates <- get_aggregated_period() 
+  if(is.na(agg_dates$first) || is.na(agg_dates$last)) {
+    agg_dates$first = Sys.Date()
+    agg_dates$last = Sys.Date()
+  }
   e$date_min <- strftime(agg_dates$first, format = "%Y-%m-%d")
   e$date_max <- strftime(agg_dates$last, format = "%Y-%m-%d")
   collected_days <- agg_dates$last - agg_dates$first
@@ -2408,8 +2412,15 @@ can_render <- function(input, d) {
       shiny::need(is_fs_running(), 'Embedded database service is not running, please make sure you have activated it (running update dependencies is necessary after upgrade from epitweetr version 0.1+ to epitweetr 1.0+)')
       , shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
       , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the Requirements & alerts pipeline has successfully ran"))
-      , shiny::need(!is.na(input$period[[1]]) && !is.na(input$period[[2]]) && (input$period[[1]] <= input$period[[2]]), 'Please select a start and end period for the report. The start period must be a date earlier than the end period') 
-      , shiny::need(input$topics != '', 'Please select a topic')
+      , shiny::need(
+          is.null(input) || (
+            !is.na(input$period[[1]]) 
+              && !is.na(input$period[[2]]) 
+              && (input$period[[1]] <= input$period[[2]])
+          )
+          ,'Please select a start and end period for the report. The start period must be a date earlier than the end period'
+        )
+      , shiny::need(is.null(input) || (input$topics != ''), 'Please select a topic')
   )
 }
 
