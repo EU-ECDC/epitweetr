@@ -379,11 +379,11 @@ check_fs_running <- function() {
 # check Twitter authentication
 check_twitter_auth <- function() {
   ok <- tryCatch({
-    got_token <- FALSE
+    token <- NULL
     token <- get_token(request_new = FALSE)
-    got_token <- "Token" %in% class(token) || "bearer" %in% class(token)
+    "Token" %in% class(token) || "bearer" %in% class(token)
     }, 
-    warning = function(m) {got_token}, 
+    warning = function(m)  {"Token" %in% class(token) || "bearer" %in% class(token)}, 
     error = function(e) { FALSE }
   ) 
   if(ok)

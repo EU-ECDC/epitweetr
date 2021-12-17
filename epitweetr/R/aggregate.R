@@ -608,8 +608,8 @@ add_missing <- function(df, dataset) {
       )
     } else if(dataset == "hashtags") {
       list(
-        token = "char",
         hashtag = "char",
+        topic = "char",
         created_date = "date",
         tweet_geo_country_code = "char",
         frequency = "int",
