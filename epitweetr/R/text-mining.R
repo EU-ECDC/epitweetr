@@ -1,6 +1,6 @@
 # Load stop words from language files which will be a fixed set of twitter stop words plus first 500 more popular words on language
 get_stop_words <- function(language_code) {
-  #If language stopwords are already cached we retrun them
+  #If language stopwords are already cached we rerun them
   stop_id <- paste("stop_words", language_code, sep  = "_")
   if(exists(stop_id, where = cached)) {
     return (cached[[stop_id]])
@@ -14,6 +14,7 @@ get_stop_words <- function(language_code) {
         close(con)
         if(length(stop_words) > 0) {
           stop_words <- c(fixed, stop_words)
+          stop_words <- stop_words[grep("'|\\\\", stop_words, invert = TRUE)]
           cached[[stop_id]] <- stop_words
           return(stop_words)
         } else {
@@ -24,7 +25,7 @@ get_stop_words <- function(language_code) {
   }
 }
 
-# calculate top words for a text dataframe this function is being used for calculating topwords on chunks of tweets
+# calculate top words for a text data frame this function is being used for calculating topwords on chunks of tweets
 # the connection is the target file to write the results into
 pipe_top_words <- function(df, text_col, lang_col, topic_word_to_exclude, max_words = 1000, con_out, page_size) {
   `%>%` <- magrittr::`%>%`

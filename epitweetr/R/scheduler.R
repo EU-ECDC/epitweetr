@@ -13,6 +13,34 @@ register_detect_runner <- function() {
   register_runner("detect")
 }
 
+# Registers the detect runner (by writing detect.PID file) for the current process 
+# or stops if no configuration has been set or if it is already running
+register_fs_runner <- function() {
+  stop_if_no_config(paste("Cannot check running status for fs without configuration setup")) 
+  register_runner("fs")
+}
+
+ 
+#' @title Registers the fs_monitor for the current process or exits
+#' @description registers the fs_monitor (by writing detect.PID file) for the current process or stops if no configuration has been set or if it is already running
+#' @return Nothing
+#' @details Registers the fs_monitor (by writing detect.PID file) for the current process or stops if no configuration has been set or if it is already running
+#' this function is exported so it can be called nicely from using the future package, but it is not intended to be directly used by users
+#' @examples 
+#' if(FALSE){
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    register_fs_monitor()
+#' }
+#' @rdname register_fs_monitor
+#' @export 
+register_fs_monitor <- function() {
+  stop_if_no_config(paste("Cannot check running status for fs monitorwithout configuration setup")) 
+  register_runner("fs_mon")
+}
+
 # Registers the a task runner (by writing "name".PID file) for the current process 
 # or stops if no configuration has been set or if it is already running
 register_runner <- function(name) {
@@ -42,6 +70,12 @@ register_detect_runner_task <- function() {
 }
 
 # Register a task on system task scheduler to run each hour
+# Register fd runner task and schedule the loop to run each hour
+# This tasks is currently Windows only
+register_fs_runner_task <- function() {
+  register_runner_task("fs")
+}
+
 # This tasks is currently Windows only
 register_runner_task <- function(task_name) {
   # Making sure configuration has been set
@@ -95,6 +129,12 @@ is_search_running <- function() {
 }
 
 # Get search runner execution status
+is_fs_running <- function() {
+  stop_if_no_config(paste("Cannot check running status for fs without configuration setup")) 
+  tryCatch(httr::GET(url=get_scala_ping_url(), httr::timeout(0.2))$status_code == 200, error = function(e) FALSE, warning = function(w) FALSE)
+}
+
+# Get search runner execution status
 is_detect_running <- function() {
   stop_if_no_config(paste("Cannot check detect batch status for search without configuration setup")) 
   get_running_task_pid("detect")>=0
@@ -112,7 +152,7 @@ get_running_task_pid <- function(name) {
     # if the last_pid is found on the list of processes returned then we assume is running
     pid_running <- ( 
       if(.Platform$OS.type == "windows") {
-        length(grep("R\\.exe|Rscript\\.exe|rsession\\.exe", system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0
+        length(grep("R\\.exe|Rscript\\.exe|rsession\\.exe|Rterm\\.exe", system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0
       }
       else if(.Platform$OS.type == "mac") 
         system(paste("ps -cax | grep 'R\\|rsession' | grep ", last_pid), ignore.stdout = TRUE)==0 
@@ -152,10 +192,6 @@ get_running_task_pid <- function(name) {
 #'
 #'  \code{\link{detect_loop}}
 #'  
-#'  \code{\link{geotag_tweets}}
-#'  
-#'  \code{\link{aggregate_tweets}}
-#'
 #'  \code{\link{generate_alerts}}
 #'
 #' @rdname get_tasks
@@ -220,40 +256,27 @@ get_tasks <- function(statuses = list()) {
     )
   }
   # Setting default languages task status if not set
-  if(!exists("geotag", where = tasks)) {
-    #geo tag
-    tasks$geotag <- list(
-      task = "geotag",
+  if(exists("geotag", where = tasks)) {
+    tasks$geotag <- NULL
+  }
+  # Setting default aggregate task status if not set
+  if(exists("aggregate", where = tasks)) {
+    tasks$aggregate <- NULL
+  }
+
+  # Setting default alerts task status if not set
+  if(!exists("alerts", where = tasks)) {
+    #alerts
+    tasks$alerts <- list(
+      task = "alerts",
       order = 3,
       started_on = NA,
       end_on = NA,
       status = NA,
       scheduled_for = NA
     )
-  }
-  # Setting default aggregate task status if not set
-  if(!exists("aggregate", where = tasks)) {
-    #aggregate
-    tasks$aggregate <- list(
-      task = "aggregate",
-      order = 4,
-      started_on = NA,
-      end_on = NA,
-      status = NA,
-      scheduled_for = NA
-    )
-  }
-  # Setting default alerts task status if not set
-  if(!exists("alerts", where = tasks)) {
-    #alerts
-    tasks$alerts <- list(
-      task = "alerts",
-      order = 5,
-      started_on = NA,
-      end_on = NA,
-      status = NA,
-      scheduled_for = NA
-    )
+  } else if(exists("alerts", where = tasks) && tasks$alerts$order != 3) { #dealing with bad order case after migration
+    tasks$alerts$order = 3
   }
   # The rest of the function code is to detect changes that has been requested by the shiny app
   # changes are detected by looking on xxx_updated_on or xxx_requested_on settings on the configuration saved from the shiny_app
@@ -354,7 +377,7 @@ plan_tasks <-function(statuses = list()) {
         change <- TRUE
         break #Just the first pending task is set to scheduled status
       }
-    } else if (tasks[[i]]$task %in% c("geotag", "aggregate", "alerts")) { 
+    } else if (tasks[[i]]$task %in% c("alerts")) { 
       # dealing with recurrent tasks first if take in consideration the case when a manual request for execution has been performed
       if(in_requested_status(tasks[[i]])) {
         tasks[[i]]$status <- "scheduled"
@@ -367,7 +390,7 @@ plan_tasks <-function(statuses = list()) {
         && { # this is the task ORDER after the last ended task base
           last_ended <- 
             Reduce(
-	            x = list(tasks$geotag, tasks$aggregate, tasks$alerts), 
+	            x = list(tasks$alerts), 
 	            f = function(a, b) { 
                if(is.na(a$end_on) && is.na(b$end_on)) {
                  if(a$order > b$order) a else b
@@ -435,7 +458,7 @@ save_tasks <- function(tasks) {
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
 #' @return nothing
 #' @details The detect loop is composed of three 'one shot tasks' \code{\link{download_dependencies}}, \code{\link{update_geonames}}, \code{\link{update_languages}} ensuring the system has
-#' all necessary components and data to run the three recurrent tasks, \code{\link{geotag_tweets}}, \code{\link{aggregate_tweets}}, \code{\link{generate_alerts}}
+#' all necessary components and data to run the three recurrent tasks \code{\link{generate_alerts}}
 #'
 #' The loop report progress on the 'tasks.json' file which is read or created by this function.
 #'
@@ -460,10 +483,6 @@ save_tasks <- function(tasks) {
 #'
 #'  \code{\link{detect_loop}}
 #'  
-#'  \code{\link{geotag_tweets}}
-#'  
-#'  \code{\link{aggregate_tweets}}
-#'  
 #'  \code{\link{generate_alerts}}
 #'
 #'  \code{\link{get_tasks}}
@@ -474,6 +493,7 @@ detect_loop <- function(data_dir = NA) {
     setup_config_if_not_already()
   else
     setup_config(data_dir = data_dir)
+
   # registering the search runner (search.PID) or stopping if it is already running
   register_detect_runner()  
 
@@ -507,6 +527,7 @@ detect_loop <- function(data_dir = NA) {
           tasks[[i_next]]$status = "aborted"
           tasks[[i_next]]$message = paste("Max number of retries reached", tasks[[i_next]]$message, sep = "\n")
           save_tasks(tasks)
+          health_check(one_per_day = FALSE)
         }
         else { 
           # if task is not aborted proceeding with execution
@@ -519,12 +540,6 @@ detect_loop <- function(data_dir = NA) {
           }
           else if(tasks[[i_next]]$task == "languages") {
             tasks <- update_languages(tasks)  
-          }
-          else if(tasks[[i_next]]$task == "geotag") {
-            tasks <- geotag_tweets(tasks) 
-          }
-          else if(tasks[[i_next]]$task == "aggregate") {
-            tasks <- aggregate_tweets(tasks = tasks) 
           }
           else if(tasks[[i_next]]$task == "alerts") {
             tasks <- generate_alerts(tasks)
@@ -547,6 +562,8 @@ detect_loop <- function(data_dir = NA) {
       message(paste(Sys.time(), ": Nothing else todo. Going to sleep each 5 seconds until ", format(tasks[[i_next]]$scheduled_for, tz=Sys.timezone(),usetz=TRUE)))
       last_sleeping_message <- Sys.time()
     }
+    # epitweetr sanity check and sendig emain in case of issued
+    health_check()
     # updating config to capture changes coming from search loop or shiny app
     setup_config(data_dir = conf$data_dir)
     # sleep for 5 seconds
@@ -572,14 +589,6 @@ in_pending_status <- function(task) {
        task$task == "languages" 
         && !is.na(conf$lang_updated_on)
         && (is.na(task$started_on) || task$started_on < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
-      ) || (
-       task$task == "aggregate" 
-        && !is.na(conf$aggregate_requested_on)
-        && (is.na(task$started_on) || task$started_on < strptime(conf$aggregate_requested_on, "%Y-%m-%d %H:%M:%S"))
-      )  || (
-       task$task == "geotag" 
-        && !is.na(conf$geotag_requested_on)
-        && (is.na(task$started_on) || task$started_on < strptime(conf$geotag_requested_on, "%Y-%m-%d %H:%M:%S"))
       )  || (
        task$task == "alerts" 
         && !is.na(conf$alerts_requested_on)
@@ -605,14 +614,6 @@ in_requested_status <- function(task) {
         && !is.na(conf$lang_updated_on)
         && (is.na(task$started_on) || task$started_on < strptime(conf$lang_updated_on, "%Y-%m-%d %H:%M:%S"))
       ) || (
-       task$task == "aggregate" 
-        && !is.na(conf$aggregate_requested_on)
-        && (is.na(task$started_on) || task$started_on < strptime(conf$aggregate_requested_on, "%Y-%m-%d %H:%M:%S"))
-      )  || (
-       task$task == "geotag" 
-        && !is.na(conf$geotag_requested_on)
-        && (is.na(task$started_on) || task$started_on < strptime(conf$geotag_requested_on, "%Y-%m-%d %H:%M:%S"))
-      )  || (
        task$task == "alerts" 
         && !is.na(conf$alerts_requested_on)
         && (is.na(task$started_on) || task$started_on < strptime(conf$alerts_requested_on, "%Y-%m-%d %H:%M:%S"))
@@ -659,27 +660,6 @@ update_languages_task <- function(tasks, status, message, start = FALSE, end = F
 }
 
 
-# Updating geotag task for reporting progress on geotagging
-update_geotag_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
-  if(start) tasks$geotag$started_on = Sys.time() 
-  if(end) tasks$geotag$end_on = Sys.time() 
-  tasks$geotag$status =  status
-  tasks$geotag$message = message
-  save_tasks(tasks)
-  return(tasks)
-
-}
-
-# Updating aggregate task for reporting progress on aggregation
-update_aggregate_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
-  if(start) tasks$aggregate$started_on = Sys.time() 
-  if(end) tasks$aggregate$end_on = Sys.time() 
-  tasks$aggregate$status =  status
-  tasks$aggregate$message = message
-  save_tasks(tasks)
-  return(tasks)
-
-}
 
 # Updating alert task for reporting progress on alert detection
 update_alerts_task <- function(tasks, status, message, start = FALSE, end = FALSE) {

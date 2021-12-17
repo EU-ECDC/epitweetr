@@ -41,11 +41,7 @@ case class SparkLuceneWriter(indexDestination:String, reuseSnapShot:Boolean=fals
                       .build();
     }
     val indexDir = Files.createDirectories(Paths.get(s"${indexNode.path}"))
-    val index =
-         if(true || System.getProperty("os.name").toLowerCase.contains("windows"))
-           new MMapDirectory(indexDir, org.apache.lucene.store.NoLockFactory.INSTANCE)
-         else  
-           new NIOFSDirectory(indexDir, org.apache.lucene.store.NoLockFactory.INSTANCE)
+    val index = new MMapDirectory(indexDir, org.apache.lucene.store.NoLockFactory.INSTANCE)
     val config = new IndexWriterConfig(analyzer);
     config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
     val writer = new IndexWriter(index, config);

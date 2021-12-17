@@ -96,6 +96,7 @@ get_empty_config <- function(data_dir) {
     else all_cores
   }
   ret$spark_memory <- "4g"
+  ret$onthefly_api <-  .Platform$OS.type != "windows"
   ret$topics <- list()
   ret$topics_md5 <- ""
   ret$alert_alpha <- 0.025
@@ -117,6 +118,13 @@ get_empty_config <- function(data_dir) {
   ret$force_date_format <- ""
   ret$maven_repo <- "https://repo1.maven.org/maven2"
   ret$winutils_url <- "https://github.com/steveloughran/winutils/raw/master/hadoop-3.0.0/bin/winutils.exe"
+  ret$api_version <- "1.1"
+  ret$fs_port <- 8080
+  ret$fs_batch_timeout <- 60*60 
+  ret$fs_query_timeout <- 60
+  ret$admin_email <- ""
+  ret$dismiss_past_request <- "1971-01-01 00:00:00"
+  ret$dismiss_past_done <- "2000-01-01 00:00:00"
   return(ret)
 }
 
@@ -223,6 +231,7 @@ setup_config <- function(
     conf$known_users <- temp$known_users
     conf$spark_cores <- temp$spark_cores
     conf$spark_memory <- temp$spark_memory
+    conf$onthefly_api <- temp$onthefly_api
     conf$geolocation_threshold <- temp$geolocation_threshold
     conf$alert_alpha <- temp$alert_alpha
     conf$alert_alpha_outlier <- temp$alert_alpha_outlier
@@ -242,6 +251,13 @@ setup_config <- function(
     conf$force_date_format <- temp$force_date_format
     conf$maven_repo <- temp$maven_repo
     conf$winutils_url <- temp$winutils_url
+    conf$api_version <- temp$api_version
+    conf$fs_port <- temp$fs_port
+    conf$fs_batch_timeout <- temp$fs_batch_timeout
+    conf$fs_query_timeout <- temp$fs_query_timeout
+    conf$admin_email <- temp$admin_email
+    conf$dismiss_past_request <- temp$dismiss_past_request
+
   }
   if(!ignore_topics && exists("topics", where = paths)){
     # updating plans and topics if requested 
@@ -315,6 +331,7 @@ setup_config <- function(
     #Loading topic related infomation on config file 
     conf$topics_md5 <- temp$topics_md5 
     conf$topics <- temp$topics
+    conf$dismiss_past_done <- temp$dismiss_past_done
     copy_plans_from(temp)  
   } 
   #Getting variables stored on keyring
@@ -410,6 +427,8 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$known_users <- conf$known_users
     temp$spark_cores <- conf$spark_cores
     temp$spark_memory <- conf$spark_memory
+    temp$onthefly_api <- conf$onthefly_api
+    temp$geolocation_threshold <- conf$geolocation_threshold
     temp$geolocation_threshold <- conf$geolocation_threshold
     temp$alert_alpha <- conf$alert_alpha
     temp$alert_alpha_outlier <- conf$alert_alpha_outlier
@@ -430,6 +449,12 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp$force_date_format <- conf$force_date_format
     temp$maven_repo <- conf$maven_repo
     temp$winutils_url <- conf$winutils_url
+    temp$api_version <- conf$api_version
+    temp$fs_port <- conf$fs_port
+    temp$fs_batch_timeout <- conf$fs_batch_timeout
+    temp$fs_query_timeout <- conf$fs_query_timeout
+    temp$admin_email <- conf$admin_email
+    temp$dismiss_past_request <- conf$dismiss_past_request
     # writing the json file
     write_json_atomic(temp, get_properties_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
   }
@@ -438,6 +463,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     temp <- list()
     temp$topics <- conf$topics
     temp$topics_md5 <- conf$topics_md5
+    temp$dismiss_past_done <- conf$dismiss_past_done
     # Transforming Int64 to string to ensure not loosing precision on read
     for(i in 1:length(conf$topics)) {         
       for(j in 1:length(conf$topics[[i]]$plan)) {
@@ -508,8 +534,8 @@ get_topics_df <- function() {
     Query = sapply(conf$topics, function(t) t$query), 
     QueryLength = sapply(conf$topics, function(t) nchar(t$query)), 
     ActivePlans = sapply(conf$topics, function(t) length(t$plan)), 
-    Progress = sapply(conf$topics, function(t) {if(length(t$plan)>0) mean(unlist(lapply(t$plan, function(p) p$progress))) else 0}), 
-    Requests = sapply(conf$topics, function(t) {if(length(t$plan)>0) sum(unlist(lapply(t$plan, function(p) p$requests))) else 0}),
+    Progress = sapply(conf$topics, function(t) {if(length(t$plan)>0) mean(unlist(lapply(t$plan, function(p) as.numeric(p$progress)))) else 0}), 
+    Requests = sapply(conf$topics, function(t) {if(length(t$plan)>0) sum(unlist(lapply(t$plan, function(p) as.numeric(p$requests)))) else 0}),
     Alpha = sapply(conf$topics, function(t) t$alpha),
     OutliersAlpha = sapply(conf$topics, function(t) t$alpha_outlier),
     stringsAsFactors=FALSE

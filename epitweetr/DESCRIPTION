@@ -1,17 +1,17 @@
 Package: epitweetr
 Title: Early Detection of Public Health Threats from Twitter Data
-Version: 0.1.29
+Version: 1.0.40
 Authors@R: c( 
-    person(given = "Francisco",
-           family = "Orchard",
-           role = c("aut", "ctr"),
-           email = "f.orchard@epiconcept.fr",
-           comment = c(structure("0000-0001-5793-3301", .Names = "ORCID"), "Author of the package and original code")),
      person(given = "Laura",
             family = "Espinosa",
-            role = c("aut", "cre", "fnd"),
+            role = c("aut", "fnd", "cre"),
             email = "laura.espinosa@ecdc.europa.eu",
             comment = c(structure("0000-0003-0748-9657", .Names = "ORCID"), "Project manager, author of the design and concept of the package, and package maintainer")),
+     person(given = "Francisco",
+            family = "Orchard",
+            role = c("aut", "ctr"),
+            email = "f.orchard@epiconcept.fr",
+            comment = c(structure("0000-0001-5793-3301", .Names = "ORCID"), "Author of the package and original code")),
      person(given = "Ariana",
             family = "Wijermans",
             role = "ctb",
@@ -51,27 +51,34 @@ Encoding: UTF-8
 Imports:
     bit64,
     dplyr,
-    plyr,
+    crul,
+    curl,
     DT,
+    future,
     httpuv,
     httr,
+    htmltools,
     jsonlite,
     keyring,
+    knitr,
     emayili,
     ggplot2,
+    janitor,
     magrittr,
     parallel,
     plotly,
     rtweet,
     readxl,
-    rgeos,
-    rgdal,
+    rlang, 
     rmarkdown,
     rnaturalearthdata, 
+    openxlsx,
+    plyr,
     shiny,
     sp,
     stringr,
     stats,
+    tibble,
     tidyverse,
     tidytext,
     tokenizers,
@@ -81,6 +88,5 @@ Imports:
     xml2
 RoxygenNote: 7.1.1
 Suggests: 
-    knitr,
     taskscheduleR
 VignetteBuilder: knitr

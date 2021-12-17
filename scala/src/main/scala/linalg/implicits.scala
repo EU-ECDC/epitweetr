@@ -101,7 +101,8 @@ object implicits {
           blas.dscal(res.size, factor, res, 1)
           Vectors.dense(res)
         }
-        case _ => throw new Exception("Cannot build an iterator on differentr vector types @epi")
+        case n if n == null => throw new Exception(s"Cannot scale a null vector @epi")
+        case vec => throw new Exception(s"I do not know how to scale a vector of types ${vec.getClass.getName} @epi")
       }
     }
   }

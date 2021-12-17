@@ -2,7 +2,7 @@
 
 set cdir=%cd%
 set OPENBLAS_NUM_THREADS=1
-set SPARK_VERSION=3.0.0
+set SPARK_VERSION=3.0.3
 set JAVA_HOME=C:\Program Files\AdoptOpenJDK\jdk-8.0.252.09-hotspot
 set PATH=%PATH%;%JAVA_HOME%\bin
 set SBT_OPTS="-Xmx6G"

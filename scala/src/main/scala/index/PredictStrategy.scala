@@ -43,6 +43,7 @@ override def searchDoc(
     val start = 0
     termWeights match {
       case None =>   
+        //println(s"None weights for ${terms.mkString(" ")}")
         evaluate(
           terms = terms
           , likelihood = terms.map(_ => 1.0)

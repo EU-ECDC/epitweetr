@@ -1,6 +1,7 @@
 package demy.mllib.index;
 
 import scala.collection.parallel.ForkJoinTaskSupport
+import java.util.concurrent.ForkJoinPool
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.{Column, Dataset, Row}
 import org.apache.spark.sql.types._
@@ -33,6 +34,7 @@ object implicits {
       , strategy:String = "demy.mllib.index.StandardStrategy"
       , strategyParams: Map[String, String]=Map.empty[String,String]
       , stopWords:Set[String]=Set[String]()
+      , defaultValue:Option[Row]=None
     ) = luceneLookups(
       right = right
       , queries = Seq(query)
@@ -54,6 +56,7 @@ object implicits {
       , strategy = strategy
       , strategyParams = strategyParams
       , stopWords = stopWords
+      , defaultValue = defaultValue
     )
     def luceneLookups(
       right:Dataset[_]
@@ -76,6 +79,7 @@ object implicits {
       , strategy:String = "demy.mllib.index.StandardStrategy"
       , strategyParams: Map[String, String]=Map.empty[String,String]
       , stopWords:Set[String]=Set[String]()
+      , defaultValue:Option[Row]=None
     ) = {
       val rightApplied = right.select(
         Array(text.as("_text_")) 
@@ -119,6 +123,7 @@ object implicits {
         , strategy = strategy
         , strategyParams = strategyParams
         , stopWords = stopWords
+        , defaultValue = defaultValue
       ) 
     }
 
@@ -199,6 +204,7 @@ object implicits {
       , strategy:String = "demy.mllib.index.StandardStrategy"
       , strategyParams: Map[String, String]=Map.empty[String,String]
       , stopWords:Set[String]=Set[String]()
+      , defaultValue:Option[Row]=None
       
     ) = {
       val sparkStorage = Storage.getSparkStorage
@@ -297,7 +303,7 @@ object implicits {
             val rowsIter = Seq.range(0, rowsChunk.size) match {
               case s if indexScanParallelism > 1  => 
                 val parIter = s.par
-                parIter.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(indexScanParallelism))
+                parIter.tasksupport = new ForkJoinTaskSupport(new java.util.concurrent.ForkJoinPool(indexScanParallelism))
                 parIter
               case s =>
                 s
@@ -317,7 +323,12 @@ object implicits {
                  val termWeightsArray:Seq[Seq[Option[Seq[Double]]]] = 
                    isArrayJoinWeights.zipWithIndex.map{
                      case (None, i) => qValues(i).map(_ => None) 
-                     case (Some(false), i) => Seq(Some(leftRow.getAs[Seq[Double]](leftRow.fieldIndex(termWeightsColumnNames(i).get))))
+                     case (Some(false), i) =>
+                       val vects = leftRow.getAs[Seq[Double]](leftRow.fieldIndex(termWeightsColumnNames(i).get)) 
+                       if(vects ==null)
+                         qValues(i).map(_ => None)
+                       else
+                         Seq(Some(vects))
                      case (Some(true), i) => throw new Exception("@epi not yet supported") 
                  }
                  for(i <- Iterator.range(0, queriesCount)) {
@@ -327,31 +338,53 @@ object implicits {
                  for{i <- Iterator.range(0, qValues.size)
                       j <-Iterator.range(0, qValues(i).size)} { 
                      // call search on SearchStrategy
-                     val startTime = System.nanoTime
+                     //val startTime = System.nanoTime
                      
-                     val tokens = (tokenizeRegex,  qValues(i)(j)) match {
+                     val tokens0 = (tokenizeRegex,  qValues(i)(j)) match {
                            case (_, null) => null
                            case (Some(r), s) => s.split(r).filter(_.size > 0)
                            case (None, s) => Array(s)
                          }
-                     val (searchTokens, searchWeights) = 
-                       if(stopBC.value.size > 0 && tokens != null) 
-                         (tokens.filter(t => !stopBC.value(t))
+                     val (tokens1, searchWeights) = 
+                       if(stopBC.value.size > 0 && tokens0 != null) 
+                         (tokens0.filter(t => !stopBC.value(t))
                           ,termWeightsArray(i)(j).map(seq => 
-                             tokens.toSeq.zipWithIndex.filter{
-                               case (t, k) => !stopBC.value(t)}.map{case (t, k) =>  {if(seq.size < tokens.size) {println(s"$seq, ${tokens.mkString(", ")}");throw new Exception("OUCH")} else seq(k)}
+                             tokens0.toSeq.zipWithIndex.filter{
+                               case (t, k) => !stopBC.value(t)}.map{case (t, k) =>  {if(seq.size < tokens0.size) {println(s"$seq, ${tokens0.mkString(", ")}");throw new Exception("OUCH")} else seq(k)}
                              })
                          )
-                       else (tokens,  termWeightsArray(i)(j))
+                       else (tokens0,  termWeightsArray(i)(j))
                      //l.msg(s"searching for ${searchTokens.mkString(",")}") 
+                     
+                     val (tokens2, filter, replacement) =  
+                     if(tokens1 != null && tokens1.size == 1)
+                       EncodedQuery.decodeQuery(tokens1(0)) match {
+                         case Some(EncodedQuery(original, replacement, Some(field))) =>
+                           (tokenizeRegex.map(r => original.split(r).filter(_.size > 0)).getOrElse(Array(original)), 
+                             new GenericRowWithSchema(Array(replacement), new StructType(Array(StructField(name = field, dataType = StringType)))),
+                             Some(Array[String]())
+                           )
+                         case Some(EncodedQuery(original, replacement, None)) =>
+                           (tokenizeRegex.map(r => original.split(r).filter(_.size > 0)).getOrElse(Array(original)), 
+                             Row.empty,
+                             Some(tokenizeRegex.map(r => replacement.split(r).filter(_.size > 0)).getOrElse(Array(replacement)))
+                           )
+                         case None => (tokens1, Row.empty, None)
+                       } else (tokens1, Row.empty, None)
+                     //replacement.foreach{r => 
+                     //  l.msg(s"tokens ${tokens2.toSeq}, filter ${filter.schema}>> ${filter}, relacement ${r.toSeq}")
+                     //}
                      val res:Array[GenericRowWithSchema] =  rInfo.search(
-                       tokens = searchTokens, maxHits=1, filter = Row.empty, outFields=rightRequestFields,
+                       tokens = tokens2, maxHits=1, filter = filter, outFields=rightRequestFields,
                          maxLevDistance=maxLevDistance, minScore=minScore, boostAcronyms=boostAcronyms,
                          usePopularity = iReader.usePopularity, termWeights=searchWeights,
-                         caseInsensitive = caseInsensitive)
-                     val endTime = System.nanoTime
+                         caseInsensitive = caseInsensitive,
+                         defaultValue = defaultValue,
+                         replaceQuery = replacement
+                       )
+                     //val endTime = System.nanoTime
                      //if(termWeightsArray(i)(j) != null && termWeightsArray(i)(j).map(s => s.size).getOrElse(0)>0)
-                     //  l.msg(s"long in ${(endTime - startTime)/1e6d} for $iRow in $iPart ${(endTime - startTime)/1e6d} mili seconds for ${if(tokens != null) tokens.size else "null"}")
+                     //l.msg(s"long in ${(endTime - startTime)/1e6d} for $iRow in $iPart ${(endTime - startTime)/1e6d} mili seconds for ${if(tokens != null) tokens.size else "null"} ${strategy}")
 
                      if(res.size > 0 && (rightResults(i)(j).isEmpty || res(0).getAs[Float]("_score_") > rightResults(i)(j).get.getAs[Float]("_score_"))) { 
                         rightResults(i)(j) = Some(res(0)) 
@@ -385,9 +418,11 @@ object implicits {
                 )
                 //,rightOutSchema
               )
-          Row.merge(leftRow, rightRow)
+          Row.fromSeq(leftRow.toSeq ++ rightRow.toSeq)
         })
-      .map(resultRdd => ds.sparkSession.createDataFrame(resultRdd, new StructType(leftOutFields ++ rightOutSchema.fields)))
+      .map{resultRdd => 
+        ds.sparkSession.createDataFrame(resultRdd, new StructType(leftOutFields ++ rightOutSchema.fields))
+      }
       .get
     }
   }

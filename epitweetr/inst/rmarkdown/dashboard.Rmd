@@ -16,6 +16,8 @@ params:
   alert_historic: 7
   bonferroni_correction: FALSE
   same_weekday_baseline: FALSE
+  top_type1: "hastags"
+  top_type2: "urls"
 ---
 
 ```{r include=FALSE}
@@ -58,19 +60,7 @@ line_chart_from_filters(
   )$chart
 ```
 
-## Top words chart
-```{r, echo = FALSE, message=FALSE, warning=FALSE}
-topwords_chart_from_filters(
-  params$topics, 
-  params$countries, 
-  params$period, 
-  params$with_retweets, 
-  params$location_type,
-  20
-  )$chart
-```
-
-## Map Chart
+## Map
 ```{r, echo = FALSE, message=FALSE, warning=FALSE}
 map_chart_from_filters(
   params$topics, 
@@ -80,6 +70,54 @@ map_chart_from_filters(
   params$location_type
   )$chart
 ```
+
+## Top `r params$top_type1 ` chart
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
+top_chart_from_filters(
+  params$topics,
+  params$top_type1,
+  params$countries, 
+  params$period, 
+  params$with_retweets, 
+  params$location_type,
+  20
+  )$chart
+```
+
+## Top `r params$top_type2 ` chart
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
+top_chart_from_filters(
+  params$topics,
+  params$top_type2,
+  params$countries, 
+  params$period, 
+  params$with_retweets, 
+  params$location_type,
+  20
+  )$chart
+```
+
+## Top URLS 
+
+### `r paste("Top URLS of tweets mentioning", params$topic, "from", params$periond[[1]], "to", params$period[[2]])`
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
+df <- top_chart_from_filters(
+    params$topics,
+    "urls",
+    params$countries, 
+    params$period, 
+    params$with_retweets, 
+    params$location_type,
+    50
+    )$data
+if(is.data.frame(df)) { 
+  knitr::kable(df)
+} else
+  "No data found for the selected filters"
+```
+Top urls table only considers tweet location, ignoring the location type parameter
+
 
 
 `r ""`

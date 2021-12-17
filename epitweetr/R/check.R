@@ -10,14 +10,15 @@ check_java_present <- function() {
     ))
   }
 }
+
 # check if java is installed
 is_java_present <- function() {
   programs <- "java"
-  # If java home is not set cheking if the system can found java on the path
+  # If java home is not set checking if the system can found java on the path
   if(Sys.getenv("JAVA_HOME") == "" || is.null(Sys.getenv("JAVA_HOME"))) {
     length(grep(programs, Sys.which(programs))) == length(programs)  
   } else {
-    #checking if java binary can be foung from java_home
+    #checking if java binary can be found from java_home
     if(.Platform$OS.type == "windows")
       file.exists(file.path(Sys.getenv("JAVA_HOME"), "bin", "java.exe"))
     else
@@ -176,7 +177,7 @@ check_java_deps <- function() {
 #check geonames is downloaded and indexed
 check_geonames <- function() {
   if(!file.exists(get_geonames_txt_path())) {
-    warning("epitweetr needs geonames to be downloaded and unziped for geolocating tweets. Please run the geonames task of the detection pipeline")
+    warning("epitweetr needs geonames to be downloaded and unziped for geolocating tweets. Please run the geonames task of the requirements and alert pipeline")
     FALSE
   } else {
     dir <- get_geonames_index_path()
@@ -245,25 +246,22 @@ check_geolocated_present <- function() {
 
 # check if aggregated files are present (aggregate has successfully run)
 check_series_present <- function(series = c("country_counts", "geolocated", "topwords")) { 
-   counts <- sapply(series, function(ds) length(list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(ds, ".*\\.Rds", sep="")))) 
-   if(all(counts > 0))
-     TRUE
-   else {
-     warning("No aggregated series found. Please execute the aggregate task")  
-     FALSE
-   }
+   rds_counts <- sapply(series, function(ds) length(list.files(path = file.path(conf$data_dir, "series"), recursive=TRUE, pattern = paste(ds, ".*\\.Rds", sep=""))))
+   fs_counts <- sapply(series, function(ds) length(list.files(path = file.path(conf$data_dir, "fs", ds), recursive=TRUE, pattern = ".*\\.fdt")))
+   if(all(rds_counts > 0) || all(fs_counts > 0))
+      TRUE
+    else {
+      warning("No aggregated series found. Please run the search loop to collect and aggregate data")
+      FALSE
+    }
 }
 
 # check if tweets files are present tweet collect has run
 check_tweets_present <- function() {
-  last_topic <- tail(list.dirs(path = file.path(conf$data_dir, "tweets", "search"), recursive = FALSE), n = 1)
-  last_year <- tail(list.dirs(path = last_topic, recursive = FALSE), n = 1)
-  last_file <- tail(list.files(path = last_year, pattern = "*.json.gz"), n = 1)
-  
-  if(length(last_file) > 0) {
+  if(!is.na(last_fs_updates("tweets"))) {
     TRUE
   } else {
-    warning("No tweet files found. Please execute the search loop")
+    warning("No tweets found on database. Please execute the Data collection")
     FALSE
   }
 }
@@ -324,8 +322,23 @@ check_search_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Search loop is not running. On Windows, you can activate it by clicking on the 'activate' Tweet search button on the config page ",
-      "You can also manually run the search loop by executing the following command on a separate R session. epitweetr::search_loop('",
+      "Data collection & processing pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Data collection & processing button on the config page ",
+      "You can also manually run the Data collection & processing pipeline by executing the following command on a separate R session. epitweetr::search_loop('",
+      conf$data_dir,
+      "')"
+    ))
+    FALSE
+  }
+}
+
+# check fs is running
+check_fs_running <- function() {
+  if(is_fs_running())
+    TRUE
+  else {
+    warning(paste0(
+      "Embedded epitweetr database is not running. On Windows, you can activate it by clicking on the 'activate' epitweetr database button on the config page ",
+      "You can also manually run the Data collection & processing pipeline by executing the following command on a separate R session. epitweetr::search_loop('",
       conf$data_dir,
       "')"
     ))
@@ -339,8 +352,23 @@ check_detect_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Detection pipeline is not running. On Windows, you can activate it by clicking on the 'activate' detection pipeline button on the config page ",
-      "You can also manually run the detection loop by executing the following command on a separate R session. epitweetr::detect_loop('",
+      "Requirements & alerts pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Requirements & alerts button on the config page ",
+      "You can also manually run the Requirements & alerts pipeline by executing the following command on a separate R session. epitweetr::detect_loop('",
+      conf$data_dir,
+      "')"
+    ))
+    FALSE
+  }
+}
+
+# check detect is running
+check_fs_running <- function() {
+  if(is_fs_running())
+    TRUE
+  else {
+    warning(paste0(
+      "Embaded database is not running. On Windows, you can activate it by clicking on the 'activate' database service button on the config page ",
+      "You can also manually run the fs service by executing the following command on a separate R session. epitweetr::fs_loop('",
       conf$data_dir,
       "')"
     ))
@@ -351,14 +379,14 @@ check_detect_running <- function() {
 # check Twitter authentication
 check_twitter_auth <- function() {
   ok <- tryCatch({
+    token <- NULL
     token <- get_token(request_new = FALSE)
     "Token" %in% class(token) || "bearer" %in% class(token)
     }, 
-    warning = function(m) {FALSE}, 
+    warning = function(m)  {"Token" %in% class(token) || "bearer" %in% class(token)}, 
     error = function(e) { FALSE }
   ) 
   if(ok)
-    
     TRUE 
   else {
     warning("Cannot create a Twitter token, please choose an authentication method on the configuration page")
@@ -373,7 +401,7 @@ check_manual_task_request <- function() {
     || is.na(conf$geonames_updated_on)
     || is.na(conf$lang_updated_on)
   ) {
-    warning("Before running the detect loop, you have to click on 'activate' detection pipeline button on configuration page")
+    warning("Before running the Requirements & alerts pipeline, you have to click on 'activate' Requirements & alerts pipeline button on configuration page")
     FALSE  
   } else 
     TRUE
@@ -406,8 +434,11 @@ check_move_from_temp <- function() {
   }
 }
 
+
+
+
 #' @title Run automatic sanity checks
-#' @description It runs a set of automated sanity checks for helping the user to troubleqhot issues 
+#' @description It runs a set of automated sanity checks for helping the user to troubleshot issues 
 #' @return Dataframe containing the statuses of all realized checks
 #' @details This function executes a series of sanity checks, concerninr, java, bitness, task statusn dependencies and Twitter authentication.
 #' @examples 
@@ -426,6 +457,7 @@ check_all <- function() {
     scheduler = check_scheduler,
     twitter_auth = check_twitter_auth,
     search_running = check_search_running,
+    database_running = check_fs_running,
     tweets = check_tweets_present, 
     os64 = check_64, 
     java = check_java_present, 
@@ -434,12 +466,12 @@ check_all <- function() {
     winmsvc = check_winmsvcr100, 
     detect_activation = check_manual_task_request,
     detection_running = check_detect_running,
+    database_running = check_fs_running,
     winutils = check_winutils, 
     java_deps = check_java_deps, 
     move_from_temp = check_move_from_temp, 
     geonames = check_geonames, 
     languages = check_languages, 
-    geotag = check_geolocated_present, 
     aggregate = check_series_present, 
     alerts = check_alerts_present,
     pandoc = check_pandoc,
@@ -454,4 +486,94 @@ check_all <- function() {
         error = function(e) { as.character(e) }) 
   )
   data.frame(check = names(checks), passed = results == "ok", message = ifelse(results == "ok", "", results))  
-} 
+}
+
+#Environment for storing las admin email
+checks <- new.env()
+
+#' @title send email to administrator if a failure of epitweetr is detected 
+#' @description It validates if epitweetr is not collecting tweets, aggregating tweets or not calculating alerts
+#' @param send_mail Boolean. Whether an email should be sent to the defined administrator , default: TRUE
+#' @param one_per_day Boolean. Whether a limit of one email per day will be applied, default: TRUE
+#' @return a list of health check errors found 
+#' @details This function send an email to the defined administrator if epitweetr is not collecting tweets, aggregating tweets or not calculating alerts
+#' @examples 
+#' if(FALSE){
+#'    #importing epitweer
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    #sending the email to administrator if epitweetr componenets are not properly working
+#'    health_check()
+#' }
+#' @rdname health_check
+#' @export 
+health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
+  #health check is only done one_per_day limit is disabled or if not email was already sent since yesterday and is after 8AM.
+  start_of_day <- strptime(strftime(Sys.time(), "%Y-%m-%d"), "%Y-%m-%d")
+  alerts <- list()
+  if(!one_per_day || !exists("last_check", checks) || (checks$last_check < start_of_day) && as.numeric(strftime(Sys.time(), "%H")) >= 8) {
+    # check 01: last tweet collected date os more than 1 hore
+    last_collected <- file.mtime(get_tweet_togeo_path())
+    if(is.na(last_collected) || as.numeric(Sys.time() - last_collected, unit = "hours") >= 1 ) {
+      alerts <- append(alerts, paste("Tweets have not been collected for more than ", as.integer(as.numeric(Sys.time() - last_collected, unit = "hours")), "hours"))
+    }
+    
+    # Check 02: if geolocated tweets has not ben done during more than one hour
+    collection_times <- last_fs_updates("tweets")
+    last_geo <- collection_times$tweets
+    if(is.na(last_geo) || as.numeric(Sys.time() - last_geo, unit = "hours") >= 1 ) {
+      alerts <- append(alerts, paste("Tweets have not been geolocated for more than ", as.integer(as.numeric(Sys.time() - last_geo, unit = "hours")), "hours"))
+    }
+    # Check 03: if any time serie has not been processed in more than one hour
+    collection_times <- last_fs_updates(c("topwords", "country_counts", "geolocated"))
+    for(i in 1:length(collection_times)) {
+      serie <- names(collection_times)[[i]]
+      last_collect <- collection_times[[serie]]
+      if(is.na(last_collect) || as.numeric(Sys.time() - last_collect, unit = "hours") >= 1 ) {
+        alerts <- append(alerts, paste("Serie,", serie, "has not been produced for more than ", as.integer(as.numeric(Sys.time() - last_collect, unit = "hours")), "hours"))
+      }
+    }
+
+    # Check 04: if alert detection has not finished in more than 2 hours + schedule span
+    tasks <- get_tasks()
+    last_detect_end <- tasks$alert$end_on
+    if(is.na(last_detect_end) || as.numeric(Sys.time() - last_detect_end, unit = "hours") >= (2 + conf$schedule_span / 60) ) {
+      alerts <- append(alerts, paste("The alerts tasks has not been finished since", as.integer(as.numeric(Sys.time() - last_detect_end, unit = "hours")), "hours"))
+    }
+
+    # Check 05: if any task is on aborted status
+    for(i in 1:length(tasks)) {
+      if(tasks[[i]]$status == "aborted") {
+        alerts <- append(alerts, paste("Task,", tasks[[i]]$task, "is on aborted status"))
+      }
+    }
+    if(send_mail && length(alerts) > 1 && !is.null(conf$admin_email) && conf$admin_email != "" && conf$smtp_host != "") {
+      # creating the message to send
+      msg <- ( 
+        emayili::envelope() %>% 
+        emayili::from(conf$smtp_from) %>% 
+        emayili::to(conf$admin_email) %>% 
+        emayili::subject("Epitweetr may not be properly running") %>% 
+        emayili::html(
+          paste(
+            "<p>The following error were found during epitweetr health check, please check your epitweetr installation</p><p><ul><li>", 
+            paste(alerts, collapse = "</li><li>"),
+            "</li></ul></p>"
+          )
+        )
+      )
+      smtp <- ( 
+        if(is.na(conf$smtp_password) || is.null(conf$smtp_password) ||  conf$smtp_password == "") 
+          emayili::server(host = conf$smtp_host, port=conf$smtp_port, insecure=conf$smtp_insecure, reuse = FALSE)
+        else 
+          emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
+      )
+      message("Health check failed, sending email")
+      smtp(msg)
+      checks$last_check <- Sys.time()
+    }
+  }
+  alerts
+}
+

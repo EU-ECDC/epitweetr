@@ -1,4 +1,7 @@
-# get the java path using JAVA_HOME if set
+
+
+
+# get the Java path using JAVA_HOME if set
 java_path <-  function() {
   if(Sys.getenv("JAVA_HOME")=="") 
     "java"
@@ -18,7 +21,7 @@ set_blas_env <- function() {
   }
 }
 
-# Getting java options for using MKL BLAS if setup
+# Getting Java options for using MKL BLAS if setup
 get_blas_java_opt <- function() {
   if(.Platform$OS.type == "windows") {
     if(conf$use_mkl && file.exists("C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/redist/intel64_win/mkl")) {
@@ -64,18 +67,18 @@ spark_job <- function(args) {
       "" 
     }
     ,paste(
-      java_path() #java executable
+      java_path() #Java executable
       , paste(
           "-cp \"", 
           get_app_jar_path(), #epitweetr embededd jar path with
           if(.Platform$OS.type != "windows") ":" else ";",
-          get_jars_dest_path(),  #java class path with all dependencies
+          get_jars_dest_path(),  #Java class path with all dependencies
           "/*\"", 
           sep=""
         )
       , paste("-Xmx", conf$spark_memory, sep = "") #memory limits
-      , paste(get_blas_java_opt()) #java blas specific options
-      , "org.ecdc.twitter.Tweets" #java scala main class
+      , paste(get_blas_java_opt()) #Java blas specific options
+      , "org.ecdc.twitter.Tweets" #Java scala main class
       , args #arguments to the call
     )
     ,sep = if(.Platform$OS.type == "windows") '\r\n' else '\n'
@@ -104,21 +107,21 @@ spark_df <- function(args, handler = NULL) {
    ,paste(
       paste(
         if(.Platform$OS.type == "windows") "call " else "", 
-        java_path(), # java executable
+        java_path(), # Java executable
         sep = ""
        ), 
       paste(
         "-cp \"", 
         get_app_jar_path(),  #epitweetr embededd jar path with
         if(.Platform$OS.type != "windows") ":" else ";",
-        get_jars_dest_path(), #java class path with all dependencies
+        get_jars_dest_path(), #Java class path with all dependencies
         "/*\"", 
         sep=""
       ),
-      "-Dfile.encoding=UTF8", #Setting java encoding to UTF-8
-      paste("-Xmx", half_mem, sep = ""), #Setting java memory
+      "-Dfile.encoding=UTF8", #Setting Java encoding to UTF-8
+      paste("-Xmx", half_mem, sep = ""), #Setting Java memory
       paste(get_blas_java_opt()),
-      "org.ecdc.twitter.Tweets", #epitwitter scala main class
+      "org.ecdc.twitter.Tweets", #epitweetr scala main class
       args
     )
     ,sep = '\n'
@@ -194,12 +197,32 @@ download_dependencies <- function(tasks = get_tasks()) {
   tasks <- tryCatch({
     tasks <- update_dep_task(tasks, "running", "getting sbt dependencies", start = TRUE)
     # downloading SPARK, lucene and other scala dependencies from the provided maven repository 
+    while(is_fs_running()) {
+      tasks <- update_dep_task(tasks, "running", paste(
+        "Embeded database is running, please turn it OFF in order to download dependencies. You can do this on the task scheduler on windows or manually kill the process on other platforms."
+      ))
+      Sys.sleep(5)
+    } 
     tasks <- download_sbt_dependencies(tasks)
     if(.Platform$OS.type == "windows") {
       tasks <- update_dep_task(tasks, "running", "getting winutils")
       # on windows, downloading winutils from the URL set from the shiny app which is a prerequisite of SPARK
       tasks <- download_winutils()
     }
+    # ensuring that storage system is running
+    while(!is_fs_running()) {
+      tasks <- update_dep_task(tasks, "running", paste(
+        "Embeded database is NOT running. On Windows, you can activate it by clicking on the 'activate' database service button on the config page ",
+        "You can also manually run the fs service by executing the following command on a separate R session. epitweetr::fs_loop('",
+        conf$data_dir,
+        "')"
+      ))
+      Sys.sleep(5)
+    } 
+    # running migration if necessary 
+    tasks <- update_dep_task(tasks, "running", "migrating any old json files to embeded database")
+    tasks <- json2lucene(tasks)
+
     # Setting status to succes
     tasks <- update_dep_task(tasks, "success", "", end = TRUE)
     tasks
@@ -212,7 +235,7 @@ download_dependencies <- function(tasks = get_tasks()) {
   }, warning = function(error_condition) {
     # Setting status to failed
     message("Failed...")
-    message(paste("failed while", tasks$alerts$message," ", error_condition))
+    message(paste("failed while", tasks$dependencies$message," ", error_condition))
     tasks <- update_dep_task(tasks, "failed", paste("failed while", tasks$dependencies$message," getting dependencies ", error_condition))
     tasks
   })
@@ -241,7 +264,13 @@ download_sbt_dependencies <- function(tasks = get_tasks()) {
   else {
     #Deleting existing files
     existing <- list.files(get_jars_dest_path(), full.names=TRUE)
-    file.remove(existing)
+    tryCatch({
+      file.remove(existing)
+    }, warning = function(c) {
+      warning(paste("Warning during removing JAR files in ", get_jars_dest_path(), c))
+    }, error = function(c) {
+      stop(paste("EPitweetr cannot remove JAR fils files in ", get_jars_dest_path(), " please remove the files manually.", c))
+    })
   }
 
   # destination file
@@ -276,4 +305,7 @@ download_winutils <- function(tasks = get_tasks()) {
   tasks <- update_dep_task(tasks, "running", paste("downloading", tasks$dependencies$winutils_url))
   download.file(url = tasks$dependencies$winutils_url, destfile = get_winutils_path(), mode = "wb")
   return(tasks)
-} 
+}
+
+
+

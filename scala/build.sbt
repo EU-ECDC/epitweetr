@@ -1,20 +1,29 @@
 lazy val sparkVersion = if(System.getenv("SPARK_VERSION")==null) "2.3.2" else System.getenv("SPARK_VERSION")
+lazy val akkaVersion = "2.6.8"
+lazy val akkaHttpVersion = "10.2.4"
+lazy val luceneVersion = "8.5.0"
 lazy val root = (project in file("."))
   .settings(
     name := "ecdc-twitter-bundle",
     scalaVersion := "2.12.12",
     retrieveManaged := true,
+    useCoursier := false, 
     version := "1.0",
     libraryDependencies += "org.apache.spark" %% "spark-core" % sparkVersion,
     libraryDependencies += "org.apache.spark" %% "spark-sql" % sparkVersion, 
     libraryDependencies += "org.apache.spark" %% "spark-mllib" % sparkVersion,
-    libraryDependencies += "org.apache.lucene" % "lucene-core" % "8.5.0", 
-    libraryDependencies += "org.apache.lucene" % "lucene-queryparser" % "8.5.0",
-    libraryDependencies += "org.apache.lucene" % "lucene-analyzers-common" % "8.5.0", 
+    libraryDependencies += "org.apache.lucene" % "lucene-core" % luceneVersion, 
+    libraryDependencies += "org.apache.lucene" % "lucene-queryparser" % luceneVersion,
+    libraryDependencies += "org.apache.lucene" % "lucene-analyzers-common" % luceneVersion, 
+    libraryDependencies += "org.apache.lucene" % "lucene-suggest" % luceneVersion,
     libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.5",
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     libraryDependencies += "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
     libraryDependencies += "org.apache.httpcomponents" % "httpmime" % "4.5.6" ,
+    libraryDependencies += "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+    libraryDependencies += "com.typesafe.akka" %% "akka-http" % akkaHttpVersion ,
+    libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
+    libraryDependencies += "com.github.swagger-akka-http" %% "swagger-akka-http" % "2.4.2",
     scalacOptions ++= Seq("-deprecation", "-feature"),
     assemblyMergeStrategy in assembly := {
       case PathList("org","aopalliance", xs @ _*) => MergeStrategy.last

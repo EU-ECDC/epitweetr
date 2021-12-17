@@ -1,6 +1,5 @@
-
 #' @title Run the epitweetr Shiny app
-#' @description Open the epitweetr Shiny app, used to setup the search loop, the detect loop and to visualise the outputs. 
+#' @description Open the epitweetr Shiny app, used to setup the Data collection & processing pipeline, the Requirements & alerts pipeline and to visualise the outputs. 
 #' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
 #' @return The Shiny server object containing the launched application
@@ -54,6 +53,7 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           ######### DASHBOARD FILTERS #####################
           ################################################
+          shiny::actionButton("run_dashboard", "Run"),
           shiny::selectInput("topics", label = shiny::h4("Topics"), multiple = FALSE, choices = d$topics),
           shiny::selectInput("countries", label = shiny::h4("Countries & regions"), multiple = TRUE, choices = d$countries),
           shiny::selectInput(
@@ -71,7 +71,7 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           shiny::conditionalPanel(
             condition = "input.fixed_period == 'custom'",
-            shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month")
+            shiny::dateRangeInput("period", label = shiny::h4("Dates"), start = d$date_start, end = d$date_end, min = d$date_min, max = d$date_max, format = "yyyy-mm-dd", startview = "month")
           ), 
           shiny::radioButtons("period_type", label = shiny::h4("Time unit"), choices = list("Days"="created_date", "Weeks"="created_weeknum"), selected = "created_date", inline = TRUE),
           shiny::h4("Include retweets/quotes"),
@@ -101,28 +101,71 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(12, 
               shiny::fluidRow(
-                shiny::column(1, shiny::downloadButton("download_line_data", "Data")),
-                shiny::column(1, shiny::downloadButton("export_line", "image"))
+                shiny::column(2, shiny::downloadButton("download_line_data", "Data")),
+                shiny::column(2, shiny::downloadButton("export_line", "image"))
 		          ),
               plotly::plotlyOutput("line_chart")
             )
-          )
-          ,shiny::fluidRow(
+          ),
+          shiny::fluidRow(
             shiny::column(6, 
-              shiny::fluidRow(
-                shiny::column(3, shiny::downloadButton("download_topword_data", "Data")),
-                shiny::column(3, shiny::downloadButton("export_topword", "image"))
-		          ),
-              plotly::plotlyOutput("topword_chart")
-            )
-            , shiny::column(6, 
               shiny::fluidRow(
                 shiny::column(3, shiny::downloadButton("download_map_data", "Data")),
                 shiny::column(3, shiny::downloadButton("export_map", "image"))
 		          ),
               plotly::plotlyOutput(
                 "map_chart" 
+              )
+            ),
+            shiny::column(6, 
+              shiny::fluidRow(
+                shiny::column(3, shiny::downloadButton("download_top1_data", "Data")),
+                shiny::column(3, shiny::downloadButton("export_top1", "image")),
+                shiny::column(6, 
+                  shiny::radioButtons("top_type1", label = NULL, choices = list(
+                      "Hashtags"="hashtags", 
+                      "Top words"="topwords" 
+                    ), selected = "hashtags", inline = TRUE
+                  ),
+		            )
               ),
+              plotly::plotlyOutput("top_chart1")
+            )
+          ),
+          shiny::fluidRow(
+            shiny::column(6, 
+              shiny::fluidRow(
+                shiny::column(3, shiny::downloadButton("download_top2_data", "Data")),
+                shiny::column(3, shiny::downloadButton("export_top2", "image")),
+                shiny::column(6, 
+                  shiny::radioButtons("top_type2", label = NULL, choices = list(
+                      "Entities"="entities", 
+                      "Contexts" = "contexts"
+                    ), selected = "entities", inline = TRUE
+                  ),
+		            )
+              ),
+              plotly::plotlyOutput("top_chart2")
+            ),
+            shiny::column(6, 
+              shiny::fluidRow(
+                shiny::column(3, shiny::downloadButton("download_top3_data", "Data")),
+              ),
+              shiny::fluidRow(
+                shiny::column(12,
+                  shiny::htmlOutput("top_table_title")
+                )
+              ),
+              shiny::fluidRow(
+                shiny::column(12,
+                  DT::dataTableOutput("top_table")
+                )
+              ),
+              shiny::fluidRow(
+                shiny::column(12,
+                  shiny::htmlOutput("top_table_disc")
+                )
+              )
             )
           )
         )
@@ -134,37 +177,101 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   alerts_page <- 
     shiny::fluidPage(
-          shiny::h3("Generated alerts"),
+          shiny::h3("Find alerts"),
+          ################################################
+          ######### ALERTS FILTERS #######################
+          ################################################
           shiny::fluidRow(
-            ################################################
-            ######### ALERTS FILTERS #######################
-            ################################################
-            shiny::column(1, 
+            shiny::column(3, 
               shiny::h4("Detection date") 
             ),
-            shiny::column(3, 
-              shiny::dateRangeInput("alerts_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month"), 
-            ),
-            shiny::column(1, 
-              shiny::h4("Topics")
-            ),
             shiny::column(2, 
-              shiny::selectInput("alerts_topics", label = NULL, multiple = TRUE, choices = d$topics[d$topics!=""]),
+              shiny::h4("Topics")
             ),
             shiny::column(2, 
               shiny::h4("Countries & regions")
             ),
+            shiny::column(2, 
+              shiny::h4("Display")
+            ),
+            shiny::column(1, 
+              shiny::h4("Limit")
+            ),
+          ), 
+          shiny::fluidRow(
             shiny::column(3, 
-              shiny::selectInput("alerts_countries", label = NULL, multiple = TRUE, choices = d$countries),
-            )
+              shiny::dateRangeInput("alerts_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month") 
+            ),
+            shiny::column(2, 
+              shiny::selectInput("alerts_topics", label = NULL, multiple = TRUE, choices = d$topics[d$topics!=""])
+            ),
+            shiny::column(2, 
+              shiny::selectInput("alerts_countries", label = NULL, multiple = TRUE, choices = d$countries)
+            ),
+            shiny::column(2, 
+              shiny::radioButtons("alerts_display", label = NULL, choices = list("Tweets"="tweets", "Parameters"="parameters"), selected = "parameters", inline = TRUE),
+            ),
+            shiny::column(1, 
+              shiny::selectInput("alerts_limit", label = NULL, multiple = FALSE, choices =  list("None"="0", "10"="10", "50"="50", "100"="100", "500"="500"))
+            ),
+          ), 
+          shiny::fluidRow(
+            ################################################
+            ######### ALERTS FILTERS #######################
+            ################################################
+            shiny::column(2,
+              shiny::actionButton("alerts_search", "Search alerts"),
+            ),
+            shiny::column(2,
+              shiny::actionButton("alerts_close", "Hide search"),
+              shiny::conditionalPanel(
+                condition = "false",
+                shiny::textInput("alerts_show_search", value = "false", label = NULL)
+              )
+            ),
+            shiny::column(2, shiny::actionButton("alertsdb_add", "Add alerts to annotations")),
+            shiny::column(6)
           ), 
           shiny::fluidRow(
             shiny::column(12, 
               ################################################
               ######### ALERTS TABLE #########################
               ################################################
-              DT::dataTableOutput("alerts_table")
-          ))
+              shiny::conditionalPanel(
+                condition = "input.alerts_show_search == 'true'",
+                DT::dataTableOutput("alerts_table"),
+              )
+          )),
+          shiny::h3("Alerts annotations"),
+          shiny::fluidRow(
+            shiny::column(2, shiny::actionButton("alertsdb_search", "Show annotations")),
+            shiny::column(2, shiny::actionButton("alertsdb_close", "Hide annotations")),
+            shiny::column(2, shiny::downloadButton("alertsdb_download", "Download annotations")),
+            shiny::column(4, shiny::fileInput("alertsdb_upload", label = NULL, buttonLabel = "Upload & evaluate annotations")),
+            shiny::column(2,
+              shiny::conditionalPanel(
+                condition = "false",
+                shiny::textInput("alertsdb_show", value = "false", label = NULL)
+              )
+            )
+          ),
+          shiny::fluidRow(
+            shiny::conditionalPanel(
+              condition = "input.alertsdb_show == 'true'",
+              shiny::column(12, 
+                ################################################
+                ######### ALERT ANNOTATIONS EVALUATION #########
+                ################################################ 
+                shiny::h4("Performance evaluation of alert classification algorithm"),
+                DT::dataTableOutput("alertsdb_runs_table"),
+                ################################################
+                ######### ANNOTATED ALERTS #####################
+                ################################################ 
+                shiny::h4("Database used for training the alert classification algorithm"),
+                DT::dataTableOutput("alertsdb_table")
+            ))
+         )
+       
   ) 
   # Defining configuration
   ################################################
@@ -179,12 +286,17 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Status"),
           shiny::fluidRow(
-            shiny::column(4, "Tweet search"), 
+            shiny::column(4, "epitweetr database"), 
+            shiny::column(4, shiny::htmlOutput("fs_running")),
+            shiny::column(4, shiny::actionButton("activate_fs", "activate"))
+          ),
+          shiny::fluidRow(
+            shiny::column(4, "Data collection & processing"), 
             shiny::column(4, shiny::htmlOutput("search_running")),
             shiny::column(4, shiny::actionButton("activate_search", "activate"))
           ),
           shiny::fluidRow(
-            shiny::column(4, "Detection pipeline"), 
+            shiny::column(4, "Requirements & alerts"), 
             shiny::column(4, shiny::htmlOutput("detect_running")),
             shiny::column(4, shiny::actionButton("activate_detect", "activate"))
           ),
@@ -204,8 +316,8 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           shiny::h3("General"),
           shiny::fluidRow(shiny::column(3, "Data dir"), shiny::column(9, shiny::span(conf$data_dir))),
-          shiny::fluidRow(shiny::column(3, "Search span (min)"), shiny::column(9, shiny::numericInput("conf_collect_span", label = NULL, value = conf$collect_span))), 
-          shiny::fluidRow(shiny::column(3, "Detect span (min)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
+          shiny::fluidRow(shiny::column(3, "Data collection & processing span (min)"), shiny::column(9, shiny::numericInput("conf_collect_span", label = NULL, value = conf$collect_span))), 
+          shiny::fluidRow(shiny::column(3, "Requirements & alerts span (min)"), shiny::column(9, shiny::numericInput("conf_schedule_span", label = NULL, value = conf$schedule_span))), 
           shiny::fluidRow(shiny::column(3, "Launch slots"), shiny::column(9, shiny::htmlOutput("conf_schedule_slots"))), 
           shiny::fluidRow(shiny::column(3, "Password store"), shiny::column(9, 
             shiny::selectInput(
@@ -219,9 +331,14 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Geolocation threshold"), shiny::column(9, shiny::textInput("geolocation_threshold", label = NULL, value = conf$geolocation_threshold))),
           shiny::fluidRow(shiny::column(3, "GeoNames URL"), shiny::column(9, shiny::textInput("conf_geonames_url", label = NULL, value = conf$geonames_url))),
           shiny::fluidRow(shiny::column(3, "Simplified GeoNames"), shiny::column(9, shiny::checkboxInput("conf_geonames_simplify", label = NULL, value = conf$geonames_simplify))),
+          shiny::fluidRow(shiny::column(3, "Stream database results"), shiny::column(9, shiny::checkboxInput("conf_onthefly_api", label = NULL, value = conf$onthefly_api))),
           shiny::fluidRow(shiny::column(3, "Maven repository"), shiny::column(9,  shiny::textInput("conf_maven_repo", label = NULL, value = conf$maven_repo))),
           shiny::conditionalPanel(
-            condition = ".Platform$OS.type == 'windows'",
+            condition = "false",
+            shiny::textInput("os_type", value = .Platform$OS.type, label = NULL)
+          ),
+          shiny::conditionalPanel(
+            condition = "input.os_type == 'windows'",
             shiny::fluidRow(shiny::column(3, "Winutils URL"), shiny::column(9,  shiny::textInput("conf_winutils_url", label = NULL, value = conf$winutils_url)))
           ),
           shiny::fluidRow(shiny::column(3, "Region disclaimer"), shiny::column(9, shiny::textAreaInput("conf_regions_disclaimer", label = NULL, value = conf$regions_disclaimer))),
@@ -230,14 +347,16 @@ epitweetr_app <- function(data_dir = NA) {
             , shiny::radioButtons(
               "twitter_auth"
               , label = NULL
-              , choices = list("Twitter account" = "delegated", "Twitter developer app" = "app")
+              , choices = list("User account" = "delegated", "App" = "app")
               , selected = if(cd$app_auth) "app" else "delegated" 
               ))
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'delegated'",
             shiny::fluidRow(shiny::column(12, "When choosing 'Twitter account' authentication you will have to use your Twitter credentials to authorize the Twitter application for the rtweet package (https://rtweet.info/) to access Twitter on your behalf (full rights provided).")), 
-            shiny::fluidRow(shiny::column(12, "DISCLAIMER: rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs."))
+            shiny::fluidRow(shiny::renderText("&nbsp;")), 
+            shiny::fluidRow(shiny::column(12, "DISCLAIMER: rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs.")),
+            shiny::fluidRow(shiny::renderText("&nbsp;")) 
           ),
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'app'",
@@ -251,6 +370,28 @@ epitweetr_app <- function(data_dir = NA) {
               shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
             )
           ), 
+          shiny::conditionalPanel(
+            condition = "input.twitter_auth == 'delegated'",
+            shiny::fluidRow(
+              shiny::column(3, "Twitter API version"), 
+              shiny::column(9, "Only v1.1 is supported for user authentication")
+            )
+          ),
+          shiny::conditionalPanel(
+            condition = "input.twitter_auth == 'app'",
+            shiny::fluidRow(
+              shiny::column(3, "Twitter API version"), 
+              shiny::column(9, 
+                shiny::checkboxGroupInput(
+                  "conf_api_version"
+                  , label = NULL
+                  , choices = list("v1.1" = "1.1", "V2" = "2")
+                  , selected = conf$api_version
+                  , inline = T 
+                )
+              )
+            )
+          ),
           shiny::h2("Email authentication (SMTP)"),
           shiny::fluidRow(shiny::column(3, "Server"), shiny::column(9, shiny::textInput("smtp_host", label = NULL, value = conf$smtp_host))), 
           shiny::fluidRow(shiny::column(3, "Port"), shiny::column(9, shiny::numericInput("smtp_port", label = NULL, value = conf$smtp_port))), 
@@ -258,23 +399,22 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(shiny::column(3, "Login"), shiny::column(9, shiny::textInput("smtp_login", label = NULL, value = conf$smtp_login))), 
           shiny::fluidRow(shiny::column(3, "Password"), shiny::column(9, shiny::passwordInput("smtp_password", label = NULL, value = conf$smtp_password))), 
           shiny::fluidRow(shiny::column(3, "Unsafe certificates"), shiny::column(9, shiny::checkboxInput("smtp_insecure", label = NULL, value = conf$smtp_insecure))), 
+          shiny::fluidRow(shiny::column(3, "Admin email"), shiny::column(9, shiny::textInput("admin_email", label = NULL, value = conf$admin_email))), 
           shiny::h2("Task registering"),
           shiny::fluidRow(shiny::column(3, "Custom date format"), shiny::column(9, shiny::textInput("force_date_format", label = NULL, value = conf$force_date_format))), 
           shiny::actionButton("save_properties", "Save settings")
         ), 
         shiny::column(8,
           ################################################
-          ######### DETECTION PANEL ######################
+          ######### Requirements & alerts PANEL ######################
           ################################################
-          shiny::h3("Detection pipeline"),
+          shiny::h3("Requirements & alerts pipeline"),
           shiny::h5("Manual tasks"),
           shiny::fluidRow(
-            shiny::column(2, shiny::actionButton("update_dependencies", "Run dependencies")),
-            shiny::column(2, shiny::actionButton("update_geonames", "Run GeoNames")),
-            shiny::column(2, shiny::actionButton("update_languages", "Run languages")),
-            shiny::column(2, shiny::actionButton("request_geotag", "Run geotag")),
-            shiny::column(2, shiny::actionButton("request_aggregate", "Run aggregate")),
-            shiny::column(2, shiny::actionButton("request_alerts", "Run alerts"))
+            shiny::column(3, shiny::actionButton("update_dependencies", "Run dependencies")),
+            shiny::column(3, shiny::actionButton("update_geonames", "Run GeoNames")),
+            shiny::column(3, shiny::actionButton("update_languages", "Run languages")),
+            shiny::column(3, shiny::actionButton("request_alerts", "Run alerts"))
           ),
           DT::dataTableOutput("tasks_df"),
           ################################################
@@ -282,10 +422,14 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Topics"),
           shiny::fluidRow(
-            shiny::column(4, shiny::h5("Available topics")),
+            shiny::column(3, shiny::h5("Available topics")),
             shiny::column(2, shiny::downloadButton("conf_topics_download", "Download")),
             shiny::column(2, shiny::downloadButton("conf_orig_topics_download", "Download default")),
-            shiny::column(4, shiny::fileInput("conf_topics_upload", label = NULL, buttonLabel = "Upload")),
+            shiny::column(3, shiny::fileInput("conf_topics_upload", label = NULL, buttonLabel = "Upload")),
+            shiny::column(2, shiny::actionButton("conf_dismiss_past_tweets", "Dismiss past tweets"))
+          ),
+          shiny::fluidRow(
+            shiny::column(4, shiny::h5("Limit topic history"))
           ),
           DT::dataTableOutput("config_topics"),
           ################################################
@@ -341,38 +485,83 @@ epitweetr_app <- function(data_dir = NA) {
   ) 
   # Defining geo tuning page UI
   ################################################
-  ######### GEOTAG PAGE ##########################
+  ######### GEOTRAINING PAGE #####################
   ################################################
-  geotest_page <- 
+  geotraining_page <- 
     shiny::fluidPage(
-          shiny::h3("Geotagging sample"),
-          shiny::h5("Random selection of today's tweets"),
+          shiny::h3("Geo tagging training"),
           shiny::fluidRow(
             ################################################
-            ######### GEO TAG FILTERS #######################
+            ######### GEO TAG FILTERS ######################
             ################################################
-            shiny::column(1, 
-              shiny::h4("Geo field") 
-            ),
-            shiny::column(3, shiny::selectInput("geotest_fields", label = NULL, multiple = FALSE, choices = cd$geo_cols)),
-            shiny::column(1, 
-              shiny::h4("Sample size") 
-            ),
-            shiny::column(3, 
-              shiny::numericInput("geotest_size", label = NULL, value = 100), 
-            ),
-            shiny::column(4)
+            shiny::column(4, shiny::numericInput("geotraining_tweets2add", label = shiny::h4("Tweets to add"), value = 100)),
+            shiny::column(2, shiny::actionButton("geotraining_update", "Geolocate annotations")),
+            shiny::column(2, shiny::downloadButton("geotraining_download", "Download annotations")),
+            shiny::column(4, shiny::fileInput("geotraining_upload", label = NULL, buttonLabel = "Upload & evaluate annotations"))
           ), 
           shiny::fluidRow(
             shiny::column(12, 
               ################################################
-              ######### ALERTS TABLE #########################
+              ######### GEO TAG EVALUATION####################
+              ################################################ 
+              shiny::h4("Performance evaluation of geo tagging algorithm (finding location position in text)"),
+              DT::dataTableOutput("geotraining_eval_df"),
               ################################################
-              DT::dataTableOutput("geotest_table")
+              ######### GEO TAG TABLE #########################
+              ################################################ 
+              shiny::h4("Database used for training the geo tagging algorithm"),
+              DT::dataTableOutput("geotraining_table")
           ))
   ) 
   ################################################
-  ######### TROUBLESHOOT PAGE ##########################
+  ######### DATA PROTECTION PAGE #################
+  ################################################
+  dataprotection_page <- 
+    shiny::fluidPage(
+          shiny::h3("Data protection"),
+          shiny::fluidRow(
+            ################################################
+            ######### TWEET SEARCH FILTERS #################
+            ################################################
+            shiny::column(2, shiny::h4("Topic")),
+            shiny::column(2, shiny::h4("Period")),
+            shiny::column(2, shiny::h4("Countries & regions")),
+            shiny::column(2, 
+              shiny::h4("Users"),
+              shiny::radioButtons("data_mode", label = NULL, choices = list("Mentioning"="mentioning", "From User"="users", "Both"="all"), selected = "all", inline = TRUE),
+            ),
+            shiny::column(1, shiny::h4("Limit")),
+            shiny::column(3, shiny::h4("Action"))
+          ), 
+          shiny::fluidRow(
+            shiny::column(2, shiny::selectInput("data_topics", label = NULL, multiple = TRUE, choices = d$topics[d$topics!=""])),
+            shiny::column(2, shiny::dateRangeInput("data_period", label = "", start = d$date_end, end = d$date_end, min = d$date_min,max = d$date_max, format = "yyyy-mm-dd", startview = "month")),
+            shiny::column(2, shiny::selectInput("data_countries", label = NULL, multiple = TRUE, choices = d$countries)),
+            shiny::column(2, shiny::textInput("data_users", label = NULL, value = NULL)),
+            shiny::column(1, 
+              shiny::selectInput("data_limit", label = NULL, multiple = FALSE, choices =  list("50"="50", "100"="100", "500"="500"), selected = "50")
+            ),
+            shiny::column(3, 
+              shiny::actionButton("data_search", "Search"),
+              shiny::actionButton("data_search_ano", "Anonym Search"),
+              shiny::actionButton("data_anonymise", "Anonymize"),
+              shiny::actionButton("data_delete", "Delete"),
+            ),
+          ), 
+          shiny::fluidRow(
+            shiny::column(12,
+              shiny::htmlOutput("data_message")
+          )),
+          shiny::fluidRow(
+            shiny::column(12, 
+              ################################################
+              ######### TWEET SEARCH RESULTS #################
+              ################################################ 
+              DT::dataTableOutput("data_search_df")
+          ))
+  ) 
+  ################################################
+  ######### TROUBLESHOOT PAGE ####################
   ################################################
   troubleshoot_page <- 
     shiny::fluidPage(
@@ -397,7 +586,8 @@ epitweetr_app <- function(data_dir = NA) {
     shiny::navbarPage("epitweetr"
       , shiny::tabPanel("Dashboard", dashboard_page)
       , shiny::tabPanel("Alerts", alerts_page)
-      , shiny::tabPanel("Geotag evaluation", geotest_page)
+      , shiny::tabPanel("Geotag", geotraining_page)
+      , shiny::tabPanel("Data protection", dataprotection_page)
       , shiny::tabPanel("Configuration", config_page)
       , shiny::tabPanel("Troubleshoot", troubleshoot_page)
     )
@@ -418,7 +608,7 @@ epitweetr_app <- function(data_dir = NA) {
       ,k_decay = k_decay
       ,no_historic = no_history
       ,bonferroni_correction = bonferroni_correction
-      , same_weekday_baseline = same_weekday_baseline
+      ,same_weekday_baseline = same_weekday_baseline
     )
     
   }
@@ -437,12 +627,13 @@ epitweetr_app <- function(data_dir = NA) {
     
   }
   # Defining top words chart from shiny app filters
-  topwords_chart_from_filters <- function(topics, fcountries, period, with_retweets, location_type, top) {
+  top_chart_from_filters <- function(topics, serie, fcountries, period, with_retweets, location_type, top) {
     fcountries= if(length(fcountries) == 0 || 1 %in%fcountries) c(1) else as.integer(fcountries)
     regions <- get_country_items()
     countries <- Reduce(function(l1, l2) {unique(c(l1, l2))}, lapply(fcountries, function(i) unlist(regions[[i]]$codes)))
-    create_topwords(
+    create_topchart(
       topic= topics
+      ,serie = serie     
       ,country_codes = countries
       ,date_min = period[[1]]
       ,date_max = period[[2]]
@@ -454,27 +645,53 @@ epitweetr_app <- function(data_dir = NA) {
   }
   # Rmarkdown dasboard export bi writing the dashboard on the provided file$
   # it uses the markdown template inst/rmarkdown/dashboard.Rmd
-  export_dashboard <- function(format, file, topics, countries, period_type, period, with_retweets, location_type, alpha, alpha_outlier, k_decay, no_historic, bonferroni_correction, same_weekday_baseline) {
-    rmarkdown::render(
-      system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
-      output_format = format, 
-      output_file = file,
-      params = list(
-        "topics" = topics
-        , "countries" = countries
-        , "period_type" = period_type
-        , "period" = period
-        , "with_retweets"= with_retweets
-        , "location_type" = location_type
-        , "alert_alpha" = alpha
-        , "alert_alpha_outlier" = alpha_outlier
-        , "alert_k_decay" = k_decay
-        , "alert_historic" = no_historic
-        , "bonferroni_correction" = bonferroni_correction
-        , "same_weekday_baseline" = same_weekday_baseline
-      ),
-      quiet = TRUE
-    ) 
+  export_dashboard <- function(
+    format, 
+    file, 
+    topics, 
+    countries, 
+    period_type, 
+    period, 
+    with_retweets, 
+    location_type, 
+    alpha, 
+    alpha_outlier,
+    k_decay, 
+    no_historic, 
+    bonferroni_correction, 
+    same_weekday_baseline, 
+    top_type1,
+    top_type2
+    ) {
+    tryCatch({
+        progress_start("Exporting dashboard") 
+        r <- rmarkdown::render(
+          system.file("rmarkdown", "dashboard.Rmd", package=get_package_name()), 
+          output_format = format, 
+          output_file = file,
+          params = list(
+            "topics" = topics
+            , "countries" = countries
+            , "period_type" = period_type
+            , "period" = period
+            , "with_retweets"= with_retweets
+            , "location_type" = location_type
+            , "alert_alpha" = alpha
+            , "alert_alpha_outlier" = alpha_outlier
+            , "alert_k_decay" = k_decay
+            , "alert_historic" = no_historic
+            , "bonferroni_correction" = bonferroni_correction
+            , "same_weekday_baseline" = same_weekday_baseline
+            , "top_type1" = top_type1
+            , "top_type2" = top_type2
+          ),
+          quiet = TRUE
+        )
+        progress_close()
+        r
+      },
+      error = function(w) {app_error(w, env = cd)}
+    )
   }
   
   # Defining server logic
@@ -519,122 +736,199 @@ epitweetr_app <- function(data_dir = NA) {
     ################################################
     ######### DASHBOARD LOGIC ######################
     ################################################
-    # rendering line chart
-    output$line_chart <- plotly::renderPlotly({
-       # Validate if minimal requirements for rendering are met 
-       can_render(input, d)
+    shiny::observeEvent(input$run_dashboard, {
+      # rendering line chart
+      rep = new.env()
+      progress_start("Generating report", rep) 
+      output$line_chart <- plotly::renderPlotly({
+         # Validate if minimal requirements for rendering are met 
+         progress_set(value = 0.15, message = "Generating line chart", rep)
+         shiny::isolate({
+           can_render(input, d)
+	         # getting the chart
+           chart <- line_chart_from_filters(
+             input$topics, 
+             input$countries, 
+             input$period_type, 
+             input$period, 
+             input$with_retweets, 
+             input$location_type , 
+             input$alpha_filter, 
+             input$alpha_outlier_filter, 
+             input$k_decay_filter, 
+             input$history_filter, 
+             input$bonferroni_correction,
+             input$same_weekday_baseline
+           )$chart
+           
+           # Setting size based on container size
+           height <- session$clientData$output_line_chart_height
+           width <- session$clientData$output_line_chart_width
+	         
+           # returning empty chart if no data is found on chart
+           chart_not_empty(chart)
+           
+           # transforming chart on plotly
+           gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = FALSE) 
+           
+           # Fixing bad entries on ggplotly chart
+           for(i in 1:length(gg$x$data)) {
+             if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
+               gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
+             else 
+               gg$x$data[[i]]$name = "                        "
+             gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+           }
+           gg
+        })
+      }) 
+       
+      # rendering map chart
+      output$map_chart <- plotly::renderPlotly({
+         # Validate if minimal requirements for rendering are met 
+         progress_set(value = 0.30, message = "Generating map chart", rep)
+         
+         shiny::isolate({
+           can_render(input, d)
+           # Setting size based on container size
+           height <- session$clientData$output_map_chart_height
+           width <- session$clientData$output_map_chart_width
+           
+           # getting the chart 
+           chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
+           
+           # returning empty chart if no data is found on chart
+	         chart_not_empty(chart)
+           
+           # transforming chart on plotly
+           gg <- chart %>%
+             plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
+	           plotly::layout(
+               title=list(text= paste("<b>", chart$labels$title, "</b>")), 
+               margin = list(l = 5, r=5, b = 50, t = 80),
+               annotations = list(
+                 text = chart$labels$caption,
+                 font = list(size = 10),
+                 showarrow = FALSE,
+                 xref = 'paper', 
+                 x = 0,
+                 yref = 'paper', 
+                 y = -0.15),
+               legend = list(orientation = 'h', x = 0.5, y = 0.08)
+             ) %>%
+             plotly::config(displayModeBar = FALSE) 
+      
+             # Fixing bad entries on ggplotly chart
+             for(i in 1:length(gg$x$data)) {
+               if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
+                 gg$x$data[[i]]$name <- substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
+                 #gg$x$data[[i]]$legendgroup <- gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
+             }
+             gg
+         })
+      })
 
-       # getting the chart
-       chart <- line_chart_from_filters(
-         input$topics, 
-         input$countries, 
-         input$period_type, 
-         input$period, 
-         input$with_retweets, 
-         input$location_type , 
-         input$alpha_filter, 
-         input$alpha_outlier_filter, 
-         input$k_decay_filter, 
-         input$history_filter, 
-         input$bonferroni_correction,
-         input$same_weekday_baseline
-         )$chart
-       
-       # Setting size based on container size
-       height <- session$clientData$output_line_chart_height
-       width <- session$clientData$output_line_chart_width
-	     
-       # returning empty chart if no data is found on chart
-       chart_not_empty(chart)
-       
-       # transforming chart on plotly
-       gg <- plotly::ggplotly(chart, height = height, width = width, tooltip = c("label")) %>% plotly::config(displayModeBar = FALSE) 
-       
-       # Fixing bad entries on ggplotly chart
-       for(i in 1:length(gg$x$data)) {
-         if(startsWith(gg$x$data[[i]]$name, "(") && endsWith(gg$x$data[[i]]$name, ")")) 
-           gg$x$data[[i]]$name = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$name) 
-         else 
-           gg$x$data[[i]]$name = "                        "
-         gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
-       }
-       gg
-    }) 
-     
-    # rendering map chart
-    output$map_chart <- plotly::renderPlotly({
-       # Validate if minimal requirements for rendering are met 
-       can_render(input, d)
-       
-       # Setting size based on container size
-       height <- session$clientData$output_map_chart_height
-       width <- session$clientData$output_map_chart_width
-       
-       # getting the chart 
-       chart <- map_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type)$chart
-       
-       # returning empty chart if no data is found on chart
-	     chart_not_empty(chart)
-       
-       # transforming chart on plotly
-       gg <- chart %>%
-         plotly::ggplotly(height = height, width = width, tooltip = c("label")) %>% 
-	       plotly::layout(
-           title=list(text= paste("<b>", chart$labels$title, "</b>")), 
-           margin = list(l = 5, r=5, b = 50, t = 80),
-           annotations = list(
-             text = chart$labels$caption,
-             font = list(size = 10),
-             showarrow = FALSE,
-             xref = 'paper', 
-             x = 0,
-             yref = 'paper', 
-             y = -0.15),
-           legend = list(orientation = 'h', x = 0.5, y = 0.08)
-         ) %>%
-         plotly::config(displayModeBar = FALSE) 
-    
-         # Fixing bad entries on ggplotly chart
-         for(i in 1:length(gg$x$data)) {
-           if(substring(gg$x$data[[i]]$name, 1, 2) %in% c("a.", "b.", "c.", "d.", "e.", "f.", "g.", "h."))
-             gg$x$data[[i]]$name = substring(gg$x$data[[i]]$name, 4, nchar(gg$x$data[[i]]$name)) 
-           #gg$x$data[[i]]$legendgroup = gsub("\\(|\\)|,|[0-9]", "", gg$x$data[[i]]$legendgroup)
-         }
-         gg
+      output$top_chart1 <- plotly::renderPlotly({
+         # Validate if minimal requirements for rendering are met 
+         progress_set(value = 0.45, message = "Generating top chart 1", rep)
+         it <- input$top_type1 #this is for allow refreshing the report on radio button update
+         shiny::isolate({
+           can_render(input, d)
+           # Setting size based on container size
+           height <- session$clientData$output_top_chart1_height
+           width <- session$clientData$output_top_chart1_width
+           
+           # getting the chart 
+           chart <- top_chart_from_filters(input$topics, input$top_type1, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
+           
+           # returning empty chart if no data is found on chart
+	         chart_not_empty(chart)
+
+           # transforming chart on plotly
+           chart %>%
+             plotly::ggplotly(height = height, width = width) %>% 
+	           plotly::layout(
+               title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
+               margin = list(l = 30, r=30, b = 100, t = 80),
+               annotations = list(
+                 text = chart$labels$caption,
+                 font = list(size = 10),
+                 showarrow = FALSE,
+                 xref = 'paper', 
+                 x = 0,
+                 yref = 'paper', 
+                 y = -0.4)
+             ) %>%
+	           plotly::config(displayModeBar = FALSE)
+         })
+      })
+
+      output$top_chart2 <- plotly::renderPlotly({
+         # Validate if minimal requirements for rendering are met 
+         progress_set(value = 0.7, message = "Generating top chart 2", rep)
+         it <- input$top_type2 #this is for allow refreshing the report on radio button update
+         shiny::isolate({
+           can_render(input, d)
+           # Setting size based on container size
+           height <- session$clientData$output_top_chart2_height
+           width <- session$clientData$output_top_chart2_width
+           
+           # getting the chart 
+           chart <- top_chart_from_filters(input$topics, input$top_type2, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
+           
+           # returning empty chart if no data is found on chart
+	         chart_not_empty(chart)
+
+           # transforming chart on plotly
+           chart %>%
+             plotly::ggplotly(height = height, width = width) %>% 
+	           plotly::layout(
+               title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
+               margin = list(l = 30, r=30, b = 100, t = 80),
+               annotations = list(
+                 text = chart$labels$caption,
+                 font = list(size = 10),
+                 showarrow = FALSE,
+                 xref = 'paper', 
+                 x = 0,
+                 yref = 'paper', 
+                 y = -0.4)
+             ) %>%
+	           plotly::config(displayModeBar = FALSE)
+         })
+      })
+
+      output$top_table_title <- shiny::isolate({shiny::renderText({paste("<h4>Top URLS of tweets mentioning", input$topics, "from", input$period[[1]], "to", input$period[[2]],"</h4>")})})
+      output$top_table <- DT::renderDataTable({
+          # Validate if minimal requirements for rendering are met 
+          progress_set(value = 0.85, message = "Generating top links", rep)
+          
+          shiny::isolate({
+            can_render(input, d)
+            # Setting size based on container size
+            height <- session$clientData$output_top_chart2_height
+            width <- session$clientData$output_top_chart2_width
+            
+            # getting the chart to obtain the table 
+            chart <- top_chart_from_filters(input$topics, "urls", input$countries, input$period, input$with_retweets, input$location_type, 200)$chart
+            
+            # returning empty if no data is found on chart
+	          chart_not_empty(chart)
+
+            data <- chart$data %>%
+              dplyr::mutate(top = paste("<a href=\"",.data$top, "\"  target=\"_blank\">", .data$top, "</a>")) %>%
+              dplyr::rename(Url = .data$top, Frequency = .data$frequency) %>%
+            DT::datatable(escape = FALSE)
+
+          })
+      })
+      
+      output$top_table_disc <- shiny::isolate({shiny::renderText({
+         progress_close(rep)
+        "<br/><br/>Top urls table only considers tweet location, ignoring the location type parameter"
+      })})
+      
     })
-
-    output$topword_chart <- plotly::renderPlotly({
-       # Validate if minimal requirements for rendering are met 
-       can_render(input, d)
-       
-       # Setting size based on container size
-       height <- session$clientData$output_topword_chart_height
-       width <- session$clientData$output_topword_chart_width
-       
-       # getting the chart 
-       chart <- topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 20)$chart
-       
-       # returning empty chart if no data is found on chart
-	     chart_not_empty(chart)
-
-       # transforming chart on plotly
-       chart %>%
-         plotly::ggplotly(height = height, width = width) %>% 
-	       plotly::layout(
-           title=list(text= paste("<b>", chart$labels$title, "<br>", chart$labels$subtitle), "</b>"), 
-           margin = list(l = 30, r=30, b = 100, t = 80),
-           annotations = list(
-             text = chart$labels$caption,
-             font = list(size = 10),
-             showarrow = FALSE,
-             xref = 'paper', 
-             x = 0,
-             yref = 'paper', 
-             y = -0.4)
-         ) %>%
-	       plotly::config(displayModeBar = FALSE)
-    })
-    
     # Saving line chart as png and downloading it from shiny app
     output$export_line <- shiny::downloadHandler(
       filename = function() { 
@@ -740,10 +1034,10 @@ epitweetr_app <- function(data_dir = NA) {
       }
     )
      
-    # Saving top chart as CSV and downloading it from shiny app
-    output$download_topword_data <- shiny::downloadHandler(
+    # Saving top chart 1 as CSV and downloading it from shiny app
+    output$download_top1_data <- shiny::downloadHandler(
       filename = function() { 
-        paste("topword_dataset_", 
+        paste("top_dataset_",input$top_type1, 
           "_", paste(input$topics, collapse="-"), 
           "_", paste(input$countries, collapse="-"), 
           "_", input$period[[1]], 
@@ -754,16 +1048,54 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         write.csv(
-          topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
+          top_chart_from_filters(input$topics, input$top_type1, input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
+          file, 
+          row.names = FALSE)
+      }
+    ) 
+    # Saving top chart 2 as CSV and downloading it from shiny app
+    output$download_top2_data <- shiny::downloadHandler(
+      filename = function() { 
+        paste("top_dataset_",input$top_type2, 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".csv", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        write.csv(
+          top_chart_from_filters(input$topics, input$top_type2, input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
+          file, 
+          row.names = FALSE)
+      }
+    ) 
+    # Saving top table as CSV and downloading it from shiny app
+    output$download_top3_data <- shiny::downloadHandler(
+      filename = function() { 
+        paste("top_dataset_", "urls" , 
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".csv", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        write.csv(
+          top_chart_from_filters(input$topics, "urls", input$countries, input$period, input$with_retweets, input$location_type, 200)$data,
           file, 
           row.names = FALSE)
       }
     ) 
     
-    # Saving top chart as png and downloading it from shiny app
-    output$export_topword <- shiny::downloadHandler(
+    # Saving top chart 1 as png and downloading it from shiny app
+    output$export_top1 <- shiny::downloadHandler(
       filename = function() { 
-        paste("topword_", 
+        paste("top_",input$top_type1, 
           "_", paste(input$topics, collapse="-"), 
           "_", paste(input$countries, collapse="-"), 
           "_", input$period[[1]], 
@@ -774,7 +1106,27 @@ epitweetr_app <- function(data_dir = NA) {
       },
       content = function(file) { 
         chart <-
-          topwords_chart_from_filters(input$topics, input$countries, input$period, input$with_retweets, input$location_type, 50)$chart
+          top_chart_from_filters(input$topics, input$top_type1, input$countries, input$period, input$with_retweets, input$location_type, 50)$chart
+        device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
+        ggplot2::ggsave(file, plot = chart, device = device) 
+      }
+    )
+    
+    # Saving top chart 2 as png and downloading it from shiny app
+    output$export_top2 <- shiny::downloadHandler(
+      filename = function() { 
+        paste("top_",input$top_type2,
+          "_", paste(input$topics, collapse="-"), 
+          "_", paste(input$countries, collapse="-"), 
+          "_", input$period[[1]], 
+          "_", input$period[[2]],
+          ".png", 
+          sep = ""
+        )
+      },
+      content = function(file) { 
+        chart <-
+          top_chart_from_filters(input$topics, input$top_type2, input$countries, input$period, input$with_retweets, input$location_type, 50)$chart
         device <- function(..., width, height) grDevices::png(..., width = width, height = height, res = 300, units = "in")
         ggplot2::ggsave(file, plot = chart, device = device) 
       }
@@ -788,6 +1140,8 @@ epitweetr_app <- function(data_dir = NA) {
           "_", paste(input$countries, collapse="-"), 
           "_", input$period[[1]], 
           "_", input$period[[2]],
+          "_", input$top_type1,
+          "_", input$top_type2,
           ".pdf", 
           sep = ""
         )
@@ -807,7 +1161,9 @@ epitweetr_app <- function(data_dir = NA) {
            input$k_decay_filter, 
            input$history_filter,
            input$bonferroni_correction,
-           input$same_weekday_baseline
+           input$same_weekday_baseline,
+           input$top_type1,
+           input$top_type2
          )
       }
     ) 
@@ -819,6 +1175,8 @@ epitweetr_app <- function(data_dir = NA) {
           "_", paste(input$countries, collapse="-"), 
           "_", input$period[[1]], 
           "_", input$period[[2]],
+          "_", input$top_type1,
+          "_", input$top_type2,
           ".md", 
           sep = ""
         )
@@ -838,7 +1196,9 @@ epitweetr_app <- function(data_dir = NA) {
            input$k_decay_filter, 
            input$history_filter,
            input$bonferroni_correction,
-           input$same_weekday_baseline
+           input$same_weekday_baseline,
+           input$top_type1,
+           input$top_type2
          )
       }
     )
@@ -849,7 +1209,7 @@ epitweetr_app <- function(data_dir = NA) {
     ######### STATUS PANEL LOGIC ##################
     
     # Timer for updating task statuses 
-    # each ten seconds config data will be reloaded to capture changes from detect loop and search loop
+    # each ten seconds config data will be reloaded to capture changes from data collection & processing and requirements & alerts pipelines
     # each ten seconds a process refresh flag will be invalidated to trigger process status recalculation
     shiny::observe({
       # Setting the timer
@@ -862,9 +1222,9 @@ epitweetr_app <- function(data_dir = NA) {
       cd$process_refresh_flag(Sys.time())
     }) 
 
-    # rendering the search running status
+    # rendering the Data collection & processing running status
     output$search_running <- shiny::renderText({
-      # Adding a dependency to task refresh (each time a task has changed by the detect loop)
+      # Adding a dependency to task refresh (each time a task has changed by the Requirements & alerts pipeline)
       cd$tasks_refresh_flag()
       # Adding a dependency to process update (each 10 seconds)
       cd$process_refresh_flag()
@@ -886,9 +1246,26 @@ epitweetr_app <- function(data_dir = NA) {
         ,sep=""
     )})
 
-    # rendering the detect running status
+    # rendering the fs running status
+    output$fs_running <- shiny::renderText({
+      # Adding a dependency to task refresh (each time a task has changed by the Requirements & alerts pipeline)
+      cd$tasks_refresh_flag()
+      # Adding a dependency to process update (each 10 seconds)
+      cd$process_refresh_flag()
+
+      # updating the label
+      paste(
+        "<span",
+        " style='color:", if(cd$fs_running) "#348017'" else "#F75D59'",
+        ">",
+        if(cd$fs_running) "Running" else "Stopped",
+        "</span>"
+        ,sep=""
+    )})
+
+    # rendering the Requirements & alerts running status
     output$detect_running <- shiny::renderText({
-      # Adding a dependency to task refresh (each time a task has changed by the detect loop)
+      # Adding a dependency to task refresh (each time a task has changed by the Requirements & alerts pipeline)
       cd$tasks_refresh_flag()
       # Adding a dependency to process update (each 10 seconds)
       cd$process_refresh_flag()
@@ -909,10 +1286,10 @@ epitweetr_app <- function(data_dir = NA) {
       cd$properties_refresh_flag()
 
       #rendering the label
-      paste(head(lapply(get_task_day_slots(get_tasks()$geotag), function(d) strftime(d, format="%H:%M")), -1), collapse=", ")
+      paste(head(lapply(get_task_day_slots(get_tasks()$alerts), function(d) strftime(d, format="%H:%M")), -1), collapse=", ")
     })
 
-    # registering the search runner after button is clicked
+    # registering the Data collection & processing runner after button is clicked
     shiny::observeEvent(input$activate_search, {
       # registering the scheduled task
       register_search_runner_task()
@@ -920,7 +1297,15 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(cd, list("tasks"))
     })
 
-    # registering the detect runner after button is clicked
+    # registering the fs runner after button is clicked
+    shiny::observeEvent(input$activate_fs, {
+      # registering the scheduled task
+      register_fs_runner_task()
+      # refresh task data to check if tasks are to be updated
+      refresh_config_data(cd, list("tasks"))
+    })
+
+    # registering the Requirements & alerts runner after button is clicked
     shiny::observeEvent(input$activate_detect, {
       # Setting values configuration to trigger one shot tasks for the first time
       if(is.na(conf$dep_updated_on)) conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
@@ -928,7 +1313,7 @@ epitweetr_app <- function(data_dir = NA) {
       if(is.na(conf$lang_updated_on)) conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # Forcing refresh of tasks
       cd$tasks_refresh_flag(Sys.time())
-      # saving properties to ensure the detect loop can see the changes and start running the tasks
+      # saving properties to ensure the Requirements & alerts pipeline can see the changes and start running the tasks
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
 
       # registering the scheduled task
@@ -940,11 +1325,11 @@ epitweetr_app <- function(data_dir = NA) {
 
     # action to activate de dependency download tasks 
     shiny::observeEvent(input$update_dependencies, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
+      # Setting values on the configuration so the Requirements & alerts pipeline know it has to launch the task
       conf$dep_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # forcing a task refresh :TODO test if this is still necessary 
       cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
+      # saving configuration so the Requirements & alerts pipeline will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
@@ -952,11 +1337,11 @@ epitweetr_app <- function(data_dir = NA) {
    
     # action to activate the update geonames task 
     shiny::observeEvent(input$update_geonames, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
+      # Setting values on the configuration so the Requirements & alerts pipeline know it has to launch the task
       conf$geonames_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
+      # saving configuration so the Requirements & alerts pipeline will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
@@ -964,47 +1349,23 @@ epitweetr_app <- function(data_dir = NA) {
 
     # action to activate the update languages task
     shiny::observeEvent(input$update_languages, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
+      # Setting values on the configuration so the Requirements & alerts pipeline know it has to launch the task
       conf$lang_updated_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
+      # saving configuration so the Requirements & alerts pipeline will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
     })
     
-    # action to activate the geotag task
-    shiny::observeEvent(input$request_geotag, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
-      conf$geotag_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
-      # forcing a task refresh 
-      cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
-      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
-      # refreshing the tasks data
-      refresh_config_data(cd, list("tasks"))
-    })
-    
-    # action to activate the aggregate task
-    shiny::observeEvent(input$request_aggregate, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
-      conf$aggregate_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
-      # forcing a task refresh 
-      cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
-      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
-      # refreshing the tasks data
-      refresh_config_data(cd, list("tasks"))
-    })
-
     # action to activate the alerts task
     shiny::observeEvent(input$request_alerts, {
-      # Setting values on the configuration so the detect loop know it has to launch the task
+      # Setting values on the configuration so the Requirements & alerts pipeline know it has to launch the task
       conf$alerts_requested_on <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
       # forcing a task refresh 
       cd$tasks_refresh_flag(Sys.time())
-      # saving configuration so the detect loop will see the changes
+      # saving configuration so the Requirements & alerts pipeline will see the changes
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
       # refreshing the tasks data
       refresh_config_data(cd, list("tasks"))
@@ -1019,10 +1380,12 @@ epitweetr_app <- function(data_dir = NA) {
       conf$keyring <- input$conf_keyring
       conf$spark_cores <- input$conf_spark_cores 
       conf$spark_memory <- input$conf_spark_memory
+      conf$onthefly_api <- input$conf_onthefly_api
       conf$geolocation_threshold <- input$geolocation_threshold 
       conf$geonames_url <- input$conf_geonames_url 
       conf$maven_repo <- input$conf_maven_repo 
       conf$winutils_url <- input$conf_winutils_url 
+      conf$api_version <- input$conf_api_version
       conf$geonames_simplify <- input$conf_geonames_simplify 
       conf$regions_disclaimer <- input$conf_regions_disclaimer 
       conf$alert_alpha <- input$conf_alpha 
@@ -1052,9 +1415,12 @@ epitweetr_app <- function(data_dir = NA) {
       conf$smtp_login <- input$smtp_login
       conf$smtp_insecure <- input$smtp_insecure
       conf$smtp_password <- input$smtp_password
+      conf$admin_email <- input$admin_email
       conf$force_date_format <- input$force_date_format
 
       # Saving properties.json
+      if(input$twitter_auth != "app")
+        conf$api_version = "1.1"
       save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
 
       # Forcing update on properties dependant refresh (e.g. time slots)
@@ -1143,7 +1509,10 @@ epitweetr_app <- function(data_dir = NA) {
       refresh_config_data(e = cd, limit = list("langs"))
     })
     
-    ######### TASKS LOGIC ##################
+   
+ 
+    
+     ######### TASKS LOGIC ##################
     # rendering the tasks each time something changes in the tasks
     output$tasks_df <- DT::renderDataTable({
       # Adding dependency with tasks refresh
@@ -1198,6 +1567,14 @@ epitweetr_app <- function(data_dir = NA) {
         refresh_config_data(e = cd, limit = list("topics"))
       }
     }) 
+    # action to dismiss past tweets
+    shiny::observeEvent(input$conf_dismiss_past_tweets, {
+      # Setting values on the configuration so the search loop knows history needs to be dismissed
+      conf$dismiss_past_request <- strftime(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      # saving configuration so the Requirements & alerts pipeline will see the changes
+      save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+      # refreshing the tasks data
+    })
 
     ######### SUBSCRIBERS LOGIC ##################
     # rendering subscribers (first run update on next statement)
@@ -1213,6 +1590,7 @@ epitweetr_app <- function(data_dir = NA) {
             "Immediate topics" = "Real time Topics", 
             "Regions" = "Regions", 
             "Immediate regions" = "Real time Regions", 
+            "Alert category" = "Alert category",
             "Alert slots" = "Alert Slots"
           ),
           filter = "top",
@@ -1306,75 +1684,506 @@ epitweetr_app <- function(data_dir = NA) {
         cd$countries_refresh_flag(Sys.time())
       }
     }) 
+
+
     ######### ALERTS LOGIC ##################
     # rendering the alerts 
     # updates are launched automatically when any input value changes
-    output$alerts_table <- DT::renderDataTable({
-      `%>%` <- magrittr::`%>%`
-      alerts <- get_alerts(topic = input$alerts_topics, countries = as.numeric(input$alerts_countries), from = input$alerts_period[[1]], until = input$alerts_period[[2]])
-      shiny::validate(
-        shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
+       
+    # setting default value for number of alerts to return depending on wether we are displaying tweets or not
+    shiny::observe({
+      # Can also set the label and select items
+      shiny::updateSelectInput(session, "alerts_limit",
+        selected = if(input$alerts_display == "tweets") "10" else "0" 
       )
-      alerts %>%
-        dplyr::select(
-          "date", "hour", "topic", "country", "topwords", "number_of_tweets", "known_ratio", "limit", 
-          "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type",
-          "alpha", "alpha_outlier", "k_decay"
-        ) %>%
+    })
+
+  
+    shiny::observeEvent(input$alerts_search, {
+      shiny::updateTextInput(session, "alerts_show_search", label = NULL, value = "true")
+      output$alerts_table <- DT::renderDataTable({
+        `%>%` <- magrittr::`%>%`
+        shiny::isolate({
+          toptweets <- if(input$alerts_display == "tweets") 10 else 0
+          progress_start("Getting alerts") 
+          alerts <- get_alerts(
+            topic = input$alerts_topics, 
+            countries = as.numeric(input$alerts_countries), 
+            from = input$alerts_period[[1]], 
+            until = input$alerts_period[[2]], 
+            toptweets = toptweets,
+            limit = as.integer(input$alerts_limit),
+            progress = function(value, message) {progress_set(value = value, message = message)}
+          )
+        })
+        shiny::validate(
+          shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
+        )
+
+        dt <- if(toptweets == 0) {
+          alerts %>%
+            dplyr::select(
+              "date", "hour", "topic", "country", "epitweetr_category", "tops", "number_of_tweets", "known_ratio", "limit", 
+              "no_historic", "bonferroni_correction", "same_weekday_baseline", "rank", "with_retweets", "location_type",
+              "alpha", "alpha_outlier", "k_decay"
+            ) %>%
+            DT::datatable(
+              colnames = c(
+                "Date" = "date", 
+                "Hour" = "hour", 
+                "Topic" = "topic",  
+                "Region" = "country",
+                "Category" = "epitweetr_category",
+                "Tops" = "tops", 
+                "Tweets" = "number_of_tweets", 
+                "% from important user" = "known_ratio",
+                "Threshold" = "limit",
+                "Baseline" = "no_historic", 
+                "Bonf. corr." = "bonferroni_correction",
+                "Same weekday baseline" = "same_weekday_baseline",
+                "Day rank" = "rank",
+                "With retweets" = "with_retweets",
+                "Location" = "location_type",
+                "Alert FPR (alpha)" = "alpha",
+                "Outlier FPR (alpha)" = "alpha_outlier",
+                "Downweight strenght" = "k_decay"
+              ),
+              filter = "top",
+              escape = FALSE
+            )
+        } else {
+          alerts$toptweets <- sapply(alerts$toptweets, function(tweetsbylang) {
+            if(length(tweetsbylang) == 0)
+              ""
+            else {
+              paste(
+                "<UL>",
+                lapply(1:length(tweetsbylang), function(i) {
+                  paste(
+                   "<LI>",
+                   names(tweetsbylang)[[i]],
+                   "<OL>",
+                   paste(
+                     lapply(tweetsbylang[[i]], function(t) {
+                       paste0(
+                         "<LI>",
+                         htmltools::htmlEscape(t),
+                         "</LI>"
+                       )
+                     }),
+                     collapse = ""
+                   ),
+                   "</OL>",
+                   "</LI>"
+                  )
+                }),
+                "</UL>",
+                collapse = ""
+             )
+            }
+          })
+          
+          alerts %>%
+            dplyr::select("date", "hour", "topic", "country", "epitweetr_category", "tops", "number_of_tweets", "toptweets") %>%
+            DT::datatable(
+              colnames = c(
+                "Date" = "date", 
+                "Hour" = "hour", 
+                "Topic" = "topic",  
+                "Region" = "country",
+                "Category" = "epitweetr_category",
+                "Tops" = "tops", 
+                "Tweets" = "number_of_tweets", 
+                "Top tweets" = "toptweets"
+              ),
+              filter = "top",
+              escape = FALSE
+            )
+        }
+        progress_close()
+        dt
+      })
+    })
+
+    shiny::observeEvent(input$alerts_close, {
+      shiny::updateTextInput(session, "alerts_show_search", label = NULL, value = "false")
+    })
+
+    shiny::observeEvent(input$alertsdb_search, {
+      shiny::updateTextInput(session, "alertsdb_show", label = NULL, value = "true")
+      output$alertsdb_table <- DT::renderDataTable(get_alertsdb_html() %>%
         DT::datatable(
           colnames = c(
             "Date" = "date", 
-            "Hour" = "hour", 
             "Topic" = "topic",  
             "Region" = "country",
             "Top words" = "topwords", 
             "Tweets" = "number_of_tweets", 
-            "% important user" = "known_ratio",
-            "Threshold" = "limit",
-            "Baseline" = "no_historic", 
-            "Bonf. corr." = "bonferroni_correction",
-            "Same weekday baseline" = "same_weekday_baseline",
-            "Day rank" = "rank",
-            "With retweets" = "with_retweets",
-            "Location" = "location_type",
-            "Alert FPR (alpha)" = "alpha",
-            "Outlier FPR (alpha)" = "alpha_outlier",
-            "Downweight strenght" = "k_decay"
-            ),
+            "Top tweets" = "toptweets",
+            "Given Category" = "given_category",
+            "Epitweetr Category" = "epitweetr_category"
+          ),
           filter = "top",
-          escape = TRUE
+          escape = FALSE
+        )
+      )
+        
+      output$alertsdb_runs_table <- DT::renderDataTable(get_alertsdb_runs_html() %>%
+        DT::datatable(
+          colnames = c(
+            "Ranking" = "ranking",
+            "Models" = "models", 
+            "Alerts" = "alerts", 
+            "Runs" = "runs", 
+            "F1Score" = "f1score",
+            "Accuracy" = "accuracy",
+            "Precision By Class" = "precision_by_class",
+            "Sensitivity By Class" = "sensitivity_by_class",
+            "FScore By Class" = "fscore_by_class",
+            "Last run" = "last_run",
+            "Active" = "active",
+            "Documentation" = "documentation",
+            "Custom Parameters" = "custom_parameters"
+          ),
+          filter = "top",
+          escape = FALSE
+        )
+      )
+    })
+    shiny::observeEvent(input$alertsdb_close, {
+      shiny::updateTextInput(session, "alertsdb_show", label = NULL, value = "false")
+    })
+    output$alertsdb_download <- shiny::downloadHandler(
+      filename = function() "alert-training.xlsx",
+      content = function(file) {
+        progress_start("updating geo training dataset for download")
+        #updating geotraining file before downloading
+        tryCatch({
+           if(get_alert_training_path() == get_default_alert_training_path()) {
+             alerts <- get_alerts(
+               topic = input$alerts_topics, 
+               countries = as.numeric(input$alerts_countries), 
+               from = input$alerts_period[[1]], 
+               until = input$alerts_period[[2]], 
+               toptweets = 10,
+               limit = if(!is.na(input$alerts_limit) && as.integer(input$alerts_limit) > 0 ) as.integer(input$alerts_limit) else 20,
+               progress = function(value, message) {progress_set(value = value, message = message)}
+             )
+             if(!is.null(alerts)) {
+               alerts$given_category <- NA
+               write_alert_training_db(alerts)
+               cd$alert_training_refresh_flag(Sys.time())
+               progress_close()
+               file.copy(get_alert_training_path(), file) 
+             } else
+               app_error("Cannot download alerts since no alerts where found with the selected filters", env = cd)
+           }
+           else {  
+             progress_close()
+             file.copy(get_alert_training_path(), file) 
+           }
+          },
+          error = function(w) {app_error(w, env = cd)}
+        )
+      }
+    )
+    
+    shiny::observeEvent(input$alertsdb_add, {
+        progress_start("Adding new alerts to the alert database")
+        #updating geotraining file before downloading
+        tryCatch({
+            new_alerts <- get_alerts(
+              topic = input$alerts_topics, 
+              countries = as.numeric(input$alerts_countries), 
+              from = input$alerts_period[[1]], 
+              until = input$alerts_period[[2]], 
+              toptweets = 10,
+              limit = if(!is.na(input$alerts_limit) && as.integer(input$alerts_limit) > 0 ) as.integer(input$alerts_limit) else 20,
+              progress = function(value, message) {progress_set(value = value, message = message)}
+            )
+
+            existing_alerts <- get_alert_training_df()
+            if(!is.null(new_alerts) && nrow(new_alerts) > 0) {
+              new_alerts$given_category <- NA
+              alerts <- Reduce(x = list(existing_alerts, new_alerts), f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
+              write_alert_training_db(alerts)
+              cd$alert_training_refresh_flag(Sys.time())
+            } else {
+               app_error("Cannot add alerts to classify. No alerts where found with the selected filters", env = cd)
+            }
+          },
+          error = function(w) {app_error(w, env = cd)}
         )
     })
 
+    # uploading alerts training file
+    shiny::observe({
+      df <- input$alertsdb_upload
+      if(!is.null(df) && nrow(df)>0) {
+        progress_start("processing new training set")
+        uploaded <- df$datapath[[1]]
+        #copying file and making a backup of existing one
+        if(file.exists(get_user_alert_training_path()))
+          file.copy(get_user_alert_training_path(), paste(get_user_alert_training_path(), ".bak", sep = ""), overwrite=TRUE) 
+        file.copy(uploaded, get_user_alert_training_path(), overwrite=TRUE) 
+        #updating geotraining df taking in condideration new uploaded file
+        
+        tryCatch({
+           progress_set(value = 0.5, message = "Retraining models and evaluating")
+           retrain_alert_classifier()
+           cd$alert_training_refresh_flag(Sys.time())
+          },
+          warning = function(w) {app_error(w, env = cd)},
+          error = function(w) {app_error(w, env = cd)}
+        )
+      }
+    })
+
+    # updating alerts table on change of geotraining file
+    shiny::observe({
+      # Adding a dependency to alert refresh
+      cd$alert_training_refresh_flag()
+      DT::replaceData(DT::dataTableProxy('alertsdb_table'),get_alertsdb_html())
+      DT::replaceData(DT::dataTableProxy('alertsdb_runs_table'), get_alertsdb_runs_html())
+      progress_close()
+    })
+
+
+
+    ######### GEOTRAINING EVALUATION DATAFRAME ####
+    # rendering a dataframe showing evaluation metrics 
+    output$geotraining_eval_df <- DT::renderDataTable({
+      
+      df <-get_geotraining_eval_df()
+      DT::datatable(df,
+        escape = TRUE
+      )
+    })
+    
+    get_geotraining_eval_df <- function() {
+      `%>%` <- dplyr::`%>%`
+      ret <- data.frame(Category=character(),
+           `True positives`=integer(),
+           `False positives`=integer(),
+           `True negatives`=integer(),
+           `False negatives`=integer(),
+           `Precision` = double(),
+           `Sensitivity` = double(),
+           `F1Score` = double(),
+            check.names = FALSE
+        )
+      if(file.exists(get_geotraining_evaluation_path())) {
+        df <- jsonlite::fromJSON(get_geotraining_evaluation_path(), flatten=TRUE)
+        df <- as.data.frame(df)
+        if(nrow(df) > 0) {
+          ret <- df %>%
+            dplyr::select(.data$test,.data$tp,.data$tn,.data$fp,.data$fn)%>%
+            dplyr::group_by(.data$test)%>%
+            dplyr::summarise(tp = sum(.data$tp), fp=sum(.data$fp), tn=sum(.data$tn),  fn = sum(.data$fn))%>%
+            janitor:: adorn_totals("row")%>%
+            dplyr::mutate(Precision=round(.data$tp/(.data$tp+.data$fp),3))%>%
+            dplyr::mutate(Sensitivity = round(.data$tp/(.data$tp +.data$fn),3))%>%
+            dplyr::mutate(F1Score =round((2*.data$tp)/(2*.data$tp + .data$fn + .data$fp),3))%>%
+            dplyr::rename(Category=.data$test)%>%
+            dplyr::rename("True positives"=.data$tp)%>%
+            dplyr::rename("False positives"=.data$fp)%>%
+            dplyr::rename("True negatives"=.data$tn)%>%
+            dplyr::rename("False negatives"=.data$fn)
+        }
+      }
+      ret
+    }
+    
     ######### GEOTEST LOGIC ##################
     # rendering geotest data, updates are done automatically whenever an input changes
-    output$geotest_table <- DT::renderDataTable({
+    output$geotraining_table <- DT::renderDataTable({
       `%>%` <- magrittr::`%>%`
-       text_col <- strsplit(input$geotest_fields, ";")[[1]][[1]]
-       lang_col <-  if(length(strsplit(input$geotest_fields, ";")[[1]]) > 1) strsplit(input$geotest_fields, ";")[[1]][[2]] else NA
-       lang_col_name <- if(is.na(lang_col)) "lang" else lang_col
-
-       df <- get_todays_sample_tweets(limit = input$geotest_size, text_col = text_col, lang_col = lang_col)
-       shiny::validate(
-         shiny::need(!is.null(df) && nrow(df) > 0, 'Cannot geolocate sample tweets, please check the troubleshoot page')
-       )
+       df <- get_geotraining_df()
        df %>%
          DT::datatable(
-           colnames = c(
-             "Tweet ID" = "id",  
-             "Text" =  text_col,
-             "Language" = lang_col_name,
-             "Location name" = "geo_name",
-             "Location type" = "geo_type",
-             "Country code" =  "geo_country_code",
-             "Country" = "country", 
-             "Score" = "score", 
-             "Tagged text" = "tagged"
-           ),
            filter = "top",
            escape = TRUE
          )
     })
+    # uploading geotagging training file
+    shiny::observe({
+      df <- input$geotraining_upload
+      if(!is.null(df) && nrow(df)>0) {
+        progress_start("processing new training set")
+        uploaded <- df$datapath[[1]]
+        #copying file and making a backup of existing one
+        if(file.exists(get_user_geotraining_path()))
+          file.copy(get_user_geotraining_path(), paste(get_user_geotraining_path(), ".bak", sep = ""), overwrite=TRUE) 
+        file.copy(uploaded, get_user_geotraining_path(), overwrite=TRUE) 
+        #updating geotraining df taking in condideration new uploaded file
+        
+        tryCatch({
+           #update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value /3, message = message)})
+           progress_set(value = 0.5, message = "Retraining models and evaluating")
+           retrain_languages()
+           update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = 0.5 + value/2, message = message)})
+           cd$geotraining_refresh_flag(Sys.time())
+           #TO DO : afficher les résultats + observe qui met à jour si de nouveelles données sont uploadées
+          },
+          error = function(w) {app_error(w, env = cd)}
+        )
+      }
+    })
+    # Updating geolocation data
+    shiny::observeEvent(input$geotraining_update, {
+      progress_start("updating geo training dataset")
+      #updating geotraining df taking in condideration new uploaded file
+      tryCatch({
+         update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
+         cd$geotraining_refresh_flag(Sys.time())
+        },
+        error = function(w) {app_error(w, env = cd)}
+      )
+    })
+    
+    # download geotraining data
+    output$geotraining_download <- shiny::downloadHandler(
+      filename = function() "geo-training.xlsx",
+      content = function(file) {
+        progress_start("updating geo training dataset for download")
+        #updating geotraining file before downloading
+        tryCatch({
+           if(get_geotraining_path() == get_default_geotraining_path()) {
+             update_geotraining_df(input$geotraining_tweets2add, progress = function(value, message) {progress_set(value = value, message = message)})
+           }
+           file.copy(get_geotraining_path(), file) 
+           cd$geotraining_refresh_flag(Sys.time())
+          },
+          error = function(w) {app_error(w, env = cd)}
+        )
+      }
+    )
+    
+    # updating geotraining table on change of geotraining file
+    shiny::observe({
+      # Adding a dependency to subscribers refresh
+      cd$geotraining_refresh_flag()
+      DT::replaceData(DT::dataTableProxy('geotraining_table'), get_geotraining_df())
+      DT::replaceData(DT::dataTableProxy('geotraining_eval_df'), get_geotraining_eval_df())
+      progress_close()
+    })
+
+    ######### DATA PROTECTION LOGIC ##################
+    # rendering the data protection search table
+    shiny::observeEvent(input$data_anonymise, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Warning",
+        "Please confirm you want to anonymise the tweets matching this search criteria, this action cannot be undone",
+        footer = shiny::tagList(shiny::actionButton("data_perform_anonymise", "Yes anonymise tweets"), shiny::modalButton("Cancel"))
+      ))
+    })
+
+    shiny::observeEvent(input$data_delete, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Warning",
+        "Please confirm you want to delete the tweets matching this search criteria, this action cannot be undone",
+        footer = shiny::tagList(shiny::actionButton("data_perform_delete", "Yes delete tweets"), shiny::modalButton("Cancel"))
+      ))
+    })
+
+    shiny::observeEvent(input$data_perform_delete, {
+      search_tweets_exp(hide_users = FALSE, action = "delete") 
+
+    })
+    shiny::observeEvent(input$data_perform_anonymise, {
+      search_tweets_exp(hide_users = FALSE, action = "anonymise") 
+
+    })
+
+    shiny::observeEvent(input$data_search_ano, {
+      search_tweets_exp(hide_users = TRUE) 
+    })
+
+    shiny::observeEvent(input$data_search, {
+      search_tweets_exp(hide_users = FALSE)
+    })
+    search_tweets_exp <- function(hide_users, action = NULL) { 
+      output$data_message <- shiny::renderText("")
+      output$data_search_df <- DT::renderDataTable({
+        `%>%` <- magrittr::`%>%`
+        shiny::removeModal()
+        query <- (if(!is.null(action) && action == "anonymise") "created_at:[0 TO Z] NOT screen_name:user" else NULL)
+        progress_start("Searching") 
+        shiny::isolate({
+          tweets <- search_tweets(
+            query = query,
+            topic = input$data_topics, 
+            from = input$data_period[[1]], 
+            to = input$data_period[[2]], 
+            countries = as.numeric(input$data_countries), 
+            mentioning = if(input$data_mode %in% c("all", "mentioning") && input$data_users != "") strsplit(input$data_users, "\\s+")[[1]] else NULL,
+            users = if(input$data_mode %in% c("all", "users") && input$data_users != "") strsplit(input$data_users, "\\s+")[[1]] else NULL,
+            hide_users = hide_users,
+            action = action,
+            max = as.integer(input$data_limit)
+          )
+        })
+
+        if(!is.null(action) && nrow(tweets)> 0 ) {
+          processed <- 0
+          while(nrow(tweets)> 0) {
+            processed <- processed + nrow(tweets) 
+            progress_set(value = 0.5, message = paste("Performing", action, processed, "tweets processed"))
+
+            shiny::isolate({
+              tweets <- search_tweets(
+                query = query,
+                topic = input$data_topics, 
+                from = input$data_period[[1]], 
+                to = input$data_period[[2]], 
+                countries = as.numeric(input$data_countries), 
+                mentioning = if(input$data_mode %in% c("all", "mentioning") && input$data_users != "") strsplit(input$data_users, "\\s+")[[1]] else NULL,
+                users = if(input$data_mode %in% c("all", "users") && input$data_users != "") strsplit(input$data_users, "\\s+")[[1]] else NULL,
+                hide_users = hide_users,
+                action = action,
+                max = as.integer(input$data_limit)
+              )
+            })
+          }
+          progress_close()
+        }
+
+        shiny::validate(
+          shiny::need(!is.null(tweets) && nrow(tweets) > 0, 'No tweets found for the provided filters')
+        )
+        output$data_message <- if(tweets$totalCount[[1]] > 1000) {
+          shiny::renderText(paste("more than ", tweets$totalCount[[1]], " tweets found"))
+        } else {  shiny::renderText(paste(tweets$totalCount[[1]], " tweets found"))}
+
+        dt <- {
+          tweets$country_code <- if("text_loc" %in% colnames(tweets)) tweets$text_loc$geo_country_code else ""
+          tweets$geo_name <-  if("text_loc" %in% colnames(tweets)) tweets$text_loc$geo_name else ""
+          tweets %>%
+            dplyr::select(
+              "tweet_id", "topic",  "country_code", "geo_name", "created_at", "text","screen_name", "linked_text", "linked_screen_name"
+            ) %>%
+            DT::datatable(
+              colnames = c(
+                "Tweet Id" = "tweet_id",
+                "Topic" = "topic",
+                "Created" = "created_at",
+                "Country in text" = "country_code",
+                "Location in text" = "geo_name",
+                "User" = "screen_name", 
+                "Text" = "text", 
+                "Retweet/Quoted text" = "linked_text", 
+                "Retweet/Quoted user" = "linked_screen_name"
+              ),
+              filter = "top",
+              escape = TRUE
+            )
+
+        }
+        progress_close()
+        dt
+      })
+    }
+
 
     ######## DIAGNOSTIC LOGIC ############
     # running the diagnostics when the button is clicked
@@ -1403,7 +2212,38 @@ epitweetr_app <- function(data_dir = NA) {
     })
 
   } 
-  # Printing PID 
+
+  # Functions for managing calculation progress
+  progress_start <- function(start_message = "processing", env = cd) {
+    progress_close(env = env)
+    env$progress <- shiny::Progress$new()
+    env$progress$set(message = start_message, value = 0)
+  }
+  
+  progress_close <- function(env = cd) {
+    if(exists("progress", where = env)) {
+      env$progress$close()
+      rm("progress", envir = env)
+    }
+  }
+  
+  progress_inc <- function(value, message  = "processing", env = cd) {
+    if(!is.null(env$progress$set))
+      env$progress$set(value = env$progress$getValue() + value, detail = message) 
+  }
+  
+  progress_set <- function(value, message  = "processing", env = cd) {
+    if(!is.null(env$progress$set))
+      env$progress$set(value = value, detail = message)
+  }
+
+  app_error <- function(e, env = cd) {
+    message(e)
+    progress_close(env = env)
+    shiny::showNotification(paste(e), type = "error")
+  }
+
+# Printing PID 
   message(Sys.getpid())
   # Launching the app
   old <- options()
@@ -1422,7 +2262,11 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
     regions <- get_country_items()
     setNames(1:length(regions), sapply(regions, function(r) r$name))   
   }
-  agg_dates <- get_aggregated_period("country_counts") 
+  agg_dates <- get_aggregated_period() 
+  if(is.na(agg_dates$first) || is.na(agg_dates$last)) {
+    agg_dates$first = Sys.Date()
+    agg_dates$last = Sys.Date()
+  }
   e$date_min <- strftime(agg_dates$first, format = "%Y-%m-%d")
   e$date_max <- strftime(agg_dates$last, format = "%Y-%m-%d")
   collected_days <- agg_dates$last - agg_dates$first
@@ -1450,7 +2294,8 @@ refresh_dashboard_data <- function(e = new.env(), fixed_period = NULL) {
   return(e)
 }
 
-# Get or update data for config page from configuration, search and detect loop files
+
+# Get or update data for config page from configuration, Data collection & processing and Requirements & alerts pipeline files
 refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "tasks", "geo")) {
   # Refreshing configuration
   setup_config(data_dir = conf$data_dir, ignore_properties = TRUE)
@@ -1466,6 +2311,14 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   #Creating the flag for subscribers refresh
   if(!exists("subscribers_refresh_flag", where = e)) {
     e$subscribers_refresh_flag <- shiny::reactiveVal()
+  }
+  #Creating the flag for geotraining refresh
+  if(!exists("geotraining_refresh_flag", where = e)) {
+    e$geotraining_refresh_flag <- shiny::reactiveVal()
+  }
+  #Creating the flag for alert training refresh
+  if(!exists("alert_training_refresh_flag", where = e)) {
+    e$alert_training_refresh_flag <- shiny::reactiveVal()
   }
   #Creating the flag for countries refresh
   if(!exists("countries_refresh_flag", where = e)) {
@@ -1518,6 +2371,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
     # Updating the reactive value tasks_refresh to force dependencies invalidation
     update <- FALSE
     e$detect_running <- is_detect_running() 
+    e$fs_running <- is_fs_running() 
     e$search_running <- is_search_running() 
     e$search_diff <- Sys.time() - last_search_time()
 
@@ -1534,6 +2388,7 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
       sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
       e$tasks <- tasks[sorted_tasks] 
       e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
+      e$api_version <- conf$api_version
       e$tasks_df <- data.frame(
         Task = sapply(e$tasks, function(t) t$task), 
         Status = sapply(e$tasks, function(t) if(in_pending_status(t)) "pending" else t$status), 
@@ -1547,10 +2402,6 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
   }
   # Updating geolocation test related fields
   if("geo" %in% limit) {
-    e$geo_cols <- setNames(
-      c("text;lang", "linked_text;linked_lang", "user_description;lang", "user_location;lang", "place_full_name", "linked_place_full_name"), 
-      c("Tweet Text", "Retweeted/Quoted text", "User description", "User declared location", "API tweet location", "API retweeted/Quoted tweet location")
-    )  
   }
   return(e)
 }
@@ -1558,10 +2409,18 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
 # validate that dashboard can be rendered
 can_render <- function(input, d) {
   shiny::validate(
-      shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
-      , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the detect loop has successfully ran"))
-      , shiny::need(!is.na(input$period[[1]]) && !is.na(input$period[[2]]) && (input$period[[1]] <= input$period[[2]]), 'Please select a start and end period for the report. The start period must be a date earlier than the end period') 
-      , shiny::need(input$topics != '', 'Please select a topic')
+      shiny::need(is_fs_running(), 'Embedded database service is not running, please make sure you have activated it (running update dependencies is necessary after upgrade from epitweetr version 0.1+ to epitweetr 1.0+)')
+      , shiny::need(file.exists(conf$data_dir), 'Please go to configuration tab and setup tweet collection (no data directory found)')
+      , shiny::need(check_series_present(), paste('No aggregated data found on ', paste(conf$data_dir, "series", sep = "/"), " please make sure the Requirements & alerts pipeline has successfully ran"))
+      , shiny::need(
+          is.null(input) || (
+            !is.na(input$period[[1]]) 
+              && !is.na(input$period[[2]]) 
+              && (input$period[[1]] <= input$period[[2]])
+          )
+          ,'Please select a start and end period for the report. The start period must be a date earlier than the end period'
+        )
+      , shiny::need(is.null(input) || (input$topics != ''), 'Please select a topic')
   )
 }
 
@@ -1571,4 +2430,73 @@ chart_not_empty <- function(chart) {
      shiny::need(!("waiver" %in% class(chart$data)), chart$labels$title)
   )
 } 
- 
+
+
+get_alertsdb_html <- function() {
+  alerts <- get_alert_training_df() 
+  shiny::validate(
+    shiny::need(!is.null(alerts), 'No alerts generated for the selected period')
+  )
+  alerts$toptweets <- sapply(alerts$toptweets, function(tweetsbylang) {
+    if(length(tweetsbylang) == 0)
+      ""
+    else {
+      paste(
+        "<UL>",
+        lapply(1:length(tweetsbylang), function(i) {
+          paste(
+           "<LI>",
+           names(tweetsbylang)[[i]],
+           "<OL>",
+           paste(
+             lapply(tweetsbylang[[i]], function(t) {
+               paste0(
+                 "<LI>",
+                 htmltools::htmlEscape(t),
+                 "</LI>"
+               )
+             }),
+             collapse = ""
+           ),
+           "</OL>",
+           "</LI>"
+          )
+        }),
+        "</UL>",
+        collapse = ""
+     )
+    }
+  })
+  alerts
+} 
+
+get_alertsdb_runs_html <- function(){
+  runs <- get_alert_training_runs_df()
+  runs$f1score <- format(runs$f1score, digits = 3) 
+  runs$accuracy <- format(runs$accuracy, digits = 3)
+  runs$precision_by_class <- format(runs$precision_by_class, digits = 3)
+  runs$sensitivity_by_class <- format(runs$sensitivity_by_class, digits = 3)
+  runs$fscore_by_class <- format(runs$fscore_by_class, digits = 3)
+  runs$custom_parameters <- sapply(runs$custom_parameters, function(params) {
+    if(length(params) == 0)
+      ""
+    else {
+      paste(
+        "<UL>",
+        lapply(1:length(params), function(i) {
+          paste(
+           "<LI>",
+           names(params)[[i]],
+           ":",
+           params[[i]],
+           "</LI>"
+          )
+        }),
+        "</UL>",
+        collapse = ""
+     )
+    }
+  })
+  runs
+}
+

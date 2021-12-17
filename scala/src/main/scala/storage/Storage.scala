@@ -11,12 +11,15 @@ import java.io.{InputStream, ByteArrayInputStream, OutputStream, OutputStreamWri
 import java.util.ArrayDeque
 import java.nio.file.{Files, Paths, Path => LPath}
 import java.nio.file.{StandardCopyOption,StandardOpenOption }
+import java.io.{BufferedReader, InputStreamReader}
 import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
-case class WriteMode(name:String) {
-} 
+
+case class WriteMode(name:String) {}
+
 object WriteMode {
   object overwrite extends WriteMode("overwrite")
+  object append extends WriteMode("append")
   object ignoreIfExists extends WriteMode("ignoreIfExists")
   object failIfExists extends WriteMode("failIfExists")
 }
@@ -38,13 +41,15 @@ trait FSNode {
   def deleteIfTemporary(recurse:Boolean = false) = storage.deleteIfTemporary(this, recurse) 
   def getContent = storage.getContent(this)
   def getContentAsString = storage.getContentAsString(this)
+  def getContentAsLines = storage.getContentAsLines(this)
   def getContentAsJson = storage.getContentAsJson(this)
   def list(recursive:Boolean = false) = storage.list(this, recursive)
   def move(to:FSNode, writeMode:WriteMode) = {this.storage.move(this, to, writeMode)}
   def setContent(content:InputStream, writeMode:WriteMode) = {this.storage.setContent(this, content, writeMode);this}
   def setContent(content:InputStream) = {this.storage.setContent(this, content, WriteMode.failIfExists);this}
-  def setContent(content:String, writeMode:WriteMode) = {this.storage.setContent(this, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), writeMode);this}
-  def setContent(content:String) = {this.storage.setContent(this, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), WriteMode.failIfExists);this}
+  def setContent(content:String, writeMode:WriteMode) = {this.storage.setContent(this, content, writeMode);this}
+  def setContent(content:String) = {this.storage.setContent(this, content, WriteMode.failIfExists);this}
+  def getFileSize() = storage.getFileSize(this) 
   def getFileModificationTime(recurse:Boolean = true) = 
     storage.getFileModificationTime(
       path = if(this.path!=null) Some(this.path) else throw new Exception("getModificationTime requires a non empty hash")
@@ -103,13 +108,27 @@ trait Storage {
   }
   def getContent(node:FSNode):InputStream
   def getContentAsString(node:FSNode) = {
-    val s = new java.util.Scanner(this.getContent(node), "UTF-8").useDelimiter("\\A") 
-    if(s.hasNext())  s.next()
-    else "";
+    val is = this.getContent(node)
+    IOUtils.toString(is, StandardCharsets.UTF_8.name())
+  }
+  def getContentAsLines(node:FSNode) = {
+    val is = this.getContent(node)
+    val br = new BufferedReader(new InputStreamReader(is, "UTF-8"))
+    Iterator.continually{
+      val line = br.readLine()
+      if(line==null) {
+        is.close
+        br.close
+      }
+      line
+    }.takeWhile(line => line != null)
   }
   def getContentAsJson(node:FSNode) = scala.util.parsing.json.JSON.parseFull(getContentAsString(node))
   
-  def setContent(node:FSNode, data:InputStream, writeMode:WriteMode = WriteMode.failIfExists)
+  def setContent(node:FSNode, data:InputStream, writeMode:WriteMode):Unit
+  def setContent(node:FSNode, data:InputStream):Unit = this.setContent(node, data,  WriteMode.failIfExists)
+  def setContent(node:FSNode, content:String, writeMode:WriteMode):Unit
+  def setContent(node:FSNode, content:String):Unit = this.setContent(node, content, WriteMode.failIfExists)
   def list(node:FSNode, recursive:Boolean):Seq[FSNode]
   def last(path:Option[String], attrPattern:Map[String, String]):Option[FSNode]
   def getNode(path:String, attrs:Map[String, String]=Map[String, String]()):FSNode
@@ -155,6 +174,7 @@ trait Storage {
       moveWithin(from, to, writeMode)
     }
   }
+  def getFileSize(node:FSNode):Long
   def getFileModificationTime(path:Option[String], attrPattern:Map[String, String] = Map[String, String]()):Option[Long]
   def isUnchanged(path:Option[String], attrPattern:Map[String, String] = Map[String, String](), checkPath:Option[String], checkAttr:Map[String, String] = Map[String, String](), updateStamp:Boolean = true) = {
     //Getting stored Timestamp
@@ -238,9 +258,35 @@ case class LocalStorage(override val sparkCanRead:Boolean=false, override val tm
   
   def getContent(node:FSNode)
        = node match { case lNode:LocalNode => Files.newInputStream(lNode.jPath)               case _ => throw new Exception(s"HDFS Storage cannot manage ${node.getClass.getName} nodes")}
+  def setContent(node:FSNode, content:String, writeMode:WriteMode) 
+       = node match { case lNode:LocalNode => 
+                          writeMode match {
+                            case WriteMode.overwrite => 
+                              Files.write(
+                                lNode.jPath, 
+                                content.getBytes(StandardCharsets.UTF_8), 
+                                StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING
+                              )
+                            case WriteMode.append => 
+                              Files.write(
+                                lNode.jPath, 
+                                content.getBytes(StandardCharsets.UTF_8), 
+                                StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND
+                              )
+                            case WriteMode.ignoreIfExists => if(!this.exists(node)) Files.write(lNode.jPath, content.getBytes(StandardCharsets.UTF_8))
+                            case WriteMode.failIfExists => 
+                              Files.write(
+                                lNode.jPath, 
+                                content.getBytes(StandardCharsets.UTF_8), 
+                                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE
+                              )
+                          } 
+                      case _ => throw new Exception(s"Local Storage cannot manage ${node.getClass.getName} nodes")
+       }
   def setContent(node:FSNode, data:InputStream, writeMode:WriteMode)
        = node match { case lNode:LocalNode => 
                           writeMode match {
+                            case WriteMode.append => throw new Exception("This procedure is not yet implemented")
                             case WriteMode.overwrite => Files.copy(data, lNode.jPath, StandardCopyOption.REPLACE_EXISTING)
                             case WriteMode.ignoreIfExists => if(!this.exists(node)) Files.copy(data, lNode.jPath)
                             case WriteMode.failIfExists => Files.copy(data, lNode.jPath)  
@@ -327,6 +373,12 @@ case class LocalStorage(override val sparkCanRead:Boolean=false, override val tm
             
         }
     }
+  def getFileSize(node:FSNode) =  
+    node match { 
+      case lNode:LocalNode => Files.size(lNode.jPath)
+      case _ => throw new Exception(s"Local Storage cannot manage ${node.getClass.getName} nodes")
+    }
+    
   def getWriter(node:FSNode, writeMode:WriteMode)= node match { 
     case lNode:LocalNode => 
       writeMode match {
@@ -355,6 +407,7 @@ case class EpiFileStorage(vooUrl:String, user:String, pwd:String) extends Storag
        = node match { case eNode:EpiFileNode => { EpiFiles.download(id = eNode.path, vooUrl = this.vooUrl, user = this.user, pwd = this.pwd) }
                       case _ => throw new Exception(s"HDFS Storage cannot manage ${node.getClass.getName} nodes")
        }
+  def setContent(node:FSNode, content:String, writeMode:WriteMode) = {this.setContent(node, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), writeMode)}
   def setContent(node:FSNode, data:InputStream, writeMode:WriteMode)
        = node match { case eNode:EpiFileNode => {
                           writeMode match {
@@ -394,6 +447,7 @@ case class EpiFileStorage(vooUrl:String, user:String, pwd:String) extends Storag
        = EpiFileNode(path = path, storage = this, attrs=attrs)
   def ensurePathExists(path:String) = throw new Exception("Not implemented")
   def getFileModificationTime(path:Option[String], attrPattern:Map[String, String]) = last(path = path, attrPattern = attrPattern) match {case Some(n) => Some(n.attrs("date").toLong) case _ => None }
+  def getFileSize(node:FSNode) = throw new Exception("Not implemented") 
   def getWriter(node:FSNode, writeMode:WriteMode) = throw new Exception("Not implemented")
 }
 case class HDFSStorage(hadoopConf:Configuration, override val tmpPrefix:String="demy_") extends Storage {
@@ -433,6 +487,7 @@ case class HDFSStorage(hadoopConf:Configuration, override val tmpPrefix:String="
     }
   def getContent(node:FSNode)
        = node match { case hNode:HDFSNode => fs.open(hNode.hPath)            case _ => throw new Exception(s"HDFS Storage cannot manage ${node.getClass.getName} nodes")}
+  def setContent(node:FSNode, content:String, writeMode:WriteMode) = {this.setContent(node, new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), writeMode)}
   def setContent(node:FSNode, data:InputStream, writeMode:WriteMode)
        = node match { 
          case hNode:HDFSNode => 
@@ -515,6 +570,7 @@ case class HDFSStorage(hadoopConf:Configuration, override val tmpPrefix:String="
     }
     lastModified
   }
+  def getFileSize(node:FSNode) = throw new Exception("Not implemented") 
   def getWriter(node:FSNode, writeMode:WriteMode)
        = node match { 
          case hNode:HDFSNode => {

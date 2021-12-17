@@ -1,4 +1,4 @@
-package org.ecdc.twitter 
+package org.ecdc.epitweetr.geo 
 
 case class GeoElement(
   id:Long

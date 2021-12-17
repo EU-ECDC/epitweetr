@@ -1,86 +1,4 @@
-#' @title Launches the geo-tagging loop
-#' @description This function will geolocate all tweets before the current hour that have not been already geolocated
-#' @param tasks Tasks object for reporting progress and error messages, default: get_tasks()
-#' @return The list of tasks updated with produced messages
-#' @details It geolocates tweets by collection date, and stores the result in the tweets/geolocated folder.
-#' It starts from the last geolocated date until the last collected tweet. When running on a day that has been partially geolocated,
-#' it will ignore tweets that have already been processed. 
-#'
-#' The geolocation is applied to several fields of tweets: text, original text (if retweet or quote), user description, user declared location, user biography, API location. For each field it will perform the following steps:
-#' \itemize{
-#'   \item{Evaluate the part of the text which is more likely to be a location using an unsupervised machine learning and language dependent model trained during \code{\link{update_languages}}}
-#'   \item{Match the selected text against a Lucene index of GeoNames database built during \code{\link{update_geonames}}}
-#'   \item{Return the location with the highest matching score. For more information about the scoring process please refer to the epitweetr vignette}
-#' }
-#'
-#' This algorithm has mainly been developed in Spark. 
-#'
-#' A prerequisite to this function is that the \code{\link{search_loop}} must already have stored collected tweets in the search folder and that the tasks \code{\link{download_dependencies}}, 
-#' \code{\link{update_geonames}} and \code{\link{update_languages}} have successfully been run.
-#' Normally this function is not called directly by the user but from the \code{\link{detect_loop}} function.
-#' @examples 
-#' if(FALSE){
-#'    library(epitweetr)
-#'    # setting up the data folder
-#'    message('Please choose the epitweetr data directory')
-#'    setup_config(file.choose())
-#'
-#'    # geolocating last tweets
-#'    tasks <- geotag_tweets()
-#' }
-#' @rdname geotag_tweets
-#' @seealso
-#'  \code{\link{download_dependencies}}
-#'
-#'  \code{\link{update_geonames}}
-#'
-#'  \code{\link{update_languages}}
-#'
-#'  \code{\link{detect_loop}}
-#'  
-#'  \code{\link{aggregate_tweets}}
-#'
-#'  \code{\link{get_tasks}}
-#' @export 
-geotag_tweets <- function(tasks = get_tasks()) {
-  stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
-  # Creating parameters from configuration file as java objects
-  tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
-  geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
-  index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
-
-  tasks <- tryCatch({
-    tasks <- update_geotag_task(tasks, "running", "processing", start = TRUE)
-    # calling a spark job: extractLocations that will perform the geolocation
-    spark_job(
-      paste(
-	      "extractLocations"
-        , "sourcePath", paste("\"", tweet_path, "\"", sep="")
-        , "destPath", paste("\"", geolocated_path, "\"", sep = "") 
-        ,  conf_languages_as_arg()
-        ,  conf_geonames_as_arg()
-        , "langIndexPath", paste("\"", index_path, "\"", sep = "")
-        , "minScore" , conf$geolocation_threshold
-        , "parallelism", conf$spark_cores 
-      )
-    )
-    
-    # Setting status to succès
-    tasks <- update_geotag_task(tasks, "success", "", end = TRUE)
-    tasks
-  }, warning = function(error_condition) {
-    # Setting status to failed
-    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," ", error_condition))
-    tasks
-  }, error = function(error_condition) {
-    # Setting status to failed
-    tasks <- update_geotag_task(tasks, "failed", paste("failed while", tasks$geotag$message," ", error_condition))
-    tasks
-  })
-  return(tasks)
-}
-
-# Get the SQL like expression to extract tweet geolocation variables and applying prioritisation 
+# Get the SQL like expression to extract tweet geolocation variables and applying prioritisation
 # this function is used on aggregate tweets for translating variables names into SQL valid columns of geotag tweets
 get_tweet_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
@@ -89,22 +7,22 @@ get_tweet_location_var <- function(varname) {
       , ", linked_text_loc.geo_", varname
       , ")"
       , sep = ""
-    )  
-  else 
+    )
+  else
     paste("coalesce("
       , "text_loc.", varname
       , ", linked_text_loc.", varname
       , ")"
       , sep = ""
-    )  
+    )
 }
 
-# It gets used cols for tweet geolocation. This is used for limiting columns to extract from json files 
+# It gets used cols for tweet geolocation. This is used for limiting columns to extract from json files
 get_tweet_location_columns <- function(table) {
   if(table == "tweet")
     list(
     )
-  else 
+  else
     list(
       "text_loc"
       ,"linked_text_loc"
@@ -124,18 +42,19 @@ get_user_location_var <- function(varname) {
       , ", user_description_loc.geo_", varname
       , ")"
       , sep = ""
-    )  
-  else 
+    )
+  else
     paste("coalesce("
       , "place_full_name_loc.",varname
       , ", linked_place_full_name_loc.",varname
       , ", user_location_loc.", varname
       , ", user_description_loc.", varname
-      , ")" 
+      , ")"
       , sep = ""
-    )  
+    )
 }
-# Get used cols for user geolocation. This is used for limiting columns to extract from json files 
+
+# Get used cols for user geolocation. This is used for limiting columns to extract from json files
 get_user_location_columns <- function(table) {
   if(table == "tweet")
     list(
@@ -146,77 +65,25 @@ get_user_location_columns <- function(table) {
       , "linked_place_longitude"
       , "linked_place_latitude"
     )
-  else 
+  else
     list(
       "user_location_loc"
       , "user_description_loc"
       , "place_full_name_loc"
       , "linked_place_full_name_loc"
-      , "text_loc"
-      , "linked_text_loc"
       , "place_full_name_loc"
       , "linked_place_full_name_loc"
       )
 }
 
-# Gets a dataframe with geolocated tweets requested varables stored on json files of search api and json file from geolocated tweets produced by geotag_tweets
-# this funtion is the entry point from gettin tweet information produced by SPARK
-# it is generic enough to choose variables, aggregation and filters
-# deals with tweet deduplication at topic level
-# regexp: regexp to limit the geolocation and search files to read
-# vars: variable to read (evaluated after aggregation if required)
-# sort_by: order to apply to the returned dataframe
-# filter_by: expressions to use for filtering tweets
-# sources_exp: variables to limit the source files to read (setting this will improve reading performance)
-# handler: function that to perform a custom R based transformation on data returned by SPARK
-# perams: definition of custom param files to enable big queries
-get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), handler = NULL, params = NULL) {
- stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
- # Creating parameters from configuration file as java objects
- tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
- geolocated_path <- paste(conf$data_dir, "/tweets/geolocated", sep = "")
-  
- # Making java call for get inf geolocated tweets 
- # json results are piped as dataframe
- df <- spark_df(
-    paste(
-       "getTweets"
-       ,"tweetPath", paste("\"", tweet_path, "\"", sep="")
-       ,"geoPath", paste("\"", geolocated_path, "\"", sep = "") 
-       ,"pathFilter", shQuote(paste(regexp, collapse = ",")) 
-       ,"columns", paste("\"", paste(vars, collapse = "||") ,"\"",sep="") 
-       ,"groupBy", paste("\"", paste(group_by, collapse = "||") ,"\"",sep="") 
-       ,"sortBy", paste("\"", paste(sort_by, collapse = "||") ,"\"",sep="") 
-       ,"filterBy", paste("\"", paste(filter_by, collapse = "||") ,"\"",sep="") 
-       ,"sourceExpressions", paste(
-          "\""
-          , paste("tweet", paste(sources_exp$tweet, collapse = "||"), sep = "||")
-          , "|||"
-          , paste("geo", paste(sources_exp$geo, collapse = "||"), sep = "||") 
-          , "\""
-          , sep=""
-        ) 
-       ,conf_languages_as_arg()
-       ,"parallelism", conf$spark_cores 
-       ,if(!is.null(params)) paste("params", shQuote(params)) else ""
-     )
-    , handler
- )
- return(df)
-}
-
-
-#' @title Get a sample of latest tweet geolocations
-#' @description Get a sample of today's tweets for evaluation of geolocation threshold
+#' @title Get a sample of latest tweet geolocations (removed)
+#' @description This function was removed from on epitweer v1.0.1 please use search_tweets instead
 #' @param limit Size of the sample, default: 100
 #' @param text_col Name of the tweet field to geolocate it should be one of the following ("text", "linked_text", "user_description", "user_location", "place_full_name", "linked_place_full_name"),
 #' default: 'text'
 #' @param lang_col Name of the tweet variable containing the language to evaluate. It should be one of the following ("lang", "linked_lang", NA), default: "lang"
 #' @return Dataframe containing the sampled tweets and the geolocation metrics
-#' @details This function will take a sample of tweets collected on the current date for testing the geolocation algorithm and giving the user the possibility to evaluate the optimal score.
-#'
-#' In order for this function to work the search loop will have had to run on the current day and the tasks \code{\link{download_dependencies}}, 
-#' \code{\link{update_geonames}} and \code{\link{update_languages}} will have had to successfully been run.
+#' @details This function was removed from on epitweer v1.0.1 please use search_tweets instead.
 #' @examples 
 #' if(FALSE){
 #'    library(epitweetr)
@@ -235,36 +102,9 @@ get_geotagged_tweets <- function(regexp = list(".*"), vars = list("*"), group_by
 #'
 #'  \code{\link{update_languages}}
 #'
-#'  \code{\link{geotag_tweets}}
-#'  
 #' @export 
 get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col = "lang") {
- stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
-
- # Creating parameters from configuration file as java objects
- tweet_path <- paste(conf$data_dir, "/tweets/search", sep = "")
- index_path <- paste(conf$data_dir, "/geo/lang_vectors.index", sep = "") 
-
- # using spark df to use the entry point getSamplesTweets
- spark_df(
-   paste(
-     "getSampleTweets"
-     , "tweetPath", paste("\"", tweet_path, "\"", sep="")
-     , "pathFilter", paste("\"", strftime(Sys.time(), format = ".*%Y\\.%m\\.%d.*") ,"\"",sep="") 
-     ,  conf_languages_as_arg()
-     ,  conf_geonames_as_arg()
-     , "langIndexPath", paste("\"", index_path, "\"", sep = "")
-     , "limit" , limit
-     , "parallelism" , conf$spark_cores
-     , paste(
-         "textCol "
-         , text_col
-         , if(is.na(lang_col)) "" else " langCol "
-         , if(is.na(lang_col)) "" else lang_col
-         , sep = ""
-       )
-   )
- )
+ stop("This function was removed from on epitweer v1.0.1 please use search_tweets instead")
 }
 
 
@@ -570,7 +410,7 @@ update_geonames <- function(tasks) {
 #'    message('Please choose the epitweetr data directory')
 #'    setup_config(file.choose())
 #'
-#'    # geolocating last tweets
+#'    # updating language tasks
 #'    tasks <- update_languages()
 #' }
 #' @rdname update_languages
@@ -619,17 +459,11 @@ update_languages <- function(tasks) {
     }
     # Indexing languages after changes
     # using the spark job with entry point updateLanguages 
-    tasks <- update_languages_task(tasks, "running", "indexing")
-    spark_job(
-      paste(
-        "updateLanguages"
-        , conf_geonames_as_arg()
-        , conf_languages_as_arg()
-        , "langIndexPath", paste("\"", get_lang_index_path(), "\"", sep = "")
-        , "parallelism", conf$spark_cores 
-      )
-    )
-    
+    update_languages_task(tasks, "running", "updating training set & indexing")
+    update_geotraining_df()
+    retrain_languages()
+    update_geotraining_df()
+
     # Setting status to succès
     tasks <- update_languages_task(tasks, "success", "", end = TRUE)
     tasks
@@ -643,5 +477,353 @@ update_languages <- function(tasks) {
     tasks
   })
   return(tasks)
+}
+
+ 
+#' @title geolocate text in a dataframe given a text column and optionally a language column
+#' @description extracts geolocaion infromation on text on a column of he provided datafrarme and returns a new dataframe with geolocation informtion
+#' @param df A dataframe containing at least character column with text a column with the language name can be provided to improve geolocation quality
+#' @param text_col character, name of the column on the dataframe containing the text to geolocalize, default:text
+#' @param lang_col character, name of the column on the dataframe containing the language of textes, default: NULL
+#' @param min_score, numeric, the minimum score obtained on the lucene scoring function to accept matches on geonames. It has to be empirically set default: NULL
+#' @return A new dataframe containing the following geolocation columns: geo_code, geo_country_code, geo_country, geo_name, tags
+#' @details This functions perform a call to the epitweetr database which includes functionality for geolocating for languages activated and successfully processed on the shiny app.
+#' 
+#' The geolocation process tries to find the best match in geonames datanase \url{geonames.org} including all local aliases for words.
+#'
+#' If no language is associated to the text, all tokens will be sent as a query to the indexed geonames database.
+#'
+#' If a language code is associated to the text and this language is trained on epitweetr, entity recognition techniques will be used to identify the best candidate in text to contain a location
+#' and only these tokens will be sent to the geonames query.
+#'
+#' A custom scoring function is implemented to grant more weight to cities increasing with population to try to perform disambigüation.
+#'
+#' Rules for forcing the geolocation choices of the algorithms and for tunning performance with manual annotations can be performand on the geotag tab of the shiny app.
+#'
+#' A prerequisite to this function is that the tasks \code{\link{download_dependencies}} \code{\link{update_geonames}} and \code{\link{update_languages}} has been run successfully.
+#'
+#' This function is called from the shiny app on geolocation evaluation tab but can also be used for manually evaluate the epitweetr geolocation algorithm.
+#' @examples 
+#' if(FALSE){
+#'    library(epitweetr)
+#'    # setting up the data folder
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'
+#'    # creating a test dataframe
+#'    df <- data.frame(text = c("Viva Santiago es el mejor lugar del mundo"), lang = c("es"))
+#'    geo <- geolocate_text(df = df, text_col = "text", lang_col="lang") 
+#'    
+#' }
+#' @rdname geolocate_text
+#' @seealso
+#'  \code{\link{download_dependencies}}
+#'
+#'  \code{\link{update_geonames}}
+#'
+#'  \code{\link{detect_loop}}
+#' 
+#' @export 
+#' @importFrom utils download.file 
+geolocate_text <- function(df, text_col = "text", lang_col=NULL, min_score = NULL) {
+  `%>%` <- magrittr::`%>%`
+  if(is.null(lang_col)) df[[lang_col]] <- NA
+  to_geolocate = df %>% 
+    dplyr::transmute(id = as.character(dplyr::row_number()), text = .data[[text_col]], lang =.data[[lang_col]] ) %>%
+    jsonlite::toJSON()
+  geo_uri = paste(get_scala_geolocate_text_url(), "?jsonnl=true", sep = "")
+  if(!is.null(min_score)) {
+    geo_uri <- paste(geo_uri,"&minScore=", min_score, sep = "")
+  }
+  ret = stream_post(uri = geo_uri, body = to_geolocate) %>%
+    dplyr::arrange(as.integer(.data$id))
+  for(col in c("geo_code", "geo_country_code", "geo_country", "geo_name", "tags"))
+    if(!exists(col, where = ret))
+      ret[[col]] <- NA
+  dplyr::select(ret, -which(names(ret) %in% c("text", "id", "lang")))
+}
+
+# returns the current geotraining annotations as a dataframe
+get_geotraining_df <- function() {
+  `%>%` <- magrittr::`%>%`
+  data_types<-c("text","text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text")
+  current <- readxl::read_excel(get_geotraining_path(), col_types = data_types)
+  current$Text <- stringr::str_trim(current$Text)
+  current <- current %>% dplyr::distinct(.data$`Text`, .data$Lang, .data$`Location in text`, .keep_all = T)
+  current
+}
+
+# returns the current geotraininga annotation augmented of tweets_to_add tweets to annotate
+updated_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b) {}) {
+  `%>%` <- magrittr::`%>%`
+  progress(0.1, "getting current training file")
+  current <- get_geotraining_df()
+  locations <- current %>% dplyr::filter(.data$Type == "Location" & .data$`Location yes/no` %in% c("yes", "OK"))
+  add_locations <- if(nrow(locations) == 0) "&locationSamples=true" else "&locationSamples=false" 
+  non_locations <- current %>% dplyr::filter(.data$Type == "Location" & .data$`Location yes/no` %in% c("KO", "no"))
+  non_location_langs <- unique(non_locations$Lang)
+  excl_langs <- if(length(non_location_langs) > 0) paste("&excludedLangs=", paste(non_location_langs, collapse = "&excludedLangs="), sep = "") else "" 
+
+  progress(0.3, "obtaining locations from downloaded models and geonames")
+  geo_training_uri <- paste(get_scala_geotraining_url(), "?jsonnl=true", add_locations, excl_langs, sep = "")
+  geo_training_url <- url(geo_training_uri)
+  geo_training <- jsonlite::stream_in(geo_training_url) 
+  if(nrow(geo_training) > 0) {
+    geo_training <- geo_training %>%
+      dplyr::transmute(
+        Type = "Location", 
+        `Text` = .data$word, 
+        `Location in text` = NA, 
+        `Location yes/no` = ifelse(.data$isLocation, "yes", "no"), 
+        `Associate country code` = NA, 
+        `Associate with`=NA, 
+        `Source` = "Epitweetr model", 
+        `Tweet Id` = NA, 
+        `Lang` = .data$lang,
+        `Tweet part` = NA, 
+        `Epitweetr match` = NA,
+        `Epitweetr country match` = NA,
+        `Epitweetr country code match` = NA
+      )
+    geo_training$Text <- stringr::str_trim(geo_training$Text)
+    geo_training <- geo_training %>%  dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+  }
+  # Adding new tweets
+  untagged <- unique(length((current %>% dplyr::filter(.data$`Tweet part` == 'text' & .data$`Location yes/no` == '?'))$`Tweet Id`))
+  to_add <- if(tweets_to_add > untagged) tweets_to_add else 0
+
+
+  progress(0.6, "adding new tweets")
+  to_tag <- search_tweets(query = paste("lang:", lapply(conf$languages, function(l) l$code), collapse = " ", sep = ""), max = to_add)
+  if(nrow(to_tag) > 0) {
+    to_tag$text <- stringr::str_trim(to_tag$text)
+    to_tag$user_description <- stringr::str_trim(to_tag$user_description)
+    to_tag$user_location <- stringr::str_trim(to_tag$user_location)
+    texts <- to_tag %>%
+      dplyr::transmute(
+        Type = "Text", 
+        `Text`=.data$text,
+        `Location in text` = NA, 
+        `Location yes/no` = "?", 
+        `Associate country code` = NA, 
+        `Associate with`=NA, 
+        `Source` = "Tweet", 
+        `Tweet Id` = .data$tweet_id, 
+        `Lang` = .data$lang,
+        `Tweet part` = "text", 
+        `Epitweetr match` = NA,
+        `Epitweetr country match` = NA,
+        `Epitweetr country code match` = NA
+      ) %>%
+      dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+      dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+    
+    user_desc <- to_tag %>%
+      dplyr::filter(!is.na(.data$user_description)) %>%
+      dplyr::transmute(
+        Type = "Text", 
+        `Text`=.data$user_description,
+        `Location in text` = NA, 
+        `Location yes/no` = "?", 
+        `Associate country code` = NA, 
+        `Associate with`= NA, 
+        `Source` = "Tweet", 
+        `Tweet Id` = .data$tweet_id, 
+        `Lang` = .data$lang,
+        `Tweet part` = "user description", 
+        `Epitweetr match` = NA,
+        `Epitweetr country match` = NA,
+        `Epitweetr country code match` = NA,
+      ) %>%
+      dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+      dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = T)
+  
+    user_loc <- to_tag %>%
+      dplyr::filter(!is.na(.data$user_location)) %>%
+      dplyr::transmute(
+        Type = "Location",
+        `Text`=.data$user_location,
+        `Location in text` = NA, 
+        `Location yes/no` = "?", 
+        `Associate country code` = NA, 
+        `Associate with`=NA, 
+        `Source` = "Tweet", 
+        `Tweet Id` = .data$tweet_id, 
+        `Lang` = .data$lang,
+        `Tweet part` = "user location", 
+        `Epitweetr match` = NA,
+        `Epitweetr country match` = NA,
+        `Epitweetr country code match` = NA,
+      ) %>%
+      dplyr::filter(!.data$`Text` %in% current$`Text`) %>%
+      dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = TRUE)
+
+      ret <- jsonlite::rbind_pages(list(
+        current,
+        geo_training,
+        texts,
+        user_desc,
+        user_loc
+      ))
+    } else {
+      ret <- jsonlite::rbind_pages(list(
+        current,
+        geo_training
+      ))
+	}	  
+	
+	ret <- ret %>% dplyr::filter(!is.na(.data$Text) & !.data$Text == "") %>%
+    dplyr::distinct(.data$`Text`, .data$Lang, .keep_all = TRUE)
+
+  text_togeo <- ret %>% dplyr::transmute(
+    Text = ifelse(!is.na(.data$`Associate with`), .data$`Associate with`, .data$Text), 
+    Lang = ifelse(!is.na(.data$`Associate with`), "all", .data$Lang)
+  ) 
+  #getting current geolocation evaluation
+  progress(0.7, "geolocating all items")
+  tryCatch({
+      geoloc = geolocate_text(df = text_togeo, text_col="Text", lang_col = "Lang")
+      ret$`Epitweetr match` <- geoloc$geo_name
+      ret$`Epitweetr country match` <- geoloc$geo_country
+      ret$`Epitweetr country code match` <- geoloc$geo_country_code
+      ret$`Location in text` <- ifelse((is.na(ret$`Location yes/no`) | ret$`Location yes/no`=="?") & ret$Type == "Text", geoloc$tags, ret$`Location in text`)
+    }
+    ,error = function(e) {
+      message("Models are not trained, getting geotraining dataset without evaluation")
+      ret$`Epitweetr match` <- NA
+      ret$`Epitweetr country match` <- NA
+      ret$`Epitweetr country code match` <- NA
+    }
+  )
+  ret %>% arrange(dplyr::desc(.data$Type), .data$`Tweet part`)
+}
+
+# returns the current geotraininga annotation augmented of tweets_to_add tweets to annotate and write the results to the geotraining spreadsheet 
+update_geotraining_df <- function(tweets_to_add = 100, progress = function(a, b) {}) {
+  `%>%` <- magrittr::`%>%`
+  training_df <- updated_geotraining_df(tweets_to_add = 100, progress = progress)
+  update_topic_keywords()
+  update_forced_geo()
+  update_forced_geo_codes()
+  if(is.function(progress)) progress(0.9, "writing result file")
+  wb <- openxlsx::createWorkbook()
+  openxlsx::addWorksheet(wb, "geolocation")
+  # writing data to the worksheet
+  openxlsx::writeDataTable(wb, sheet = "geolocation", training_df, colNames = TRUE, startRow = 1, startCol = "A")
+  # setting some minimal formatting
+  openxlsx::setColWidths(wb, "geolocation", cols = c(2), widths = c(70))
+  openxlsx::setColWidths(wb, "geolocation", cols = c(3, 11, 12, 13), widths = c(25))
+  openxlsx::setColWidths(wb, "geolocation", cols = c(4, 5, 6, 10), widths = c(17))
+  openxlsx::setRowHeights(wb, "geolocation", rows = 1, heights = 20)
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ff860d", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
+    rows = 1, 
+    cols = 1, 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#ffde59", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
+    rows = 1, 
+    cols = 2:6, 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#f7d1d5", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
+    rows = 1, 
+    cols = 7:10, 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, halign = "center", fgFill = "#dedce6", border = c("top", "bottom", "left", "right"), textDecoration="bold", wrapText = T, fontColour = "#222222"), 
+    rows = 1, 
+    cols = 11:13, 
+    gridExpand = FALSE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, border = c("top", "bottom", "left", "right")), 
+    rows = 1:nrow(training_df)+1, 
+    cols = 1:13, 
+    gridExpand = TRUE
+  )
+  openxlsx::addStyle(
+    wb, 
+    sheet = "geolocation", 
+    style = openxlsx:: createStyle(fontSize = 10, border = c("top", "bottom", "left", "right"), wrapText=T), 
+    rows = 2:nrow(training_df)+1, 
+    cols = 2, 
+    gridExpand = TRUE
+  )
+  openxlsx::freezePane(wb, "geolocation",firstActiveRow = 2)
+  openxlsx::saveWorkbook(wb, get_user_geotraining_path() ,overwrite = T) 
+}
+
+# retrain the language classifiers for entity recognition with the current set of annotations
+retrain_languages <- function() {
+  `%>%` <- magrittr::`%>%`
+  body <- get_geotraining_df() %>% jsonlite::toJSON()
+  post_result <- httr::POST(url=get_scala_geotraining_url(), httr::content_type_json(), body=body, encode = "raw", encoding = "UTF-8")
+  if(httr::status_code(post_result) != 200) {
+    stop(paste("retrain web service failed with the following output: ", substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100), sep  = "\n"))
+  } else {
+    fileConn<-file(get_geotraining_evaluation_path(), encoding = "UTF-8")
+    writeLines(httr::content(post_result, "text", encoding = "UTF-8"), fileConn)
+    close(fileConn)
+  }
+}
+
+# update the topic keywords json file when several location entities are found, the one closest to a topic is chosen 
+update_topic_keywords <- function() {
+  `%>%` <- magrittr::`%>%`
+   keywords <- lapply(strsplit(gsub("\\-\\w*\\b|\"", "", unlist(lapply(conf$topics, function(t) t$query))), "OR|AND|NOT|\\(|\\)"), function(t) {x <- gsub("^ *| *$", "", t); x[x != ""]} )
+   topicKeywords <- setNames(keywords, sapply(conf$topics, function(t) t$topic))
+   ret <- list()
+   for(i in 1:length(conf$topics)) 
+     if(exists(conf$topics[[i]]$topic, where = ret)) ret[[conf$topics[[i]]$topic]] <- unique(c(ret[[conf$topics[[i]]$topic]], topicKeywords[[i]])) 
+     else ret[[conf$topics[[i]]$topic]] <- unique(topicKeywords[[i]])
+   write_json_atomic(ret, get_topic_keywords_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+}
+
+# update the forced geo json file lisitng words that will be associated to particular location names ignoring tge geolocaion algorithm
+update_forced_geo <- function() {
+  `%>%` <- magrittr::`%>%`
+  df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(.data$`Location in text`), .data$`Text`, .data$`Location in text`), to = .data$`Associate with`) %>% dplyr::filter(!is.na(.data$to))
+  ret <- list()
+  if(nrow(df) > 0) {
+    for(i in 1:nrow(df)) {
+      toReplace <- sapply(strsplit(df$from[[i]], ",")[[1]], function(t) {x <- gsub("^ *| *$", "", t); x[x != ""]})
+      for(j in 1:length(toReplace)) ret[[toReplace[[j]]]] <- df$to[[i]]
+    }
+    write_json_atomic(ret, get_forced_geo_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+  } else {
+    if(file.exists(get_forced_geo_path()))
+      file.remove(get_forced_geo_path())
+  }
+}
+
+# update the forced geo codes json file lisitng words that will be associated to particular location codes ignoring tge geolocaion algorithm
+update_forced_geo_codes <- function() {
+  `%>%` <- magrittr::`%>%`
+  df <- get_geotraining_df() %>% dplyr::transmute(from = ifelse(is.na(.data$`Location in text`), .data$`Text`, .data$`Location in text`), to = .data$`Associate country code`) %>% dplyr::filter(!is.na(.data$to))
+  ret <- list()
+  if(nrow(df) > 0) {
+    for(i in 1:nrow(df)) {
+      toReplace <- sapply(strsplit(df$from[[i]], ",")[[1]], function(t) {x <- gsub("^ *| *$", "", t); x[x != ""]})
+      for(j in 1:length(toReplace)) ret[[toReplace[[j]]]] <- df$to[[i]]
+    }
+    write_json_atomic(ret, get_forced_geo_codes_path(), pretty = TRUE, force = TRUE, auto_unbox = TRUE)
+  } else {
+    if(file.exists(get_forced_geo_codes_path()))
+      file.remove(get_forced_geo_codes_path())
+  }
 }
 

@@ -1,3 +1,13 @@
+
+# Get path of search files (written by search loop)
+get_search_path <- function() file.path(conf$data_dir, "tweets", "search")
+
+# Get âth of geolocated files (written by detect loop)
+get_geo_path <- function() file.path(conf$data_dir, "tweets", "geolocated")
+
+# Get path of search files (written by search loop)
+get_search_archive_path <- function() file.path(conf$data_dir, "tweets", "search_archive")
+
 # Get path of properties files (written by shiny app)
 get_properties_path <- function() file.path(conf$data_dir, "properties.json")
 
@@ -7,6 +17,43 @@ get_plans_path <- function() file.path(conf$data_dir, "topics.json")
 # Get task path (written by detect pipeline)
 get_tasks_path <- function() file.path(conf$data_dir, "tasks.json")
 
+
+# Get available alert training file path 
+get_alert_training_path <- function() {
+  path <- get_user_alert_training_path()
+  if(!file.exists(path))
+    path <- get_default_alert_training_path()
+  path
+}
+
+# Get default languages file path
+get_default_alert_training_path <- function() system.file("extdata", "alert-training.xlsx", package = get_package_name())
+
+# Get user alert training file
+get_user_alert_training_path <- function() {
+  paste(conf$data_dir, "alert-training.xlsx", sep = "/")
+}
+
+# Get available geotraining file path
+get_geotraining_path <- function() {
+  path <- get_user_geotraining_path()
+  if(!file.exists(path))
+    path <- get_default_geotraining_path()
+  path
+}
+
+# Get default languages file path
+get_default_geotraining_path <- function() system.file("extdata", "geo-training.xlsx", package = get_package_name())
+
+# Get user geo training file
+get_user_geotraining_path <- function() {
+  paste(conf$data_dir, "geo-training.xlsx", sep = "/")
+}
+
+# Get geo training evaluation file
+get_geotraining_evaluation_path <- function() {
+  paste(conf$data_dir, "geo-training-evaluation.json", sep = "/")
+}
 # Get default languages file path
 get_default_available_languages_path <- function() system.file("extdata", "languages.xlsx", package = get_package_name())
 
@@ -99,6 +146,18 @@ get_geonames_index_path <- function() {
   file.path(conf$data_dir, "geo", "all-geos.parquet.index") 
 }
 
+get_topic_keywords_path <- function() {
+  file.path(conf$data_dir, "geo", "topic-keywords.json") 
+}
+
+get_forced_geo_path <- function() {
+  file.path(conf$data_dir, "geo", "forced-geo.json") 
+}
+
+get_forced_geo_codes_path <- function() {
+  file.path(conf$data_dir, "geo", "forced-geo-codes.json") 
+}
+
 # Get languages index path 
 get_lang_index_path <- function() {
   file.path(conf$data_dir, "geo", "lang_vectors.index") 
@@ -108,11 +167,18 @@ get_lang_index_path <- function() {
 get_lang_vectors_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz", sep = "")) 
 }
+
 # Get language model path
 get_lang_model_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz.model", sep = "")) 
 }
+
 # Get language model stamp
 get_lang_stamp_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz.stamp", sep = "")) 
+}
+
+# get tweet collection path
+get_tweet_togeo_path <- function() {
+  file.path(conf$data_dir, "geo", "togeolocate.json")
 }

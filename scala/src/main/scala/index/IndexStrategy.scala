@@ -1,5 +1,6 @@
 package demy.mllib.index;
 
+import scala.collection.parallel.ForkJoinTaskSupport
 import org.apache.lucene.search.{IndexSearcher, TermQuery, BooleanQuery, FuzzyQuery, BoostQuery}
 import org.apache.lucene.search.BooleanClause.Occur
 import org.apache.lucene.index.{DirectoryReader, Term}
@@ -21,6 +22,36 @@ object Ngram {
   def apply(terms:Array[String]):Ngram = Ngram(terms=terms, startIndex=0,endIndex=terms.size, termWeights= terms.map(_ => 1.0))
   def apply(terms:Array[String], termWeights:Seq[Double]):Ngram = Ngram(terms=terms, startIndex=0,endIndex=terms.size, termWeights= terms.map(_ => 1.0))
   //def print() {println("Terms: "+terms.mkString(",")+" startIndex: "+startIndex+" endIndex: "+endIndex+"\nWeights:"+termWeights.mkString(","))}
+}
+
+case class EncodedQuery(original:String, replacement:String, field:Option[String]) {
+  val begin = EncodedQuery.begin
+  val end = EncodedQuery.end
+  val sep = EncodedQuery.sep
+  def encode = {
+    val encoded = EncodedQuery.encoder.encode(s"${original}${sep}${replacement}${field.map{v => s"${sep}${v}"}.getOrElse("")}")
+    s"${begin}${encoded}${end}"
+  }
+}
+object EncodedQuery {
+  val begin = "xqqqo"
+  val end = "oqqqx"
+  val sep = "@~@"
+  lazy val encoder = Encoding("azertyuiopqsdfghjklmwxcvbn")
+  def decodeQuery(value:String) = {
+     if(value.startsWith(begin) && value.endsWith(end)) {
+       Some(encoder.decode(value.slice(begin.size, value.size - end.size)))
+         .map(decoded => decoded.split(sep))
+         .map{
+           case Array(original, replacement) => Some(EncodedQuery(original= original, replacement = replacement, field = None))
+           case Array(original, replacement, field) => Some(EncodedQuery(original = original, replacement= replacement, field = Some(field)))
+           case _ => throw new Exception(s"Cannot decode $value as query") 
+         }
+         .get
+     }
+     else 
+       None
+  }
 }
 
 case class SearchMatch(docId:Int, score:Float, ngram:Ngram)
@@ -48,6 +79,7 @@ trait IndexStrategy {
     , caseInsensitive:Boolean = true
     , tokenize:Boolean = true
     ) = {
+    //println(s"Standard ${terms.mkString(" ")}")
       evaluate(
         terms = terms
         , likelihood = termWeights.getOrElse(Array.fill(terms.size)(1.0)) 
@@ -91,7 +123,7 @@ trait IndexStrategy {
       }
     }
 
-    qb.add(b.build, Occur.MUST)
+    if(to > from ) qb.add(b.build, Occur.MUST)
     
     if(filter.schema != null) {
        filter.schema.fields.zipWithIndex.foreach(p => p match { case (field, i) =>
@@ -111,16 +143,9 @@ trait IndexStrategy {
       else qb.build
 
 
-    //val startTime = System.nanoTime
     val docs = this.searcher.search(q, maxHits);
-    //val endTime = System.nanoTime
-    //if( ngram.termWeights!= null && ngram.termWeights.size>0)
-    //    println(s"SEARCH ${(endTime - startTime)/1e6d} msecs for ${ngram.terms.size} terms ispeed: ${((endTime - startTime)/1e6d)/(ngram.terms.size)} ${ngram.terms.mkString(",")}")
-    
     val hits = docs.scoreDocs;
-    //hits
 
-    //println(s"HITS ARE: ($from, $to)${terms.slice(from, to).toSeq}")
     hits.map(hit => SearchMatch(docId=hit.doc, score=hit.score, Ngram(terms=terms.slice(from, to), startIndex = from, endIndex = to)))
 
   }
@@ -131,17 +156,19 @@ trait IndexStrategy {
 
   def search(tokens:Array[String], maxHits:Int, filter:Row = Row.empty, outFields:Seq[StructField]=Seq[StructField](),
              maxLevDistance:Int=2 , minScore:Double=0.0, boostAcronyms:Boolean=false, showTags:Boolean=false, usePopularity:Boolean, termWeights:Option[Seq[Double]]=None,
-             caseInsensitive:Boolean = true):Array[GenericRowWithSchema] = {
-
+             caseInsensitive:Boolean = true, defaultValue:Option[Row]=None,
+             replaceQuery:Option[Array[String]]
+             ):Array[GenericRowWithSchema] = {
     val outSchema = StructType(outFields.toList :+ StructField("_score_", FloatType)
                                                 :+ StructField("_tags_", ArrayType(StringType))
                                                 :+ StructField("_startIndex_", IntegerType)
                                                 :+ StructField("_endIndex_", IntegerType))
                                               //  :+ StructField("_pos_", ArrayType(IntegerType, IntegerType)) ) // add fields
     //if(tokens != null) println(s"$termWeights, ${tokens.mkString(",")}")
-    if (tokens != null && tokens.size >0 ) {
+    val searchTokens = replaceQuery.getOrElse(tokens)
+    var ret = if (searchTokens != null && (searchTokens.size >0 || filter.size > 0)) {
       searchDoc(
-        terms = tokens, maxHits=maxHits, filter=filter, maxLevDistance=maxLevDistance
+        terms = searchTokens, maxHits=maxHits, filter=filter, maxLevDistance=maxLevDistance
           ,minScore=minScore, boostAcronyms = boostAcronyms, usePopularity = usePopularity, termWeights=termWeights
           ,caseInsensitive = caseInsensitive
         )
@@ -177,6 +204,11 @@ trait IndexStrategy {
         })
     } 
       else Array[GenericRowWithSchema]()
+    if(ret.size == 0 && !defaultValue.isEmpty) {
+      ret = Array(new GenericRowWithSchema(values = defaultValue.get.toSeq.toArray ++ Array(0.0f, null, null, null), schema = outSchema))
+    }
+
+    ret
   }
 
 
