@@ -37,6 +37,8 @@ search_loop <-  function(data_dir = NA) {
   
   # Infinite loop for getting tweets if it is successfully registered as the search runner
   req2Commit <- 0
+  last_check <- Sys.time()
+  last_save <- Sys.time()
   while(TRUE) {
     loop_start <- Sys.time()
     # Waiting until database system will be running
@@ -69,6 +71,7 @@ search_loop <-  function(data_dir = NA) {
     if(wait_for > 0) {
       msg(paste(Sys.time(), ": All done! going to sleep for until", Sys.time() + wait_for, "during", wait_for, "seconds. Consider reducing the schedule_span for getting tweets sooner"))
       commit_tweets()
+      save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
       Sys.sleep(wait_for)
     }
     #getting only the next plan to execute for each topic (it could be a previous unfinished plan)
@@ -79,12 +82,14 @@ search_loop <-  function(data_dir = NA) {
     
     #updating series to aggregate
     register_series() 
-    msg(paste("iterating in topics", length(conf$topics), min_requests))
+    #msg(paste("iterating in topics", length(conf$topics), min_requests))
     #performing search only for plans with a minimum number of requests (round robin)
+    requests_done <- 0
     for(i in 1:length(conf$topics)) { 
       for(j in 1:length(conf$topics[[i]]$plan)) {
         plan <- conf$topics[[i]]$plan[[j]]
         if(plan$requests <= min_requests && (is.null(plan$end_on) || plan$requests == 0)) {
+            requests_done <- requests_done + 1
             #if search is performed on the first plan and we get an too old error, we will retry without time limit
             tryCatch({
                 conf$topics[[i]]$plan[[j]] = search_topic(plan = plan, query = conf$topics[[i]]$query, topic = conf$topics[[i]]$topic) 
@@ -110,19 +115,26 @@ search_loop <-  function(data_dir = NA) {
         }
       }
     }
-    msg("iteration end")
+    #msg("iteration end")
     #checking at most once per 10 minutes
-    if(difftime(Sys.time(),loop_start,units="mins") > 10) {
-      # epitweetr sanity check and sendig emain in case of issued
-      msg("health checked")
+    if(difftime(Sys.time(),last_check,units="mins") > 10) {
+      # epitweetr sanity check and sendig email in case of issued
+      #msg("health checked")
+      last_check <- Sys.time()
       health_check()
     }
 
 
     #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config) at most once per 10 secinds
-    if(difftime(Sys.time(),loop_start,units="secs") > 10) {
+    if(difftime(Sys.time(),last_save,units="secs") > 10) {
+      last_save <- Sys.time()
       setup_config(data_dir = conf$data_dir, save_first = list("topics"))
-      msg("config saved and refreshed")
+      #msg("config saved and refreshed")
+    }
+
+    if(requests_done == 0) {
+      message("No requests performed on loop.... something may be wrong, sleeping 1 second")
+      Sys.sleep(1)
     }
   }
 }

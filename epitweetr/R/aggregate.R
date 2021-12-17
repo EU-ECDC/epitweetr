@@ -137,8 +137,9 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
           dir.create(file.path(conf$data_dir, "tmp"))
         dest = file.path(conf$data_dir, "tmp", paste0("aggregate_", as.integer(stats::runif(1, 1, 99999)), ".json"))
         download.file(url = q_url, destfile = dest)
-        #on.exit(if(file.exists(dest)) file.remove(dest))
-        jsonlite::stream_in(file(dest), verbose = TRUE)
+        on.exit(if(file.exists(dest)) file.remove(dest))
+        df <- jsonlite::stream_in(file(dest), verbose = TRUE)
+        df
       }
     )
     # Calculating the created week
