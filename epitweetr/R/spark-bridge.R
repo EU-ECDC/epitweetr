@@ -1,7 +1,7 @@
 
 
 
-# get the java path using JAVA_HOME if set
+# get the Java path using JAVA_HOME if set
 java_path <-  function() {
   if(Sys.getenv("JAVA_HOME")=="") 
     "java"
@@ -21,7 +21,7 @@ set_blas_env <- function() {
   }
 }
 
-# Getting java options for using MKL BLAS if setup
+# Getting Java options for using MKL BLAS if setup
 get_blas_java_opt <- function() {
   if(.Platform$OS.type == "windows") {
     if(conf$use_mkl && file.exists("C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/redist/intel64_win/mkl")) {
@@ -67,18 +67,18 @@ spark_job <- function(args) {
       "" 
     }
     ,paste(
-      java_path() #java executable
+      java_path() #Java executable
       , paste(
           "-cp \"", 
           get_app_jar_path(), #epitweetr embededd jar path with
           if(.Platform$OS.type != "windows") ":" else ";",
-          get_jars_dest_path(),  #java class path with all dependencies
+          get_jars_dest_path(),  #Java class path with all dependencies
           "/*\"", 
           sep=""
         )
       , paste("-Xmx", conf$spark_memory, sep = "") #memory limits
-      , paste(get_blas_java_opt()) #java blas specific options
-      , "org.ecdc.twitter.Tweets" #java scala main class
+      , paste(get_blas_java_opt()) #Java blas specific options
+      , "org.ecdc.twitter.Tweets" #Java scala main class
       , args #arguments to the call
     )
     ,sep = if(.Platform$OS.type == "windows") '\r\n' else '\n'
@@ -107,21 +107,21 @@ spark_df <- function(args, handler = NULL) {
    ,paste(
       paste(
         if(.Platform$OS.type == "windows") "call " else "", 
-        java_path(), # java executable
+        java_path(), # Java executable
         sep = ""
        ), 
       paste(
         "-cp \"", 
         get_app_jar_path(),  #epitweetr embededd jar path with
         if(.Platform$OS.type != "windows") ":" else ";",
-        get_jars_dest_path(), #java class path with all dependencies
+        get_jars_dest_path(), #Java class path with all dependencies
         "/*\"", 
         sep=""
       ),
-      "-Dfile.encoding=UTF8", #Setting java encoding to UTF-8
-      paste("-Xmx", half_mem, sep = ""), #Setting java memory
+      "-Dfile.encoding=UTF8", #Setting Java encoding to UTF-8
+      paste("-Xmx", half_mem, sep = ""), #Setting Java memory
       paste(get_blas_java_opt()),
-      "org.ecdc.twitter.Tweets", #epitwitter scala main class
+      "org.ecdc.twitter.Tweets", #epitweetr scala main class
       args
     )
     ,sep = '\n'

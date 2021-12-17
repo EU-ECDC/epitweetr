@@ -1,4 +1,4 @@
-# Twitter base endpoint for direct api calls
+# Twitter base endpoint for direct API calls
 t_endpoint <- list(
   `1.1` = "https://api.twitter.com/1.1/",
   `2`  = "https://api.twitter.com/2/"
@@ -47,9 +47,9 @@ get_token <- function(request_new = TRUE) {
 }
 last_get <- new.env()
 # Execute a get request on twitter API using the provided URL
-# It wil internally deal with token generation and rate limits
-# If request fails with an error or warning it will retry with a cuadratic waiting time
-# Twitter response codes are interpreted as per twitter documention to slow down and wait as requested and to respect rate limits
+# It will internally deal with token generation and rate limits
+# If request fails with an error or warning it will retry with a quadratic waiting time
+# Twitter response codes are interpreted as per twitter documentation to slow down and wait as requested and to respect rate limits
 # url: URL to try
 # i: Number of tries done already
 # This files to file.path(conf$data_dir, "lasterror.log") the last encountered error produced if any
@@ -95,7 +95,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
   if(res$status_code == 200) {
     # Status code is 200 (OK) 
     if(exists("x-rate-limit-remaining", where = res$headers) && as.integer(res$headers[["x-rate-limit-remaining"]]) == 0 ) {
-      # Rate limit has been reacched
+      # Rate limit has been reached
       conf$token = NULL
       if(length(tryed) < length(url)) {
         # there is still another endpoint to test
@@ -104,7 +104,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
         return(twitter_get(urls, i = i + 1, retries = retries, tryed = tryed))
 
       } else if(exists("x-rate-limit-reset", where = res$headers)) {
-        # Sleeping the requsted number of secons 
+        # Sleeping the requested number of seconds 
         towait <- as.integer(floor(as.numeric(difftime(as.POSIXct(as.integer(res$headers[["x-rate-limit-reset"]]),  origin="1970-01-01"),Sys.time(), units = "secs"))))  
         message(paste("The Twitter application endpoint is ",last_get$api_ver ," about to reach its rate limit, waiting", towait,"seconds  until", Sys.time() + towait, " as requested by Twitter"))
         if(towait < 1) {
@@ -126,7 +126,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
   }
   else if(res$status_code == 420 && i <= retries) {
     # Adding 60 seconds wait if application is being requested to slow down, and retries is less than limit
-    message("The Twitter application is being slown down (rate limited) by Twitter, waiting 1 minute before continuing")
+    message("The Twitter application is slowing down (rate limited) by Twitter, waiting 1 minute before continuing")
     save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
     Sys.sleep(60)
     conf$token = NULL
@@ -160,7 +160,7 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
       Sys.sleep(towait + 10)  
     }
     conf$token = NULL
-    #Liogging the obtained error
+    # Logging the obtained error
     writeLines(httr::content(res,as="text"), paste(conf$data_dir, "lasterror.log", sep = "/"))
     return(twitter_get(urls, i = i + 1, retries = retries, tryed = tryed))
   } else if(res$status_code >= 401 && res$status_code <= 403 && i >= retries) {
@@ -175,12 +175,12 @@ twitter_get <- function(urls, i = 0, retries = 20, tryed = list()) {
       else 
         names(mess$errors$parameters) == "since_id"
     }) {
-    #Special error on API 2 when query is too old
-    message("Error interpreted as too old query on V2 API. Assuming empty result set")
+    # Special error in API 2 when query is too old
+    message("Error interpreted as too old query on Twitter API v2. Assuming empty result set")
     message(mess)
     stop("too-old")
   } else if(i <= retries) {
-      # Other non expected cases, retrying with a quadratic waiting rule at most (retries - i) more times
+      # Other non-expected cases, retrying with a quadratic waiting rule at most (retries - i) more times
       message(paste("Error status code ",res$status_code,"returned by Twitter API waiting for", i*i, "seconds before retry with a new token"))  
       message(httr::content(res,as="text"))
       save_config(data_dir = conf$data_dir, topics = TRUE, properties = FALSE)
