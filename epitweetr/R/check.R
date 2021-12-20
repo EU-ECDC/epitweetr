@@ -466,7 +466,6 @@ check_all <- function() {
     winmsvc = check_winmsvcr100, 
     detect_activation = check_manual_task_request,
     detection_running = check_detect_running,
-    database_running = check_fs_running,
     winutils = check_winutils, 
     java_deps = check_java_deps, 
     move_from_temp = check_move_from_temp, 
