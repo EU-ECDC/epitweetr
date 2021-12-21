@@ -1,6 +1,6 @@
 #' @title Execute the alert task  
 #' @description Evaluate alerts for the last collected day for all topics and regions and send email alerts to subscribers
-#' @param tasks current tasks for reporting purposes, default: get_tasks()
+#' @param tasks Current tasks for reporting purposes, default: get_tasks()
 #' @return The list of tasks updated with produced messages
 #' @details This function calculates alerts for the last aggregated day and then send emails to subscribers.
 #'
@@ -61,7 +61,7 @@ generate_alerts <- function(tasks = get_tasks()) {
 
 
 #' @title algorithm for outbreak detection, extends the EARS algorithm
-#' @author Michael Höhle <https://www.math.su.se/~hoehle>
+#' @author Michael Hoehle <https://www.math.su.se/~hoehle>
 #' @description The simple 7 day running mean version of the Early Aberration Reporting System (EARS) 
 #' algorithm is extended as follows:
 #' \itemize{
@@ -161,14 +161,14 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
       # Externally Studentized residuals, see Chaterjee and Hadi (1988), p. 74
       rstar <- e / (sigmai * sqrt(1 - pii))
       
-      # Define treshold for outliers
+      # Define threshold for outliers
       reweight_threshold <- qt(1-alpha_outlier, df=n - k - 1)
       
       # Weights 1: Drop outliers
       #w_drop <- ifelse( rstar > reweight_threshold, 0, 1)
       #res_drop <- compute_threshold(w_drop)
       
-      # Weights 2: Farrington procedure, downweight
+      # Weights 2: Farrington procedure, down weight
       w_dw <- ifelse( rstar > reweight_threshold, (reweight_threshold/rstar)^k_decay, 1)
       res_dw <- compute_threshold(w_dw)
       
@@ -179,7 +179,7 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
 
 
 # Getting alert daily counts taking in consideration a 24-hour sliding window since last full hour
-# the provided dataset is expected to be an hourly counts by date with the following columns: tweets, known_users, created_date, created_hour
+# the provided dataset is expected to be an hourly count by date with the following columns: tweets, known_users, created_date, created_hour
 get_reporting_date_counts <- function(
     df
     , topic
@@ -251,7 +251,7 @@ calculate_region_alerts <- function(
     period = list(read_from_date, end)
   )) %>% dplyr::filter(.data$topic == f_topic)
 
-  # Adding retwets on count if requested
+  # Adding retweets on count if requested
   df <- if(with_retweets){
     df %>% dplyr::mutate(
       tweets = ifelse(is.na(.data$retweets), 0, .data$retweets) + ifelse(is.na(.data$tweets), 0, .data$tweets),
@@ -281,7 +281,7 @@ calculate_region_alerts <- function(
     else if(length(country_code_cols) == 2) dplyr::filter(df, .data$topic == f_topic & (!!as.symbol(country_code_cols[[1]])) %in% country_codes | (!!as.symbol(country_code_cols[[2]])) %in% country_codes)
     else stop("get geo count does not support more than two country code columns") 
   )
-  # Getting univariate time series aggregatin by day
+  # Getting univariate time series aggregating by day
   counts <- get_reporting_date_counts(df, topic, read_from_date, end, end)
   if(nrow(counts)>0) {
     # filling missing values with zeros if any
@@ -309,7 +309,7 @@ calculate_region_alerts <- function(
   }
 }
 
-# Calculating alerts for a set of regions and an specific period
+# Calculating alerts for a set of regions and a specific period
 calculate_regions_alerts <- function(
     topic
     , regions = c(1)
@@ -330,7 +330,7 @@ calculate_regions_alerts <- function(
   #Importing pipe operator
   `%>%` <- magrittr::`%>%` 
 
-  # Getting regions details
+  # Getting region details
   all_regions <- get_country_items()
   # Setting world as region if no region is selected
   if(length(regions)==0) regions = c(1)
@@ -366,7 +366,7 @@ calculate_regions_alerts <- function(
     alerts
   })
 
-  # Joinig alerts generated for each region
+  # Joining alerts generated for each region
   df <- Reduce(x = series, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
   if(date_type =="created_weeknum"){
     df <- df %>% 
@@ -464,7 +464,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
       dplyr::filter(!is.na(.data$alert) & .data$alert == 1)
     })
     
-    # Joining all day alerts on a single dataframe
+    # Joining all day alerts on a single data frame
     alerts <- Reduce(x = alerts, f = function(df1, df2) {dplyr::bind_rows(df1, df2)})
     # If alert prediction model has been trained, alerts can be predicted
     if(nrow(alerts)>0) {
@@ -540,7 +540,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
         message(m)  
         tasks <- update_alerts_task(tasks, "running", m)
         alerts <- classify_alerts(alerts, retrain = FALSE)
-        # Removind top tweets
+        # Removing top tweets
         alerts$toptweets <- NULL
         alerts$id <- NULL
       } 
@@ -556,17 +556,17 @@ do_next_alerts <- function(tasks = get_tasks()) {
 
  
 #' @title Getting signals produced by the task \code{\link{generate_alerts}} of \code{\link{detect_loop}}
-#' @description Returns a dataframe of signals produced by the \code{\link{detect_loop}}, which are stored on the signal folder.
+#' @description Returns a data frame of signals produced by the \code{\link{detect_loop}}, which are stored on the signal folder.
 #' @param topic Character vector. When it is not empty it will limit the returned signals to the provided topics, default: character()
 #' @param countries Character vector containing the names of countries or regions or a numeric vector containing the indexes of countries 
-#' as displayed at the shiny App to filter the signals to return., default: numeric()
+#' as displayed at the Shiny App to filter the signals to return., default: numeric()
 #' @param from Date defining the beginning of the period of signals to return, default: '1900-01-01'
 #' @param until Date defining the end of the period of signals to return, default: '2100-01-01'
-#' @param toptweets Integer number of top tweets to be added to the alert. These are obtained from the tweet index based on topwords and lucene score, default: 0
-#' @param limit maximum number of alerts returned, default: 0
-#' @param duplicates Character, action to decide what to do with alerts generated on the same day. Options are "all" (keep all alerts), "first" get only first alert and "last" for gettin only the las alert 
-#' @param progress Function, function to report progress it should receive two parameter a progress betwen 0 and 1 and a message, default: empty function 
-#' @return a dataframe containing the calculated alerts for the period. If no alerts are found then NULL is returned 
+#' @param toptweets Integer number of top tweets to be added to the alert. These are obtained from the tweet index based on topwords and Lucene score, default: 0
+#' @param limit Maximum number of alerts returned, default: 0
+#' @param duplicates Character, action to decide what to do with alerts generated on the same day. Options are "all" (keep all alerts), "first" get only first alert and "last" for getting only the last alert 
+#' @param progress Function, function to report progress it should receive two parameter a progress between 0 and 1 and a message, default: empty function 
+#' @return a data frame containing the calculated alerts for the period. If no alerts are found then NULL is returned 
 #' @details For more details see the package vignette.
 #' @examples
 #' if(FALSE){
@@ -595,7 +595,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
 #' @importFrom utils head
 get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01", until="2100-01-01", toptweets = 0, limit = 0, duplicates = "all", progress = function(a, b) {}) {
   `%>%` <- magrittr::`%>%`
-  # preparing filers and renaming variables with names as column on dataframe to avoid conflicts
+  # preparing files and renaming variables with names as column on data frame to avoid conflicts
   regions <- get_country_items()
   t <- topic
   cnames <- ( 
@@ -692,8 +692,8 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
   }
 }
 
-# Add top tweets from the tweet index to the alert dataframe
-# A query is done to the index for each topic alert to consider topwords detected
+# Add top tweets from the tweet index to the alert data frame
+# A query is done to the index for each topic alert to consider top words detected
 add_toptweets <- function(df, toptweets, progress = function(a, b) {}) {
   codes <- get_country_codes_by_name()
   topwords <- sapply(strsplit(df$topwords, "\\W+|[0-9]\\W"), function(v) v[nchar(v)>0])
@@ -835,7 +835,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             user_alerts
         )
 
-        # Getting last metrics per alerts by region and topic
+        # Getting last metrics per alert by region and topic
         last_metrics <- list()
         if(nrow(user_alerts)>0) {
           user_alerts$key = paste(user_alerts$topic, user_alerts$country, sep = "-")
@@ -847,7 +847,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
               last_metrics[[paste(key, "baseline", sep = "-")]] <- user_alerts$baseline[[i]]
               last_metrics[[paste(key, "known_users", sep = "-")]] <- user_alerts$known_users[[i]]
             }
-            # Getting the last 1 tweet alert per region and topic so the next can be reportes as first in day
+            # Getting the last 1 tweet alert per region and topic so the next can be reported as first in day
             if(!exists(paste(key, "last_one_tweet_rank", sep = "-"), last_metrics)) 
               last_metrics[[paste(key, "last_one_tweet_rank", sep = "-")]] <- -1
             if(user_alerts$number_of_tweets[[i]] == 1
@@ -861,7 +861,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
           # One exception is done for alerts that have been increased from 1 tweet
           user_alerts <- user_alerts %>% dplyr::filter(.data$rank == 1 | .data$rank == (unlist(last_metrics[paste(.data$key, "last_one_tweet_rank",sep = "-")]) + 1))
           
-          # removing potential duplicates added by the increased from 1 tweet exception
+          # Removing potential duplicates added by the increased from 1 tweet exception
           user_alerts <- user_alerts %>% 
             dplyr::arrange(.data$topic, .data$country, dplyr::desc(.data$hour)) %>%
             dplyr::distinct(.data$topic, .data$country, .keep_all = TRUE)
@@ -872,7 +872,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             baseline = unlist(last_metrics[paste(.data$key, "baseline", sep = "-")]), 
             known_users = unlist(last_metrics[paste(.data$key, "known_users", sep = "-")]) 
           )
-          #removing one tweet alerts depending on user options
+          #Removing one tweet alerts depending on user options
           user_alerts <- user_alerts %>% dplyr::filter(
             .data$number_of_tweets > 1 | (
               one_tweet_alerts & 
@@ -902,7 +902,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
           (length(slots[slots <= current_hour])>0 && # After first slot in day AND
             (length(slots) == 1 || #Either there is only one slot for the user 
               ! exists("last_slot", where = tasks$alerts$sent[[user]]) || #or there is no register of previous slot executed
-              tasks$alerts$sent[[user]]$last_slot != current_slot # Or there are multiple slots and the current slot is different than the previus one
+              tasks$alerts$sent[[user]]$last_slot != current_slot # or there are multiple slots and the current slot is different than the previous one
             )
           )
         ) 
@@ -1026,7 +1026,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             tasks$alerts$sent[[user]]$hour_instant <- 0
           }
 
-          # Updating date tu current date
+          # Updating date to current date
           tasks$alerts$sent[[user]]$date <- alert_date
           
           # Updating slot hour if slots alerts are sent
@@ -1046,7 +1046,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
   tasks
 }
 
-# produce htmkl tables for aerts provided. This is used on for email alerts.
+# Produce html tables for alerts provided. This is used on for email alerts.
 # Tables can be grouped by topic or not.
 get_alert_tables <- function(alerts, group_topics = TRUE, ungrouped_title = "Alerts") {
   # Getting an array of countries with alerts sorted on descending order by the total number of tweets
@@ -1162,7 +1162,7 @@ classify_alerts <- function(alerts, retrain = FALSE) {
   if(is.null(alerts) || nrow(alerts) == 0)
     alerts
   else if(retrain && min((alerts %>% dplyr::group_by(.data$given_category) %>% dplyr::summarise(n = dplyr::n()) %>% dplyr::filter(!is.na(.data$given_category)))$n) < 10 ) {
-    warning("In order to train an alerts classifier all categories must have at least 10 observation")
+    warning("In order to train alerts' classifier all categories must have at least 10 observations")
     alerts
   } else {
     runs <- get_alert_training_runs_df()
@@ -1202,7 +1202,7 @@ retrain_alert_classifier <- function() {
 }
 
 
-# Write the provided alerts and runs to the alert annotation excel
+# Write the provided alerts and runs to the alert annotation Excel
 write_alert_training_db <- function(alerts, runs = get_alert_training_runs_df()) {
   `%>%` <- magrittr::`%>%`
   wb <- openxlsx::createWorkbook()

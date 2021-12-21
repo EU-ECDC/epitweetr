@@ -1,4 +1,4 @@
-# This script includes all dedicated logic for interacting with the spark/scala api via HTTP REST requests
+# This script includes all dedicated logic for interacting with the Spark/Scala api via HTTP REST requests
 
 get_scala_api_endpoint <- function() {
   paste("http://localhost:", conf$fs_port, "/", sep = "")
@@ -50,15 +50,15 @@ get_scala_recalc_hash_url <- function() {
 }
 
 
-#' @title Runs the epitweetr embeded datanase loop
-#' @description Infinite loop ensuring that the epitweetr embeded database is running (lucene + akka-http)
+#' @title Runs the epitweetr embedded database loop
+#' @description Infinite loop ensuring that the epitweetr embedded database is running (Lucene + akka-http)
 #' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
-#' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
+#' If not provided, the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
 #' @return nothing
-#' @details Launches the epitweetr embedded database which is accessed via a REST API located on \url{http://localhost:8080}you can test that the dataase is running by accessing \url{http://localhost:8080/ping}
+#' @details Launches the epitweetr embedded database which is accessed via a REST API located on \url{http://localhost:8080}you can test that the database is running by accessing \url{http://localhost:8080/ping}
 #' the REST API provide epitweetr a way to send and retrieve data related with tweets and time series and to trigger geolocation or aggregation
-#' The database is implemented using Apache Lucene indexes allowing epitweetr to acces its data as a search engine but also as a tabular datanase.
-#' \code{\link{health_check}} called each 60 seconds on a background process to send alerts to the administrator if some epitweetr componenets fail.
+#' The database is implemented using Apache Lucene indexes allowing epitweetr to access its data as a search engine but also as a tabular database.
+#' \code{\link{health_check}} called each 60 seconds on a background process to send alerts to the administrator if some epitweetr components fail.
 #' @examples 
 #' if(FALSE){
 #'    #Running the detect loop
@@ -125,14 +125,14 @@ fs_loop <-  function(data_dir = NA) {
         )
       )
     }, error = function(e) {
-      message(paste("The epitweetr scala API was stopped with the following error", e, "launching it again within 5 seconds", sep = "\n"))
+      message(paste("The epitweetr Scala API was stopped with the following error", e, "launching it again within 5 seconds", sep = "\n"))
       Sys.sleep(5)
     })
   }
 }
 
 #' @title perform full text search on tweets collected with epitweetr
-#' @description  perform full text search on tweets collected with epitweetr (tweets migrated from epitwetr v<1.0.x are also included)
+#' @description  perform full text search on tweets collected with epitweetr (tweets migrated from epitweetr v<1.0.x are also included)
 #' @param query character. The query to be used if a text it will match the tweet text. To see how to match particular fields please see details, default:NULL
 #' @param topic character, Vector of topics to include on the search default:NULL
 #' @param from an object which can be converted to ‘"POSIXlt"’ only tweets posted after or on this date will be included, default:NULL
@@ -142,15 +142,15 @@ fs_loop <-  function(data_dir = NA) {
 #' @param users character, limit the search to the tweets created by the provided users, default:NULL
 #' @param hide_users logical, whether to hide user names on output replacing them by the USER keyword, default:FALSE
 #' @param action character, an action to be performed on the search results respecting the max parameter. Possible values are 'delete' or 'anonymise' , default:NULL
-#' @param max integer, maximum numver of tweets to be included on the search, default:100
+#' @param max integer, maximum number of tweets to be included on the search, default:100
 #' @param by_relevance logical, whether to sort the results by relevance of the matching query or by indexing order, default:FALSE
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
-#' @return a dataframe containing the tweets matching the selected filters, the dataframe contains the following coumns: linked_user_location, linked_user_name, linked_user_description, 
+#' @return a data frame containing the tweets matching the selected filters, the data frame contains the following collumns: linked_user_location, linked_user_name, linked_user_description, 
 #' screen_name, created_date, is_geo_located, user_location_loc, is_retweet, text, text_loc, user_id, hash, user_description, linked_lang, linked_screen_name, user_location, totalCount, 
 #' created_at, topic_tweet_id, topic, lang, user_name, linked_text, tweet_id, linked_text_loc, hashtags, user_description_loc
 #' @details 
 #' epitweetr translate the query provided by all parameters into a single query that will be executed on tweet indexes which are weekly indexes.
-#' The q parameter should respect the syntax of the lucene classic parser \url{https://lucene.apache.org/core/8_5_0/queryparser/org/apache/lucene/queryparser/classic/QueryParser.html} 
+#' The q parameter should respect the syntax of the Lucene classic parser \url{https://lucene.apache.org/core/8_5_0/queryparser/org/apache/lucene/queryparser/classic/QueryParser.html} 
 #' So other than the provided parameters, multi field queries are supported by using the syntax field_name:value1;value2 
 #' AND, OR and -(for excluding terms) are supported on q parameter.
 #' Order by week is always applied before relevance so even if you provide by_relevance = TRUE all of the matching tweets of the first week will be returned first 
@@ -229,11 +229,11 @@ search_tweets <- function(query = NULL, topic = NULL, from = NULL, to = NULL, co
 # deals with tweet deduplication at topic level
 # regexp: regexp to limit the geolocation and search files to read
 # vars: variable to read (evaluated after aggregation if required)
-# sort_by: order to apply to the returned dataframe
+# sort_by: order to apply to the returned data frame
 # filter_by: expressions to use for filtering tweets
 # sources_exp: variables to limit the source files to read (setting this will improve reading performance)
 # handler: function that to perform a custom R based transformation on data returned by SPARK
-# perams: definition of custom param files to enable big queries
+# params: definition of custom param files to enable big queries
 set_aggregated_tweets <- function(name, dateCol, pks, aggr, vars = list("*"), group_by = list(), sort_by = list(), filter_by = list(), sources_exp = list(), params = list()) {
   stop_if_no_config(paste("Cannot get tweets without configuration setup")) 
   post_result <- httr::POST(
@@ -267,7 +267,7 @@ set_aggregated_tweets <- function(name, dateCol, pks, aggr, vars = list("*"), gr
 }
 
 
-# utility function to interact with a POST endpoint and process data on a streaming way provided by handler
+# Utility function to interact with a POST endpoint and process data on a streaming way provided by handler
 stream_post <- function(uri, body, handler = NULL) { 
   cum <- new.env()
   cum$tail <- c()
@@ -275,8 +275,8 @@ stream_post <- function(uri, body, handler = NULL) {
 
   
   if(!is.null(handler)) {
-    # If a custom transfotmation is going to be done (a handler function has been set)
-    # this function will be calles on pages of 10k lines using the jsonlite stream_in function
+    # If a custom transformation is going to be done (a handler function has been set)
+    # this function will be called on pages of 10k lines using the jsonlite stream_in function
     # the transformed results will be stored on a temporary file that will be read by stream_in
     tmp_file <- tempfile(pattern = "epitweetr", fileext = ".json")
     #message(tmp_file)
@@ -345,7 +345,7 @@ stream_post <- function(uri, body, handler = NULL) {
   	  cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, function(df) handler(df, con_tmp), verbose = F)
 	  close(con)
 	}
-  #Transforming single lines responses in dataframes
+  #Transforming single lines responses in data frames
 	#lapply(cum$dfs, function(l) if(typeof(l) == "list") data.frame(lapply(l, function(x) t(data.frame(x)))) else l)
   #joining response
   if(is.null(handler)) {
@@ -361,7 +361,7 @@ stream_post <- function(uri, body, handler = NULL) {
 }
 
 # Get time difference since last request
-# This function is used from the shiny app to report when was the last tile that a request saved tweets
+# This function is used from the Shiny app to report when was the last time that a request saved tweets
 # This is done by taking the last modified date of current year tweet files
 last_fs_updates <- function(collections = c("tweets", "topwords", "country_counts", "geolocated")) {
   times <- lapply(collections,
