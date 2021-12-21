@@ -144,7 +144,11 @@ The CPU and RAM usage can be configured on the Shiny app configuration page (see
 
 ## Installation
 
-`epitweetr` is conceived to be platform independent, working on Windows, Linux and Mac. We recommend that you use `epitweetr` on a computer that can be run continuously. You can switch the computer off, but you may miss some tweets if the downtime is large enough, which will have implications for the alert detection. Before using `epitweetr`, the following items need to be installed:
+`epitweetr` is conceived to be platform independent, working on Windows, Linux and Mac. We recommend that you use `epitweetr` on a computer that can be run continuously. You can switch the computer off, but you may miss some tweets if the downtime is large enough, which will have implications for the alert detection. 
+
+**If you need to reinstall epitweetr after activating its tasks, you must restart the machine running epitweetr first.**
+
+Before using `epitweetr`, the following items need to be installed:
 
 ### Prerequisites for running epitweetr
 
@@ -241,30 +245,32 @@ R --vanilla -e epitweetr::epitweetr\_app("data\_dir")
 You can check that all requirements are properly installed in the troubleshoot page. More information is available in section *The interactive user application (Shiny app)>Dashboard:The interactive user interface for visualisation>The troubleshoot page*
 
 ### Migrating to epitweetr v2
-Migrating epitweetr from previous versions to version 2.0 or higher is possible without any data loss. On this section we will describe the necesary steps to performa the migration.
+Migrating epitweetr from previous versions to version 2.0 or higher is possible without any data loss. On this section we will describe the necessary steps to perform the migration. 
 
-In Epitweetr v2 we have redesigned the way how tweets and series are stored. On previous versions tweets where saved as compressed json fies and series as RDS dataframes on 'tweets' and 'series' folder respectively. On v2 we moved to a different storage sytem allowing epitweetr to work as a search engine and at the same time allow efficient updates deletes and faster aggregation. In order to reach this objectives data is stored using Apache Lucene indexes on the 'fs' folder. Note that during migration tweets data is moved to the 'fs' folder series is left as it is. Epitweetr reports will combine data from older and new storage system.
+**This migration is not necessary if you are installing epitweetr for the first time**.
 
-If you have an existing installation that contains data on the previous format you have to perform a migration, following the steps detailed on this section. This would be the case for any epitweetr version befor v2.0.0. You can also check this by looking on 'tweets/geo' or 'tweets/search' folders. If there is any json.gz files migration is needed.
+In epitweetr v2, we have redesigned the way how tweets and series are stored. On previous versions, tweets were saved as compressed JSON files and series as RDS data frames on 'tweets' and 'series' folder, respectively. In addition, we have moved to a different storage system allowing epitweetr to work as a search engine and allowing efficient updates, deletions and faster aggregation. For doing so, data is stored using Apache Lucene indexes in the 'fs' folder. Note that during migration, Twitter data are moved to the 'fs' folder and series are left as it is. Epitweetr reports will combine data from older and new storage system.
+
+If you have an existing installation that contains data in the previous format, you have to migrate it following the steps detailed in this section. This applies to any epitweetr version before v2.0.0. You can also check this by looking in 'tweets/geo' or 'tweets/search' folders. If there is a json.gz file, migration is needed.
 
 The migration steps are the following:
 
--   Make sure the data collection and alerts tasks are stopped (you can see the status on the shiny configuration page). If you are using windows and you have launched the tasks using the activate buttons you have to manually open the Windows task scheduler and disable the epitweetr tasks.
--   Close the shiny App.
+-   Make sure the 'data collection & processing' and 'requirements & alerts' pipelines are stopped (you can see the status on the shiny configuration page). If you are using Windows and you have launched the tasks using the activate buttons, you have to manually open the Windows task scheduler and disable these two epitweetr tasks.
+-   Close the Shiny App.
 -   Install the new epitweetr version (if you have not yet done it).
--   Go to the configuration page on the shiny app.
+-   Go to the configuration page in the Shiny app.
 -   Click on the 'Run dependencies' button.
--   Activate the 'Requirements and alerts' process. If you are on windows you can click on the activate button or you can run on a new R session ther following command: 
+-   Activate the 'Requirements and alerts' process. If you are on Windows, you can click on the activate button or you can run on a new R session executing the following command: 
      -     epitweetr::detect_loop("data\_dir")
--   The message under the dependencies tasks on the 'Requrements & alert pipeline' table will start reporting the status and downloading the necessary dependencies from the selected maven mirror.
--   If the embeddeed datanase is running, a message will appear asking to stop the database. You can do it by looking on open R sessions on your machne and killing the processes.
--   After all dependencies have been downloaded a message will request to activate the embeded database, please refer to the section 'Setting up tweet collection and the alert detection loop' for details.
--   Once the database is running the migration will start. Epitweetr will report the estimated remaining time to finish the migration. Be aware that depending on the size of your data this can take several days.
--   As files are migrated to the new storage system, they are moved from the foldes 'tweets/search' and 'tweets/geo' to 'tweets/search\_archive' and 'tweets/geo\_archive'.
--   Once the migration is done you can backup and delete the \_archive folders.
+-   In the line of the dependencies tasks under 'Requirements & alerts' table, there will be a message reporting the status of the migration and download of necessary dependencies from the selected maven mirror. It will indicate whether some of the epitweetr tasks must be stopped or activate it to complete migration and download of dependiencies.
+-   First, it will download the dependencies for which the embedded epitweetr database should be stop. If the embedded database is running, a message will appear asking you to stop the database ('epitweetr database' pipeline).
+-   After all dependencies have been downloaded, a message will appear asking to activate the embedded database ('epitweetr database'), please refer to the section 'Setting up tweet collection and the alert detection loop' for details.
+-   Once the epitweetr database is running, the migration will start. Epitweetr will report the estimated remaining time to finish the migration. Be aware that depending on the size of your data, this can take several days for which the machine running epitweetr cannot be turned off.
+-   As files are migrated to the new storage system, these are moved from the folder 'tweets/search' and 'tweets/geo' to 'tweets/search\_archive' and 'tweets/geo\_archive'.
+-   Once the migration is done, you can backup and delete the \_archive folders.
 -   You can test that your data has been successfully migrated by searching for tweets on particular periods using the 'Data protection' page.
--   Click on the button 'Run Geonames' and 'Run languages' wait for them to finish.
--   You can now activate the 'data collection & processing'.
+-   Click on the button 'Run GeoNames' and 'Run languages' and wait for them to finish.
+-   You can now activate the 'Data collection & processing'.
 
 ### Setting up tweet collection and the alert detection loop
 
@@ -549,7 +555,9 @@ You can select which languages you would like to check for other kinds of words 
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/config_languages.png")
 ```
 
-In addition, you can unselect languages by selecting the language within the configuration page of the Shiny app and clicking on the "-"  icon:
+In addition, you can unselect languages by selecting the language within the configuration page of the Shiny app and clicking on the "-"  icon. 
+
+**All default languages (English, French, Spanish and Portuguese) must be downloaded before adding new languages or deleting any of the default languages.**
 
 
 A minimum score (the "geolocation threshold") can be globally set in the general settings on the configuration page to reduce the number of false positives (see image). All geolocations with a smaller score than the geolocation threshold will be discarded by the algorithm as tweet location. If there is more than one match over the minimum score, then the match with the highest score will be chosen.
@@ -774,11 +782,7 @@ There are also the following subfolders:
 #### Fs folder &gt; tweets
 In the fs folder, the subfolder “tweets” contains Lucene indexes storing the content of the collected tweets and the geolocation information.
 
-The *tweets* contains subfolders for each week:
-
-```{r echo=FALSE, fig.cap="", out.width = '40%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/search_folder.png")
-```
+The *tweets* contains subfolders for each week.
 
 The *geolocated folder* contains compressed JSON files with geolocated information produced by the geolocation algorithm.
 
@@ -787,10 +791,6 @@ The *geolocated folder* contains compressed JSON files with geolocated informati
 In the folders *country_counts*, *contexts*,  *entities*, *geolocated*, *hashtags*, *topwords*, *urls*, `epitweetr` stores the aggregated data of the geolocated tweets as well as the top elements identified.
 
 Each folder is named matching the respective time series and emitted by ISO week of date of publication. Each weekly folder contains a Lucene index.
-
-```{r echo=FALSE, fig.cap="", out.width = '50%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/fs_folder.png")
-```
 
 This is the aggregate information as described in the section “How does it work? General architecture of epitweetr > Aggregation”.
 
@@ -932,12 +932,6 @@ It is possible that there is a "day of the week effect", where more tweets may b
 
 The timeline graph is a time series, where you can see the number of tweets for a given topic, geographical unit and study period. Signals are indicated as triangles on the graph, with the alpha and baseline days as specified in the filters. The area under the threshold is indicated in the shaded green colour. Note that the signals are related to the choice of alpha and days in baseline in the filters on the dashboard, rather than what is used for the alert emails. This way you can explore the effect of changing these parameters and adapt the settings for the alert emails if needed.
 
-
-```{r echo=FALSE, fig.cap="", out.width = '100%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/timeline.png")
-```
-
-
 If you hover over the graph, you obtain extra information on country, date, number of tweets and the number of tweets from the list of known users, the ratio of known users to unknown users, whether the number of tweets was associated with a signal and what the threshold and the alpha was.
 
 ```{r echo=FALSE, fig.cap="", out.width = '30%'}
@@ -946,11 +940,6 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/hov
 
 
 #### Map
-
-```{r echo=FALSE, fig.cap="", out.width = '60%'}
-knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/map.png")
-```
-
 The map shows a proportional symbol map of the tweets by country and by topic for the study period. The larger the circle, the greater the number of tweets.
 
 The geographical information for the map is based on the choice in the filters: the country/region/subregion and the location type (tweet, user or both).
@@ -1039,18 +1028,20 @@ This page supports the user in improving the geolocation algorithm. Epitweetr wi
 
 To help you on the evaluation process epitweetr will calculate standard machine learning metrics for evaluating its capacity to identify the right location in texts. These metrics are separately caculated by diferent type of texts: Tweet location, Tweet text, Tweet user description and total.
 
-The following controls are available
+The following controls are available:
+
 -   Tweets to add: Choose the number of tweets to add to the geolocation spreadsheet
 -   Geolocate annotations: Pressing this button will add the selected number of annotations to the epitweetr geolocation spreaddsheet and evaluate the geoloation algorithm on the current annotations
 -   Download annotations: Download the current version of annotations
 -   Upload & evaluate annotations: Upload a new version of the geolocation annotations to improve annotations performance. The algorithms for location identification will be trained using the provided data. Also performance metrics will be calculated using 75% of the data for training and 25% for test. The final model is trained using all data.
 
-The geolocation spreadsheet has the following columns
--   Type: This column is a reference for the user to understun the kind of annotation. It can be any of the following.
+The geolocation spreadsheet has the following columns:
+
+-   Type: This column is a reference for the user to understand the kind of annotation. It can be any of the following.
     -   Text: A text that can contains locations inside it can be a tweet or a user description.
-    -   Location: A text containint a location.
-    -   Person: A known person e.g. presidents that can be used by epitweetr to detect countries. This data is not used for training, just for ovewriting the algorithm behavior.
-    -   Demonym: A known word to associate to a country e.g. chilean. This data is not used for training, just for ovewriting the algorithm behavior.
+    -   Location: A text containing a location.
+    -   Person: A known person e.g. presidents that can be used by epitweetr to detect countries. This data is not used for training, just for over-writing the algorithm behavior.
+    -   Demonym: A known word to associate to a country e.g. Chilean. This data is not used for training, just for over-writing the algorithm behavior.
 -   Text: The text associated to this annotation.
 -   Location in text: The subpart of the text that contains a location. If many locations are present, the same line can be duplicated with different values on this column. If this column is empty epitweetr assumes that the annotation is associated with all the text.
 -   Location yes/no: whether the current text contains a location (demonym and people are not considered as location).
@@ -1068,17 +1059,18 @@ The geolocation spreadsheet has the following columns
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/geotag_evaluation.png")
 ```
+
 ### The data protection page
-In the data protection page, the user can search, anonymise and delete tweets from the epitweetr database to honor data deletion requests from third parties.
+In the data protection page, the user can search, anonymise and delete tweets from the epitweetr database to support data deletion requests.
 
-The following search filters are available: Topic, period, country & regions, mentioning (for selecting only mentions of the provided users), from users (for selecting only tweets from the provided users) and both (for getting tweets either metnioning of from the provided user)
+The following search filters are available: Topic, period, country & regions, mentioning (for selecting only mentions of the provided users), from users (for selecting only tweets from the provided users) and both (for getting tweets either mentioning or from the provided user)
 
-The folliwing controls ara available:
+The following controls are available:
 -   Limit: Limit the perimeter of the search to the first "limit" tweets
--   Search: Performq the search and show the results on the screen.
--   Anonym search: Perforp the search and show anonymized results on the screen. User mentions and authors are replaced by a mention USER.
--   Anonymize: Permanantly replace all matching tweets user mentions and authors  by USER.
--   Delete: Permanently deletea all the matching tweets.
+-   Search: Perform the search and show the results on the screen.
+-   Anonymised search: Perform the search and show anonymised results on the screen. User mentions and authors are replaced by a mention USER.
+-   Anonymise: Permanently replace all matching tweets user mentions and authors  by USER.
+-   Delete: Permanently delete all the matching tweets.
 
 ### The configuration page
 
@@ -1099,16 +1091,17 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/sta
 In the status section, you can tell if the embedded database, the search pipeline and the detect pipeline processes are running. If you are running Windows, you can click on “activate” to register these processes as scheduled tasks and run them manually from the Windows task scheduler.
 
 
-**Detection pipeline**
+**Requirements & alerts pipeline**
 
-In the manual tasks in the “Detection pipeline”, you have. You need to run manually the tasks of dependencies, geonames and languages by clicking in the buttons “Run dependencies”, “Run geonames” and “Run languages” the first time you use `epitweetr`, and then only if you are downloading new versions. Geonames and languages relate to the geolocation and language models used by epitweetr. If you would like to update them (this is not something that needs to be done regularly, more on a yearly basis or so), then you can click on “Run”. When running the 'download dependencies' tasks epitwteetr will request you to stop the embedded datanbase in order to perform the update. You can do this by looling on open R, Rsession or Rscript process on your system and killing them. 
+You need to run manually the tasks of dependencies, geonames and languages by clicking in the buttons “Run dependencies”, “Run geonames” and “Run languages” the first time you use `epitweetr`, and then only if you are downloading new versions. 
 
+Geonames and languages relate to the geolocation and language models used by epitweetr. If you would like to update them (this is not something that needs to be done regularly, more on a yearly basis or so), then you can click on “Run”. When running the 'download dependencies' task, epitweetr will request you to stop the 'epitweetr database' in order to perform the update. 
 
-The “Run alerts” button can be used to force the start of this tasks in case there is any error or issue. You can check their status in the “Detection Pipeline” table.
+The “Run alerts” button can be used to force the start of this task in case there is any error or issue. You can check their status in the “Requirements & alerts pipeline” table.
 
-The detection pipeline gives more information about the status of the processes of `epitweetr`. This is useful for troubleshooting any issues arising and monitoring progress. It contains the five tasks that are running in the background. Geoames and languages are tasks that will download and update the local copies of these. This will only be triggered if we add a language or update GeoNames. The start and end dates will generally be much older than those of geotag, aggregate and alerts.
+The 'Requirements & alerts pipeline' table gives more information about the status of the processes of `epitweetr`. This is useful for troubleshooting any issues arising and for monitoring the progress. It contains the five tasks that are running in the background. GeoNames and languages are tasks that will download and update the local copies of these. This will only be triggered if we add a language or update GeoNames. The start and end dates will generally be much older than those of geotag, aggregate and alerts.
 
-Alerts dates should be more recent if the search and detection pipelines are active and running. They are scheduled according to the detect span. The status can include running, scheduled, pending, failed or aborted (if it has failed more than three times).
+Alerts dates should be more recent if the 'data collection & processing' and 'requirements & alerts' pipelines are active and running. These are scheduled according to the detect span. The status can include running, scheduled, pending, failed or aborted (if it has failed more than three times).
 
 ```{r echo=FALSE, fig.cap="", out.width = '70%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/detection_pipeline.png")
@@ -1172,7 +1165,7 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/gen
 
 -   **Simplified geonames:** As GeoNames is a very large file, a simplified version of it is used by default, including only existing geographical locations where the population is known. You can uncheck this option if you wish to use the whole GeoNames database.
 
--   **Stream database results:** Wether to store files on disk instead of peforming streaming evaluation of aggregated dataframes coming from the datanase..
+-   **Stream database results:** Whether to store files on disk instead of performing streaming evaluation of aggregated data frames coming from the epitweetr database. If loading the dashboard takes too long, try selecting/unselecting this.
 
 -   **Maven repository:** This is the URL of the maven repository that will be used to download the JAR dependencies for the detect loop, mainly Spark and Lucene.
 
@@ -1184,7 +1177,7 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/gen
 
 You have two options for authentication to collect tweets, using a Twitter account (utilising the rtweet package) and using a Twitter developer application. You can select which option you will use in the **Twitter authentication** section. User can choose the Twitter apis to use.
 
-The admin email will receuve epitweetr notifications of regular sanity checks of the application indicating by example if some of the loop has failed.
+The admin email will receive epitweetr notifications of regular sanity checks of the application indicating, for example, if any of the tasks/pipelines has failed.
 
 See section *“How does it work? General architecture behind epitweetr > Collection of tweets > Twitter authentication”* for more details on how to do the Twitter authentication.
 
@@ -1217,6 +1210,8 @@ knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/top
 **Languages**
 
 In the languages section, you can determine which language models are used to identify text during the geolocation process. The default languages are French, English, Portuguese and Spanish. You can download and upload the language models in the “Available Languages” section and add and delete languages used by `epitweetr` in the “Active Languages” section. Please consider the computational cost of adding too many languages, depending on the capacity of your machine.
+
+**All default languages (English, French, Spanish and Portuguese) must be downloaded before adding new languages or deleting any of the default languages.**
 
 ```{r echo=FALSE, fig.cap="", out.width = '100%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/languages.png")
@@ -1376,17 +1371,17 @@ After running the diagnostics in the troubleshoot page, you can see the checks a
 -   **pandoc**: Pandoc is installed and accessible to epitweetr. Necessary for PDF creation.
 -   **tex**: a tex distribution is installed and accessible to epitweetr. Necessary for PDF creation.
 
-### Management of satabase, data collection and alert loops (Windows)
+### Management of 'epitweetr database' and 'Data collection and alerts' pipelines (Windows)
 After activating the database, search and detection pipeline from the configuration page of `epitweetr` (Windows), three tasks will be created in the task scheduler and three terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.
 
 If you activate these tasks from the configuration page of `epitweetr` again, the system will overwrite the tasks created in the task scheduler. Instead, after the first successful activation of these tasks from `epitweetr`, you can easily manage these from the task scheduler. You can stop these tasks by ending and disabling the tasks in the task scheduler, and you can restart these tasks by enabling and running these in the task scheduler.
 
 In the task scheduler, you can establish that the search and detection tasks “run whether the user is logged on or not” to avoid that these tasks stop when you log off or restart the computer. 
 
-### Management of database, data collection and alerts loops (Linux and Mac)
+### Management of 'epitweetr database' and 'Data collection and alerts' pipelines (Linux and Mac)
 Since the search and detection pipeline in Linux or Mac have to be run manually, if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop. Please remember to follow the steps in the section *Setting up tweet collection and the alert detection loop* to run these tasks again.
 
-### Running search and detection pipeline
+### Running 'epitweetr database', 'Data collection and alerts' and 'Requirements and alerts' pipelines
 
 #### “Cannot execute task \#####: the task is already running”
 The detect and the search loop create two files containing their process IDs located in the `epitwitter` data folder: search.PID and detect.PID. This error arises if `epitweetr` finds another R process currently running with the same ID. In order to fix this error you should first verify if the search / detect loop are not already running in another R session. If this is the case, you should not try to start the task since `epitweetr` only supports one instance of the same task running in the same data folder. If the running process is not associated with the task then you can manually delete the PID file and try to start it again.
@@ -1403,6 +1398,9 @@ The detect and the search loop create two files containing their process IDs loc
 5. Enable and run the search loop/task in the task scheduler (Windows) or run the command in a new R/terminal window with the search loop/task (Linux and Mac). More details are available in the section *“Setting up tweet collection and the alert detection loop”*
 
 ### Downloading GeoNames and/or languages
+
+#### Languages to be added or deleted 
+All default languages (English, French, Spanish and Portuguese) must be downloaded before adding new languages or deleting any of the default languages.
 
 #### “The specified size exceeds the maximum representable size. Error: Could not create the Java Virtual Machine”
 
