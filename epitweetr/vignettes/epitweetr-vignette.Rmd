@@ -201,6 +201,8 @@ If you would like to develop `epitweetr` further, then the following development
 
 - *Winutils.exe* (Windows only) This is a Hadoop binary necessary for running SPARK locally on Windows *[https://github.com/steveloughran/winutils/raw/master/hadoop-3.0.0/bin/winutils.exe]*. 
 
+Please note that during the dependency download you will be prompted, first to stop the embedded database and then enable it again. If you are on Windows and you have activated the tasks using the 'activate' buttons on the configuration page you can performs this tasks by disabling and enabling the tasks on the 'Windows Task Scheduler'. For more information see the section 'Setting up tweet collection and the alert detection loop'
+
 ### Installing epitweetr from CRAN
 
 After installing all required dependencies listed in the section “Prerequisites for running epitweetr”, you can install `epitweetr`:
@@ -238,6 +240,32 @@ R --vanilla -e epitweetr::epitweetr\_app("data\_dir")
 
 You can check that all requirements are properly installed in the troubleshoot page. More information is available in section *The interactive user application (Shiny app)>Dashboard:The interactive user interface for visualisation>The troubleshoot page*
 
+### Migrating to epitweetr v2
+Migrating epitweetr from previous versions to version 2.0 or higher is possible without any data loss. On this section we will describe the necesary steps to performa the migration.
+
+In Epitweetr v2 we have redesigned the way how tweets and series are stored. On previous versions tweets where saved as compressed json fies and series as RDS dataframes on 'tweets' and 'series' folder respectively. On v2 we moved to a different storage sytem allowing epitweetr to work as a search engine and at the same time allow efficient updates deletes and faster aggregation. In order to reach this objectives data is stored using Apache Lucene indexes on the 'fs' folder. Note that during migration tweets data is moved to the 'fs' folder series is left as it is. Epitweetr reports will combine data from older and new storage system.
+
+If you have an existing installation that contains data on the previous format you have to perform a migration, following the steps detailed on this section. This would be the case for any epitweetr version befor v2.0.0. You can also check this by looking on 'tweets/geo' or 'tweets/search' folders. If there is any json.gz files migration is needed.
+
+The migration steps are the following:
+
+-   Make sure the data collection and alerts tasks are stopped (you can see the status on the shiny configuration page). If you are using windows and you have launched the tasks using the activate buttons you have to manually open the Windows task scheduler and disable the epitweetr tasks.
+-   Close the shiny App.
+-   Install the new epitweetr version (if you have not yet done it).
+-   Go to the configuration page on the shiny app.
+-   Click on the 'Run dependencies' button.
+-   Activate the 'Requirements and alerts' process. If you are on windows you can click on the activate button or you can run on a new R session ther following command: 
+     -     epitweetr::detect_loop("data\_dir")
+-   The message under the dependencies tasks on the 'Requrements & alert pipeline' table will start reporting the status and downloading the necessary dependencies from the selected maven mirror.
+-   If the embeddeed datanase is running, a message will appear asking to stop the database. You can do it by looking on open R sessions on your machne and killing the processes.
+-   After all dependencies have been downloaded a message will request to activate the embeded database, please refer to the section 'Setting up tweet collection and the alert detection loop' for details.
+-   Once the database is running the migration will start. Epitweetr will report the estimated remaining time to finish the migration. Be aware that depending on the size of your data this can take several days.
+-   As files are migrated to the new storage system, they are moved from the foldes 'tweets/search' and 'tweets/geo' to 'tweets/search\_archive' and 'tweets/geo\_archive'.
+-   Once the migration is done you can backup and delete the \_archive folders.
+-   You can test that your data has been successfully migrated by searching for tweets on particular periods using the 'Data protection' page.
+-   Click on the button 'Run Geonames' and 'Run languages' wait for them to finish.
+-   You can now activate the 'data collection & processing'.
+
 ### Setting up tweet collection and the alert detection loop
 
 In order to use `epitweetr`, you will need to collect and process tweets, run the epitweetr database and run the requirements and alerts pipeline. Further details are also available in subsequent sections of the user documentation. A summary of the steps needed is as follows:
@@ -247,7 +275,8 @@ In order to use `epitweetr`, you will need to collect and process tweets, run th
 library(epitweetr)
 epitweetr_app("data_dir")
 ```
--   On the configuration page of the Shiny app, in the manual tasks of the "Requirements & alerts pipeline", click on "Run dependencies", "Run GeoNames" and "Run languages" (their status will change to “pending”). This allows the requirements & alerts pipeline to download the elements needed. As long as no languages are added and no updates are available in geonames.org, these tasks have to be run only the first time you install `epitweetr`.
+
+-   On the configuration page of the Shiny app, in the manual tasks of the "Requirements & alerts pipeline", click on "Run dependencies", "Run GeoNames" and "Run languages" (their status will change to “pending”). This allows the requirements & alerts pipeline to download the elements needed. As long as no languages are added and no updates are available in geonames.org, these tasks have to be run only the first time you install `epitweetr.
 
 ```{r echo=FALSE, fig.cap="", out.width = '50%'}
 knitr::include_graphics("https://github.com/EU-ECDC/epitweetr/raw/master/img/run_tasks.png")
@@ -1072,9 +1101,10 @@ In the status section, you can tell if the embedded database, the search pipelin
 
 **Detection pipeline**
 
-In the manual tasks in the “Detection pipeline”, you have. You need to run manually the tasks of dependencies, geonames and languages by clicking in the buttons “Run dependencies”, “Run geonames” and “Run languages” the first time you use `epitweetr`, and then only if you are downloading new versions. Geonames and languages relate to the geolocation and language models used by epitweetr. If you would like to update them (this is not something that needs to be done regularly, more on a yearly basis or so), then you can click on “Run”.
+In the manual tasks in the “Detection pipeline”, you have. You need to run manually the tasks of dependencies, geonames and languages by clicking in the buttons “Run dependencies”, “Run geonames” and “Run languages” the first time you use `epitweetr`, and then only if you are downloading new versions. Geonames and languages relate to the geolocation and language models used by epitweetr. If you would like to update them (this is not something that needs to be done regularly, more on a yearly basis or so), then you can click on “Run”. When running the 'download dependencies' tasks epitwteetr will request you to stop the embedded datanbase in order to perform the update. You can do this by looling on open R, Rsession or Rscript process on your system and killing them. 
 
-The “Run geotag”, “Run aggregate” and “Run alerts” buttons can be used to force the start of these tasks in case there is any error or issue. You can check their status in the “Detection Pipeline” table.
+
+The “Run alerts” button can be used to force the start of this tasks in case there is any error or issue. You can check their status in the “Detection Pipeline” table.
 
 The detection pipeline gives more information about the status of the processes of `epitweetr`. This is useful for troubleshooting any issues arising and monitoring progress. It contains the five tasks that are running in the background. Geoames and languages are tasks that will download and update the local copies of these. This will only be triggered if we add a language or update GeoNames. The start and end dates will generally be much older than those of geotag, aggregate and alerts.
 
@@ -1326,6 +1356,7 @@ After running the diagnostics in the troubleshoot page, you can see the checks a
 -   **scheduler**: R package `taskscheduleR` is installed. Only applicable for Windows machines
 -   **twitter_auth**: Twitter token has been created after authenticating either with Twitter account or Twitter developer application
 -   **search_running**: search task is running
+-   **database_running**: embedded database is running
 -   **tweets**: tweets have been collected
 -   **os64**: R is 64bits
 -   **java**: Java is installed and accessible to epitweetr
@@ -1345,25 +1376,20 @@ After running the diagnostics in the troubleshoot page, you can see the checks a
 -   **pandoc**: Pandoc is installed and accessible to epitweetr. Necessary for PDF creation.
 -   **tex**: a tex distribution is installed and accessible to epitweetr. Necessary for PDF creation.
 
-### Management of search and detection loops (Windows)
-After activating the search and detection pipeline from the configuration page of `epitweetr` (Windows), two tasks will be created in the task scheduler and two terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.
+### Management of satabase, data collection and alert loops (Windows)
+After activating the database, search and detection pipeline from the configuration page of `epitweetr` (Windows), three tasks will be created in the task scheduler and three terminal windows will be prompted. Please note that if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop.
 
 If you activate these tasks from the configuration page of `epitweetr` again, the system will overwrite the tasks created in the task scheduler. Instead, after the first successful activation of these tasks from `epitweetr`, you can easily manage these from the task scheduler. You can stop these tasks by ending and disabling the tasks in the task scheduler, and you can restart these tasks by enabling and running these in the task scheduler.
 
 In the task scheduler, you can establish that the search and detection tasks “run whether the user is logged on or not” to avoid that these tasks stop when you log off or restart the computer. 
 
-### Management of search and detection loops (Linux and Mac)
+### Management of database, data collection and alerts loops (Linux and Mac)
 Since the search and detection pipeline in Linux or Mac have to be run manually, if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop. Please remember to follow the steps in the section *Setting up tweet collection and the alert detection loop* to run these tasks again.
 
 ### Running search and detection pipeline
 
 #### “Cannot execute task \#####: the task is already running”
 The detect and the search loop create two files containing their process IDs located in the `epitwitter` data folder: search.PID and detect.PID. This error arises if `epitweetr` finds another R process currently running with the same ID. In order to fix this error you should first verify if the search / detect loop are not already running in another R session. If this is the case, you should not try to start the task since `epitweetr` only supports one instance of the same task running in the same data folder. If the running process is not associated with the task then you can manually delete the PID file and try to start it again.
-
-#### Error when trying to aggregate files
-This may be caused by two reasons:
--   Not enough space in disk for the temporary files. The aggregation produces temporary files before saving them in the corresponding epitweetr folder. If this is the case, please change the environment variable of your account for TMP and TEMP to another location with more space. 
--   If the error appear when creating a specific file, there may be a corrupted series file for that date. Delete the 'country_counts', 'geolocated' and 'topwords' for that date and restart manually the task by clicking on the corresponding button in the configuration page.
 
 ### Change the user of the Twitter authentication when using a Twitter account
 1. End and disable the search loop/task in the task scheduler (Windows) or close the R/terminal window with the search loop/task (Linux and Mac)
@@ -1381,10 +1407,6 @@ This may be caused by two reasons:
 #### “The specified size exceeds the maximum representable size. Error: Could not create the Java Virtual Machine”
 
 If this error appears when running GeoNames, it means that the machine has Java 32bits. You need to install Java 64bits. And make it accessible to epitwitter either by setting "JAVA\_HOME" environment variable or by setting the right java binary on the system PATH. 
-
-#### “Max number of retried reached failed while processing languages. Error in get_geolocated_period(dataset): To aggregate, or calculate alerts geolocation must have been successfully executed, but no geolocation files were found”
-
-If you see this error in the configuration page, it means that `epitweetr` could not geotag the collected tweets. It is highly recommended to run GeoNames and languages again since these may have not been properly downloaded. When running this task, you need to ensure that the machine is not logged/turned off or does not go into sleep mode.
 
 ### The “Launch slots” in the configuration page show NAs instead of the time slots
 
