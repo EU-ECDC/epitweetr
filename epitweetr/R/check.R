@@ -268,7 +268,9 @@ check_tweets_present <- function() {
 
 # check if alert files are present
 check_alerts_present <- function() {
-  last_year <- tail(list.dirs(path = file.path(conf$data_dir, "alerts"), recursive = FALSE), n = 1)
+  dirs <- list.dirs(path = file.path(conf$data_dir, "alerts"), recursive = FALSE)
+  dirs <- dirs[!grepl(".*NA$", dirs)]
+  last_year <- tail(dirs, n = 1)
   last_file <- tail(list.files(path = last_year, pattern = "*.json"), n = 1) 
   
   if(length(last_file) > 0) {
@@ -383,7 +385,10 @@ check_twitter_auth <- function() {
     token <- get_token(request_new = FALSE)
     "Token" %in% class(token) || "bearer" %in% class(token)
     }, 
-    warning = function(m)  {"Token" %in% class(token) || "bearer" %in% class(token)}, 
+    warning = function(m)  {
+      token <- get_token(request_new = FALSE) 
+      "Token" %in% class(token) || "bearer" %in% class(token)
+    }, 
     error = function(e) { FALSE }
   ) 
   if(ok)
