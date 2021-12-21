@@ -1,4 +1,4 @@
-# Registers the search runner (by writting search.PID file) for the current process 
+# Registers the search runner (by writing search.PID file) for the current process 
 # or stops if no configuration has been set or if it is already running
 register_search_runner <- function() {
   stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
@@ -37,7 +37,7 @@ register_fs_runner <- function() {
 #' @rdname register_fs_monitor
 #' @export 
 register_fs_monitor <- function() {
-  stop_if_no_config(paste("Cannot check running status for fs monitorwithout configuration setup")) 
+  stop_if_no_config(paste("Cannot check running status for fs monitor without configuration setup")) 
   register_runner("fs_mon")
 }
 
@@ -58,20 +58,20 @@ register_runner <- function(name) {
 }
 
 # Register search runner task and schedule the loop to run each hour
-# This tasks is currently Windows only
+# These tasks are currently available in Windows only
 register_search_runner_task <- function() {
   register_runner_task("search")
 }
 
 # Register detect runner task and schedule the loop to run each hour
-# This tasks is currently Windows only
+# These tasks are currently available in Windows only
 register_detect_runner_task <- function() {
   register_runner_task("detect")
 }
 
 # Register a task on system task scheduler to run each hour
 # Register fd runner task and schedule the loop to run each hour
-# This tasks is currently Windows only
+# These tasks are currently available in Windows only
 register_fs_runner_task <- function() {
   register_runner_task("fs")
 }
@@ -84,7 +84,7 @@ register_runner_task <- function(task_name) {
   # Getting the embedded script name to be called in order to make the script run
   script_name <- paste(task_name, "R", sep = ".")
 
-  # Filtering by OS, currently only windows is supported
+  # Filtering by OS, currently only Windows is supported
   if(.Platform$OS.type == "windows") {
     # testing if taskscheduleR can be loaded
     if(requireNamespace("taskscheduleR", quietly = TRUE)) {
@@ -99,7 +99,7 @@ register_runner_task <- function(task_name) {
       # Copying the script 
       file.copy(from = script_base, to = script, overwrite = TRUE)
 
-      # Registering the task as an schedule task using taskscheduleR
+      # Registering the task as a schedule task using taskscheduleR
       # Note that the date format is being guess using %DATE% shell variable
       # This value can be overridden by conf$fore_date_format setting
       taskscheduleR::taskscheduler_create(
@@ -115,7 +115,7 @@ register_runner_task <- function(task_name) {
         , schtasks_extra="/F"
       )
     }
-    else warning("Please install taskscheduler Package")
+    else warning("Please install taskscheduleR package")
   } else {
      warning("Task scheduling is not implemented yet on this OS. You can still schedule it manually. Please refer to package vignette.")
   }
@@ -221,7 +221,7 @@ get_tasks <- function(statuses = list()) {
   }
   # Setting default dependencies task status if not set
   if(!exists("dependencies", where = tasks)) {
-    #get java & scala dependencies
+    #get Java & Scala dependencies
     tasks$dependencies <- list(
       task = "dependencies",
       order = 0,
@@ -279,7 +279,7 @@ get_tasks <- function(statuses = list()) {
     tasks$alerts$order = 3
   }
   # The rest of the function code is to detect changes that has been requested by the shiny app
-  # changes are detected by looking on xxx_updated_on or xxx_requested_on settings on the configuration saved from the shiny_app
+  # changes are detected by looking at xxx_updated_on or xxx_requested_on settings on the configuration saved from the shiny_app
 
   # Activating dependencies task if requested by the shiny app
   if(in_pending_status(tasks$dependencies)) {
@@ -299,11 +299,11 @@ get_tasks <- function(statuses = list()) {
     tasks$languages$status <- "pending"
 
   # Getting language information (used to detect id there is an action to perform on languages)
-  # the tasks files contains the status of languages processed by the detect loop
-  # the difference betweet the settings from the shiny app and the tasks will allow epitweetr to detect the actions to perform on languages
-  langs <- get_available_languages() # All avaible languages for epitweetr
+  # The tasks files contains the status of languages processed by the detect loop
+  # The difference between the settings from the shiny app and the tasks will allow epitweetr to detect the actions to perform on languages
+  langs <- get_available_languages() # All available languages for epitweetr
   lcodes <- langs$Code # available language codes
-  lurls <- setNames(langs$Url, langs$Code) # available language urls (to download models)
+  lurls <- setNames(langs$Url, langs$Code) # available language URLs (to download models)
   lnames <- setNames(langs$Label, langs$Code) # available language names
   conf_codes <- sapply(conf$languages, function(l) l$code) # target languages to use in epitweetr as requested by setting (shiny app)
   task_codes <- tasks$languages$codes # code of languages already processed by the detect loop
@@ -411,7 +411,7 @@ plan_tasks <-function(statuses = list()) {
           tasks[[i]]$scheduled_for <- now + (i - 1)/1000
         } else if(tasks[[i]]$end_on >= tasks[[i]]$scheduled_for) { #if the task has ended after the last schedule (which should always be the case)
           # the last schedule was already executed a new schedule has to be set
-          day_slots <- get_task_day_slots(tasks[[i]]) #Getting all day slots ( times where the detect loop can be executed
+          day_slots <- get_task_day_slots(tasks[[i]]) #Getting all day slots (times when the detect loop can be executed
           next_slots <- day_slots[day_slots > tasks[[i]]$scheduled_for] #getting the future execution slots
           #if next slot is in future set it. If it is in past, set now
           tasks[[i]]$scheduled_for <- if(length(next_slots)>0 && next_slots[[1]] > now) next_slots[[1]] else now + (i - 1)/1000
@@ -421,7 +421,7 @@ plan_tasks <-function(statuses = list()) {
       }
     }  
   }
-  # saving changes done on taskd
+  # saving changes done on tasks
   if(change)
     save_tasks(tasks)
 
@@ -464,7 +464,7 @@ save_tasks <- function(tasks) {
 #'
 #' The recurrent tasks are scheduled to be executed each 'detect span' minutes, which is a parameter set on the Shiny app.
 #'
-#' If any of these tasks fails it will be retried three times before going to a abort status. Aborted tasks can be relauched from the Shiny app. 
+#' If any of these tasks fails it will be retried three times before going to a abort status. Aborted tasks can be relaunched from the Shiny app. 
 #' @examples 
 #' if(FALSE){
 #'    #Running the detect loop
@@ -497,13 +497,13 @@ detect_loop <- function(data_dir = NA) {
   # registering the search runner (search.PID) or stopping if it is already running
   register_detect_runner()  
 
-  # lass_sleeping_message set to ensur it will be shown if all is done
+  # lass_sleeping_message set to ensure it will be shown if all is done
   last_sleeping_message <- Sys.time() - (conf$schedule_span * 60)
   while(TRUE) {
     # getting tasks to execute with one scheduled 
     tasks <- plan_tasks()
     # seeing if there is something to do 
-    # either there is an scheduled task
+    # either there is a scheduled task
     # or a task is in an inconsistency state (running) or failed (failed or aborted) 
     # aborted tasks are being taken into consideration since they should stop further taks from being executed 
     if(length(tasks[sapply(tasks, function(t) 
@@ -516,7 +516,7 @@ detect_loop <- function(data_dir = NA) {
     {
       # getting the position of the task to execute (first in one of the active status)
       i_next <- order(sapply(tasks, function(t) if(!is.na(t$status) && t$status %in% c("aborted", "scheduled", "failed", "running")) t$order else 999))[[1]] 
-      # proceding if task is not already aborted (otherwise keep looping)
+      # proceeding if task is not already aborted (otherwise keep looping)
       if(tasks[[i_next]]$status != "aborted") {
         # increasing number of failures if failed of running
         if(tasks[[i_next]]$status %in% c("failed", "running")) { 
@@ -544,7 +544,7 @@ detect_loop <- function(data_dir = NA) {
           else if(tasks[[i_next]]$task == "alerts") {
             tasks <- generate_alerts(tasks)
           }
-          # reseting faulures to zero if successfully executed
+          # resetting failures to zero if successfully executed
           if(tasks[[i_next]]$status == "success") tasks[[i_next]]$failures = 0
 
           # saving tasks 
@@ -562,7 +562,7 @@ detect_loop <- function(data_dir = NA) {
       message(paste(Sys.time(), ": Nothing else todo. Going to sleep each 5 seconds until ", format(tasks[[i_next]]$scheduled_for, tz=Sys.timezone(),usetz=TRUE)))
       last_sleeping_message <- Sys.time()
     }
-    # epitweetr sanity check and sendig emain in case of issued
+    # epitweetr sanity check and sending email in case of issues
     health_check()
     # updating config to capture changes coming from search loop or shiny app
     setup_config(data_dir = conf$data_dir)
@@ -672,7 +672,7 @@ update_alerts_task <- function(tasks, status, message, start = FALSE, end = FALS
 }
 
 
-# Updating dependencies task for reporting progress on downloading java & scala dependencies
+# Updating dependencies task for reporting progress on downloading Java & Scala dependencies
 update_dep_task <- function(tasks, status, message, start = FALSE, end = FALSE) {
   if(start) tasks$dependencies$started_on = Sys.time() 
   if(end) tasks$dependencies$end_on = Sys.time() 

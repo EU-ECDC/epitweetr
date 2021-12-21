@@ -43,15 +43,15 @@ search_loop <-  function(data_dir = NA) {
     loop_start <- Sys.time()
     # Waiting until database system will be running
     while(!is_fs_running()) {
-      msg("Epitweetr Database is not yet running waiting for 5 seconds")
+      msg("Epitweetr database is not yet running waiting for 5 seconds")
       Sys.sleep(5)
     }
     # Dismissing history if required from shiny app
     if(conf$dismiss_past_request  > conf$dismiss_past_done) {
       if(length(conf$topics[sapply(conf$topics, function(t) length(t$plan) == 0 || t$plan[[1]]$requests == 0)]) > 0) {
-        msg("dismis history has to wait until all plans has at least one plan with one request")
+        msg("Dismissing history has to wait until all plans have at least one plan with one request")
       } else {
-        msg("dismiss history requested")
+        msg("Dismissing history requested")
 
         for(i in 1:length(conf$topics)) {
           conf$topics[[i]]$plan <- finish_plans(plans = conf$topics[[i]]$plan)
@@ -125,7 +125,7 @@ search_loop <-  function(data_dir = NA) {
     }
 
 
-    #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config) at most once per 10 secinds
+    #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config) at most once every 10 seconds
     if(difftime(Sys.time(),last_save,units="secs") > 10) {
       last_save <- Sys.time()
       setup_config(data_dir = conf$data_dir, save_first = list("topics"))
@@ -139,8 +139,8 @@ search_loop <-  function(data_dir = NA) {
   }
 }
 
-# getting tweets for a particular plan, query and topic
-# this function is called by the search_loop 
+# Getting tweets for a particular plan, query and topic
+# This function is called by the search_loop 
 # plan: contains the id range that is being collected and the last tweet obtained. This will allow epitweetr to target the tweets to obtain on current request
 # query: contains the text query to be sent to twitter
 # topic: the topic to register the results on 
@@ -185,7 +185,7 @@ search_topic <- function(plan, query, topic) {
   dest <- paste(conf$data_dir, "tweets", "search", topic, year, file_name, sep = "/")
 
 
-  # ensuring that query is smaller than 400 character (tweetr API limit) 
+  # Ensuring that query is smaller than 400 character (Twitter API limit) 
   if(nchar(query)< 400) {
     # doing the tweet search and storing the response object to obtain details on resp
     content <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target) 
@@ -286,7 +286,7 @@ update_file_stats <- function(filename, topic, year, first_date, last_date) {
    #Setting UTC so it can be compares with twitter created dates
    attr(now, "tzone") <- "UTC"
    
-   # reading current statustics if they exists
+   # reading current statistics if they exist
    stats <- 
      if(!file.exists(dest)) 
        list()
@@ -295,7 +295,7 @@ update_file_stats <- function(filename, topic, year, first_date, last_date) {
     
     # matching record or creating new one
     found <- FALSE
-    # updatinf stat file if it is foung
+    # updating stat file if it is found
     if(length(stats)> 0) { 
       for(i in 1:length(stats)) {
         if(stats[[i]]$topic == topic) {
@@ -318,11 +318,11 @@ update_file_stats <- function(filename, topic, year, first_date, last_date) {
       )
     }
 
-    # saving modified json file
+    # saving modified JSON file
     write_json_atomic(stats, dest, pretty = TRUE, force = TRUE, auto_unbox = TRUE)
 }
 
-# Helper function to parse twiter date as provided by the twitter API
+# Helper function to parse Twitter date as provided by the Twitter API
 parse_date <- function(str_date) {
   curLocale <- Sys.getlocale("LC_TIME")
   on.exit(Sys.setlocale("LC_TIME", curLocale))
@@ -438,16 +438,16 @@ get_plan <- function(
 
 
 # @title Update get plans 
-# @description Updating plans for a particular topics
+# @description Updating plans for a particular topic
 # @param plans The existing plans for the topic, default: list()
 # @param schedule_target target minutes for finishing a plan 
 # @return updated list of 'get_plan'
 # @details
 # This function will update the plan list of a topic taking in consideration the search span
-# This function is called at the beggining of each search loop iteration applying the following rules
+# This function is called at the beginning of each search loop iteration applying the following rules
 # If no plans are set, a new plan for getting all possible tweets will be set
 # If current plan has started and the expected end has passed, a new plan will be added for collecting new tweets (previous plan will be stored for future execution if possible)
-# Any finished plans after the first will be discharged (note that after 7 days all should be discharged because of empty results as a measure of precaution  a max od 100 plans are kept)
+# Any finished plans after the first will be discharged. Note that after 7 days, all plans should be discharged because of empty results and as a measure of precaution, a maximum of 100 plans are kept)
 # @returns the updated list of plans
 # @examples 
 # if(FALSE){
@@ -517,7 +517,7 @@ finish_plans <- function(plans = list()) {
   }
 }
 
-# Calculating how long in seconds should epitweetr wait before executing one of the planson the list which would be the case only if all plans are finished before the end of the search span
+# Calculating how long in seconds should epitweetr wait before executing one of the plans in the list which would be the case only if all plans are finished before the end of the search span
 can_wait_for <- function(plans) {
   plans <- if("get_plan" %in% class(plans)) list(plans) else plans
   non_ended <- plans[sapply(plans, function(x) is.null(x$end_on))]
@@ -537,8 +537,8 @@ request_finished <- function(current, got_rows, max_id, since_id = NULL) {
 
 # Update a plan after search request is done
 # If first request, started and max will be set
-# If results are non empty result span, since_id and max id are set
-# If results are less than requested the search is suppossed to be finished
+# If results are non-empty result span, since_id and max id are set
+# If results are less than requested the search is supposed to be finished
 # If results are equals to the requested limit, more tweets are expected. In that case if the expected end has not yet arrived and we can estimate the remaining number of requests the next schedule will be set to an estimation of the necessary requests to finish. If we do not know, the current schedule will be left untouched.
 request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL) {
   # increasing the number of requests
@@ -563,7 +563,7 @@ request_finished.get_plan <- function(current, got_rows, max_id, since_id = NULL
     #current$progress <- 1.0 
   } else {
     if(Sys.time() < current$expected_end && current$progress > 0.0) {
-      # this property was designed to delay plans that cab quickly finish, but it has finally not being used. 
+      # this property was designed to delay plans that cab quickly finish, but it has finally not been used. 
       progressByRequest <- current$progress / current$requests
       requestsToFinish <- (1.0 - current$progress)/progressByRequest
       current$scheduled_for = Sys.time() + as.integer(difftime(current$expected_end, Sys.time(), units = "secs"))/requestsToFinish 
@@ -593,7 +593,7 @@ create_dirs <- function(topic = NA, year = NA) {
   }
 }
 
-# Last search time on stored on the embeded database
+# Last search time on stored in the embedded database
 last_search_time <- function() {
   last_fs_updates(c("tweets"))$tweets
 }

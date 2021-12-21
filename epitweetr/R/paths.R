@@ -2,13 +2,13 @@
 # Get path of search files (written by search loop)
 get_search_path <- function() file.path(conf$data_dir, "tweets", "search")
 
-# Get âth of geolocated files (written by detect loop)
+# Get path of geolocated files (written by detect loop)
 get_geo_path <- function() file.path(conf$data_dir, "tweets", "geolocated")
 
 # Get path of search files (written by search loop)
 get_search_archive_path <- function() file.path(conf$data_dir, "tweets", "search_archive")
 
-# Get path of properties files (written by shiny app)
+# Get path of properties files (written by Shiny app)
 get_properties_path <- function() file.path(conf$data_dir, "properties.json")
 
 # Get path of properties files (written by search loop)
@@ -57,7 +57,7 @@ get_geotraining_evaluation_path <- function() {
 # Get default languages file path
 get_default_available_languages_path <- function() system.file("extdata", "languages.xlsx", package = get_package_name())
 
-# Get available languages file path (writter by shiny app)
+# Get available languages file path (written by Shiny app)
 get_available_languages_path <- function() {
   path <- paste(conf$data_dir, "languages.xlsx", sep = "/")
   if(!file.exists(path))
@@ -68,7 +68,7 @@ get_available_languages_path <- function() {
 # Get default topics file path
 get_default_known_users_path <- function() system.file("extdata", "users.xlsx", package = get_package_name())
 
-# Get topics file path either from user or package location (written by shiny app)
+# Get topics file path either from user or package location (written by Shiny app)
 get_known_users_path <- function(data_dir = conf$data_dir) {
     users_path <- paste(data_dir, "users.xlsx", sep = "/")
     if(!file.exists(users_path))
@@ -79,7 +79,7 @@ get_known_users_path <- function(data_dir = conf$data_dir) {
 # Get default topics files path
 get_default_topics_path <- function() system.file("extdata", "topics.xlsx", package = get_package_name())
 
-# Get topics file path either from user or package location (written by shiny app)
+# Get topics file path either from user or package location (written by Shiny app)
 get_topics_path <- function(data_dir = conf$data_dir) {
     topics_path <- paste(data_dir, "topics.xlsx", sep = "/")
     if(!file.exists(topics_path))
@@ -90,7 +90,7 @@ get_topics_path <- function(data_dir = conf$data_dir) {
 # Get default country files path
 get_default_countries_path <- function() system.file("extdata", "countries.xlsx", package = get_package_name())
 
-# Get countries file path either from user or package location (written by shiny app)
+# Get countries file path either from user or package location (written by Shiny app)
 get_countries_path <- function(data_dir = conf$data_dir) {
     countries_path <- paste(data_dir, "countries.xlsx", sep = "/")
     if(!file.exists(countries_path))
@@ -98,10 +98,10 @@ get_countries_path <- function(data_dir = conf$data_dir) {
     return(countries_path)
 }
 
-# Get default subscribers files path
+# Get default subscribers file path
 get_default_subscribers_path <- function() system.file("extdata", "subscribers.xlsx", package = get_package_name())
 
-# Get the path for default or user defined subscribed user file (written by shiny app)
+# Get the path for default or user defined subscribed user file (written by Shiny app)
 get_subscribers_path <- function() {
   path <- paste(conf$data_dir, "subscribers.xlsx", sep = "/")
   if(!file.exists(path))
@@ -112,7 +112,7 @@ get_subscribers_path <- function() {
 # Get email template path
 get_email_alert_template_path <- function() system.file("extdata", "mail.html", package = get_package_name())
 
-# Get scala building tools (SBT) dependencies file
+# Get Scala Building Tools (SBT) dependencies file
 get_sbt_file_dep_path <- function() system.file("extdata", "sbt-deps.txt", package = get_package_name())
 
 # Get JAR directory
@@ -178,7 +178,7 @@ get_lang_stamp_path <- function(code) {
   file.path(conf$data_dir, "languages", paste(code, ".txt.gz.stamp", sep = "")) 
 }
 
-# get tweet collection path
+# Get tweet collection path
 get_tweet_togeo_path <- function() {
   file.path(conf$data_dir, "geo", "togeolocate.json")
 }

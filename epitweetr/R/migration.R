@@ -1,11 +1,11 @@
-#' @title Function used for migragting tweets from to old to the new file system
-#' @description migrates geolocated tweets from the old to the new file systam allowing full text search using Apache Lucene Indexes
+#' @title Function used for migrating tweets from to old to the new file system
+#' @description migrates geolocated tweets from the old to the new file system allowing full text search using Apache Lucene Indexes
 #' @param tasks named list, current tasks for logging and updating progress default: get_tasks()
 #' @param chunk_size, integer, the chunk size for indexing tweets, default: 400
 #' @return the updated tasks.
-#' @details iterates over existing tweets collectes with epitweetr v0.0.x series
-#' joins base tweets and geolocated tweets and then send thems to the lucee inex via the dedicated REST API.
-#' Migrated files will be moved to search_archive and geo_archive folders. Users can backuo and remove these folders when migration ends to gain disk space.
+#' @details iterates over existing tweets collected with epitweetr v0.0.x series
+#' joins base tweets and geolocated tweets and then sends themes to the Lucene index via the dedicated REST API.
+#' Migrated files will be moved to search_archive and geo_archive folders. Users can backup and remove these folders when migration ends to gain disk space.
 #' Series folders are maintained for migrated tweets
 #' @examples
 #' if(FALSE){
@@ -83,21 +83,21 @@ json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
           read_time <- Sys.time()
           lines <- readLines(con = con, n =  if(files[[j]]$type == "geo") 100 *  chunk_size else chunk_size)
           read_time <-  as.numeric(difftime(Sys.time(), read_time, units='secs'))
-          # commiting each 60 secs
+          # committing each 60 secs
           if(as.numeric(difftime(Sys.time(), last_commit, units = "secs")) > 60) { 
             commit_tweets()
             last_commit <- Sys.time()
           }
         }
         close(con)
-        #Commiting file tweets
+        #Committing file tweets
         commit_tweets()
 
         read_size <- read_size + file_size
         line_size <- read_size / total_lines  
       }
 
-      #After processing all tweets and geolocation for the particular date name we can safely move the file to the archive folder
+      #After processing all tweets and geolocation for the particular date name, we can safely move the file to the archive folder
       tasks <- update_dep_task(tasks, "running",paste("Archiving files for ", dates[[i]]))
       lapply(files, archive_search_geo_file)
     }
@@ -105,7 +105,7 @@ json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
   tasks
 }
 
-# Getting file names on a particular folder matching the provied pattern
+# Getting file names on a particular folder matching the provided pattern
 get_file_names <- function(path, ext, pattern) {
   files <- list.files(file.path(path), recursive=T, full.names=F, include.dirs = T, pattern = pattern)
   names <- unique(sapply(files, function(f) tail(strsplit(f, "/")[[1]], n = 1)))
@@ -129,7 +129,7 @@ archive_search_geo_file <- function(file) {
     else if (file$type == "geo")
       to <- sub("geolocated", 'geo_archive', from)
     else 
-      stop("The provided file to archive must be a named list with propeerties type (geo or search) and path")
+      stop("The provided file to archive must be a named list with properties type (geo or search) and path")
     todir <- dirname(to)
     if (!isTRUE(file.info(todir)$isdir)) dir.create(todir, recursive=TRUE)
     if(file.exists(to)) {
@@ -150,12 +150,12 @@ archive_search_geo_file <- function(file) {
   }
 }
 
-# Store the geolocated tweets on the new embeded database
+# Store the geolocated tweets on the new embedded database
 store_geo <- function(lines, created_dates, async = T, chunk_size = 100) {
   valid_index <- unlist(lapply(lines, function(l) jsonlite::validate(l)))
   bad_lines <- lines[!valid_index]
   if(length(bad_lines)>0)
-    message(paste(length(bad_lines), "of", length(lines), "bad line found!! they will be ignored"))
+    message(paste(length(bad_lines), "of", length(lines), "bad line(s) found!! These will be ignored"))
   lines <- lines[valid_index] 
   ngroupes <- ceiling(length(lines)/chunk_size)
   #grouping lines into chunks
@@ -188,12 +188,12 @@ store_geo <- function(lines, created_dates, async = T, chunk_size = 100) {
   }
 }
 
-# Store the tweets collected as kson data on the new embeded database
+# Store the tweets collected as JSON data on the new embedded database
 store_v1_search <- function(lines, topic, async = T) {
   valid_index <- unlist(lapply(lines, function(l) jsonlite::validate(l)))
   bad_lines <- lines[!valid_index]
   if(length(bad_lines)>0)
-    message(paste(length(bad_lines), "of", length(lines), "bad line found!! they will be ignored"))
+    message(paste(length(bad_lines), "of", length(lines), "bad line(s) found!! These will be ignored"))
     
   lines <- lines[valid_index] 
   if(length(lines) > 0) {
@@ -207,7 +207,7 @@ store_v1_search <- function(lines, topic, async = T) {
       async$request()
       status <- async$status_code()
       if(length(status[status == 406])>0)
-        message(paste(length(bad_lines), "of", length(lines), "bad line found!! they will be ignored"))
+        message(paste(length(bad_lines), "of", length(lines), "bad line(s) found!! These will be ignored"))
        
 
       if(length(status[status != 200 & status != 406])>0)
@@ -226,7 +226,7 @@ store_v1_search <- function(lines, topic, async = T) {
   }
 }
 
-# Commit the changes on the embeded database
+# Commit the changes on the embedded database
 commit_tweets <- function() {
   post_result <- httr::POST(url=get_scala_commit_url(), httr::content_type_json(), encode = "raw", encoding = "UTF-8")
   if(httr::status_code(post_result) != 200) {
@@ -234,7 +234,7 @@ commit_tweets <- function() {
   }
 }
 
-# Print duration in seconds as duration on days, hours, minutes and seconds
+# Print duration in seconds as duration in days, hours, minutes and seconds
 sec2hms <- function(seconds) {
   x <- abs(as.numeric(seconds))
   sprintf("%d days %02d:%02d:%02ds", x %/% 86400,  x %% 86400 %/% 3600, x %% 3600 %/% 60,  x %% 60 %/% 1)
