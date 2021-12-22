@@ -268,7 +268,9 @@ check_tweets_present <- function() {
 
 # check if alert files are present
 check_alerts_present <- function() {
-  last_year <- tail(list.dirs(path = file.path(conf$data_dir, "alerts"), recursive = FALSE), n = 1)
+  dirs <- list.dirs(path = file.path(conf$data_dir, "alerts"), recursive = FALSE)
+  dirs <- dirs[!grepl(".*NA$", dirs)]
+  last_year <- tail(dirs, n = 1)
   last_file <- tail(list.files(path = last_year, pattern = "*.json"), n = 1) 
   
   if(length(last_file) > 0) {
@@ -377,16 +379,21 @@ check_fs_running <- function() {
 }
 
 # check Twitter authentication
+last_check_twitter_auth <- new.env()
+
 check_twitter_auth <- function() {
-  ok <- tryCatch({
-    token <- NULL
-    token <- get_token(request_new = FALSE)
-    "Token" %in% class(token) || "bearer" %in% class(token)
-    }, 
-    warning = function(m)  {"Token" %in% class(token) || "bearer" %in% class(token)}, 
-    error = function(e) { FALSE }
-  ) 
+  token <- get_token(request_new = FALSE)
+  ok <- "Token" %in% class(token) || "bearer" %in% class(token)
+  last_check_twitter_auth$value <- ok
   if(ok)
+    TRUE 
+  else {
+    warning("Cannot create a Twitter token, please choose an authentication method on the configuration page")
+    FALSE
+  }
+}
+check_last_twitter_auth <- function() {
+  if(exists("value", last_check_twitter_auth) && last_check_twitter_auth$value)
     TRUE 
   else {
     warning("Cannot create a Twitter token, please choose an authentication method on the configuration page")
@@ -453,9 +460,10 @@ check_move_from_temp <- function() {
 #' @rdname check_all
 #' @export 
 check_all <- function() {
+  check_twitter_auth()
   checks <- list(
     scheduler = check_scheduler,
-    twitter_auth = check_twitter_auth,
+    twitter_auth = check_last_twitter_auth,
     search_running = check_search_running,
     database_running = check_fs_running,
     tweets = check_tweets_present, 
