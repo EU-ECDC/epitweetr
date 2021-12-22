@@ -379,14 +379,21 @@ check_fs_running <- function() {
 }
 
 # check Twitter authentication
+last_check_twitter_auth <- new.env()
+
 check_twitter_auth <- function() {
-  ok <- tryCatch({
-    token <- get_token(request_new = FALSE)
-    "Token" %in% class(token) || "bearer" %in% class(token)
-    }, 
-    error = function(e) { FALSE }
-  ) 
+  token <- get_token(request_new = FALSE)
+  ok <- "Token" %in% class(token) || "bearer" %in% class(token)
+  last_check_twitter_auth$value <- ok
   if(ok)
+    TRUE 
+  else {
+    warning("Cannot create a Twitter token, please choose an authentication method on the configuration page")
+    FALSE
+  }
+}
+check_last_twitter_auth <- function() {
+  if(exists("value", last_check_twitter_auth) && last_check_twitter_auth$value)
     TRUE 
   else {
     warning("Cannot create a Twitter token, please choose an authentication method on the configuration page")
@@ -453,9 +460,10 @@ check_move_from_temp <- function() {
 #' @rdname check_all
 #' @export 
 check_all <- function() {
+  check_twitter_auth()
   checks <- list(
     scheduler = check_scheduler,
-    twitter_auth = check_twitter_auth,
+    twitter_auth = check_last_twitter_auth,
     search_running = check_search_running,
     database_running = check_fs_running,
     tweets = check_tweets_present, 
