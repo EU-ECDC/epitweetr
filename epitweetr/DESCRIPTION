@@ -1,6 +1,6 @@
 Package: epitweetr
 Title: Early Detection of Public Health Threats from Twitter Data
-Version: 1.0.41
+Version: 1.0.43
 Authors@R: c( 
      person(given = "Laura",
             family = "Espinosa",
