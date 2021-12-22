@@ -4,12 +4,12 @@ print(getwd())
 if(!("devtools" %in% installed.packages()[,"Package"]))
   install.packages("devtools")
 
-devtools::install_deps()
-devtools::document()
+#devtools::install_deps()
+#devtools::document()
 devtools::build(binary=TRUE)
 devtools::build(binary=FALSE)
-devtools::build_manual()
-devtools::build_vignettes()
+# devtools::build_manual()
+# devtools::build_vignettes()
 
 if(!file.exists(file.path("..", "install"))){
   dir.create(file.path("..", "install"), showWarnings = FALSE)
@@ -31,9 +31,9 @@ file.rename(file.path("..", installer_name), file.path("..", "install", installe
 
 manual_name <- paste("epitweetr_",packageVersion("epitweetr"),".pdf", sep = "") 
 #moving manual
-file.rename(file.path("..", manual_name), file.path("..", "manual", manual_name))
+#file.rename(file.path("..", manual_name), file.path("..", "manual", manual_name))
 
 
-detach("package:epitweetr", unload=TRUE)
-install.packages(file.path("..", "install", installer_name[[2]]), dependencies = TRUE)
+#detach("package:epitweetr", unload=TRUE)
+#install.packages(file.path("..", "install", installer_name[[2]]), dependencies = TRUE)
 
