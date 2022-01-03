@@ -128,17 +128,17 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     }
 
     #measure_time <- function(f) {start.time <- Sys.time();ret <- f();end.time <- Sys.time();time.taken <- end.time - start.time;message(time.taken); ret}
-    message(q_url)
+    #message(q_url)
     agg_df = (
       if(conf$onthefly_api)
-        jsonlite::stream_in(url(q_url), verbose = TRUE)
+        jsonlite::stream_in(url(q_url), verbose = FALSE)
       else {
         if(!file.exists( file.path(conf$data_dir, "tmp")))
           dir.create(file.path(conf$data_dir, "tmp"))
         dest = file.path(conf$data_dir, "tmp", paste0("aggregate_", as.integer(stats::runif(1, 1, 99999)), ".json"))
         download.file(url = q_url, destfile = dest)
         on.exit(if(file.exists(dest)) file.remove(dest))
-        df <- jsonlite::stream_in(file(dest), verbose = TRUE)
+        df <- jsonlite::stream_in(file(dest), verbose = FALSE)
         df
       }
     )
@@ -543,6 +543,8 @@ get_aggregated_period <- function() {
         )
     }
     cached$last_agg_request <- Sys.time()
+    if(is.na(cached$last_agg_request_value$last))
+      rm("last_agg_request", envir = cached)
   }
   cached$last_agg_request_value
 }
