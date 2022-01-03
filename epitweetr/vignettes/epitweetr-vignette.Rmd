@@ -1368,10 +1368,19 @@ In the task scheduler, you can establish that the search and detection tasks “
 ### Management of 'epitweetr database' and 'Data collection and alerts' pipelines (Linux and Mac)
 Since the search and detection pipeline in Linux or Mac have to be run manually, if the computer is logged/turned off or the terminal windows are closed, the search and detection pipeline will stop. Please remember to follow the steps in the section *Setting up tweet collection and the alert detection loop* to run these tasks again.
 
-### Running 'epitweetr database', 'Data collection and alerts' and 'Requirements and alerts' pipelines
+### Running 'epitweetr database', 'Data collection and processing' and 'Requirements and alerts' pipelines
 
-#### “Cannot execute task \#####: the task is already running”
+#### "Cannot execute task \#####: the task is already running"
 The detect and the search loop create two files containing their process IDs located in the `epitwitter` data folder: search.PID and detect.PID. This error arises if `epitweetr` finds another R process currently running with the same ID. In order to fix this error you should first verify if the search / detect loop are not already running in another R session. If this is the case, you should not try to start the task since `epitweetr` only supports one instance of the same task running in the same data folder. If the running process is not associated with the task then you can manually delete the PID file and try to start it again.
+
+#### "Failed while processing alerts"
+The error "failed while processing alerts Error in do_next_alerts(tasks): Cannot determine the last aggregated period for alert detection. Please check that series have been aggregated" appears when there are no aggregated series to calculate the alerts. This can happen in the following cases:
+* No tweets have been collected in the past days so there were no tweets available to produce the aggregated series
+* Geonames and/or languages are not downloaded so the geolocation cannot be extracted from the tweets and, consequently, tweets cannot be aggregated.
+
+If it is the first installation, you should wait until geonames and/or languages tasks are completed and collected tweets are geotagged and aggregated. Depending on the machine, these steps may take some hours.
+
+You should also checked that tweets are being collected.
 
 ### Change the user of the Twitter authentication when using a Twitter account
 1. End and disable the search loop/task in the task scheduler (Windows) or close the R/terminal window with the search loop/task (Linux and Mac)
@@ -1389,17 +1398,17 @@ The detect and the search loop create two files containing their process IDs loc
 #### Languages to be added or deleted 
 All default languages (English, French, Spanish and Portuguese) must be downloaded before adding new languages or deleting any of the default languages.
 
-#### “The specified size exceeds the maximum representable size. Error: Could not create the Java Virtual Machine”
+#### "The specified size exceeds the maximum representable size. Error: Could not create the Java Virtual Machine"
 
 If this error appears when running GeoNames, it means that the machine has Java 32bits. You need to install Java 64bits. And make it accessible to epitwitter either by setting "JAVA\_HOME" environment variable or by setting the right java binary on the system PATH. 
 
-### The “Launch slots” in the configuration page show NAs instead of the time slots
+### The "Launch slots" in the configuration page show NAs instead of the time slots
 
 If it is the first time that you install and launch `epitweetr`, the geotag task of the detection pipeline has to be run at least once in order to see time slots in the “Launch slots” in the configuration page.
 
 ### Downloading PDF of the dashboard
 
-#### “Error in: LaTeX failed to compile C:&#92;Users&#92;name~1&#92;...&#92;file######.tex.”
+#### "Error in: LaTeX failed to compile C:&#92;Users&#92;name~1&#92;...&#92;file######.tex."
 
 This error appears in Windows when clicking on “PDF” in the dashboard and no PDF is saved. The reason is that the path to TEMP and TMP environment variables of the user are too long, Windows shortens the path and epitweetr cannot find this new path. Please follow the next steps to fix this:
 
@@ -1411,7 +1420,7 @@ This error appears in Windows when clicking on “PDF” in the dashboard and no
 
 4. You can now download and save the PDF from the dashboard
 
-#### “Error: pandoc document conversion failed with error 6”
+#### "Error: pandoc document conversion failed with error 6"
 
 1. Downloading this script (https://raw.githubusercontent.com/jgm/pandoc/master/macos/uninstall-pandoc.pl)
 
