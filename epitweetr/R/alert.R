@@ -393,9 +393,23 @@ get_alert_count_from <- function(date, baseline_size, same_weekday_baseline) {
 do_next_alerts <- function(tasks = get_tasks()) {
   `%>%` <- magrittr::`%>%`
   # Getting period for last alerts
-  last_agg <- get_aggregated_period()
-  alert_to <- last_agg$last
-  alert_to_hour <- last_agg$last_hour
+  alert_to <- NA
+  alert_to_hour <- NA
+  wait_for <- 0
+  while(is.na(alert_to) || is.na(alert_to_hour)) { 
+    last_agg <- get_aggregated_period()
+    alert_to <- last_agg$last
+    alert_to_hour <- last_agg$last_hour
+    if(is.na(alert_to) || is.na(alert_to_hour)) {
+      message(paste("Cannot determine the last aggregated period for alert detection, tryng again in", wait_for, " seconds"))
+      Sys.sleep(wait_for)
+      wait_for <- wait_for + 10
+    }
+    if(wait_for > 30)
+      stop("Cannot determine the last aggregated period for alert detection. Please check that series have been aggregated")
+  }
+  
+
   # Determining whether we should produce alerts for current hour (if aggregation has produced new records since last alert generation
   do_alerts <- FALSE
   alert_file <-get_alert_file(alert_to)
@@ -403,7 +417,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
     do_alerts <- TRUE
   } else {
     f <- file(alert_file, "rb")
-    existing_alerts <- jsonlite::stream_in(f)
+    existing_alerts <- jsonlite::stream_in(f, verbose = FALSE)
     close(f)
     if(nrow(existing_alerts)==0 || nrow(existing_alerts %>% dplyr::filter(.data$date == alert_to & .data$hour == alert_to_hour)) == 0)
       do_alerts <- TRUE
