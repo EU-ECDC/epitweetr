@@ -489,7 +489,7 @@ update_languages <- function(tasks) {
 #' @return A new data frame containing the following geolocation columns: geo_code, geo_country_code, geo_country, geo_name, tags
 #' @details This functions perform a call to the epitweetr database which includes functionality for geolocating for languages activated and successfully processed on the shiny app.
 #' 
-#' The geolocation process tries to find the best match in GeoNames database \url{geonames.org} including all local aliases for words.
+#' The geolocation process tries to find the best match in GeoNames database \url{https://www.geonames.org/} including all local aliases for words.
 #'
 #' If no language is associated to the text, all tokens will be sent as a query to the indexed GeoNames database.
 #'
