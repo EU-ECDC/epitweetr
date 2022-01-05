@@ -5,7 +5,7 @@ if(!("devtools" %in% installed.packages()[,"Package"]))
   install.packages("devtools")
 
 #devtools::install_deps()
-#devtools::document()
+devtools::document()
 # devtools::build_manual()
 # devtools::build_vignettes()
 
