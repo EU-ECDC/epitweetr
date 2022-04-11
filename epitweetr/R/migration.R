@@ -61,7 +61,7 @@ json2lucene <- function(tasks = get_tasks(), chunk_size = 400) {
           post_time <- Sys.time()
           if(files[[j]]$type == "search")
             created_dates = unique(c(created_dates, store_v1_search(lines, files[[j]]$topic)))
-          if(files[[j]]$type == "geo") {
+          if(files[[j]]$type == "geo" && length(created_dates) > 0) {
              store_geo(lines, created_dates, chunk_size = chunk_size)
           }
           post_time <- as.numeric(difftime(Sys.time(), post_time, units='secs'))

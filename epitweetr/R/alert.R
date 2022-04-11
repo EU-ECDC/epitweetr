@@ -690,7 +690,7 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
             if(!is.null(s) && !is.na(s) && length(s) > 0 && nchar(s) > 0) {
               urls <- sapply(strsplit(s, " \\("), function(f) f[[1]])
               counts <- sapply(strsplit(s, " \\("), function(f) paste(" (", if(length(f) > 1) f[[2]] else "-", sep = ""))
-              paste(sapply(1:length(urls), function(i) paste("<a target = \"_blank\" href = \"",urls[[i]], "\">",urls[[i]], counts[[i]],"</a>")), collapse = ", ")
+              paste(sapply(1:length(urls), function(i) paste("<a target = \"_blank\" href = \"",urls[[i]], "\">",urls[[i]], counts[[i]],"</a>", sep = "")), collapse = ", ")
             } else ""
           }), "</li>\n"), ""),
         "</UL>",

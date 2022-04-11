@@ -136,7 +136,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
         if(!file.exists( file.path(conf$data_dir, "tmp")))
           dir.create(file.path(conf$data_dir, "tmp"))
         dest = file.path(conf$data_dir, "tmp", paste0("aggregate_", as.integer(stats::runif(1, 1, 99999)), ".json"))
-        download.file(url = q_url, destfile = dest)
+        download.file(url = q_url, destfile = dest, quiet = TRUE)
         on.exit(if(file.exists(dest)) file.remove(dest))
         df <- jsonlite::stream_in(file(dest), verbose = FALSE)
         df

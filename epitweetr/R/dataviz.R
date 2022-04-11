@@ -639,8 +639,8 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     axis.ticks = ggplot2::element_blank(),
     axis.title.x = ggplot2::element_blank(),
     axis.title.y = ggplot2::element_blank(),
-    legend.direction="horizontal",
-    legend.position = "bottom"
+    legend.direction="vertical",
+    legend.position = "right"
   ))
 
   # creating the plot
