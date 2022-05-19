@@ -109,7 +109,7 @@ object API {
                               if(geolocate) {
                                 if(LuceneActor.tooBigToGeolocate())
                                   (StatusCodes.InternalServerError, 
-                                    LuceneActor.DatesProcessed("One of the geolocacing or aggregating files in geo folder is bigger than the predefined limit of 500MB, stopping for safety reasons")
+                                    LuceneActor.DatesProcessed("Geolocate or aggregate is too slow. One of the geolocating or aggregating files in geo folder is bigger than the predefined limit of 500MB, stopping for safety reasons")
                                   )
                                 else {
                                   luceneRunner ! LuceneActor.GeolocateTweetsRequest(TopicTweetsV1(topic, tweets))

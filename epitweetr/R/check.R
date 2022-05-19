@@ -584,3 +584,157 @@ health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
   alerts
 }
 
+create_checkpoint <- function(
+  destination_dir, 
+  types = c("settings", "dependencies", "machine-learning", "aggregations", "tweets", "logs"), 
+  tweets_period = get_aggregated_period(), 
+  aggregated_period = get_aggregated_period(), 
+  progress = function(v, m) message(paste(round(v*100, 2), m))
+) {
+  destination <- file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), ".zip"))
+  items = list()
+    if("settings" %in% types)
+      items <- c(
+        items,
+        list(
+          "properties.json" = get_properties_path(),
+          "topics.xlsx" = get_topics_path(),
+          "tasks.json" = get_tasks_path(),
+          "subscribers.xlsx" = get_subscribers_path(),
+          "countries.xlsx" = get_countries_path(),
+          "users.xlsx" = get_known_users_path(),
+          "languages.xlsx" = get_available_languages_path(),
+          "topics.json" = get_plans_path(),
+          "topic-keywords.json" = get_topic_keywords_path()
+        ),
+        epitweetr_files("collections")
+      )
+    if("dependencies" %in% types)
+      items <- c(
+        items,
+        list(
+          "hadoop/bin/winutils.exe" = get_winutils_path()
+        ),
+        as.list(setNames(list.files(get_jars_dest_path(), full.names = TRUE), file.path("jars", list.files(get_jars_dest_path()))))
+      )
+    if("machine-learning" %in% types) 
+      items <- c(
+        items,
+        list(
+          "alert-training.xlsx" = get_alert_training_path(),
+          "geo-training.xlsx" = get_geotraining_path(),
+          "geo-training-evaluation.json" = get_geotraining_evaluation_path(),
+          "geo/forced-geo.json" = get_forced_geo_path(),
+          "geo/forced-geo-codes.json" = get_forced_geo_codes_path(),
+          "geo/allCountries.txt" = get_geonames_txt_path()
+        ),
+        epitweetr_files(get_cities_parquet_path(relative = TRUE)),
+        epitweetr_files(get_geonames_parquet_path(relative = TRUE)),
+        epitweetr_files(get_geonames_index_path(relative = TRUE)),
+        epitweetr_files(get_lang_index_path(relative = TRUE)),
+        epitweetr_files(get_lang_index_path(relative = TRUE)),
+        epitweetr_files("languages"),
+        epitweetr_files("alert-ml")
+      )
+    if("aggregations" %in% types)
+      items <- c(
+        items,
+        epitweetr_files("alerts", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("fs/contexts", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("fs/country_counts", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("fs/entities", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("fs/geolocated", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("fs/hashtags", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("fs/topwords", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("fs/urls", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("series", aggregated_period[[1]], aggregated_period[[2]]),
+        epitweetr_files("stats", aggregated_period[[1]], aggregated_period[[2]])
+      )
+    if("tweets" %in% types) 
+      items <- c(
+        items,
+        list(
+          "geo/togeolocate.json" = get_tweet_togeo_path(),
+          "geo/geolocating.json" = get_tweet_geoing_path(),
+          "geo/toaggregate.json" = get_tweet_toaggr_path(),
+          "geo/aggregating.json" = get_tweet_aggring_path()
+        ),
+        epitweetr_files("fs/tweets", aggregated_period[[1]], aggregated_period[[2]])
+      )
+    if("logs" %in% types)
+      items <- c(
+        items,
+        list(
+          "logs/detect.log" = "~/epitweetr/detect.log",
+          "logs/fs.log" = "~/epitweetr/fs.log",
+          "logs/search.log" = "~/epitweetr/search.log"
+        )
+      )
+  nb <- length(items)
+  i <- 0
+  progress(0, paste("Building archive for", nb, "files"))
+  last_message <- as.integer(Sys.time())
+  oldwd <- getwd()
+  to_delete = c()
+  on.exit(if(!is.null(to_delete)) file.remove(to_delete), add = TRUE)
+  on.exit(setwd(oldwd), add = TRUE)
+  setwd(conf$data_dir)
+  for(n in names(items)) {
+    #message(paste(n, '--------->', items[[n]]))
+    if(!file.exists(n) && file.exists(items[[n]])) {
+      to_delete = n
+      file.copy(items[[n]], n, copy.date = TRUE)
+      
+    }
+    if(i == 0)
+      zip::zip(destination, n, recurse = FALSE, mode = "mirror")
+    else
+      zip::zip_append(destination, n, recurse = FALSE, mode = "mirror")
+    if(!is.null(to_delete)) {
+      file.remove(to_delete)
+    }
+    to_delete = c()
+    i = i + 1
+    if(as.integer(Sys.time()) - last_message > 2) {
+      progress(1.0*i/nb, paste("Building archive for", i, "of" , nb, "files"))
+      last_message <- as.integer(Sys.time())
+    }
+  }
+}
+
+epitweetr_files <- function(rel_path, dmin = NULL, dmax = NULL) {
+  if(!is.null(dmin) && is.na(dmin))
+    dmin <- NULL
+  if(!is.null(dmax) && is.na(dmax))
+    dmax <- NULL
+  ret = list()
+  dirs <- list.dirs(file.path(conf$data_dir, rel_path), full.names= FALSE)
+  rel_dirs <- ifelse(dirs == "", rel_path, file.path(rel_path, dirs)) 
+  for(d in rel_dirs ) {
+      f <- file.path(conf$data_dir, d)
+      file_names <- setdiff(list.files(f), list.dirs(f, recursive = FALSE, full.names = FALSE))
+      files <- as.list(setNames(file.path(conf$data_dir,  d, file_names), file.path(d, file_names)))
+      dates <- strptime(regmatches(names(files),gregexpr("[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]",names(files))),  "%Y.%m.%d")
+      fd <- ifelse(sapply(dates, function(v) is.null(dmin)), TRUE, ifelse(is.na(dates), FALSE, dates >= dmin)) & ifelse(sapply(dates, function(v) is.null(dmax)), TRUE, ifelse(is.na(dates), FALSE, dates <= dmax))
+      weeks <- regmatches(names(files),gregexpr("[0-9][0-9][0-9][0-9]\\.[0-9][0-9]",names(files)))
+      weeks <- ifelse(is.na(dates), weeks, NA)
+      wmin = if(is.null(dmin)) NULL else strftime(dmin, "%G.%V")
+      wmax = if(is.null(dmax)) NULL else strftime(dmax, "%G.%V")
+      fw <- ifelse(sapply(weeks, function(v) is.null(wmin)), TRUE, ifelse(is.na(weeks), FALSE, weeks >= wmin)) & ifelse(sapply(weeks, function(v) is.null(wmax)), TRUE, ifelse(is.na(weeks), FALSE, weeks <= wmax))
+      ret <- c(ret, files[fd | fw])
+  }
+  ret
+}
+#    "logs"
+
+
+
+#get_search_path 
+#get_geo_path 
+#
+#get_search_archive_path 
+#
+#
+#get_alert_file 
+# 
+#get_tweet_togeo_path 

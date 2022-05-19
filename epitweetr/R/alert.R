@@ -1010,6 +1010,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
           html <- gsub("@alerts", paste(c(non_one_alert_tables, one_alert_table), collapse="\n"), html)
           close(t_con)
 
+          
           # creating the message to send
           msg <- ( 
             emayili::envelope() %>% 
@@ -1018,6 +1019,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             emayili::subject(title) %>% 
             emayili::html(html)
           )
+
           smtp <- ( 
             if(is.na(conf$smtp_password) || is.null(conf$smtp_password) ||  conf$smtp_password == "") 
               emayili::server(host = conf$smtp_host, port=conf$smtp_port, insecure=conf$smtp_insecure, reuse = FALSE)

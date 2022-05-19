@@ -565,6 +565,30 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   troubleshoot_page <- 
     shiny::fluidPage(
+          shiny::h3("Create snapshot file"),
+          shiny::fluidRow(
+            shiny::column(6,
+              shiny::checkboxGroupInput("snapshot_types", "Include:", inline = TRUE,
+                choices = c("Settings" = "settings", "Dependencies"="dependencies", "Machine Learning" = "machine-learning", "Aggregation" = "aggregations", "Tweets"="tweets", "Logs" = "logs"),
+                selected = c("settings", "dependencies", "machine-learning", "aggregations", "tweets", "logs")
+              )
+            ),
+            shiny::column(3,
+              shiny::dateRangeInput("snapshot_aggr_period", label = shiny::h4("Aggregated data period"), start = d$date_min, end = d$date_end, min = d$date_min, max = d$date_max, format = "yyyy-mm-dd", startview = "month")
+            ),
+            shiny::column(3,
+              shiny::dateRangeInput("snapshot_tweet_period", label = shiny::h4("Tweet data period"), start = d$date_min, end = d$date_end, min = d$date_min, max = d$date_max, format = "yyyy-mm-dd", startview = "month")
+            )
+
+          ),
+          shiny::fluidRow(
+            shiny::column(6,
+              shiny::textInput("snapshot_folder", value = conf$data_dir, label = "Destination folder")
+            ),
+            shiny::column(6,
+              shiny::actionButton("build_snapshot", "Create snapshot")
+            )
+          ),
           shiny::h3("Diagnostics"),
           shiny::h5("Automated diagnostic tasks"),
           shiny::fluidRow(
@@ -2184,6 +2208,24 @@ epitweetr_app <- function(data_dir = NA) {
       })
     }
 
+
+    ######## SNAPSHOT LOGIC ############
+    # creating an snapshot of epitweetr data for backup or debuging purposes
+    shiny::observeEvent(input$build_snapshot, {
+      `%>%` <- magrittr::`%>%`
+       progress_start("Creating snapshot") 
+       shiny::isolate({
+         create_checkpoint(
+           destination_dir=input$snapshot_folder, 
+           types = input$snapshot_types, 
+           tweets_period = input$snapshot_tweet_period, 
+           aggregated_period = input$snapshot_aggr_period, 
+           progress =function(value, message) {progress_set(value = value, message = message)}
+         ) 
+       })
+       progress_close() 
+
+    })
 
     ######## DIAGNOSTIC LOGIC ############
     # running the diagnostics when the button is clicked
