@@ -591,7 +591,7 @@ create_checkpoint <- function(
   aggregated_period = get_aggregated_period(), 
   progress = function(v, m) message(paste(round(v*100, 2), m))
 ) {
-  destination <- file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), ".zip"))
+  destination <- file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), ".tar"))
   items = list()
     if("settings" %in% types)
       items <- c(
@@ -679,19 +679,23 @@ create_checkpoint <- function(
   on.exit(if(!is.null(to_delete)) file.remove(to_delete), add = TRUE)
   on.exit(setwd(oldwd), add = TRUE)
   setwd(conf$data_dir)
+
   for(n in names(items)) {
-    #message(paste(n, '--------->', items[[n]]))
-    if(!file.exists(n) && file.exists(items[[n]])) {
-      to_delete = n
-      file.copy(items[[n]], n, copy.date = TRUE)
+    if(file.exists(items[[n]])) {
+      message(paste(n, '--------->', items[[n]]))
+      if(!file.exists(n)) {
+        to_delete = n
+        file.copy(items[[n]], n, copy.date = TRUE)
+        
+      }
       
-    }
-    if(i == 0)
-      zip::zip(destination, n, recurse = FALSE, mode = "mirror")
-    else
-      zip::zip_append(destination, n, recurse = FALSE, mode = "mirror")
-    if(!is.null(to_delete)) {
-      file.remove(to_delete)
+      if(i == 0 && file.exists(destination)) {
+        file.remove(destination)
+      }
+      system(paste0("tar -rf", shQuote(destination), " ", shQuote(n)))
+      if(!is.null(to_delete)) {
+        file.remove(to_delete)
+      }
     }
     to_delete = c()
     i = i + 1
@@ -725,16 +729,6 @@ epitweetr_files <- function(rel_path, dmin = NULL, dmax = NULL) {
   }
   ret
 }
-#    "logs"
 
 
 
-#get_search_path 
-#get_geo_path 
-#
-#get_search_archive_path 
-#
-#
-#get_alert_file 
-# 
-#get_tweet_togeo_path 
