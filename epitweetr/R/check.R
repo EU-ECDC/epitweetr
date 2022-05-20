@@ -591,7 +591,7 @@ create_checkpoint <- function(
   aggregated_period = get_aggregated_period(), 
   progress = function(v, m) message(paste(round(v*100, 2), m))
 ) {
-  destination <- file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), ".tar"))
+  destination <- file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), ".tar.gz"))
   items = list()
     if("settings" %in% types)
       items <- c(
@@ -605,7 +605,8 @@ create_checkpoint <- function(
           "users.xlsx" = get_known_users_path(),
           "languages.xlsx" = get_available_languages_path(),
           "topics.json" = get_plans_path(),
-          "topic-keywords.json" = get_topic_keywords_path()
+          "topic-keywords.json" = get_topic_keywords_path(),
+          "session-info.log" = get_session_info_path() 
         ),
         epitweetr_files("collections")
       )
@@ -665,9 +666,9 @@ create_checkpoint <- function(
       items <- c(
         items,
         list(
-          "logs/detect.log" = "~/epitweetr/detect.log",
-          "logs/fs.log" = "~/epitweetr/fs.log",
-          "logs/search.log" = "~/epitweetr/search.log"
+          "detect.log" = "~/epitweetr/detect.log",
+          "fs.log" = "~/epitweetr/fs.log",
+          "search.log" = "~/epitweetr/search.log"
         )
       )
   nb <- length(items)
@@ -675,35 +676,37 @@ create_checkpoint <- function(
   progress(0, paste("Building archive for", nb, "files"))
   last_message <- as.integer(Sys.time())
   oldwd <- getwd()
-  to_delete = c()
-  on.exit(if(!is.null(to_delete)) file.remove(to_delete), add = TRUE)
-  on.exit(setwd(oldwd), add = TRUE)
+  on.exit(setwd(oldwd))
   setwd(conf$data_dir)
 
-  for(n in names(items)) {
-    if(file.exists(items[[n]])) {
-      message(paste(n, '--------->', items[[n]]))
-      if(!file.exists(n)) {
-        to_delete = n
-        file.copy(items[[n]], n, copy.date = TRUE)
-        
-      }
-      
-      if(i == 0 && file.exists(destination)) {
-        file.remove(destination)
-      }
-      system(paste0("tar -rf", shQuote(destination), " ", shQuote(n)))
-      if(!is.null(to_delete)) {
-        file.remove(to_delete)
-      }
-    }
-    to_delete = c()
-    i = i + 1
+  # adding files from external folders to ensure portability
+  to_copy <- file.exists(unlist(items)) & (!file.exists(names(items)) | names(items) %in% c("detect.log", "fs.log", "search.log"))
+  if(length(to_copy)>0) {
+    file.copy(unlist(items[to_copy]), names(items)[to_copy])
+  }
+
+  # creating list of files to add
+  to_arc <- tempfile("toarc")
+  to_arc_con <- file(to_arc)
+  writeLines(names(items)[file.exists(names(items))], to_arc_con)
+  close(to_arc_con)
+
+  
+  # launching the compression as a background process
+  cb <- function(line, proc) {
+    i <<- i + 1
     if(as.integer(Sys.time()) - last_message > 2) {
       progress(1.0*i/nb, paste("Building archive for", i, "of" , nb, "files"))
-      last_message <- as.integer(Sys.time())
+      last_message <<- as.integer(Sys.time())
     }
   }
+
+  result <- processx::run(
+    "tar", 
+    c("-czvf", destination, "-T", to_arc),
+    stdout_line_callback = cb
+  )
+
 }
 
 epitweetr_files <- function(rel_path, dmin = NULL, dmax = NULL) {

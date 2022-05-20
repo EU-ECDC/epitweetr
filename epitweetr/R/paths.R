@@ -222,5 +222,12 @@ get_tweet_aggring_path <- function() {
   file.path(conf$data_dir, "geo", "aggregating.json")
 }
 
+get_session_info_path <- function() {
+  
+  f = file.path(conf$data_dir, "session-info.log")
+  con <- file(f)
+  writeLines(capture.output(sessionInfo()))
+  close(con)
+}
 
 
