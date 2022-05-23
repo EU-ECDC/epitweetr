@@ -223,11 +223,7 @@ get_tweet_aggring_path <- function() {
 }
 
 get_session_info_path <- function() {
-  
-  f = file.path(conf$data_dir, "session-info.log")
-  con <- file(f)
-  writeLines(capture.output(sessionInfo()))
-  close(con)
+  file.path(conf$data_dir, "session-info.log")
 }
 
 

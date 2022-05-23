@@ -382,14 +382,19 @@ check_fs_running <- function() {
 last_check_twitter_auth <- new.env()
 
 check_twitter_auth <- function() {
-  token <- get_token(request_new = FALSE)
-  ok <- "Token" %in% class(token) || "bearer" %in% class(token)
-  last_check_twitter_auth$value <- ok
+  ok <- tryCatch({
+     token <- get_token(request_new = FALSE)
+     ok <- "Token" %in% class(token) || "bearer" %in% class(token)
+     last_check_twitter_auth$value <- ok
+     ok
+    }, 
+    warning = function(m) {FALSE}, 
+    error = function(e) { FALSE }
+  ) 
   if(ok)
     TRUE 
   else {
     warning("Cannot create a Twitter token, please choose an authentication method on the configuration page")
-    FALSE
   }
 }
 check_last_twitter_auth <- function() {
@@ -443,6 +448,39 @@ check_move_from_temp <- function() {
 
 
 
+# can tar gz
+check_tar_gz <- function() {
+  ok <- tryCatch({
+      temp <- tempdir()
+      p <- file.path(temp, "test")
+      pgz <- file.path(temp, "test.tar.gz")
+      fileConn<-file(p)
+      writeLines(c("hello temp"), fileConn)
+      close(fileConn)
+      
+       result <- processx::run(
+         "tar", 
+         c("-czf", pgz, p),
+         wd = temp
+       )
+  
+      TRUE
+    }, 
+    warning = function(m) {FALSE}, 
+    error = function(e) { FALSE }
+  ) 
+  if(ok)
+    TRUE 
+  else {
+    warning(paste(
+      "Cannot built tar.gz. This is necessary for building a compressed snapshot/backup of epitweetr data",
+      "Please install tar and gzip and make sure you can execute 'tar -czf test.tar.gz somefile' on a terminal"))
+    FALSE
+  }
+}
+
+
+
 
 #' @title Run automatic sanity checks
 #' @description It runs a set of automated sanity checks for helping the user to troubleshot issues 
@@ -477,6 +515,7 @@ check_all <- function() {
     winutils = check_winutils, 
     java_deps = check_java_deps, 
     move_from_temp = check_move_from_temp, 
+    tar_gz = check_tar_gz, 
     geonames = check_geonames, 
     languages = check_languages, 
     aggregate = check_series_present, 
@@ -584,14 +623,23 @@ health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
   alerts
 }
 
+update_session_info <- function() {
+  con <- file(get_session_info_path())
+  writeLines(capture.output(sessionInfo()), con)
+  close(con)
+}
+
+
 create_checkpoint <- function(
   destination_dir, 
   types = c("settings", "dependencies", "machine-learning", "aggregations", "tweets", "logs"), 
   tweets_period = get_aggregated_period(), 
-  aggregated_period = get_aggregated_period(), 
+  aggregated_period = get_aggregated_period(),
+  compress = TRUE,
   progress = function(v, m) message(paste(round(v*100, 2), m))
 ) {
-  destination <- file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), ".tar.gz"))
+  destination <- file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), if(compress) ".tar.gz" else ".tar"))
+  update_session_info()
   items = list()
     if("settings" %in% types)
       items <- c(
@@ -687,8 +735,8 @@ create_checkpoint <- function(
 
   # creating list of files to add
   to_arc <- tempfile("toarc")
-  to_arc_con <- file(to_arc)
-  writeLines(names(items)[file.exists(names(items))], to_arc_con)
+  to_arc_con <- file(to_arc, "wb", encoding = "UTF-8" )
+  writeLines(names(items)[file.exists(names(items))], sep = "\n", to_arc_con)
   close(to_arc_con)
 
   
@@ -700,10 +748,10 @@ create_checkpoint <- function(
       last_message <<- as.integer(Sys.time())
     }
   }
-
+ 
   result <- processx::run(
     "tar", 
-    c("-czvf", destination, "-T", to_arc),
+    c(if(compress) "-czvf" else "-cvf", destination, "-T", to_arc),
     stdout_line_callback = cb
   )
 

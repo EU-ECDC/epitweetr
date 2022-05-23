@@ -584,6 +584,7 @@ epitweetr_app <- function(data_dir = NA) {
           shiny::fluidRow(
             shiny::column(12,
               shiny::textInput("snapshot_folder", value = conf$data_dir, label = "Destination folder"),
+              shiny::checkboxInput("snapshot_compress", "Compress snapshot", value = FALSE),
               shiny::p("It is recommended to stop the search and detect loop before running a snapshopt to ensure data consintency (embedded database must ne running)"),
               shiny::actionButton("build_snapshot", "Create snapshot")
             )
@@ -2219,6 +2220,7 @@ epitweetr_app <- function(data_dir = NA) {
            types = input$snapshot_types, 
            tweets_period = input$snapshot_tweet_period, 
            aggregated_period = input$snapshot_aggr_period, 
+           compress = input$snapshot_compress, 
            progress =function(value, message) {progress_set(value = value, message = message)}
          ) 
        })
