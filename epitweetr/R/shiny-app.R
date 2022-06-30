@@ -570,7 +570,7 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(6,
               shiny::checkboxGroupInput("snapshot_types", "Include:", inline = TRUE,
                 choices = c("Settings" = "settings", "Dependencies"="dependencies", "Machine Learning" = "machine-learning", "Aggregation" = "aggregations", "Tweets"="tweets", "Logs" = "logs"),
-                selected = c("settings", "dependencies", "machine-learning", "aggregations", "tweets", "logs")
+                selected = c("settings", "logs")
               )
             ),
             shiny::column(3,
@@ -585,7 +585,7 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::column(12,
               shiny::textInput("snapshot_folder", value = conf$data_dir, label = "Destination folder"),
               shiny::checkboxInput("snapshot_compress", "Compress snapshot", value = FALSE),
-              shiny::p("It is recommended to stop the search and detect loop before running a snapshopt to ensure data consintency (embedded database must ne running)"),
+              shiny::p("It is recommended to stop the search and detect loop before running a snapshopt to ensure data consistency (embedded database must be running)"),
               shiny::actionButton("build_snapshot", "Create snapshot")
             )
           ),
