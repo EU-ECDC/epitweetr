@@ -272,6 +272,7 @@ setup_config <- function(
       t$md5 <- as.vector(tools::md5sum(topics_path))
       if(t$md5 != temp$topics_md5) { 
         t$df <- readxl::read_excel(topics_path)
+        update_topic_keywords()
       }
       t
     }

@@ -616,7 +616,8 @@ health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
           emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
       )
       message("Health check failed, sending email")
-      smtp(msg)
+      tryCatch(smtp(msg), error = function(e) message(paste("Cannot send email. The following error occured", e)))
+      
       checks$last_check <- Sys.time()
     }
   }
@@ -630,7 +631,36 @@ update_session_info <- function() {
 }
 
 
-create_checkpoint <- function(
+#' @title Snapshot your epitweetr installation
+#' @description Creates a snapshot file of your epitweetr installation folder. This can include all or a subset of the data files.
+#' @param destination_dir, character(1) vector with the path of the destination folder to produce the snapshot
+#' @param types, character vector indicating the types of data to include on a snapshot. Some of: "settings", "dependencies", "machine-learning", "aggregations", "tweets", "logs"
+#' @param tweet_period, date(2) start and end dates to filter tweets to include on snapthot(if selected)
+#' @param aggregated_period, date(2) start and end dates to filter time series to include on snapthot(if selected)
+#' @param compress, logical(1) whether to compress or not the output file
+#' @param progress, function to report progress during execution.
+#' @return Nothing
+#' @details 
+#' This function can be used to createa a portable file to move your epitweetr installation in a single file, to backup your data, to archive your old data or to send information to technical team in order to reproduce an observed issue.
+#' Different kinds of data can be included on the snapshot depending on the types parameter. Possible values are:
+#' - 'settings': Including all setting files of your installation (excluding passwords)
+#' - 'dependencies': All jars and winutils.exe on windows installations
+#' - 'machine-learning': All trained models and vectors and training data (this can include tweet text which is personal data)
+#' - 'aggregations': Epitweetr aggregated time series
+#' - 'tweets': Tweets collected by epitweetr
+#' - 'logs': Log files produced automalically on windows task scheduler tasks.
+#' @examples 
+#' if(FALSE){
+#'    #importing epitweer
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    #creating a compressed snapshot for settings and logs
+#'    create_snapshot(getwd(), c("settings","dependencies"), compress = TRUE)
+#' }
+#' @rdname check_all
+#' @export 
+create_snapshot <- function(
   destination_dir, 
   types = c("settings", "dependencies", "machine-learning", "aggregations", "tweets", "logs"), 
   tweets_period = get_aggregated_period(), 
@@ -708,7 +738,7 @@ create_checkpoint <- function(
           "geo/toaggregate.json" = get_tweet_toaggr_path(),
           "geo/aggregating.json" = get_tweet_aggring_path()
         ),
-        epitweetr_files("fs/tweets", aggregated_period[[1]], aggregated_period[[2]])
+        epitweetr_files("fs/tweets", tweets_period[[1]], tweets_period[[2]])
       )
     if("logs" %in% types)
       items <- c(
@@ -765,11 +795,16 @@ epitweetr_files <- function(rel_path, dmin = NULL, dmax = NULL) {
   ret = list()
   dirs <- list.dirs(file.path(conf$data_dir, rel_path), full.names= FALSE)
   rel_dirs <- ifelse(dirs == "", rel_path, file.path(rel_path, dirs)) 
+  message(dmin)
+  message(dmax)
+
   for(d in rel_dirs ) {
       f <- file.path(conf$data_dir, d)
       file_names <- setdiff(list.files(f), list.dirs(f, recursive = FALSE, full.names = FALSE))
       files <- as.list(setNames(file.path(conf$data_dir,  d, file_names), file.path(d, file_names)))
-      dates <- strptime(regmatches(names(files),gregexpr("[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]",names(files))),  "%Y.%m.%d")
+      dates <- as.Date(strptime(regmatches(names(files),gregexpr("[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]",names(files))),  "%Y.%m.%d"))
+      message(paste("\n\n---------------------->", d))
+      message(paste(dates, collapse = ","))
       fd <- ifelse(sapply(dates, function(v) is.null(dmin)), TRUE, ifelse(is.na(dates), FALSE, dates >= dmin)) & ifelse(sapply(dates, function(v) is.null(dmax)), TRUE, ifelse(is.na(dates), FALSE, dates <= dmax))
       weeks <- regmatches(names(files),gregexpr("[0-9][0-9][0-9][0-9]\\.[0-9][0-9]",names(files)))
       weeks <- ifelse(is.na(dates), weeks, NA)

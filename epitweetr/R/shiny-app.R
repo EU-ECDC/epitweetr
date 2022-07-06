@@ -2215,7 +2215,7 @@ epitweetr_app <- function(data_dir = NA) {
       `%>%` <- magrittr::`%>%`
        progress_start("Creating snapshot") 
        shiny::isolate({
-         create_checkpoint(
+         create_snapshot(
            destination_dir=input$snapshot_folder, 
            types = input$snapshot_types, 
            tweets_period = input$snapshot_tweet_period, 
