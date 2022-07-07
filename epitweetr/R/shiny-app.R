@@ -36,8 +36,13 @@ epitweetr_app <- function(data_dir = NA) {
   # Setting up configuration if not already done
   if(is.na(data_dir) )
     setup_config_if_not_already()
-  else
+  else {
     setup_config(data_dir)
+  }
+  if(!file.exists(get_properties_path())) {
+    save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+    save_tasks(get_tasks())
+  }
   # Loading data for dashboard and configuration
   d <- refresh_dashboard_data() 
   cd <- refresh_config_data()

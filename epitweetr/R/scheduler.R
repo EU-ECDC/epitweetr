@@ -206,7 +206,14 @@ get_tasks <- function(statuses = list()) {
   #Loading tasks from file if exists 
   tasks <- if(file.exists(tasks_path)) {
     #if tasks files exists getting tasks from disk
-    t <- jsonlite::fromJSON(tasks_path, simplifyVector = FALSE, auto_unbox = TRUE)
+    t <- tryCatch( 
+      jsonlite::fromJSON(tasks_path, simplifyVector = FALSE, auto_unbox = TRUE)
+      ,error = function(e) {
+        message("recovering from error on reading tasks")
+        Sys.sleep(5)
+        jsonlite::fromJSON(tasks_path, simplifyVector = FALSE, auto_unbox = TRUE)
+      }
+    )
     # casting date time values (they are interpreted as character by jsonlite)
     for(i in 1:length(t)) {
       t[[i]]$scheduled_for <- if(class(t[[i]]$scheduled_for) == "numeric")  as.POSIXlt(t[[i]]$scheduled_for/1000,  origin="1970-01-01") else NA

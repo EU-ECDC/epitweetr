@@ -31,7 +31,6 @@ case class Settings(epiHome:String) {
     case None => throw new Exception("Please call load() before calling properties on these settings")
   } 
 
-  def geoLocationThreshold = properties.fields.get("geolocation_threshold").map(v => v.asInstanceOf[JsString].value.toInt)
   def geonamesSimplify = properties.fields.get("geonames_simplify").map(v => v.asInstanceOf[JsBoolean].value)
   def knownUsers = 
     properties.fields.get("known_users").map(v => 
@@ -60,7 +59,7 @@ case class Settings(epiHome:String) {
   def toaggregatePath =  Paths.get(epiHome, "geo","toaggregate.json").toString 
   def aggregatingPath =  Paths.get(epiHome, "geo","aggregating.json").toString 
   def collectionPath =  Paths.get(epiHome, "collections").toString 
-  def geolocationThreshold = properties.fields.get("geolocation_threshold").map(v => v.asInstanceOf[JsString].value.toInt)
+  def geolocationThreshold = properties.fields.get("geolocation_threshold").map(v => if(v.isInstanceOf[JsString]) v.asInstanceOf[JsString].value.toInt else v.asInstanceOf[JsNumber].value.toInt)
   def geolocationStrategy = Some("demy.mllib.index.PredictStrategy")
   def geoNBefore = 10
   def geoNAfter = 4

@@ -590,7 +590,7 @@ health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
 
     # Check 05: if any task is on aborted status
     for(i in 1:length(tasks)) {
-      if(tasks[[i]]$status == "aborted") {
+      if(!is.na(tasks[[i]]$status) && tasks[[i]]$status == "aborted") {
         alerts <- append(alerts, paste("Task,", tasks[[i]]$task, "is on aborted status"))
       }
     }
@@ -616,7 +616,7 @@ health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
           emayili::server(host = conf$smtp_host, port=conf$smtp_port, username=conf$smtp_login, insecure=conf$smtp_insecure, password=conf$smtp_password, reuse = FALSE)
       )
       message("Health check failed, sending email")
-      tryCatch(smtp(msg), error = function(e) message(paste("Cannot send email. The following error occured", e)))
+      tryCatch(smtp(msg), error = function(e) message(paste("Warning: Cannot send email. The following error occured", e)))
       
       checks$last_check <- Sys.time()
     }
@@ -795,16 +795,12 @@ epitweetr_files <- function(rel_path, dmin = NULL, dmax = NULL) {
   ret = list()
   dirs <- list.dirs(file.path(conf$data_dir, rel_path), full.names= FALSE)
   rel_dirs <- ifelse(dirs == "", rel_path, file.path(rel_path, dirs)) 
-  message(dmin)
-  message(dmax)
 
   for(d in rel_dirs ) {
       f <- file.path(conf$data_dir, d)
       file_names <- setdiff(list.files(f), list.dirs(f, recursive = FALSE, full.names = FALSE))
       files <- as.list(setNames(file.path(conf$data_dir,  d, file_names), file.path(d, file_names)))
       dates <- as.Date(strptime(regmatches(names(files),gregexpr("[0-9][0-9][0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]",names(files))),  "%Y.%m.%d"))
-      message(paste("\n\n---------------------->", d))
-      message(paste(dates, collapse = ","))
       fd <- ifelse(sapply(dates, function(v) is.null(dmin)), TRUE, ifelse(is.na(dates), FALSE, dates >= dmin)) & ifelse(sapply(dates, function(v) is.null(dmax)), TRUE, ifelse(is.na(dates), FALSE, dates <= dmax))
       weeks <- regmatches(names(files),gregexpr("[0-9][0-9][0-9][0-9]\\.[0-9][0-9]",names(files)))
       weeks <- ifelse(is.na(dates), weeks, NA)

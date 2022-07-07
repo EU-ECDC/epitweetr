@@ -267,12 +267,13 @@ setup_config <- function(
     }
     #Getting topics from excel topics files if it has changed since last load this is identified by checking the md5 signature
     #If user has not overwritten 
+    topics_changed <- FALSE
     topics <- {
       t <- list()
       t$md5 <- as.vector(tools::md5sum(topics_path))
       if(t$md5 != temp$topics_md5) { 
         t$df <- readxl::read_excel(topics_path)
-        update_topic_keywords()
+        topics_changed <- TRUE
       }
       t
     }
@@ -333,7 +334,9 @@ setup_config <- function(
     conf$topics_md5 <- temp$topics_md5 
     conf$topics <- temp$topics
     conf$dismiss_past_done <- temp$dismiss_past_done
-    copy_plans_from(temp)  
+    copy_plans_from(temp)
+    if(topics_changed)
+      update_topic_keywords()
   } 
   #Getting variables stored on keyring
   #Setting up keyring

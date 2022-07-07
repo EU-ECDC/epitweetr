@@ -174,7 +174,9 @@ get_geonames_index_path <- function(relative = FALSE) {
 }
 
 get_topic_keywords_path <- function() {
-  file.path(conf$data_dir, "geo", "topic-keywords.json") 
+  geo_folder <- file.path(conf$data_dir, "geo")
+  if(!file.exists(geo_folder)) dir.create(geo_folder)
+  file.path(geo_folder, "topic-keywords.json") 
 }
 
 get_forced_geo_path <- function() {
