@@ -1,4 +1,4 @@
-# Registers the search runner (by writing search.PID file) for the current process 
+# Registers the skarch runner (by writing search.PID file) for the current process 
 # or stops if no configuration has been set or if it is already running
 register_search_runner <- function() {
   stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
@@ -63,10 +63,16 @@ register_search_runner_task <- function() {
   register_runner_task("search")
 }
 
+stop_search_runner_task <- function() {
+  stop_runner_task("search")
+}
 # Register detect runner task and schedule the loop to run each hour
 # These tasks are currently available in Windows only
 register_detect_runner_task <- function() {
   register_runner_task("detect")
+}
+stop_detect_runner_task <- function() {
+  stop_runner_task("detect")
 }
 
 # Register a task on system task scheduler to run each hour
@@ -74,6 +80,9 @@ register_detect_runner_task <- function() {
 # These tasks are currently available in Windows only
 register_fs_runner_task <- function() {
   register_runner_task("fs")
+}
+stop_fs_runner_task <- function() {
+  stop_runner_task("fs")
 }
 
 # This tasks is currently Windows only
@@ -84,29 +93,38 @@ register_runner_task <- function(task_name) {
   # Getting the embedded script name to be called in order to make the script run
   script_name <- paste(task_name, "R", sep = ".")
 
+  run_attached <- FALSE
   # Filtering by OS, currently only Windows is supported
+  # Getting source script
+  script_base <- system.file("extdata", script_name, package = get_package_name())
+  # Getting destination folder which is going to be on user c:/Users/user/epitweetr or ~/epitweetr
+  script_folder <- (
+    if(.Platform$OS.type == "windows")
+      paste(gsub("\\\\", "/", Sys.getenv("USERPROFILE")), "epitweetr", sep = "/")
+    else 
+      file.path(Sys.getenv("HOME"), "/epitweetr")
+  )
+  if(!file.exists(script_folder)){
+    dir.create(script_folder, showWarnings = FALSE)
+  }  
+  script <- paste(script_folder, script_name, sep = "/")
+  # Copying the script 
+  file.copy(from = script_base, to = script, overwrite = TRUE)
+  taskname = paste("epitweetr", task_name, "loop", sep = "_")
+  rscript_args = paste("\"", conf$data_dir,"\"", sep = "")
+  
   if(.Platform$OS.type == "windows") {
     # testing if taskscheduleR can be loaded
     if(requireNamespace("taskscheduleR", quietly = TRUE)) {
-      # Getting source script
-      script_base <- system.file("extdata", script_name, package = get_package_name())
-      # Getting destination folder which is going to be on user c:/Users/user/epitweetr
-      script_folder <- paste(gsub("\\\\", "/", Sys.getenv("USERPROFILE")), "epitweetr", sep = "/")
-      if(!file.exists(script_folder)){
-        dir.create(script_folder, showWarnings = FALSE)
-      }  
-      script <- paste(script_folder, script_name, sep = "/")
-      # Copying the script 
-      file.copy(from = script_base, to = script, overwrite = TRUE)
 
       # Registering the task as a schedule task using taskscheduleR
       # Note that the date format is being guess using %DATE% shell variable
       # This value can be overridden by conf$fore_date_format setting
       taskscheduleR::taskscheduler_create(
-        taskname = paste("epitweetr", task_name, "loop", sep = "_")
+        taskname
         , rscript = script
+        , script_args = rscript_args
         , schedule = "HOUR"
-        , rscript_args = paste("\"", conf$data_dir,"\"", sep = "")
         , startdate =  
           if(conf$force_date_format == "")
             tail(strsplit(shell("echo %DATE%", intern= TRUE), " ")[[1]], 1)
@@ -114,12 +132,93 @@ register_runner_task <- function(task_name) {
             strftime(Sys.time(), conf$force_date_format)
         , schtasks_extra="/F"
       )
+      taskscheduleR::taskscheduler_runnow(taskname)
     }
-    else warning("Please install taskscheduleR package")
+    else {
+      run_attached <- TRUE
+      warning("Please install taskscheduleR package in order to permanently activate the task. This will run the task attached to this process and will end when you close this session.")
+    }
   } else {
-     warning("Task scheduling is not implemented yet on this OS. You can still schedule it manually. Please refer to package vignette.")
+     run_attached <- TRUE
+     warning("Task scheduling is not implemented yet on this OS. You can still schedule it manually. Please refer to package vignette. Running the task scheduled to this process, it will end when you close this session")
+  }
+
+  if(run_attached) {
+    # running the requested task as a separate thread. This is useful for testing epitweetr from the shiny app but it does not permanently schedule the task.
+    # calculating alerts per topic
+    message(paste("Running task", task_name, "attached. Use this only for testing epitweetr, you will need to find a permanent way to schedule it on production environments"))
+    cm <- paste(script, rscript_args)
+    script_log <- paste(task_name, "log", sep = ".")
+    log <- file.path(script_folder, script_log)
+    system2("Rscript", args = c(script, conf$data_dir), stdout = log, stderr = log , wait = FALSE)
   }
 		   
+}
+
+#Stopping a running epitweetr task
+stop_runner_task <- function(task_name) {
+  message(paste("Stopping", task_name))
+  # Filtering by OS, currently only Windows is supported
+  if(.Platform$OS.type == "windows") {
+    
+    # Stopping the task if running
+    taskname = paste("epitweetr", task_name, "loop", sep = "_")
+    cmd <- sprintf("schtasks /End /TN %s", shQuote(taskname, type = "cmd"))
+    system(cmd, intern = FALSE)
+    # Disabling the task
+    cmd <- sprintf("schtasks /Change /TN %s /Disable", shQuote(taskname, type = "cmd"))
+    system(cmd, intern = FALSE)
+
+  }
+  # If processes are still running then forcing stop by killing the processes
+  if(task_name == "fs") {
+    kill_task("fs", "R")
+    kill_task("fs.java", "java")
+    kill_task("fs_mon", "R")
+  } else if (task_name == "search") {
+    kill_task("search", "R")
+  } else if (task_name == "detect") {
+    kill_task("detect", "R")
+    kill_task("detect.java", "java")
+  }
+
+}
+# Forcing the stop of a PID file by killing the underlying process
+kill_task <- function(pidfile, type = "R") {
+  path = file.path(conf$data_dir, paste0(pidfile, ".PID"))
+  if(file.exists(path)) {
+    f = file(description = path, open="r")
+    last_pid = readLines(f)
+    close(f)
+    
+    if(.Platform$OS.type == "windows") {
+      if(type == "R")
+        image = "R\\.exe|Rscript\\.exe|rsession\\.exe|Rterm\\.exe"
+      else if (type == "java")
+        image = "java.exe"
+      else 
+        stop("Unsupported type of process")
+      if(length(grep(image, system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0) {
+        message(paste("killing", last_pid))
+        system(paste('taskkill /F /pid', last_pid), intern = TRUE)
+      }
+    } else {
+      if(type == "R")
+        image = "R\\|rsession"
+      else if (type == "java")
+        image = "java"
+      else 
+        stop("Unsupported type of process")
+      if(system(paste("ps -cax | grep ", paste0("'",image,"'")," | grep ", last_pid), ignore.stdout = TRUE) == 0) {
+        message(paste("killing", last_pid))
+        system(paste('kill ', last_pid), intern = TRUE)
+      } else {
+        message(paste("registered pid ", last_pid , "not running anymore"))
+      }
+
+    }
+  }
+
 }
 
 # Get search runner execution status

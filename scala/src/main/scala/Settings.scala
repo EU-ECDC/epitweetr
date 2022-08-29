@@ -69,6 +69,7 @@ case class Settings(epiHome:String) {
       Paths.get(epiHome, "geo").toString,  
       properties.fields.get("geonames_simplify").map(v => v.asInstanceOf[JsBoolean].value).get
     )
+  def pidPath(name:String) = Paths.get(epiHome, s"$name.PID").toString
   def fsRoot = Paths.get(epiHome, "fs").toString
   def fsBatchTimeout = properties.fields.get("fs_batch_timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60*60)
   def fsQueryTimeout = properties.fields.get("fs_query_timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60)

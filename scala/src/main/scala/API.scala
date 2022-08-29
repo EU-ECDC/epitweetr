@@ -46,10 +46,12 @@ object API {
     implicit val conf = Settings(epiHome)
     conf.load
     oConf = Some(conf)
+    
     val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor], conf))
     val geonamesRunner = actorSystem.actorOf(Props(classOf[GeonamesActor], conf))
     val alertRunner = actorSystem.actorOf(Props(classOf[AlertActor], conf))
     oLuceneRunner = Some(luceneRunner)
+    val pid = ProcessID.writePID(conf.pidPath("fs.java"))
 
     removeLockFiles()
     val route =

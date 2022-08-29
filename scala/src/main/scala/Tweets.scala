@@ -1,6 +1,7 @@
 package org.ecdc.twitter 
 
 import org.ecdc.epitweetr.geo.Geonames
+import org.ecdc.epitweetr.ProcessID
 import demy.mllib.linalg.implicits._
 import demy.mllib.index.implicits._
 import demy.storage.{Storage, WriteMode, FSNode}
@@ -34,6 +35,8 @@ object Tweets {
          implicit val storage = JavaBridge.getSparkStorage(spark)
          import spark.implicits._
          val geonames = Geonames(params.get("geonamesSource").get, params.get("geonamesDestination").get,  params.get("geonamesSimplify").get.toBoolean)
+         val epiHome = params.get("geonamesSource").get.split("/geo/allCountries.txt")(0)
+         ProcessID.writePID(s"$epiHome/detect.java.PID")
          if(params.get("assemble").map(s => s.toBoolean).getOrElse(false))
            geonames.getDataset(reuseExisting = false)
          if(params.get("index").map(s => s.toBoolean).getOrElse(false)) {

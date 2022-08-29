@@ -110,7 +110,7 @@ fs_loop <-  function(data_dir = NA) {
       )
    ,envir=rlang::current_env()
   )
-  #monitor #this is for debugging error on future
+  
   message("Launching fs")
   # Registering the fs runner using current PID and ensuring no other instance of the search is actually running.
   register_fs_runner()

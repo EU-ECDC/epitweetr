@@ -291,19 +291,22 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Status"),
           shiny::fluidRow(
-            shiny::column(4, "epitweetr database"), 
-            shiny::column(4, shiny::htmlOutput("fs_running")),
-            shiny::column(4, shiny::actionButton("activate_fs", "activate"))
+            shiny::column(3, "epitweetr database"), 
+            shiny::column(3, shiny::htmlOutput("fs_running")),
+            shiny::column(3, shiny::actionButton("activate_fs", "activate")),
+            shiny::column(3, shiny::actionButton("stop_fs", "stop"))
           ),
           shiny::fluidRow(
-            shiny::column(4, "Data collection & processing"), 
-            shiny::column(4, shiny::htmlOutput("search_running")),
-            shiny::column(4, shiny::actionButton("activate_search", "activate"))
+            shiny::column(3, "Data collection & processing"), 
+            shiny::column(3, shiny::htmlOutput("search_running")),
+            shiny::column(3, shiny::actionButton("activate_search", "activate")),
+            shiny::column(3, shiny::actionButton("stop_search", "stop"))
           ),
           shiny::fluidRow(
-            shiny::column(4, "Requirements & alerts"), 
-            shiny::column(4, shiny::htmlOutput("detect_running")),
-            shiny::column(4, shiny::actionButton("activate_detect", "activate"))
+            shiny::column(3, "Requirements & alerts"), 
+            shiny::column(3, shiny::htmlOutput("detect_running")),
+            shiny::column(3, shiny::actionButton("activate_detect", "activate")),
+            shiny::column(3, shiny::actionButton("stop_detect", "stop"))
           ),
           ################################################
           ######### GENERAL PROPERTIES ###################
@@ -1325,11 +1328,23 @@ epitweetr_app <- function(data_dir = NA) {
       # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
+    shiny::observeEvent(input$stop_search, {
+      stop_search_runner_task()
+      # refresh task data to check if tasks are to be updated
+      refresh_config_data(cd, list("tasks"))
+    })
 
     # registering the fs runner after button is clicked
     shiny::observeEvent(input$activate_fs, {
       # registering the scheduled task
       register_fs_runner_task()
+      # refresh task data to check if tasks are to be updated
+      refresh_config_data(cd, list("tasks"))
+    })
+
+    shiny::observeEvent(input$stop_fs, {
+      # stop the scheduled task
+      stop_fs_runner_task()
       # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
@@ -1348,6 +1363,12 @@ epitweetr_app <- function(data_dir = NA) {
       # registering the scheduled task
       register_detect_runner_task()
       
+      # refresh task data to check if tasks are to be updated
+      refresh_config_data(cd, list("tasks"))
+    })
+
+    shiny::observeEvent(input$stop_detect, {
+      stop_detect_runner_task()
       # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
