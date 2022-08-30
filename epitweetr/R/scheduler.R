@@ -123,7 +123,7 @@ register_runner_task <- function(task_name) {
       taskscheduleR::taskscheduler_create(
         taskname
         , rscript = script
-        , script_args = rscript_args
+        , rscript_args = rscript_args
         , schedule = "HOUR"
         , startdate =  
           if(conf$force_date_format == "")
@@ -201,6 +201,8 @@ kill_task <- function(pidfile, type = "R") {
       if(length(grep(image, system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0) {
         message(paste("killing", last_pid))
         system(paste('taskkill /F /pid', last_pid), intern = TRUE)
+      } else {
+        message(paste("registered pid ", last_pid , "not running anymore"))
       }
     } else {
       if(type == "R")

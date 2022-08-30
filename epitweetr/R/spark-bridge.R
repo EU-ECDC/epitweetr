@@ -87,7 +87,7 @@ spark_job <- function(args) {
   #message(cmd) # uncomment this to see the command sent
   res <- system(cmd)
   if(res != 0)
-    stop(paste("Error encountered while exeuting: ", cmd))
+    stop(paste("Error encountered while executing: ", cmd))
 }
 
 
