@@ -140,7 +140,7 @@ register_runner_task <- function(task_name) {
     }
   } else {
      run_attached <- TRUE
-     warning("Task scheduling is not implemented yet on this OS. You can still schedule it manually. Please refer to package vignette. Running the task scheduled to this process, it will end when you close this session")
+     warning("Task scheduling is not implemented yet on this OS. You can still schedule it manually. Please refer to package vignette. Running the task attached to this process, it will end when you close this session")
   }
 
   if(run_attached) {
@@ -788,4 +788,27 @@ update_dep_task <- function(tasks, status, message, start = FALSE, end = FALSE) 
   tasks$dependencies$message = message
   save_tasks(tasks)
   return(tasks)
+}
+
+loop_run_issues <- function(loop_name) {
+  t <- get_tasks()
+  if(loop_name == "fs") {
+    if(!is.na(t$dependencies$status) && t$dependencies$status %in% c("success", "running")) ""
+    else "In order to run the embeded database the dependencies task needs to be running or ran successfully. Please activate the Requirement & alerts task"
+      
+  } else if(loop_name == "search") {
+    token <- get_token(request_new = FALSE)
+    token_ok <- "Token" %in% class(token) || "bearer" %in% class(token)
+    if(!is.na(t$dependencies$status) && t$dependencies$status == "success"
+      && !is.na(t$geonames$status) && t$geonames$status == "success"
+      && !is.na(t$languages$status) && t$languages$status == "success"
+      && token_ok
+    )
+      ""
+    else "In order to run the 'Data collection & processing- task you have to successfully run the dependencies, geonames and languages tasks. Please activate the Requirement & alerts task. You also need to provide epitweetr credentials and save"
+    
+  } else if(loop_name == "detect") {
+     "" 
+  } else
+    stop(paste("Unlnown loop", loop_name))
 }

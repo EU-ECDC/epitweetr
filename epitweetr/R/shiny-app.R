@@ -591,7 +591,7 @@ epitweetr_app <- function(data_dir = NA) {
           ),
           shiny::fluidRow(
             shiny::column(12,
-              shiny::textInput("snapshot_folder", value = conf$data_dir, label = "Destination folder"),
+              shiny::textInput("snapshot_folder", value = ensure_snapshot_folder(), label = "Destination folder"),
               shiny::checkboxInput("snapshot_compress", "Compress snapshot", value = FALSE),
               shiny::p("It is recommended to stop the search and detect loop before running a snapshopt to ensure data consistency (embedded database must be running)"),
               shiny::actionButton("build_snapshot", "Create snapshot")
@@ -1324,9 +1324,18 @@ epitweetr_app <- function(data_dir = NA) {
     # registering the Data collection & processing runner after button is clicked
     shiny::observeEvent(input$activate_search, {
       # registering the scheduled task
-      register_search_runner_task()
-      # refresh task data to check if tasks are to be updated
-      refresh_config_data(cd, list("tasks"))
+      issues = loop_run_issues("search")
+      if(issues=="") {
+        register_search_runner_task()
+        # refresh task data to check if tasks are to be updated
+        refresh_config_data(cd, list("tasks"))
+      } else {
+        shiny::showModal(shiny::modalDialog(
+          title = "Warning",
+          issues,
+          footer = shiny::tagList(shiny::modalButton("OK"))
+        ))
+      }
     })
     shiny::observeEvent(input$stop_search, {
       stop_search_runner_task()
@@ -1336,10 +1345,19 @@ epitweetr_app <- function(data_dir = NA) {
 
     # registering the fs runner after button is clicked
     shiny::observeEvent(input$activate_fs, {
-      # registering the scheduled task
-      register_fs_runner_task()
-      # refresh task data to check if tasks are to be updated
-      refresh_config_data(cd, list("tasks"))
+      issues = loop_run_issues("fs")
+      if(issues=="") {
+        # registering the scheduled task
+        register_fs_runner_task()
+        # refresh task data to check if tasks are to be updated
+        refresh_config_data(cd, list("tasks"))
+      } else {
+        shiny::showModal(shiny::modalDialog(
+          title = "Warning",
+          issues,
+          footer = shiny::tagList(shiny::modalButton("OK"))
+        ))
+      }
     })
 
     shiny::observeEvent(input$stop_fs, {
@@ -1891,6 +1909,8 @@ epitweetr_app <- function(data_dir = NA) {
             "Sensitivity By Class" = "sensitivity_by_class",
             "FScore By Class" = "fscore_by_class",
             "Last run" = "last_run",
+            "Balance classes" = "balance_classes",
+            "Force to use" = "force_to_use",
             "Active" = "active",
             "Documentation" = "documentation",
             "Custom Parameters" = "custom_parameters"
@@ -1979,8 +1999,7 @@ epitweetr_app <- function(data_dir = NA) {
         #updating geotraining df taking in condideration new uploaded file
         
         tryCatch({
-           progress_set(value = 0.5, message = "Retraining models and evaluating")
-           retrain_alert_classifier()
+           retrain_alert_classifier(progress_set)
            cd$alert_training_refresh_flag(Sys.time())
           },
           warning = function(w) {app_error(w, env = cd)},
@@ -2567,5 +2586,13 @@ get_alertsdb_runs_html <- function(){
     }
   })
   runs
+}
+
+# getting the default snapshot folder and create it if does not exists
+ensure_snapshot_folder <- function() {
+  path <- file.path(conf$data_dir, "snapshot")
+  if(!dir.exists(path))
+    dir.create(path, recursive = TRUE)
+  path
 }
 
