@@ -75,10 +75,10 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
 
           if(newRuns.size > 0 && newRuns(0).active.getOrElse(true)) {
             if(newRuns(0).force_to_use.getOrElse(false))
-              l.msg(s"Retraining with full data for forced run ${runs(0).models}, balanced(${runs(0).balance_classes}), ${runs(0).custom_parameters}")
+              l.msg(s"Retraining with full data for forced run ${newRuns(0).models}, balanced(${newRuns(0).balance_classes}), ${newRuns(0).custom_parameters}")
             else
-              l.msg(s"Retraining with full data for best run ${runs(0).models}, balanced(${runs(0).balance_classes}) ${runs(0).custom_parameters}")
-	          AlertActor.finalTrain(alertsdf = alertsdf, run = runs(0))
+              l.msg(s"Retraining with full data for best run ${newRuns(0).models}, balanced(${newRuns(0).balance_classes}) ${newRuns(0).custom_parameters}")
+	          AlertActor.finalTrain(alertsdf = alertsdf, run = newRuns(0))
 	        } else {
             l.msg(s"No training was performed since no active runs where declared")
 	        }
