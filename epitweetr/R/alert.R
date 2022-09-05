@@ -542,7 +542,8 @@ do_next_alerts <- function(tasks = get_tasks()) {
           no_historic = as.numeric(conf$alert_history), 
           no_historic = as.numeric(conf$alert_history),
           bonferroni_correction = conf$alert_with_bonferroni_correction,
-          same_weekday_baseline = conf$same_weekday_baseline
+          same_weekday_baseline = conf$same_weekday_baseline,
+          
         )
       if(length(unique(get_alert_training_df()$epitweetr_category))>1) {
         # Adding tweets to alerts
@@ -553,7 +554,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
         m <- paste("Classifying alerts toptweets") 
         message(m)  
         tasks <- update_alerts_task(tasks, "running", m)
-        alerts <- classify_alerts(alerts, retrain = FALSE)
+        alerts <- classify_alerts(alerts %>% dplyr::mutate(test = FALSE, augmented = FALSE, deleted = FALSE), retrain = FALSE)
         # Removing top tweets
         alerts$toptweets <- NULL
         alerts$id <- NULL
@@ -1158,7 +1159,6 @@ get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), p
   
   test_df <- split %>% dplyr::filter(.data$test)
   training_df <- split %>% dplyr::filter(!.data$test)
-  message(sum(sapply(training_df$toptweets, function(tt) length(tt$en) + length(tt$fr) + length(tt$pt) + length(tt$es) ))) 
   cat_df <- training_df %>% dplyr::filter(!is.na(.data$given_category))%>%dplyr::group_by(.data$given_category) %>% dplyr::count()
   cat_df$missing <- max(cat_df$n) - cat_df$n
   cat_to_augment <- cat_df %>% dplyr::filter(.data$missing > 0)
@@ -1208,7 +1208,7 @@ get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), p
              list(
                date = alerts_to_augment$date[[ialert]],
                topic = alerts_to_augment$topic[[ialert]],
-               country = NA,
+               country = alerts_to_augment$country[[ialert]],
                topwords = alerts_to_augment$topwords[[ialert]],
                number_of_tweets = alerts_to_augment$number_of_tweets[[ialert]], 
                toptweets = new_tweets,
@@ -1319,6 +1319,7 @@ classify_alerts <- function(alerts, retrain = FALSE, progress = function(a, b) {
     } else {
       alerts$augmented <- FALSE
       alerts$deleted <- FALSE
+      alerts$test <- FALSE
     }
     
     alerts <- alerts %>% dplyr::mutate(`id`=as.character(1:nrow(alerts)))

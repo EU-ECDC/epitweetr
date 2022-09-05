@@ -24,8 +24,10 @@ case class TaggedAlert(
   toptweets:Map[String, Seq[String]],
   given_category:Option[String],
   epitweetr_category:Option[String],
+  test:Option[Boolean],
   augmented:Option[Boolean],
-  deleted:Option[Boolean]
+  deleted:Option[Boolean],
+
 ) {
   def setEpitweetrCategory(cat:String) =  
     TaggedAlert(
@@ -38,6 +40,7 @@ case class TaggedAlert(
       toptweets = toptweets,
       given_category = given_category,
       epitweetr_category = Some(cat),
+      test = test,
       augmented = augmented,
       deleted = deleted
     )
@@ -248,7 +251,7 @@ object EpiSerialisation
     implicit val includesV2Format = jsonFormat3(IncludesV2.apply)
     implicit val tweetsV2Format = jsonFormat3(TweetsV2.apply)
     implicit val textToGeoFormat = jsonFormat3(TextToGeo.apply)
-    implicit val taggedAlertsFormat = jsonFormat11(TaggedAlert.apply)
+    implicit val taggedAlertsFormat = jsonFormat12(TaggedAlert.apply)
     implicit val alertRunFormat = jsonFormat15(AlertRun.apply)
     implicit val alertClassificationFormat = jsonFormat2(AlertClassification.apply)
 

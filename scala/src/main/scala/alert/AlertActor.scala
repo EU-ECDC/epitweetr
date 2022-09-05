@@ -52,7 +52,10 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
 	              if(!r.active.getOrElse(true))
 	                r
 	              else {
-	                l.msg(s"Running ${r.models} on ${alerts.size} alerts ${r.runs} times, customized with ${r.custom_parameters}") 
+	                if(r.balance_classes.get)
+                    l.msg(s"Running ${r.models} on ${alerts.filter(a => !a.deleted.get).size} balanced alerts, customized with ${r.custom_parameters}") 
+	                else
+                    l.msg(s"Running ${r.models} on ${alerts.filter(a => !a.augmented.get).size} ${r.runs} times, customized with ${r.custom_parameters}") 
                   AlertActor.trainTest(alertsdf = alertsdf, run = r, trainRatio = 0.75)
 	                  .setCount(alerts.size)
 	              }
@@ -174,7 +177,12 @@ object AlertActor {
     val r = new Random(20121205)
     val model = AlertActor.getModel(run)
     AlertActor.ensureFolderExists()
-    model.fit(alertsdf.where(col("given_category")=!=lit("?")))
+    val finaltrain = if (run.balance_classes.get) {
+      alertsdf.where(!col("deleted"))
+    } else {
+      alertsdf.where(!col("augmented"))
+    }
+    model.fit(finaltrain.where(col("given_category")=!=lit("?")))
      .write.overwrite()
      .save(AlertActor.alertClassifierPath())
     
@@ -200,14 +208,14 @@ object AlertActor {
       .setLabels(labelIndexer.labelsArray(0))
 
     labelConverter.transform(predicted)
-      .select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "epitweetr_category", "autmented", "deleted")
+      .select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "epitweetr_category", "test", "augmented", "deleted")
       .as[TaggedAlert]
   }
   def trainTest(alertsdf:DataFrame, run:AlertRun, trainRatio:Double)(implicit conf:Settings) = {
     val r = new Random(20121205)
     //If using balanced classes training set if given in R and no multiple runs can be performed
     if(run.balance_classes.get && run.runs > 1)
-      l.msg("Current run contains balance classes and multiple runs, this is not soported. A single run will be used")
+      l.msg("Current run contains balanced classes and multiple runs, this is not supported. A single run will be used")
     val joinedPredictions = 
       Seq.range(0, if(run.balance_classes.get) 1 else run.runs)
         .map(i => r.nextLong)
@@ -215,7 +223,7 @@ object AlertActor {
            val (training, test) = if (run.balance_classes.get) {
               (alertsdf.where(!col("deleted") && !col("test")), alertsdf.where(col("test")))
            } else {
-             val alertsdfNoAugmented = alertsdf.where(!col("data_augmented"))
+             val alertsdfNoAugmented = alertsdf.where(!col("augmented"))
              val Array(training, test) = alertsdfNoAugmented.randomSplit(Array(trainRatio, 1-trainRatio), seed)
              (training, test)
            }
@@ -278,14 +286,14 @@ object AlertActor {
        //Transforming into data frame
        .map{case (alerts, topwordlangs) => 
           alerts.zip(topwordlangs).map{
-            case (TaggedAlert(id, date, topic, country, number_of_tweets, topwords, toptweets, given_category, _ ,augmented, deleted), twlang)
-               => (id, date, topic, country, number_of_tweets, topwords, twlang, toptweets, given_category.orElse(Some("?")), augmented, deleted)
-          }.toDF("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "toptweets", "given_category", "augmented", "deleted")
+            case (TaggedAlert(id, date, topic, country, number_of_tweets, topwords, toptweets, given_category, _ ,test, augmented, deleted), twlang)
+               => (id, date, topic, country, number_of_tweets, topwords, twlang, toptweets, given_category.orElse(Some("?")), test, augmented, deleted)
+          }.toDF("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "toptweets", "given_category", "test", "augmented", "deleted")
        }
        //Text vectorisation
        .map{df => 
          val langs = conf.languages.get.map(_.code)
-         val baseCols = Seq("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "given_category", "toptweets", "augmented", "deleted")
+         val baseCols = Seq("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "given_category", "toptweets", "test", "augmented", "deleted")
          //Splitting tweets in different columns by language
          df.select((
            baseCols.map(c => col(c)) ++  
@@ -334,8 +342,8 @@ object AlertActor {
              .transform(df)
         }
 	.get
-	.select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "features", "category_vector", "augmented", "deleted")
-	.as[(String, String, String, String, Int, String, Map[String, Seq[String]], String, MLVector, Double, Boolean, Boolean)]
+	.select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "features", "category_vector", "test", "augmented", "deleted")
+	.as[(String, String, String, String, Int, String, Map[String, Seq[String]], String, MLVector, Double, Boolean, Boolean, Boolean)]
 	.toDF
   }
 }
