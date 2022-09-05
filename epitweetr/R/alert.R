@@ -1303,7 +1303,7 @@ get_alert_training_runs_df <- function() {
 }
 
 # Classify the provided alerts retraining the models if requested
-classify_alerts <- function(alerts, retrain = FALSE, progress = function(a, b) {}) {
+classify_alerts <- function(alerts, retrain = FALSE, progress = function(value, message) {}) {
   `%>%` <- magrittr::`%>%`
   if(is.null(alerts) || nrow(alerts) == 0)
     alerts
@@ -1313,7 +1313,7 @@ classify_alerts <- function(alerts, retrain = FALSE, progress = function(a, b) {
   } else {
     runs <- get_alert_training_runs_df()
     augment_classes <- nrow(runs %>% dplyr::filter(.data$active & .data$balance_classes)) > 0
-    if(augment_classes) {
+    if(augment_classes && retrain) {
       progress(value = 0.2, message = "Balancing classes as requested per parameters")
       alerts <- get_alert_balanced_df(alerts, progress = function(value, message) {progress(0.2 + value*0.5, message)})
     } else {

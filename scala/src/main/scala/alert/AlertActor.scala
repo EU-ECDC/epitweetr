@@ -52,10 +52,16 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
 	              if(!r.active.getOrElse(true))
 	                r
 	              else {
-	                if(r.balance_classes.get)
-                    l.msg(s"Running ${r.models} on ${alerts.filter(a => !a.deleted.get).size} balanced alerts, customized with ${r.custom_parameters}") 
-	                else
-                    l.msg(s"Running ${r.models} on ${alerts.filter(a => !a.augmented.get).size} ${r.runs} times, customized with ${r.custom_parameters}") 
+                  val trainingSize = (
+	                if(r.balance_classes.get) {
+                    val v = alerts.filter(a => !a.deleted.get).size
+                    l.msg(s"Running ${r.models} on ${v} balanced alerts, customized with ${r.custom_parameters}") 
+                    v
+	                } else {
+                    val v = alerts.filter(a => !a.augmented.get).size
+                    l.msg(s"Running ${r.models} on ${v} ${r.runs} times, customized with ${r.custom_parameters}") 
+                    v
+                  })
                   AlertActor.trainTest(alertsdf = alertsdf, run = r, trainRatio = 0.75)
 	                  .setCount(alerts.size)
 	              }
@@ -69,9 +75,9 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
 
           if(newRuns.size > 0 && newRuns(0).active.getOrElse(true)) {
             if(newRuns(0).force_to_use.getOrElse(false))
-              l.msg(s"Retraining with full data for forced run ${runs(0).models}, ${runs(0).custom_parameters}")
+              l.msg(s"Retraining with full data for forced run ${runs(0).models}, balanced(${runs(0).balance_classes}), ${runs(0).custom_parameters}")
             else
-              l.msg(s"Retraining with full data for best run ${runs(0).models}, ${runs(0).custom_parameters}")
+              l.msg(s"Retraining with full data for best run ${runs(0).models}, balanced(${runs(0).balance_classes}) ${runs(0).custom_parameters}")
 	          AlertActor.finalTrain(alertsdf = alertsdf, run = runs(0))
 	        } else {
             l.msg(s"No training was performed since no active runs where declared")
