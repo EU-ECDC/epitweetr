@@ -199,7 +199,7 @@ kill_task <- function(pidfile, type = "R") {
       else 
         stop("Unsupported type of process")
       if(length(grep(image, system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0) {
-        message(paste("killing", last_pid))
+        message(paste("Forcing process", last_pid, "to stop"))
         system(paste('taskkill /F /pid', last_pid), intern = TRUE)
       } else {
         message(paste("registered pid ", last_pid , "not running anymore"))
@@ -212,7 +212,7 @@ kill_task <- function(pidfile, type = "R") {
       else 
         stop("Unsupported type of process")
       if(system(paste("ps -cax | grep ", paste0("'",image,"'")," | grep ", last_pid), ignore.stdout = TRUE) == 0) {
-        message(paste("killing", last_pid))
+        message(paste("Forcing process", last_pid, "to stop"))
         system(paste('kill ', last_pid), intern = TRUE)
       } else {
         message(paste("registered pid ", last_pid , "not running anymore"))
@@ -794,18 +794,18 @@ loop_run_issues <- function(loop_name) {
   t <- get_tasks()
   if(loop_name == "fs") {
     if(!is.na(t$dependencies$status) && t$dependencies$status %in% c("success", "running")) ""
-    else "In order to run the embeded database the dependencies task needs to be running or ran successfully. Please activate the Requirement & alerts task"
+    else "Please activate 'Requirement & alerts' task. To run the embedded database, the dependencies task needs to be running or have been completed successfully"
       
   } else if(loop_name == "search") {
     token <- get_token(request_new = FALSE)
-    token_ok <- "Token" %in% class(token) || "bearer" %in% class(token)
+    token_ok <- "Token" %in% class(token) || "bearer" %in% class(token) || is.character(token)
     if(!is.na(t$dependencies$status) && t$dependencies$status == "success"
       && !is.na(t$geonames$status) && t$geonames$status == "success"
       && !is.na(t$languages$status) && t$languages$status == "success"
       && token_ok
     )
       ""
-    else "In order to run the 'Data collection & processing- task you have to successfully run the dependencies, geonames and languages tasks. Please activate the Requirement & alerts task. You also need to provide epitweetr credentials and save"
+    else "Please activate 'Requirement & alerts' task. To run 'Data collection & processing' task, you have to successfully complete the tasks for dependencies, GeoNames and languages. You also need to provide your Twitter credentials and click on 'Save settings'"
     
   } else if(loop_name == "detect") {
      "" 

@@ -233,6 +233,8 @@ object AlertActor {
              val Array(training, test) = alertsdfNoAugmented.randomSplit(Array(trainRatio, 1-trainRatio), seed)
              (training, test)
            }
+           l.msg(s"Training: ${training.groupBy("given_category").count().collect().mkString(", ")}")
+           l.msg(s"Test: ${test.groupBy("given_category").count().collect().mkString(", ")}")
            val model = AlertActor.getModel(run)
            val m = model.fit(training.where(col("given_category")=!=lit("?")))
            m.transform(test)
@@ -243,17 +245,18 @@ object AlertActor {
        new MulticlassClassificationEvaluator()
          .setLabelCol("category_vector")
          .setPredictionCol("predicted_vector")
-           
-     AlertRun(
+     val categories = AlertActor.getLabelIndexer().labelsArray(0)
+     
+     val ret = AlertRun(
        ranking = 0,
        models = run.models,
        alerts = None,
        runs = run.runs,
        f1score = evaluator.setMetricName("f1").evaluate(joinedPredictions),
        accuracy = evaluator.setMetricName("accuracy").evaluate(joinedPredictions), 
-       precision_by_class = evaluator.setMetricName("precisionByLabel").evaluate(joinedPredictions),
-       sensitivity_by_class = evaluator.setMetricName("recallByLabel").evaluate(joinedPredictions),
-       fscore_by_class = evaluator.setMetricName("fMeasureByLabel").evaluate(joinedPredictions),
+       precision_by_class = AlertActor.getMetricByLabel(evaluator, "precisionByLabel", categories, joinedPredictions),
+       sensitivity_by_class = AlertActor.getMetricByLabel(evaluator, "recallByLabel", categories, joinedPredictions),
+       fscore_by_class = AlertActor.getMetricByLabel(evaluator, "fMeasureByLabel", categories, joinedPredictions),
        last_run = {
          val sdfDate = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
          val now = new java.util.Date()
@@ -265,7 +268,16 @@ object AlertActor {
        documentation = run.documentation,
        custom_parameters = run.custom_parameters 
      )
+     ret
   }
+
+  def getMetricByLabel(evaluator:MulticlassClassificationEvaluator, metricName:String, categories:Array[String], predictions:DataFrame) = {
+    categories.zipWithIndex.map{case (c, i) => 
+      val v = evaluator.set(evaluator.getParam("metricLabel"), i.toDouble).setMetricName(metricName).evaluate(predictions)
+      s"${categories(i)}:${(v*1000).toInt/1000.0}"
+    }.mkString("\n")
+  }
+
   def alerts2modeldf(alerts:Seq[TaggedAlert], reuseLabels:Boolean)(implicit conf:Settings) =  {
      val spark = conf.getSparkSession
      implicit val storage = conf.getSparkStorage

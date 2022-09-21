@@ -384,7 +384,7 @@ last_check_twitter_auth <- new.env()
 check_twitter_auth <- function() {
   ok <- tryCatch({
      token <- get_token(request_new = FALSE)
-     ok <- "Token" %in% class(token) || "bearer" %in% class(token)
+     ok <- "Token" %in% class(token) || "bearer" %in% class(token) || is.character(token)
      last_check_twitter_auth$value <- ok
      ok
     }, 

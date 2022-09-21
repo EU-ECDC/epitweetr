@@ -88,7 +88,8 @@ trend_line <- function(
     )
   # checking if some data points have been returned or return empty char
   if(nrow(df %>% dplyr::filter(.data$number_of_tweets > 0)) >0) {
-    df$topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+    topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+    df$topic <- topic 
     plot_trendline(
       df = df,
       countries = countries,
@@ -361,6 +362,7 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
   
+  
   #filtering data by topic and date and country_codes
   f_topic <- topic
   df <- (df %>% 
@@ -500,6 +502,9 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
 
+  topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+  df$topic <- topic 
+  
   # Adding country properties (bounding boxes and country names)
   regions <- get_country_items()
   map <- get_country_index_map()
@@ -847,6 +852,11 @@ create_topchart <- function(topic, serie, country_codes=c(),date_min="1900-01-01
   if(nrow(df)==0) {
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
+
+
+  topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+  df$topic <- topic 
+  
   # Calculating breaks for y axis
   y_breaks <- unique(floor(pretty(seq(0, (max(df$frequency) + 1) * 1.1))))
   

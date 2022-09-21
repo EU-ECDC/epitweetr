@@ -545,7 +545,8 @@ do_next_alerts <- function(tasks = get_tasks()) {
           same_weekday_baseline = conf$same_weekday_baseline,
           
         )
-      if(length(unique(get_alert_training_df()$epitweetr_category))>1) {
+      alert_training <- get_alert_training_df()
+      if(length(unique(alert_training$epitweetr_category))>1) {
         # Adding tweets to alerts
         m <- paste("Adding toptweets") 
         message(m)  
@@ -699,6 +700,20 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
       )
       if(nrow(df) > 0 && !"epitweetr_category" %in% colnames(df))
         df$epitweetr_category <- NA
+      
+      # overriding classification if provided by users$
+      alert_training <- get_alert_training_df()
+      given <- setNames(alert_training$given_category, tolower(paste(alert_training[["date"]], alert_training[["topic"]], alert_training[["country"]], sep = "@@")))
+      given <- given[!is.na(given)]
+      ngiven <- names(given)
+      
+      df$epitweetr_category <- sapply(1:nrow(df), function(i) {
+        key = tolower(paste(df[["date"]][[i]], df[["topic"]][[i]], df[["country"]][[i]], sep = "@@"))
+        if(key %in% ngiven)
+          given[[key]]
+        else
+          df$epitweetr_category[[i]]
+      })
       progress(1, "Alerts obtained")
       tibble::as_tibble(df)
     }
@@ -1145,23 +1160,25 @@ get_alert_training_df <- function() {
     epitweetr_category= .data$`Epitweetr Category`
   )
   current$`toptweets` <- lapply(current$`toptweets`, function(json) jsonlite::fromJSON(json))
-  current
+  current %>% dplyr::arrange(date, topic, country, topwords)
 }
 
-get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), progress = function(a, b) {}) {
+get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), progress = function(value, message) {}) {
   
   allcat_df <- alert_training_df %>% dplyr::filter(!is.na(.data$given_category))%>%dplyr::group_by(.data$given_category) %>% dplyr::count()
   # we have we choose a 25 percent of rows to be used as test set. These rows will not be augmented
   split <- jsonlite::rbind_pages(lapply(1:nrow(allcat_df), function(i) {
     set.seed(20131205)
-    alert_training_df %>% dplyr::filter(.data$given_category == allcat_df$given_category[[i]]) %>% dplyr::mutate(test = runif(allcat_df$n[[i]], 0, 1000) < 250)
+    x = 1:allcat_df$n[[i]]
+    alert_training_df %>% dplyr::filter(.data$given_category == allcat_df$given_category[[i]]) %>% dplyr::mutate(test = sample(x, length(x), replace = F) > length(x) * 0.75)
   }))
   
-  test_df <- split %>% dplyr::filter(.data$test)
+  test_df <- split %>% dplyr::filter(.data$test) %>% dplyr::mutate(deleted = FALSE, augmented = FALSE)
   training_df <- split %>% dplyr::filter(!.data$test)
   cat_df <- training_df %>% dplyr::filter(!is.na(.data$given_category))%>%dplyr::group_by(.data$given_category) %>% dplyr::count()
   cat_df$missing <- max(cat_df$n) - cat_df$n
   cat_to_augment <- cat_df %>% dplyr::filter(.data$missing > 0)
+  na_cat <- alert_training_df %>% dplyr::filter(is.na(.data$given_category)) %>% dplyr::mutate(test = FALSE, deleted = FALSE, augmented = FALSE)
   
   # getting the alerts to augment which are categories with less annotations, we do not consider location for this purpose 
   alerts_to_augment <- training_df %>% dplyr::filter(.data$given_category %in% cat_to_augment$given_category) %>% dplyr::distinct(.data$topic, .data$date, .data$given_category, .keep_all=TRUE)
@@ -1255,12 +1272,13 @@ get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), p
     augmented_in_cat <- augmented_alerts %>% dplyr::filter(.data$given_category == cat_df$given_category[[i]])
     frac <- smallest_cat / nrow(augmented_in_cat) 
     set.seed(20131205)
-    augmented_in_cat %>% dplyr::mutate(deleted = runif(nrow(augmented_in_cat), 0, 1000) > 1000*frac)
+    x = 1:nrow(augmented_in_cat)
+    augmented_in_cat %>% dplyr::mutate(deleted = sample(x, length(x), replace = F) > length(x) * frac)
   }))
 
   test_df$augmented <- FALSE
   test_df$deleted <- FALSE
-  balanced_alerts <- jsonlite::rbind_pages(list(balanced_training, test_df))
+  balanced_alerts <- jsonlite::rbind_pages(list(balanced_training, test_df, na_cat))
   balanced_alerts
 }
 
@@ -1270,9 +1288,9 @@ get_alert_training_runs_df <- function() {
   # Reading runs without type to detect if the balance and force columns are present since added on an intermediate version 
   current <- readxl::read_excel(get_alert_training_path(), sheet = "Runs")
   if("Force to use" %in% colnames(current))
-    data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric","text", "logical", "logical", "logical", "text", "text")
+    data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "text", "text", "text","text", "logical", "logical", "logical", "text", "text")
   else 
-    data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric","text", "logical", "text", "text")
+    data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "text", "text", "text","text", "logical", "text", "text")
   
   current <- readxl::read_excel(get_alert_training_path(), col_types = data_types, sheet = "Runs")
   # Adding default values to new columns if not present
@@ -1351,13 +1369,13 @@ classify_alerts <- function(alerts, retrain = FALSE, progress = function(value, 
 }
 
 # Retrain the alert classifiers with current alerts
-retrain_alert_classifier <- function(progress = function(a, b) {}) {
+retrain_alert_classifier <- function(progress = function(value, message) {}) {
   `%>%` <- magrittr::`%>%`
   progress(value = 0.1, message = "Getting alerts to retrain")
   alerts = get_alert_training_df()
   ret <- classify_alerts(alerts, retrain = TRUE, progress = progress)
   progress(value = 0.9, message = "Writing resutls")
-  write_alert_training_db(alerts = ret$alerts, runs = ret$runs)
+  write_alert_training_db(alerts = ret$alerts %>% dplyr::filter(!augmented), runs = ret$runs)
 }
 
 

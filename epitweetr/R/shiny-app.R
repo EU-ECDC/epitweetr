@@ -282,6 +282,7 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   ######### CONFIGURATION PAGE####################
   ################################################
+  new_rtweet <- exists("rtweet_user", base::asNamespace("rtweet"))
   config_page <- 
     shiny::fluidPage(
       shiny::fluidRow(
@@ -366,18 +367,28 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::fluidRow(shiny::column(12, "DISCLAIMER: rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs.")),
             shiny::fluidRow(shiny::renderText("&nbsp;")) 
           ),
-          shiny::conditionalPanel(
-            condition = "input.twitter_auth == 'app'",
-            shiny::fluidRow(shiny::column(3, "App name"), shiny::column(9, shiny::textInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
-            shiny::fluidRow(shiny::column(3, "API key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
-            shiny::fluidRow(shiny::column(3, "API secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
-            shiny::fluidRow(shiny::column(3, "Access token"), shiny::column(9, 
-              shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
-            ), 
-            shiny::fluidRow(shiny::column(3, "Token secret"), shiny::column(9, 
-              shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
+          if(new_rtweet) {
+            shiny::conditionalPanel(
+              condition = "input.twitter_auth == 'app'",
+              shiny::fluidRow(shiny::column(3, "Bearer Token"), shiny::column(9, 
+                shiny::passwordInput("twitter_bearer", label = NULL, value = if(is_secret_set("bearer")) get_secret("bearer") else NULL))
+              )
             )
-          ), 
+          }
+          else {
+            shiny::conditionalPanel(
+              condition = "input.twitter_auth == 'app'",
+              shiny::fluidRow(shiny::column(3, "App name"), shiny::column(9, shiny::textInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
+              shiny::fluidRow(shiny::column(3, "API key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
+              shiny::fluidRow(shiny::column(3, "API secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
+              shiny::fluidRow(shiny::column(3, "Access token"), shiny::column(9, 
+                shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
+              ), 
+              shiny::fluidRow(shiny::column(3, "Token secret"), shiny::column(9, 
+                shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
+              )
+            )
+          }, 
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'delegated'",
             shiny::fluidRow(
@@ -930,7 +941,13 @@ epitweetr_app <- function(data_dir = NA) {
          })
       })
 
-      output$top_table_title <- shiny::isolate({shiny::renderText({paste("<h4>Top URLS of tweets mentioning", input$topics, "from", input$period[[1]], "to", input$period[[2]],"</h4>")})})
+      output$top_table_title <- shiny::isolate({
+        shiny::renderText({
+
+          topic <- unname(get_topics_labels()[stringr::str_replace_all(input$topics, "%20", " ")])
+          paste("<h4>Top URLS of tweets mentioning", topic, "from", input$period[[1]], "to", input$period[[2]],"</h4>")
+
+        })})
       output$top_table <- DT::renderDataTable({
           # Validate if minimal requirements for rendering are met 
           progress_set(value = 0.85, message = "Generating top links", rep)
@@ -1465,16 +1482,21 @@ epitweetr_app <- function(data_dir = NA) {
       conf$alert_with_retweets <- input$conf_with_retweets
       # Setting secrets
       if(input$twitter_auth == "app") {
-        set_twitter_app_auth(
-          app = input$twitter_app, 
-          api_key = input$twitter_api_key, 
-          api_secret = input$twitter_api_secret, 
-          access_token = input$twitter_access_token, 
-          access_token_secret = input$twitter_access_token_secret
-        )
+        conf$twitter_auth_mode = "app"
+        if(new_rtweet) {
+          set_twitter_app_auth(bearer = input$twitter_bearer)
+        }
+        else
+          set_twitter_app_auth(
+            app = input$twitter_app, 
+            api_key = input$twitter_api_key, 
+            api_secret = input$twitter_api_secret, 
+            access_token = input$twitter_access_token, 
+            access_token_secret = input$twitter_access_token_secret
+          )
       }
       else {
-        set_twitter_app_auth(app = "", api_key = "", api_secret = "", access_token = "", access_token_secret = "")
+        conf$twitter_auth_mode = "delegated"
         get_token()
       }
       conf$smtp_host <- input$smtp_host
@@ -2309,7 +2331,7 @@ epitweetr_app <- function(data_dir = NA) {
   }
   
   progress_close <- function(env = cd) {
-    if(exists("progress", where = env)) {
+    if(exists("progress", where = env) && !is.null(env$progress)) {
       env$progress$close()
       rm("progress", envir = env)
     }
@@ -2475,7 +2497,12 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
       tasks <- get_tasks()
       sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
       e$tasks <- tasks[sorted_tasks] 
-      e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
+      e$app_auth <- (
+        if(conf$twitter_auth_mode != "")
+          conf$twitter_auth_mode == "app"
+        else
+          exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
+      )
       e$api_version <- conf$api_version
       e$tasks_df <- data.frame(
         Task = sapply(e$tasks, function(t) t$task), 
@@ -2562,9 +2589,9 @@ get_alertsdb_runs_html <- function(){
   runs <- get_alert_training_runs_df()
   runs$f1score <- format(runs$f1score, digits = 3) 
   runs$accuracy <- format(runs$accuracy, digits = 3)
-  runs$precision_by_class <- format(runs$precision_by_class, digits = 3)
-  runs$sensitivity_by_class <- format(runs$sensitivity_by_class, digits = 3)
-  runs$fscore_by_class <- format(runs$fscore_by_class, digits = 3)
+  runs$precision_by_class <- gsub("\n", "<BR>", runs$precision_by_class)
+  runs$sensitivity_by_class <- gsub("\n", "<BR>", runs$sensitivity_by_class)
+  runs$fscore_by_class <- gsub("\n", "<BR>", runs$fscore_by_class)
   runs$custom_parameters <- sapply(runs$custom_parameters, function(params) {
     if(length(params) == 0)
       ""

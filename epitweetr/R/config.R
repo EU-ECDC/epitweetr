@@ -116,6 +116,7 @@ get_empty_config <- function(data_dir) {
   ret$smtp_password <- ""
   ret$smtp_insecure <- FALSE
   ret$force_date_format <- ""
+  ret$twitter_auth_mode <- ""
   ret$maven_repo <- "https://repo1.maven.org/maven2"
   ret$winutils_url <- "https://github.com/steveloughran/winutils/raw/master/hadoop-3.0.0/bin/winutils.exe"
   ret$api_version <- "1.1"
@@ -249,6 +250,7 @@ setup_config <- function(
     conf$smtp_login <- temp$smtp_login
     conf$smtp_insecure <- temp$smtp_insecure
     conf$force_date_format <- temp$force_date_format
+    conf$twitter_auth_mode <- temp$twitter_auth_mode
     conf$maven_repo <- temp$maven_repo
     conf$winutils_url <- temp$winutils_url
     conf$api_version <- temp$api_version
@@ -344,7 +346,7 @@ setup_config <- function(
     kr <- get_key_ring(conf$keyring)
     conf$twitter_auth <- list()
     # Fetching and updating variables from keyring
-    for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
+    for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret", "bearer")) {
       if(is_secret_set(v)) {
         conf$twitter_auth[[v]] <- get_secret(v)
       }
@@ -451,6 +453,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
     if(!is.null(conf$smtp_password) && conf$smtp_password != "") set_secret("smtp_password", conf$smtp_password)
     temp$smtp_insecure <- conf$smtp_insecure
     temp$force_date_format <- conf$force_date_format
+    temp$twitter_auth_mode <- conf$twitter_auth_mode
     temp$maven_repo <- conf$maven_repo
     temp$winutils_url <- conf$winutils_url
     temp$api_version <- conf$api_version
@@ -488,6 +491,7 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
 #' @param access_token_secret Access token secret as provided by Twitter
 #' @param api_key API key as provided by Twitter 
 #' @param api_secret API secret as provided by Twitter
+#' @param bearer the bearer token of the application
 #' @return Nothing
 #' @details Update Twitter authentication tokens in configuration object
 #' @examples 
@@ -500,18 +504,22 @@ save_config <- function(data_dir = conf$data_dir, properties= TRUE, topics = TRU
 #'      api_key = "123456", 
 #'      api_secret = "123456"
 #'    )
+#'    set_twitter_app_auth(
+#'      bearer = "123456"
+#'    )
 #' }
 #' @seealso
 #' \code{\link{save_config}}
 #' @rdname set_twitter_app_auth
 #' @export 
-set_twitter_app_auth <- function(app, access_token, access_token_secret, api_key, api_secret) {
+set_twitter_app_auth <- function(app = "", access_token = "", access_token_secret = "", api_key = "", api_secret = "", bearer = "") {
   conf$twitter_auth$app <- app
   conf$twitter_auth$access_token <- access_token
   conf$twitter_auth$access_token_secret <- access_token_secret
   conf$twitter_auth$api_key <- api_key
   conf$twitter_auth$api_secret <- api_secret
-  for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret")) {
+  conf$twitter_auth$bearer <- bearer
+  for(v in c("app", "access_token", "access_token_secret", "api_key", "api_secret", "bearer")) {
     set_secret(v, conf$twitter_auth[[v]])
   }
 }
