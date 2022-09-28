@@ -658,7 +658,7 @@ update_session_info <- function() {
 #'    #creating a compressed snapshot for settings and logs
 #'    create_snapshot(getwd(), c("settings","dependencies"), compress = TRUE)
 #' }
-#' @rdname check_all
+#' @rdname create_snapshot
 #' @export 
 create_snapshot <- function(
   destination_dir, 

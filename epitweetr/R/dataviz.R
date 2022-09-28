@@ -60,6 +60,7 @@ trend_line <- function(
 
   `%>%` <- magrittr::`%>%`
   stop_if_no_config()
+  stop_if_no_fs()
   # If countries are names they have to be changes to region indexes
   if(is.character(countries) && length(countries) > 0) {
     reg <- get_country_items()
@@ -330,6 +331,7 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @importFrom stats setNames 
 create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=FALSE){
   stop_if_no_config()
+  stop_if_no_fs()
   # Importing pipe operator
   `%>%` <- magrittr::`%>%`
   # Setting the scientific pen off
@@ -762,8 +764,6 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
 #' @details Produces a bar chart showing the occurrences of the most popular words in the collected tweets based on the provided parameters.
 #' For performance reasons on tweet aggregation, this report only shows tweet location and ignores the location_type parameter
 #' 
-#' This report may be empty for combinations of countries and topics with very few tweets since for performance reasons, the calculation of top words is an approximation using chunks of 10.000 tweets.
-#'
 #' This functions requires that \code{\link{search_loop}} and \code{\link{detect_loop}} have already been run successfully to show results.
 #' @examples 
 #' if(FALSE){
@@ -792,6 +792,7 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
 #' 
 create_topchart <- function(topic, serie, country_codes=c(),date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", top = 25) {
   stop_if_no_config()
+  stop_if_no_fs()
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   f_topic <- topic

@@ -1,6 +1,6 @@
 Package: epitweetr
 Title: Early Detection of Public Health Threats from Twitter Data
-Version: 2.2.2
+Version: 2.2.3
 Authors@R: c( 
      person(given = "Laura",
             family = "Espinosa",
@@ -54,6 +54,7 @@ Imports:
     crul,
     curl,
     DT,
+    emayili,
     future,
     httpuv,
     httr,
@@ -61,7 +62,7 @@ Imports:
     jsonlite,
     keyring,
     knitr,
-    emayili,
+    lifecycle,
     ggplot2,
     janitor,
     magrittr,

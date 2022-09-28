@@ -603,9 +603,9 @@ get_topics_k_decays <- function() {
 }
 
 # Check config setup before continue
-stop_if_no_config <- function(error_message = "Cannot continue without setting up a configuration. Please call setup_config('your data directory here')") {
+stop_if_no_config <- function(error_message = "Cannot continue without setting up a configuration.") {
   if(!exists("data_dir", where = conf)) {
-    stop(error_message)  
+    stop(paste(error_message,  "Please call setup_config('your data directory here')", sep = "\n"))  
   }
 }
 

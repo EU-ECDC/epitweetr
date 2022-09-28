@@ -3,7 +3,8 @@
 #' @param tasks named list, current tasks for logging and updating progress default: get_tasks()
 #' @param chunk_size, integer, the chunk size for indexing tweets, default: 400
 #' @return the updated tasks.
-#' @details iterates over existing tweets collected with epitweetr v0.0.x series
+#' @details This function can be called manually to perform the migration of tweets between v0.0.x to v2+
+#' It iterates over existing tweets collected with epitweetr v0.0.x series
 #' joins base tweets and geolocated tweets and then sends themes to the Lucene index via the dedicated REST API.
 #' Migrated files will be moved to search_archive and geo_archive folders. Users can backup and remove these folders when migration ends to gain disk space.
 #' Series folders are maintained for migrated tweets

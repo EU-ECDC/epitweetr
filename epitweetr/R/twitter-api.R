@@ -25,8 +25,6 @@ get_token <- function(request_new = TRUE) {
     else 
       conf$twitter_auth_mode == "app"
   }
-  message(conf$data_dir)
-  message(conf$twitter_auth_mode)
   if(conf$twitter_auth_mode == "app") {  
     # Removing existing rtweet token if exists
     if(file.exists(token_path)) file.remove(token_path)
