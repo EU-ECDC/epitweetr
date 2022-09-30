@@ -933,7 +933,7 @@ loop_run_issues <- function(loop_name) {
     else "Please activate 'Requirement & alerts' task. To run the embedded database, the dependencies task needs to be running or have been completed successfully"
       
   } else if(loop_name == "search") {
-    token <- get_token(request_new = FALSE)
+    token <- tryCatch(get_token(request_new = FALSE), error = function(e) NULL, warning = function(e) NULL)
     token_ok <- "Token" %in% class(token) || "bearer" %in% class(token) || is.character(token)
     if(!is.na(t$dependencies$status) && t$dependencies$status == "success"
       && !is.na(t$geonames$status) && t$geonames$status == "success"
