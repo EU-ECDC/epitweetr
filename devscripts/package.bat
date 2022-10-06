@@ -16,7 +16,7 @@ git archive --format zip --output "%cdir%/epitweetr/java/ecdc-twitter-bundle_2.1
 
 cd "%cdir%\epitweetr"
 
-call C:\Users\lespinosa\Documents\R\R-4.0.4\bin\Rscript.exe ..\devscripts\package.R
+call Rscript.exe ..\devscripts\package.R
 
 cd %cdir%
 

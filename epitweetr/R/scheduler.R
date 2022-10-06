@@ -1,31 +1,27 @@
-# Registers the search runner (by writing search.PID file) for the current process 
-# or stops if no configuration has been set or if it is already running
+# registers the tweet collection task (by writing search.PID file) for the current process or stops if no configuration has been set or if it is already running
 register_search_runner <- function() {
   stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
   register_runner("search")
 }
 
 
-# Registers the detect runner (by writing detect.PID file) for the current process 
-# or stops if no configuration has been set or if it is already running
-register_detect_runner <- function() {
-  stop_if_no_config(paste("Cannot check running status for detect without configuration setup")) 
-  register_runner("detect")
-}
-
-# Registers the detect runner (by writing detect.PID file) for the current process 
-# or stops if no configuration has been set or if it is already running
+# registers the fs_monitor (by writing fs.PID file) for the current process or stops if no configuration has been set or if it is already running
 register_fs_runner <- function() {
   stop_if_no_config(paste("Cannot check running status for fs without configuration setup")) 
   register_runner("fs")
 }
 
+# registers the detect_runner (by writing detect.PID file) for the current process or stops if no configuration has been set or if it is already running
+register_detect_runner <- function() {
+  stop_if_no_config(paste("Cannot check running status for fs without configuration setup")) 
+  register_runner("detect")
+}
  
 #' @title Registers the fs_monitor for the current process or exits
-#' @description registers the fs_monitor (by writing detect.PID file) for the current process or stops if no configuration has been set or if it is already running
+#' @description registers the fs_monitor (by writing fs.monitor.PID file) for the current process or stops if no configuration has been set or if it is already running
 #' @return Nothing
-#' @details Registers the fs_monitor (by writing detect.PID file) for the current process or stops if no configuration has been set or if it is already running
-#' this function is exported so it can be called nicely from using the future package, but it is not intended to be directly used by users
+#' @details Registers the fs_monitor (by writing fs.monitor.PID file) for the current process or stops if no configuration has been set or if it is already running
+#' This function has been exported so it can be properly called from the future package on the database runner but it is not inteded to be directly called by end users. 
 #' @examples 
 #' if(FALSE){
 #'    #getting tasks statuses
@@ -57,23 +53,124 @@ register_runner <- function(name) {
   write(pid, file = pid_path, append = FALSE)
 }
 
-# Register search runner task and schedule the loop to run each hour
-# These tasks are currently available in Windows only
+#' @title Registers the tweet collection task
+#' @description registers the tweet collection task or stops if no configuration has been set or if it is already running
+#' @return Nothing
+#' @details Registers the tweet collextion task or stops if no configuration has been set or if it is already running.
+#' Twitter authentication needs to be previously set on the shiny app or by calling set_twitter_app_auth(). 
+#' You can test if authentication is working on the shiny app troubleshot page or by calling (with dplyr): epitweetr::check_all() %>% filter(check == 'twitter_auth') 
+#' This function will use the task scheduler on windows and will fall back to launching the runner as a separate process (atteched to this session) on Linux.
+#' @examples 
+#' if(FALSE){
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    register_search_runner_task()
+#' }
+#' @rdname register_search_runner_task
+#' @export 
 register_search_runner_task <- function() {
   register_runner_task("search")
 }
 
-# Register detect runner task and schedule the loop to run each hour
-# These tasks are currently available in Windows only
+#' @title Stops the tweet collection task
+#' @description stops the tweet collection task 
+#' @return Nothing
+#' @details Stops the tweet collection task if it is already running
+#' This function will try also deactivate the respective scheduled task on Windows.
+#' @examples 
+#' if(FALSE){
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    stop_search_runner_task()
+#' }
+#' @rdname stop_search_runner_task
+#' @export 
+stop_search_runner_task <- function() {
+  stop_runner_task("search")
+}
+
+
+#' @title Registers the alert detection task
+#' @description registers the alert detection task or stops if no configuration has been set or if it is already running
+#' @return Nothing
+#' @details Registers the alert detection task or stops if no configuration has been set or if it is already running.
+#' To generate elerts, this task needs the tweet collection to had successfully run since the last time it ran.
+#' This function will use the task scheduler on windows and will fall back to launching the runner as a separate process (atteched to this session) on Linux.
+#' @examples 
+#' if(FALSE){
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    register_detect_runner_task()
+#' }
+#' @rdname register_detect_runner_task
+#' @export 
 register_detect_runner_task <- function() {
   register_runner_task("detect")
 }
 
-# Register a task on system task scheduler to run each hour
-# Register fd runner task and schedule the loop to run each hour
-# These tasks are currently available in Windows only
+#' @title Stops the alert detection task
+#' @description stops the alert detection task 
+#' @return Nothing
+#' @details Stops the alert detection task if it is already running
+#' This function will try also deactivate the respective scheduled task on Windows.
+#' @examples 
+#' if(FALSE){
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    stop_detect_runner_task()
+#' }
+#' @rdname stop_detect_runner_task
+#' @export 
+stop_detect_runner_task <- function() {
+  stop_runner_task("detect")
+}
+
+#' @title Registers the epitweetr database task
+#' @description registers the epitweetr database task or stops if no configuration has been set or if it is already running
+#' @return Nothing
+#' @details Registers the epitweetr database task or stops if no configuration has been set or if it is already running.
+#' This task need the dependencies, geonames and languages steps to have been successfully ran. This can be done on the shiny app configuration page or by manually running the detect_runner_task.
+#' This function will try to use the task scheduler on windows and will fall back to launching the runner as a separate process (atteched to this session) on Linux.
+#' @examples 
+#' if(FALSE){
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    register_fs_runner_task()
+#' }
+#' @rdname register_fs_runner_task
+#' @export 
 register_fs_runner_task <- function() {
   register_runner_task("fs")
+}
+
+
+#' @title Stops the epitweetr database task
+#' @description stops the epitweetr database task 
+#' @return Nothing
+#' @details Stops the epitweetr database task if it is already running
+#' This function will try also deactivate the respective scheduled task on Windows.
+#' @examples 
+#' if(FALSE){
+#'    #getting tasks statuses
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    stop_fs_runner_task()
+#' }
+#' @rdname stop_fs_runner_task
+#' @export 
+stop_fs_runner_task <- function() {
+  stop_runner_task("fs")
 }
 
 # This tasks is currently Windows only
@@ -84,29 +181,38 @@ register_runner_task <- function(task_name) {
   # Getting the embedded script name to be called in order to make the script run
   script_name <- paste(task_name, "R", sep = ".")
 
+  run_attached <- FALSE
   # Filtering by OS, currently only Windows is supported
+  # Getting source script
+  script_base <- system.file("extdata", script_name, package = get_package_name())
+  # Getting destination folder which is going to be on user c:/Users/user/epitweetr or ~/epitweetr
+  script_folder <- (
+    if(.Platform$OS.type == "windows")
+      paste(gsub("\\\\", "/", Sys.getenv("USERPROFILE")), "epitweetr", sep = "/")
+    else 
+      file.path(Sys.getenv("HOME"), "/epitweetr")
+  )
+  if(!file.exists(script_folder)){
+    dir.create(script_folder, showWarnings = FALSE)
+  }  
+  script <- paste(script_folder, script_name, sep = "/")
+  # Copying the script 
+  file.copy(from = script_base, to = script, overwrite = TRUE)
+  taskname = paste("epitweetr", task_name, "loop", sep = "_")
+  rscript_args = paste("\"", conf$data_dir,"\"", sep = "")
+  
   if(.Platform$OS.type == "windows") {
     # testing if taskscheduleR can be loaded
     if(requireNamespace("taskscheduleR", quietly = TRUE)) {
-      # Getting source script
-      script_base <- system.file("extdata", script_name, package = get_package_name())
-      # Getting destination folder which is going to be on user c:/Users/user/epitweetr
-      script_folder <- paste(gsub("\\\\", "/", Sys.getenv("USERPROFILE")), "epitweetr", sep = "/")
-      if(!file.exists(script_folder)){
-        dir.create(script_folder, showWarnings = FALSE)
-      }  
-      script <- paste(script_folder, script_name, sep = "/")
-      # Copying the script 
-      file.copy(from = script_base, to = script, overwrite = TRUE)
 
       # Registering the task as a schedule task using taskscheduleR
       # Note that the date format is being guess using %DATE% shell variable
       # This value can be overridden by conf$fore_date_format setting
       taskscheduleR::taskscheduler_create(
-        taskname = paste("epitweetr", task_name, "loop", sep = "_")
+        taskname
         , rscript = script
+        , rscript_args = rscript_args
         , schedule = "HOUR"
-        , rscript_args = paste("\"", conf$data_dir,"\"", sep = "")
         , startdate =  
           if(conf$force_date_format == "")
             tail(strsplit(shell("echo %DATE%", intern= TRUE), " ")[[1]], 1)
@@ -114,27 +220,158 @@ register_runner_task <- function(task_name) {
             strftime(Sys.time(), conf$force_date_format)
         , schtasks_extra="/F"
       )
+      taskscheduleR::taskscheduler_runnow(taskname)
     }
-    else warning("Please install taskscheduleR package")
+    else {
+      run_attached <- TRUE
+      warning("Please install taskscheduleR package in order to permanently activate the task. This will run the task attached to this process and will end when you close this session.")
+    }
   } else {
-     warning("Task scheduling is not implemented yet on this OS. You can still schedule it manually. Please refer to package vignette.")
+     run_attached <- TRUE
+     warning("Task scheduling is not implemented yet on this OS. You can still schedule it manually. Please refer to package vignette. Running the task attached to this process, it will end when you close this session")
+  }
+
+  if(run_attached) {
+    # running the requested task as a separate thread. This is useful for testing epitweetr from the shiny app but it does not permanently schedule the task.
+    # calculating alerts per topic
+    message(paste("Running task", task_name, "attached. Use this only for testing epitweetr, you will need to find a permanent way to schedule it on production environments"))
+    cm <- paste(script, rscript_args)
+    script_log <- paste(task_name, "log", sep = ".")
+    log <- file.path(script_folder, script_log)
+    system2("Rscript", args = c(script, conf$data_dir), stdout = log, stderr = log , wait = FALSE)
   }
 		   
 }
 
-# Get search runner execution status
+#Stopping a running epitweetr task
+stop_runner_task <- function(task_name) {
+  stop_if_no_config(paste("Cannot stop scheduled task without configuration setup")) 
+  message(paste("Stopping", task_name))
+  # Filtering by OS, currently only Windows is supported
+  if(.Platform$OS.type == "windows") {
+    
+    # Stopping the task if running
+    taskname = paste("epitweetr", task_name, "loop", sep = "_")
+    cmd <- sprintf("schtasks /End /TN %s", shQuote(taskname, type = "cmd"))
+    system(cmd, intern = FALSE)
+    # Disabling the task
+    cmd <- sprintf("schtasks /Change /TN %s /Disable", shQuote(taskname, type = "cmd"))
+    system(cmd, intern = FALSE)
+
+  }
+  # If processes are still running then forcing stop by killing the processes
+  if(task_name == "fs") {
+    kill_task("fs", "R")
+    kill_task("fs.java", "java")
+    kill_task("fs_mon", "R")
+  } else if (task_name == "search") {
+    kill_task("search", "R")
+  } else if (task_name == "detect") {
+    kill_task("detect", "R")
+    kill_task("detect.java", "java")
+  }
+
+}
+# Forcing the stop of a PID file by killing the underlying process
+kill_task <- function(pidfile, type = "R") {
+  path = file.path(conf$data_dir, paste0(pidfile, ".PID"))
+  if(file.exists(path)) {
+    f = file(description = path, open="r")
+    last_pid = readLines(f)
+    close(f)
+    
+    if(.Platform$OS.type == "windows") {
+      if(type == "R")
+        image = "R\\.exe|Rscript\\.exe|rsession\\.exe|Rterm\\.exe"
+      else if (type == "java")
+        image = "java.exe"
+      else 
+        stop("Unsupported type of process")
+      if(length(grep(image, system(paste('tasklist /nh /fi "pid eq ',last_pid,'"'), intern = TRUE))) > 0) {
+        message(paste("Forcing process", last_pid, "to stop"))
+        system(paste('taskkill /F /pid', last_pid), intern = TRUE)
+      } else {
+        message(paste("registered pid ", last_pid , "not running anymore"))
+      }
+    } else {
+      if(type == "R")
+        image = "R\\|rsession"
+      else if (type == "java")
+        image = "java"
+      else 
+        stop("Unsupported type of process")
+      if(system(paste("ps -cax | grep ", paste0("'",image,"'")," | grep ", last_pid), ignore.stdout = TRUE) == 0) {
+        message(paste("Forcing process", last_pid, "to stop"))
+        system(paste('kill ', last_pid), intern = TRUE)
+      } else {
+        message(paste("registered pid ", last_pid , "not running anymore"))
+      }
+
+    }
+  }
+
+}
+
+
+#' @title Check whether the tweet collection task is running
+#' @description gets the tweet collection execution status  
+#' @return logical Whether the tweet collection is running
+#' @details returns a logical value being TRUE if the tweet collection is actually running
+#' @examples 
+#' if(FALSE){
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    is_search_running()
+#' }
+#' @rdname is_search_running
+#' @export 
 is_search_running <- function() {
   stop_if_no_config(paste("Cannot check running status for search without configuration setup")) 
   get_running_task_pid("search")>=0
 }
 
-# Get search runner execution status
+#' @title Check whether the database is running
+#' @description gets the database runner execution status  
+#' @return logical Whether the database is running
+#' @details returns a logical value being TRUE if the database runner is actually running
+#' @examples 
+#' if(FALSE){
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    is_fs_running()
+#' }
+#' @rdname is_fs_running
+#' @export 
 is_fs_running <- function() {
   stop_if_no_config(paste("Cannot check running status for fs without configuration setup")) 
   tryCatch(httr::GET(url=get_scala_ping_url(), httr::timeout(0.2))$status_code == 200, error = function(e) FALSE, warning = function(w) FALSE)
 }
 
-# Get search runner execution status
+stop_if_no_fs <- function(msg = NULL) {
+  if(!is_fs_running()) {
+    if(!is.null(msg))
+      stop(msg)
+    else
+      stop("This function needs the epitweetr database to be running.\nYou can activate it for this session with the command register_fs_runner_task() or on a separate session with fs_loop().\nBe aware that for data to be displayed, the collect task must have ran previously")
+  }
+}
+
+
+#' @title Check whether the alert detection task is running
+#' @description gets the alert detection runner execution status  
+#' @return logical Whether the alert detection task is running
+#' @details returns a logical value being TRUE if the alert detection task is actually running
+#' @examples 
+#' if(FALSE){
+#'    library(epitweetr)
+#'    message('Please choose the epitweetr data directory')
+#'    setup_config(file.choose())
+#'    is_detect_running()
+#' }
+#' @rdname is_detect_running
+#' @export 
 is_detect_running <- function() {
   stop_if_no_config(paste("Cannot check detect batch status for search without configuration setup")) 
   get_running_task_pid("detect")>=0
@@ -206,7 +443,14 @@ get_tasks <- function(statuses = list()) {
   #Loading tasks from file if exists 
   tasks <- if(file.exists(tasks_path)) {
     #if tasks files exists getting tasks from disk
-    t <- jsonlite::fromJSON(tasks_path, simplifyVector = FALSE, auto_unbox = TRUE)
+    t <- tryCatch( 
+      jsonlite::fromJSON(tasks_path, simplifyVector = FALSE, auto_unbox = TRUE)
+      ,error = function(e) {
+        message("recovering from error on reading tasks")
+        Sys.sleep(5)
+        jsonlite::fromJSON(tasks_path, simplifyVector = FALSE, auto_unbox = TRUE)
+      }
+    )
     # casting date time values (they are interpreted as character by jsonlite)
     for(i in 1:length(t)) {
       t[[i]]$scheduled_for <- if(class(t[[i]]$scheduled_for) == "numeric")  as.POSIXlt(t[[i]]$scheduled_for/1000,  origin="1970-01-01") else NA
@@ -680,4 +924,27 @@ update_dep_task <- function(tasks, status, message, start = FALSE, end = FALSE) 
   tasks$dependencies$message = message
   save_tasks(tasks)
   return(tasks)
+}
+
+loop_run_issues <- function(loop_name) {
+  t <- get_tasks()
+  if(loop_name == "fs") {
+    if(!is.na(t$dependencies$status) && t$dependencies$status %in% c("success", "running")) ""
+    else "Please activate 'Requirement & alerts' task. To run the embedded database, the dependencies task needs to be running or have been completed successfully"
+      
+  } else if(loop_name == "search") {
+    token <- tryCatch(get_token(request_new = FALSE), error = function(e) NULL, warning = function(e) NULL)
+    token_ok <- "Token" %in% class(token) || "bearer" %in% class(token) || is.character(token)
+    if(!is.na(t$dependencies$status) && t$dependencies$status == "success"
+      && !is.na(t$geonames$status) && t$geonames$status == "success"
+      && !is.na(t$languages$status) && t$languages$status == "success"
+      && token_ok
+    )
+      ""
+    else "Please activate 'Requirement & alerts' task. To run 'Data collection & processing' task, you have to successfully complete the tasks for dependencies, GeoNames and languages. You also need to provide your Twitter credentials and click on 'Save settings'"
+    
+  } else if(loop_name == "detect") {
+     "" 
+  } else
+    stop(paste("Unlnown loop", loop_name))
 }

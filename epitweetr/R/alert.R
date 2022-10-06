@@ -542,9 +542,11 @@ do_next_alerts <- function(tasks = get_tasks()) {
           no_historic = as.numeric(conf$alert_history), 
           no_historic = as.numeric(conf$alert_history),
           bonferroni_correction = conf$alert_with_bonferroni_correction,
-          same_weekday_baseline = conf$same_weekday_baseline
+          same_weekday_baseline = conf$same_weekday_baseline,
+          
         )
-      if(length(unique(get_alert_training_df()$epitweetr_category))>1) {
+      alert_training <- get_alert_training_df()
+      if(length(unique(alert_training$epitweetr_category))>1) {
         # Adding tweets to alerts
         m <- paste("Adding toptweets") 
         message(m)  
@@ -553,7 +555,7 @@ do_next_alerts <- function(tasks = get_tasks()) {
         m <- paste("Classifying alerts toptweets") 
         message(m)  
         tasks <- update_alerts_task(tasks, "running", m)
-        alerts <- classify_alerts(alerts, retrain = FALSE)
+        alerts <- classify_alerts(alerts %>% dplyr::mutate(test = FALSE, augmented = FALSE, deleted = FALSE), retrain = FALSE)
         # Removing top tweets
         alerts$toptweets <- NULL
         alerts$id <- NULL
@@ -677,7 +679,7 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
       }
       # Adding top tweets if required
       if(toptweets > 0) {
-        df <- add_toptweets(df, toptweets, progress)
+        df <- add_toptweets(df, toptweets, progress = progress)
       }
       # Calculating top columns
       df$tops <- paste(
@@ -690,7 +692,7 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
             if(!is.null(s) && !is.na(s) && length(s) > 0 && nchar(s) > 0) {
               urls <- sapply(strsplit(s, " \\("), function(f) f[[1]])
               counts <- sapply(strsplit(s, " \\("), function(f) paste(" (", if(length(f) > 1) f[[2]] else "-", sep = ""))
-              paste(sapply(1:length(urls), function(i) paste("<a target = \"_blank\" href = \"",urls[[i]], "\">",urls[[i]], counts[[i]],"</a>")), collapse = ", ")
+              paste(sapply(1:length(urls), function(i) paste("<a target = \"_blank\" href = \"",urls[[i]], "\">",urls[[i]], counts[[i]],"</a>", sep = "")), collapse = ", ")
             } else ""
           }), "</li>\n"), ""),
         "</UL>",
@@ -698,6 +700,20 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
       )
       if(nrow(df) > 0 && !"epitweetr_category" %in% colnames(df))
         df$epitweetr_category <- NA
+      
+      # overriding classification if provided by users$
+      alert_training <- get_alert_training_df()
+      given <- setNames(alert_training$given_category, tolower(paste(alert_training[["date"]], alert_training[["topic"]], alert_training[["country"]], sep = "@@")))
+      given <- given[!is.na(given)]
+      ngiven <- names(given)
+      
+      df$epitweetr_category <- sapply(1:nrow(df), function(i) {
+        key = tolower(paste(df[["date"]][[i]], df[["topic"]][[i]], df[["country"]][[i]], sep = "@@"))
+        if(key %in% ngiven)
+          given[[key]]
+        else
+          df$epitweetr_category[[i]]
+      })
       progress(1, "Alerts obtained")
       tibble::as_tibble(df)
     }
@@ -708,7 +724,7 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
 
 # Add top tweets from the tweet index to the alert data frame
 # A query is done to the index for each topic alert to consider top words detected
-add_toptweets <- function(df, toptweets, progress = function(a, b) {}) {
+add_toptweets <- function(df, toptweets, ignore_place = FALSE, progress = function(a, b) {}) {
   codes <- get_country_codes_by_name()
   topwords <- sapply(strsplit(df$topwords, "\\W+|[0-9]\\W"), function(v) v[nchar(v)>0])
 
@@ -734,7 +750,7 @@ add_toptweets <- function(df, toptweets, progress = function(a, b) {}) {
             query = paste0(
               "created_at:[",created_from ," TO ", created_to,"] AND ",
               paste0("lang:", lang$code," AND "),
-              (if(length(match_codes)==0) "" else paste0("text_loc.geo_country_code:", paste0(match_codes, collapse=";")," AND " )),
+              (if(length(match_codes)==0 || ignore_place) "" else paste0("text_loc.geo_country_code:", paste0(match_codes, collapse=";")," AND " )),
               (if(length(topwords[[i]]) == 0) "" else paste0("(", paste0(paste0("\"", topwords[[i]], "\""), collapse=" OR "),") AND " )),
               "is_retweet:false"
             ), 
@@ -1010,6 +1026,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
           html <- gsub("@alerts", paste(c(non_one_alert_tables, one_alert_table), collapse="\n"), html)
           close(t_con)
 
+          
           # creating the message to send
           msg <- ( 
             emayili::envelope() %>% 
@@ -1018,6 +1035,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
             emayili::subject(title) %>% 
             emayili::html(html)
           )
+
           smtp <- ( 
             if(is.na(conf$smtp_password) || is.null(conf$smtp_password) ||  conf$smtp_password == "") 
               emayili::server(host = conf$smtp_host, port=conf$smtp_port, insecure=conf$smtp_insecure, reuse = FALSE)
@@ -1142,15 +1160,145 @@ get_alert_training_df <- function() {
     epitweetr_category= .data$`Epitweetr Category`
   )
   current$`toptweets` <- lapply(current$`toptweets`, function(json) jsonlite::fromJSON(json))
-  current
+  current %>% dplyr::arrange(date, topic, country, topwords)
 }
 
+get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), progress = function(value, message) {}) {
+  
+  allcat_df <- alert_training_df %>% dplyr::filter(!is.na(.data$given_category))%>%dplyr::group_by(.data$given_category) %>% dplyr::count()
+  # we have we choose a 25 percent of rows to be used as test set. These rows will not be augmented
+  split <- jsonlite::rbind_pages(lapply(1:nrow(allcat_df), function(i) {
+    set.seed(20131205)
+    x = 1:allcat_df$n[[i]]
+    alert_training_df %>% dplyr::filter(.data$given_category == allcat_df$given_category[[i]]) %>% dplyr::mutate(test = sample(x, length(x), replace = F) > length(x) * 0.75)
+  }))
+  
+  test_df <- split %>% dplyr::filter(.data$test) %>% dplyr::mutate(deleted = FALSE, augmented = FALSE)
+  training_df <- split %>% dplyr::filter(!.data$test)
+  cat_df <- training_df %>% dplyr::filter(!is.na(.data$given_category))%>%dplyr::group_by(.data$given_category) %>% dplyr::count()
+  cat_df$missing <- max(cat_df$n) - cat_df$n
+  cat_to_augment <- cat_df %>% dplyr::filter(.data$missing > 0)
+  na_cat <- alert_training_df %>% dplyr::filter(is.na(.data$given_category)) %>% dplyr::mutate(test = FALSE, deleted = FALSE, augmented = FALSE)
+  
+  # getting the alerts to augment which are categories with less annotations, we do not consider location for this purpose 
+  alerts_to_augment <- training_df %>% dplyr::filter(.data$given_category %in% cat_to_augment$given_category) %>% dplyr::distinct(.data$topic, .data$date, .data$given_category, .keep_all=TRUE)
+  alerts_to_augment$hour <- 23
+  # adding extra tweets ignoring location to build augmented alerts
+  alerts_to_augment <- add_toptweets(alerts_to_augment, 1000, ignore_place = TRUE, progress = function(value, message) progress(value*0.9, message))
+  
+  # Iterating over categories to augment
+  # Creating alerts to augment underepresented categories, using same settings than existing alerts but looking for more tweets not limiting by country
+  alerts_for_augment <- list()
+  smallest_cat <- Inf
+  progress(0.9, "Augmenting categories")
+  for(icat in 1:nrow(cat_to_augment)) {
+     cat <- cat_to_augment$given_category[[icat]]
+     to_add <- cat_to_augment$missing[[icat]]
+     size_after_augment <- cat_to_augment$n[[icat]]
+     tweets_exhausted <- FALSE
+     found_tweets <- FALSE
+     ialert <- 1
+     # Looping over all alerts with extra tweets for this category until no more new tweets are found or the expected number of alerts to add is reach
+     while(to_add > 0 && !tweets_exhausted) {
+       # looping over alerts to augment which have 
+       if(alerts_to_augment$given_category[[ialert]] == cat) {
+         toptweets <- alerts_to_augment$toptweets[[ialert]]
+         # getting the index of tweets to extract from 5 to five per language, it will start on 10 since these have already been used by original alerts
+         if(!exists("itweet", where=toptweets))
+           toptweets$itweet <- 7
+         # getting tweets to add
+         langs <- names(toptweets)
+         langs <- langs[langs != "itweet"]
+         i0 <- toptweets$itweet + 1
+         i1 <- i0 + 5
+         #getting new tweets
+         new_tweets <- lapply(langs, function(l) {if(length(toptweets[[l]]) >= i1) toptweets[[l]][i0:i1] else if(length(toptweets[[l]])>i0) toptweets[[l]][i0:length(toptweets[[l]])] else list()})
+         toptweets$itweet <- i1
+         alerts_to_augment$toptweets[[ialert]] <- toptweets
+         #counting new tweets
+         tcount <- sum(sapply(new_tweets, function(t) length(t)))
+         #message(paste("cat", cat, "to_add",to_add, "ialert", ialert, "i0", i0, "i1", i1, "tcount", tcount))
+         if(tcount > 0) {
+           found_tweets <- TRUE
+           new_tweets <- setNames(new_tweets, langs)
+           alerts_for_augment[[length(alerts_for_augment) + 1]] <- ( 
+             list(
+               date = alerts_to_augment$date[[ialert]],
+               topic = alerts_to_augment$topic[[ialert]],
+               country = alerts_to_augment$country[[ialert]],
+               topwords = alerts_to_augment$topwords[[ialert]],
+               number_of_tweets = alerts_to_augment$number_of_tweets[[ialert]], 
+               toptweets = new_tweets,
+               given_category = alerts_to_augment$given_category[[ialert]],
+               epitweetr_category = NA,
+               augmented = TRUE,
+               test = FALSE
+             )
+           )
+           size_after_augment <- size_after_augment + 1
+           to_add <- to_add - 1
+         }
+       }
+       if(ialert == nrow(alerts_to_augment)) {
+         ialert <- 1
+         if(!found_tweets) 
+           tweets_exhausted <- TRUE
+         found_tweets <- FALSE
+       } else {
+         ialert <- ialert + 1
+       }
+     }
+     if(size_after_augment < smallest_cat)
+       smallest_cat <- size_after_augment
+  }
+
+  # Adding the new alerts to the original set
+  training_df$augmented <- FALSE
+  augmented_alerts <- jsonlite::rbind_pages(list(training_df,
+    tibble::tibble(
+      date = sapply(alerts_for_augment, function(r) r$date),
+      topic = sapply(alerts_for_augment, function(r) r$topic), 
+      country = as.character(sapply(alerts_for_augment, function(r) r$country)),
+      topwords = sapply(alerts_for_augment, function(r) r$topwords), 
+      number_of_tweets = sapply(alerts_for_augment, function(r) r$number_of_tweets), 
+      toptweets = lapply(alerts_for_augment, function(r) r$toptweets),
+      given_category = sapply(alerts_for_augment, function(r) r$given_category),
+      epitweetr_category = as.character(sapply(alerts_for_augment, function(r) r$epitweetr_category)),
+      augmented = as.logical(sapply(alerts_for_augment, function(r) r$augmented)),
+      test = as.logical(sapply(alerts_for_augment, function(r) r$test))
+    )
+  ))
+  balanced_training <- jsonlite::rbind_pages(lapply(1:nrow(cat_df), function(i) {
+    augmented_in_cat <- augmented_alerts %>% dplyr::filter(.data$given_category == cat_df$given_category[[i]])
+    frac <- smallest_cat / nrow(augmented_in_cat) 
+    set.seed(20131205)
+    x = 1:nrow(augmented_in_cat)
+    augmented_in_cat %>% dplyr::mutate(deleted = sample(x, length(x), replace = F) > length(x) * frac)
+  }))
+
+  test_df$augmented <- FALSE
+  test_df$deleted <- FALSE
+  balanced_alerts <- jsonlite::rbind_pages(list(balanced_training, test_df, na_cat))
+  balanced_alerts
+}
 
 # Read the alert training runs that will determine the algorithms to test for alert classification
 get_alert_training_runs_df <- function() {
   `%>%` <- magrittr::`%>%`
-  data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric","text", "logical", "text", "text")
+  # Reading runs without type to detect if the balance and force columns are present since added on an intermediate version 
+  current <- readxl::read_excel(get_alert_training_path(), sheet = "Runs")
+  if("Force to use" %in% colnames(current))
+    data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "text", "text", "text","text", "logical", "logical", "logical", "text", "text")
+  else 
+    data_types<-c("numeric","text", "numeric", "numeric", "numeric", "numeric", "text", "text", "text","text", "logical", "text", "text")
+  
   current <- readxl::read_excel(get_alert_training_path(), col_types = data_types, sheet = "Runs")
+  # Adding default values to new columns if not present
+  if(!("Force to use" %in% colnames(current))) {
+    current$`Force to use` <- FALSE
+    current$`Balance classes` <- TRUE
+  }
+  # giving snake_case format to column names
   current <- current %>% dplyr::transmute(
     ranking  = .data$`Ranking`,
     models  = .data$`Models`, 
@@ -1162,6 +1310,8 @@ get_alert_training_runs_df <- function() {
     sensitivity_by_class = .data$`Sensitivity by Class`,
     fscore_by_class = .data$`FScore by Class`,
     last_run = .data$`Last run`,
+    balance_classes = .data$`Balance classes`,
+    force_to_use = .data$`Force to use`,
     active = .data$`Active`,
     documentation = .data$`Documentation`,
     custom_parameters= .data$`Custom Parameters`
@@ -1171,7 +1321,7 @@ get_alert_training_runs_df <- function() {
 }
 
 # Classify the provided alerts retraining the models if requested
-classify_alerts <- function(alerts, retrain = FALSE) {
+classify_alerts <- function(alerts, retrain = FALSE, progress = function(value, message) {}) {
   `%>%` <- magrittr::`%>%`
   if(is.null(alerts) || nrow(alerts) == 0)
     alerts
@@ -1180,6 +1330,16 @@ classify_alerts <- function(alerts, retrain = FALSE) {
     alerts
   } else {
     runs <- get_alert_training_runs_df()
+    augment_classes <- nrow(runs %>% dplyr::filter(.data$active & .data$balance_classes)) > 0
+    if(augment_classes && retrain) {
+      progress(value = 0.2, message = "Balancing classes as requested per parameters")
+      alerts <- get_alert_balanced_df(alerts, progress = function(value, message) {progress(0.2 + value*0.5, message)})
+    } else {
+      alerts$augmented <- FALSE
+      alerts$deleted <- FALSE
+      alerts$test <- FALSE
+    }
+    
     alerts <- alerts %>% dplyr::mutate(`id`=as.character(1:nrow(alerts)))
     body = paste("{",
       paste("\"alerts\":", jsonlite::toJSON(alerts, pretty = T, auto_unbox = FALSE)),
@@ -1189,6 +1349,7 @@ classify_alerts <- function(alerts, retrain = FALSE) {
       "}",
       sep = "\n"  
     )
+    progress(value = 0.7, message = "Training models")
     post_result <- httr::POST(url=get_scala_alert_training_url(), httr::content_type_json(), body=body, encode = "raw", encoding = "UTF-8")
     if(httr::status_code(post_result) != 200) {
       stop(paste("retrain web service failed with the following output: ", substring(httr::content(post_result, "text", encoding = "UTF-8"), 1, 100), sep  = "\n"))
@@ -1208,11 +1369,13 @@ classify_alerts <- function(alerts, retrain = FALSE) {
 }
 
 # Retrain the alert classifiers with current alerts
-retrain_alert_classifier <- function() {
+retrain_alert_classifier <- function(progress = function(value, message) {}) {
   `%>%` <- magrittr::`%>%`
+  progress(value = 0.1, message = "Getting alerts to retrain")
   alerts = get_alert_training_df()
-  ret <- classify_alerts(alerts, retrain = TRUE)
-  write_alert_training_db(alerts = ret$alerts, runs = ret$runs)
+  ret <- classify_alerts(alerts, retrain = TRUE, progress = progress)
+  progress(value = 0.9, message = "Writing resutls")
+  write_alert_training_db(alerts = ret$alerts %>% dplyr::filter(!augmented), runs = ret$runs)
 }
 
 
@@ -1252,6 +1415,8 @@ write_alert_training_db <- function(alerts, runs = get_alert_training_runs_df())
    `Sensitivity by Class` = .data$sensitivity_by_class,
    `FScore by Class` = .data$fscore_by_class,
    `Last run` = .data$last_run,
+   `Balance classes` = .data$balance_classes,
+   `Force to use` = .data$force_to_use,
    `Active` = .data$active,
    `Documentation` = .data$documentation,
    `Custom Parameters` = lapply(.data$custom_parameters, function(l) jsonlite::toJSON(l, auto_unbox = TRUE))

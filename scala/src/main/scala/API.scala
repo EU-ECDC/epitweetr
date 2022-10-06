@@ -46,10 +46,12 @@ object API {
     implicit val conf = Settings(epiHome)
     conf.load
     oConf = Some(conf)
+    
     val luceneRunner = actorSystem.actorOf(Props(classOf[LuceneActor], conf))
     val geonamesRunner = actorSystem.actorOf(Props(classOf[GeonamesActor], conf))
     val alertRunner = actorSystem.actorOf(Props(classOf[AlertActor], conf))
     oLuceneRunner = Some(luceneRunner)
+    val pid = ProcessID.writePID(conf.pidPath("fs.java"))
 
     removeLockFiles()
     val route =
@@ -109,7 +111,7 @@ object API {
                               if(geolocate) {
                                 if(LuceneActor.tooBigToGeolocate())
                                   (StatusCodes.InternalServerError, 
-                                    LuceneActor.DatesProcessed("One of the geolocacing or aggregating files in geo folder is bigger than the predefined limit of 500MB, stopping for safety reasons")
+                                    LuceneActor.DatesProcessed("Geolocate or aggregate is too slow. One of the geolocating or aggregating files in geo folder is bigger than the predefined limit of 500MB, stopping for safety reasons")
                                   )
                                 else {
                                   luceneRunner ! LuceneActor.GeolocateTweetsRequest(TopicTweetsV1(topic, tweets))

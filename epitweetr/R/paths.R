@@ -26,7 +26,7 @@ get_alert_training_path <- function() {
   path
 }
 
-# Get default languages file path
+# Get default alert training file path
 get_default_alert_training_path <- function() system.file("extdata", "alert-training.xlsx", package = get_package_name())
 
 # Get user alert training file
@@ -141,13 +141,42 @@ get_geonames_txt_path <- function() {
   file.path(conf$data_dir, "geo", "allCountries.txt") 
 }
 
+# Get geonames parquet path
+get_geonames_parquet_path <- function(relative = FALSE) {
+  if(!relative)
+    file.path(conf$data_dir, "geo", "all-geos.parquet") 
+  else
+    file.path("geo", "all-geos.parquet") 
+}
+
+# Get geonames parquet path
+get_cities_parquet_path <- function(relative = FALSE) {
+  if(!relative)
+    file.path(conf$data_dir, "geo", "all-cities.parquet") 
+  else
+    file.path("geo", "all-cities.parquet") 
+}
+
 # Get geonames index path
-get_geonames_index_path <- function() {
-  file.path(conf$data_dir, "geo", "all-geos.parquet.index") 
+get_geonames_index_path <- function(relative = FALSE) {
+  if(!relative)
+    file.path(conf$data_dir, "geo", "all-geos.parquet.index") 
+  else
+    file.path("geo", "all-geos.parquet.index") 
+}
+
+# Get geonames index path
+get_geonames_index_path <- function(relative = FALSE) {
+  if(!relative)
+    file.path(conf$data_dir, "geo", "all-geos.parquet.index") 
+  else
+    file.path("geo", "all-geos.parquet.index") 
 }
 
 get_topic_keywords_path <- function() {
-  file.path(conf$data_dir, "geo", "topic-keywords.json") 
+  geo_folder <- file.path(conf$data_dir, "geo")
+  if(!file.exists(geo_folder)) dir.create(geo_folder)
+  file.path(geo_folder, "topic-keywords.json") 
 }
 
 get_forced_geo_path <- function() {
@@ -159,8 +188,11 @@ get_forced_geo_codes_path <- function() {
 }
 
 # Get languages index path 
-get_lang_index_path <- function() {
-  file.path(conf$data_dir, "geo", "lang_vectors.index") 
+get_lang_index_path <- function(relative = FALSE) {
+  if(!relative)
+    file.path(conf$data_dir, "geo", "lang_vectors.index") 
+  else
+    file.path("geo", "lang_vectors.index") 
 }
 
 # Get language vectors path
@@ -182,3 +214,18 @@ get_lang_stamp_path <- function(code) {
 get_tweet_togeo_path <- function() {
   file.path(conf$data_dir, "geo", "togeolocate.json")
 }
+get_tweet_geoing_path <- function() {
+  file.path(conf$data_dir, "geo", "geolocating.json")
+}
+get_tweet_toaggr_path <- function() {
+  file.path(conf$data_dir, "geo", "toaggregate.json")
+}
+get_tweet_aggring_path <- function() {
+  file.path(conf$data_dir, "geo", "aggregating.json")
+}
+
+get_session_info_path <- function() {
+  file.path(conf$data_dir, "session-info.log")
+}
+
+

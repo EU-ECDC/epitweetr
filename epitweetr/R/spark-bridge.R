@@ -87,7 +87,7 @@ spark_job <- function(args) {
   #message(cmd) # uncomment this to see the command sent
   res <- system(cmd)
   if(res != 0)
-    stop(paste("Error encountered while exeuting: ", cmd))
+    stop(paste("Error encountered while executing: ", cmd))
 }
 
 
@@ -199,7 +199,7 @@ download_dependencies <- function(tasks = get_tasks()) {
     # downloading SPARK, lucene and other scala dependencies from the provided maven repository 
     while(is_fs_running()) {
       tasks <- update_dep_task(tasks, "running", paste(
-        "Embeded database is running, please turn it OFF in order to download dependencies. You can do this on the task scheduler on windows or manually kill the process on other platforms."
+        "To start the dependencies task, please turn it OFF the epitweeetr database. You can do this by clicking on the 'stop' button next to the database status or manually kill the process."
       ))
       Sys.sleep(5)
     } 
@@ -212,7 +212,7 @@ download_dependencies <- function(tasks = get_tasks()) {
     # ensuring that storage system is running
     while(!is_fs_running()) {
       tasks <- update_dep_task(tasks, "running", paste(
-        "Embeded database is NOT running. On Windows, you can activate it by clicking on the 'activate' database service button on the config page ",
+        "To continue you need to ACTIVATE the embeded database. You can activate it by clicking on the 'activate' database service button on the config page ",
         "You can also manually run the fs service by executing the following command on a separate R session. epitweetr::fs_loop('",
         conf$data_dir,
         "')"

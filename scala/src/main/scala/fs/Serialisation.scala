@@ -23,7 +23,11 @@ case class TaggedAlert(
   topwords:Option[String],
   toptweets:Map[String, Seq[String]],
   given_category:Option[String],
-  epitweetr_category:Option[String]
+  epitweetr_category:Option[String],
+  test:Option[Boolean],
+  augmented:Option[Boolean],
+  deleted:Option[Boolean],
+
 ) {
   def setEpitweetrCategory(cat:String) =  
     TaggedAlert(
@@ -35,7 +39,10 @@ case class TaggedAlert(
       topwords = topwords,
       toptweets = toptweets,
       given_category = given_category,
-      epitweetr_category = Some(cat)
+      epitweetr_category = Some(cat),
+      test = test,
+      augmented = augmented,
+      deleted = deleted
     )
 }
 
@@ -46,10 +53,12 @@ case class AlertRun(
   runs:Int,
   f1score:Double,
   accuracy:Double, 
-  precision_by_class:Double,
-  sensitivity_by_class:Double,
-  fscore_by_class:Double,
+  precision_by_class:String,
+  sensitivity_by_class:String,
+  fscore_by_class:String,
   last_run:Option[String],
+  balance_classes:Option[Boolean],
+  force_to_use:Option[Boolean],
   active:Option[Boolean],
   documentation:Option[String],
   custom_parameters:Option[Map[String, String]] 
@@ -66,6 +75,8 @@ case class AlertRun(
        sensitivity_by_class = sensitivity_by_class,
        fscore_by_class = fscore_by_class,
        last_run = last_run,
+       balance_classes = balance_classes,
+       force_to_use = force_to_use,
        active = active,
        documentation = documentation,
        custom_parameters = custom_parameters 
@@ -82,6 +93,8 @@ case class AlertRun(
        sensitivity_by_class = sensitivity_by_class,
        fscore_by_class = fscore_by_class,
        last_run = last_run,
+       balance_classes = balance_classes,
+       force_to_use = force_to_use,
        active = active,
        documentation = documentation,
        custom_parameters = custom_parameters 
@@ -238,8 +251,8 @@ object EpiSerialisation
     implicit val includesV2Format = jsonFormat3(IncludesV2.apply)
     implicit val tweetsV2Format = jsonFormat3(TweetsV2.apply)
     implicit val textToGeoFormat = jsonFormat3(TextToGeo.apply)
-    implicit val taggedAlertsFormat = jsonFormat9(TaggedAlert.apply)
-    implicit val alertRunFormat = jsonFormat13(AlertRun.apply)
+    implicit val taggedAlertsFormat = jsonFormat12(TaggedAlert.apply)
+    implicit val alertRunFormat = jsonFormat15(AlertRun.apply)
     implicit val alertClassificationFormat = jsonFormat2(AlertClassification.apply)
 
 

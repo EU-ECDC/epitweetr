@@ -76,7 +76,7 @@ get_user_location_columns <- function(table) {
       )
 }
 
-#' @title Get a sample of latest tweet geolocations (removed)
+#' @title Get a sample of latest tweet geolocations (deprecated)
 #' @description This function was removed from epitweer v1.0.1 please use search_tweets instead
 #' @param limit Size of the sample, default: 100
 #' @param text_col Name of the tweet field to geolocate it should be one of the following ("text", "linked_text", "user_description", "user_location", "place_full_name", "linked_place_full_name"),
@@ -104,7 +104,7 @@ get_user_location_columns <- function(table) {
 #'
 #' @export 
 get_todays_sample_tweets <- function(limit = 1000, text_col = "text", lang_col = "lang") {
- stop("This function was removed from epitweer v1.0.1 please use search_tweets instead")
+  lifecycle::deprecate_stop("1.0.1", "get_todays_sample_tweets()", "search_tweets()")
 }
 
 
@@ -326,7 +326,8 @@ get_country_index_map <- function() {
 #'  
 #' @export 
 #' @importFrom utils download.file unzip 
-update_geonames <- function(tasks) {
+update_geonames <- function(tasks = get_tasks()) {
+  stop_if_no_config()
   tasks <- tryCatch({
     tasks <- update_geonames_task(tasks, "running", "downloading", start = TRUE)
     # Create geo folder if it does not exist
@@ -425,7 +426,8 @@ update_geonames <- function(tasks) {
 #'  
 #' @export 
 #' @importFrom utils download.file 
-update_languages <- function(tasks) {
+update_languages <- function(tasks = get_tasks()) {
+  stop_if_no_config()
   tasks <- tryCatch({
     tasks <- update_languages_task(tasks, "running", "downloading", start = TRUE)
 
@@ -504,14 +506,14 @@ update_languages <- function(tasks) {
 #'
 #' This function is called from the Shiny app on geolocation evaluation tab but can also be used for manually evaluating the epitweetr geolocation algorithm.
 #' @examples 
-#' if(FALSE){
+#' if(FALSE) {
 #'    library(epitweetr)
 #'    # setting up the data folder
 #'    message('Please choose the epitweetr data directory')
 #'    setup_config(file.choose())
 #'
 #'    # creating a test dataframe
-#'    df <- data.frame(text = c("Viva Santiago es el mejor lugar del mundo"), lang = c("es"))
+#'    df <- data.frame(text = c("Me gusta Santiago de Chile es una linda ciudad"), lang = c("es"))
 #'    geo <- geolocate_text(df = df, text_col = "text", lang_col="lang") 
 #'    
 #' }
@@ -526,6 +528,9 @@ update_languages <- function(tasks) {
 #' @export 
 #' @importFrom utils download.file 
 geolocate_text <- function(df, text_col = "text", lang_col=NULL, min_score = NULL) {
+  stop_if_no_config()
+  stop_if_no_fs()
+  
   `%>%` <- magrittr::`%>%`
   if(is.null(lang_col)) df[[lang_col]] <- NA
   to_geolocate = df %>% 

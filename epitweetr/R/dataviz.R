@@ -59,6 +59,8 @@ trend_line <- function(
   ){
 
   `%>%` <- magrittr::`%>%`
+  stop_if_no_config()
+  stop_if_no_fs()
   # If countries are names they have to be changes to region indexes
   if(is.character(countries) && length(countries) > 0) {
     reg <- get_country_items()
@@ -87,7 +89,8 @@ trend_line <- function(
     )
   # checking if some data points have been returned or return empty char
   if(nrow(df %>% dplyr::filter(.data$number_of_tweets > 0)) >0) {
-    df$topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+    topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+    df$topic <- topic 
     plot_trendline(
       df = df,
       countries = countries,
@@ -327,6 +330,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
 #' @importFrom ggplot2 fortify theme element_text element_blank element_rect ggplot geom_polygon aes geom_point scale_size_continuous scale_fill_manual coord_fixed labs theme_classic
 #' @importFrom stats setNames 
 create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", caption = "", proj = NULL, forplotly=FALSE){
+  stop_if_no_config()
+  stop_if_no_fs()
   # Importing pipe operator
   `%>%` <- magrittr::`%>%`
   # Setting the scientific pen off
@@ -358,6 +363,7 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
   if(nrow(df)==0) {
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
+  
   
   #filtering data by topic and date and country_codes
   f_topic <- topic
@@ -498,6 +504,9 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
 
+  topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+  df$topic <- topic 
+  
   # Adding country properties (bounding boxes and country names)
   regions <- get_country_items()
   map <- get_country_index_map()
@@ -639,8 +648,8 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
     axis.ticks = ggplot2::element_blank(),
     axis.title.x = ggplot2::element_blank(),
     axis.title.y = ggplot2::element_blank(),
-    legend.direction="horizontal",
-    legend.position = "bottom"
+    legend.direction="vertical",
+    legend.position = "right"
   ))
 
   # creating the plot
@@ -755,8 +764,6 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
 #' @details Produces a bar chart showing the occurrences of the most popular words in the collected tweets based on the provided parameters.
 #' For performance reasons on tweet aggregation, this report only shows tweet location and ignores the location_type parameter
 #' 
-#' This report may be empty for combinations of countries and topics with very few tweets since for performance reasons, the calculation of top words is an approximation using chunks of 10.000 tweets.
-#'
 #' This functions requires that \code{\link{search_loop}} and \code{\link{detect_loop}} have already been run successfully to show results.
 #' @examples 
 #' if(FALSE){
@@ -784,6 +791,8 @@ create_topwords <- function(topic,country_codes=c(),date_min="1900-01-01",date_m
 #' @importFrom utils head
 #' 
 create_topchart <- function(topic, serie, country_codes=c(),date_min="1900-01-01",date_max="2100-01-01", with_retweets = FALSE, location_type = "tweet", top = 25) {
+  stop_if_no_config()
+  stop_if_no_fs()
   #Importing pipe operator
   `%>%` <- magrittr::`%>%`
   f_topic <- topic
@@ -844,6 +853,11 @@ create_topchart <- function(topic, serie, country_codes=c(),date_min="1900-01-01
   if(nrow(df)==0) {
     return(get_empty_chart("No data found for the selected topic, region and period"))
   }
+
+
+  topic <- unname(get_topics_labels()[stringr::str_replace_all(topic, "%20", " ")])
+  df$topic <- topic 
+  
   # Calculating breaks for y axis
   y_breaks <- unique(floor(pretty(seq(0, (max(df$frequency) + 1) * 1.1))))
   

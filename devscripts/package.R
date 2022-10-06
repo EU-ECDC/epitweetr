@@ -6,8 +6,8 @@ if(!("devtools" %in% installed.packages()[,"Package"]))
 
 #devtools::install_deps()
 devtools::document()
-# devtools::build_manual()
-# devtools::build_vignettes()
+#devtools::build_manual()
+#devtools::build_vignettes()
 
 if(!file.exists(file.path("..", "install"))){
   dir.create(file.path("..", "install"), showWarnings = FALSE)
@@ -22,8 +22,8 @@ if(any(grepl("epitweetr.*", sessionInfo())))
 
 
 installer_path <- c(
-  devtools::build(binary=FALSE)
-  ,devtools::build(binary=TRUE)
+  devtools::build(binary=FALSE, vignettes=TRUE, manual=TRUE)
+  ,devtools::build(binary=TRUE, vignettes=TRUE, manual=TRUE)
 )
 install.packages(file.path(installer_path[[2]]), dependencies = FALSE)
 

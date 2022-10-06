@@ -52,23 +52,37 @@ class AlertActor(conf:Settings) extends Actor with ActorLogging {
 	              if(!r.active.getOrElse(true))
 	                r
 	              else {
-	                l.msg(s"Running ${r.models} on ${alerts.size} alerts ${r.runs} times, customized with ${r.custom_parameters}")
-                        AlertActor.trainTest(alertsdf = alertsdf, run = r, trainRatio = 0.75)
+                  val trainingSize = (
+	                if(r.balance_classes.get) {
+                    val v = alerts.filter(a => !a.deleted.get).size
+                    l.msg(s"Running ${r.models} on ${v} balanced alerts, customized with ${r.custom_parameters}") 
+                    v
+	                } else {
+                    val v = alerts.filter(a => !a.augmented.get).size
+                    l.msg(s"Running ${r.models} on ${v} ${r.runs} times, customized with ${r.custom_parameters}") 
+                    v
+                  })
+                  AlertActor.trainTest(alertsdf = alertsdf, run = r, trainRatio = 0.75)
 	                  .setCount(alerts.size)
 	              }
               }
 	            .sortWith{(a, b) => 
-	              (a.f1score - (if(!a.active.getOrElse(true)) 1.0 else 0.0)) > (b.f1score - (if(!b.active.getOrElse(true)) 1.0 else 0.0))
+	              (a.f1score - (if(!a.active.getOrElse(true)) 1.0 else 0.0) + (if(a.force_to_use.getOrElse(false)) 3.0 else 0.0)) > 
+                (b.f1score - (if(!b.active.getOrElse(true)) 1.0 else 0.0) + (if(b.force_to_use.getOrElse(false)) 3.0 else 0.0))
 	            }
 	            .zipWithIndex
 	            .map{case (r, i) => r.setRanking(i)}
-                if(newRuns.size > 0 && newRuns(0).active.getOrElse(true)) {
-                  l.msg(s"Retraining with full data for best run ${runs(0).models}, ${runs(0).custom_parameters}")
-	                AlertActor.finalTrain(alertsdf = alertsdf, run = runs(0))
-	              } else {
-                  l.msg(s"No training was performed since ")
-	              }
-	              newRuns
+
+          if(newRuns.size > 0 && newRuns(0).active.getOrElse(true)) {
+            if(newRuns(0).force_to_use.getOrElse(false))
+              l.msg(s"Retraining with full data for forced run ${newRuns(0).models}, balanced(${newRuns(0).balance_classes}), ${newRuns(0).custom_parameters}")
+            else
+              l.msg(s"Retraining with full data for best run ${newRuns(0).models}, balanced(${newRuns(0).balance_classes}) ${newRuns(0).custom_parameters}")
+	          AlertActor.finalTrain(alertsdf = alertsdf, run = newRuns(0))
+	        } else {
+            l.msg(s"No training was performed since no active runs where declared")
+	        }
+	        newRuns
 	      }
 
         val retAlerts = AlertActor.classifyAlerts(alertsdf).collect.toSeq
@@ -169,7 +183,12 @@ object AlertActor {
     val r = new Random(20121205)
     val model = AlertActor.getModel(run)
     AlertActor.ensureFolderExists()
-    model.fit(alertsdf.where(col("given_category")=!=lit("?")))
+    val finaltrain = if (run.balance_classes.get) {
+      alertsdf.where(!col("deleted"))
+    } else {
+      alertsdf.where(!col("augmented"))
+    }
+    model.fit(finaltrain.where(col("given_category")=!=lit("?")))
      .write.overwrite()
      .save(AlertActor.alertClassifierPath())
     
@@ -195,16 +214,27 @@ object AlertActor {
       .setLabels(labelIndexer.labelsArray(0))
 
     labelConverter.transform(predicted)
-      .select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "epitweetr_category")
+      .select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "epitweetr_category", "test", "augmented", "deleted")
       .as[TaggedAlert]
   }
   def trainTest(alertsdf:DataFrame, run:AlertRun, trainRatio:Double)(implicit conf:Settings) = {
     val r = new Random(20121205)
+    //If using balanced classes training set if given in R and no multiple runs can be performed
+    if(run.balance_classes.get && run.runs > 1)
+      l.msg("Current run contains balanced classes and multiple runs, this is not supported. A single run will be used")
     val joinedPredictions = 
-      Seq.range(0, run.runs)
+      Seq.range(0, if(run.balance_classes.get) 1 else run.runs)
         .map(i => r.nextLong)
         .map{seed =>
-           val Array(training, test) = alertsdf.randomSplit(Array(trainRatio, 1-trainRatio), seed)
+           val (training, test) = if (run.balance_classes.get) {
+              (alertsdf.where(!col("deleted") && !col("test")), alertsdf.where(col("test")))
+           } else {
+             val alertsdfNoAugmented = alertsdf.where(!col("augmented"))
+             val Array(training, test) = alertsdfNoAugmented.randomSplit(Array(trainRatio, 1-trainRatio), seed)
+             (training, test)
+           }
+           l.msg(s"Training: ${training.groupBy("given_category").count().collect().mkString(", ")}")
+           l.msg(s"Test: ${test.groupBy("given_category").count().collect().mkString(", ")}")
            val model = AlertActor.getModel(run)
            val m = model.fit(training.where(col("given_category")=!=lit("?")))
            m.transform(test)
@@ -215,27 +245,39 @@ object AlertActor {
        new MulticlassClassificationEvaluator()
          .setLabelCol("category_vector")
          .setPredictionCol("predicted_vector")
-           
-     AlertRun(
+     val categories = AlertActor.getLabelIndexer().labelsArray(0)
+     
+     val ret = AlertRun(
        ranking = 0,
        models = run.models,
        alerts = None,
        runs = run.runs,
        f1score = evaluator.setMetricName("f1").evaluate(joinedPredictions),
        accuracy = evaluator.setMetricName("accuracy").evaluate(joinedPredictions), 
-       precision_by_class = evaluator.setMetricName("precisionByLabel").evaluate(joinedPredictions),
-       sensitivity_by_class = evaluator.setMetricName("recallByLabel").evaluate(joinedPredictions),
-       fscore_by_class = evaluator.setMetricName("fMeasureByLabel").evaluate(joinedPredictions),
+       precision_by_class = AlertActor.getMetricByLabel(evaluator, "precisionByLabel", categories, joinedPredictions),
+       sensitivity_by_class = AlertActor.getMetricByLabel(evaluator, "recallByLabel", categories, joinedPredictions),
+       fscore_by_class = AlertActor.getMetricByLabel(evaluator, "fMeasureByLabel", categories, joinedPredictions),
        last_run = {
          val sdfDate = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
          val now = new java.util.Date()
          Some(sdfDate.format(now))
        },
+       balance_classes  = run.balance_classes,
+       force_to_use = run.force_to_use,
        active = run.active,
        documentation = run.documentation,
        custom_parameters = run.custom_parameters 
      )
+     ret
   }
+
+  def getMetricByLabel(evaluator:MulticlassClassificationEvaluator, metricName:String, categories:Array[String], predictions:DataFrame) = {
+    categories.zipWithIndex.map{case (c, i) => 
+      val v = evaluator.set(evaluator.getParam("metricLabel"), i.toDouble).setMetricName(metricName).evaluate(predictions)
+      s"${categories(i)}:${(v*1000).toInt/1000.0}"
+    }.mkString("\n")
+  }
+
   def alerts2modeldf(alerts:Seq[TaggedAlert], reuseLabels:Boolean)(implicit conf:Settings) =  {
      val spark = conf.getSparkSession
      implicit val storage = conf.getSparkStorage
@@ -262,14 +304,14 @@ object AlertActor {
        //Transforming into data frame
        .map{case (alerts, topwordlangs) => 
           alerts.zip(topwordlangs).map{
-            case (TaggedAlert(id, date, topic, country, number_of_tweets, topwords, toptweets, given_category, _), twlang)
-               => (id, date, topic, country, number_of_tweets, topwords, twlang, toptweets, given_category.orElse(Some("?")))
-          }.toDF("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "toptweets", "given_category")
+            case (TaggedAlert(id, date, topic, country, number_of_tweets, topwords, toptweets, given_category, _ ,test, augmented, deleted), twlang)
+               => (id, date, topic, country, number_of_tweets, topwords, twlang, toptweets, given_category.orElse(Some("?")), test, augmented, deleted)
+          }.toDF("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "toptweets", "given_category", "test", "augmented", "deleted")
        }
        //Text vectorisation
        .map{df => 
          val langs = conf.languages.get.map(_.code)
-         val baseCols = Seq("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "given_category", "toptweets")
+         val baseCols = Seq("id", "date", "topic", "country", "number_of_tweets", "topwords", "twlang", "given_category", "toptweets", "test", "augmented", "deleted")
          //Splitting tweets in different columns by language
          df.select((
            baseCols.map(c => col(c)) ++  
@@ -318,8 +360,8 @@ object AlertActor {
              .transform(df)
         }
 	.get
-	.select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "features", "category_vector")
-	.as[(String, String, String, String, Int, String, Map[String, Seq[String]], String, MLVector, Double)]
+	.select("id", "date", "topic", "country", "number_of_tweets", "topwords", "toptweets", "given_category", "features", "category_vector", "test", "augmented", "deleted")
+	.as[(String, String, String, String, Int, String, Map[String, Seq[String]], String, MLVector, Double, Boolean, Boolean, Boolean)]
 	.toDF
   }
 }

@@ -31,7 +31,6 @@ case class Settings(epiHome:String) {
     case None => throw new Exception("Please call load() before calling properties on these settings")
   } 
 
-  def geoLocationThreshold = properties.fields.get("geolocation_threshold").map(v => v.asInstanceOf[JsString].value.toInt)
   def geonamesSimplify = properties.fields.get("geonames_simplify").map(v => v.asInstanceOf[JsBoolean].value)
   def knownUsers = 
     properties.fields.get("known_users").map(v => 
@@ -60,7 +59,7 @@ case class Settings(epiHome:String) {
   def toaggregatePath =  Paths.get(epiHome, "geo","toaggregate.json").toString 
   def aggregatingPath =  Paths.get(epiHome, "geo","aggregating.json").toString 
   def collectionPath =  Paths.get(epiHome, "collections").toString 
-  def geolocationThreshold = properties.fields.get("geolocation_threshold").map(v => v.asInstanceOf[JsString].value.toInt)
+  def geolocationThreshold = properties.fields.get("geolocation_threshold").map(v => if(v.isInstanceOf[JsString]) v.asInstanceOf[JsString].value.toInt else v.asInstanceOf[JsNumber].value.toInt)
   def geolocationStrategy = Some("demy.mllib.index.PredictStrategy")
   def geoNBefore = 10
   def geoNAfter = 4
@@ -70,6 +69,7 @@ case class Settings(epiHome:String) {
       Paths.get(epiHome, "geo").toString,  
       properties.fields.get("geonames_simplify").map(v => v.asInstanceOf[JsBoolean].value).get
     )
+  def pidPath(name:String) = Paths.get(epiHome, s"$name.PID").toString
   def fsRoot = Paths.get(epiHome, "fs").toString
   def fsBatchTimeout = properties.fields.get("fs_batch_timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60*60)
   def fsQueryTimeout = properties.fields.get("fs_query_timeout").map(v => v.asInstanceOf[JsNumber].value.toInt).getOrElse(60)

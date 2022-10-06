@@ -36,8 +36,13 @@ epitweetr_app <- function(data_dir = NA) {
   # Setting up configuration if not already done
   if(is.na(data_dir) )
     setup_config_if_not_already()
-  else
+  else {
     setup_config(data_dir)
+  }
+  if(!file.exists(get_properties_path())) {
+    save_config(data_dir = conf$data_dir, properties= TRUE, topics = FALSE)
+    save_tasks(get_tasks())
+  }
   # Loading data for dashboard and configuration
   d <- refresh_dashboard_data() 
   cd <- refresh_config_data()
@@ -277,6 +282,7 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   ######### CONFIGURATION PAGE####################
   ################################################
+  new_rtweet <- exists("rtweet_user", base::asNamespace("rtweet"))
   config_page <- 
     shiny::fluidPage(
       shiny::fluidRow(
@@ -286,19 +292,22 @@ epitweetr_app <- function(data_dir = NA) {
           ################################################
           shiny::h3("Status"),
           shiny::fluidRow(
-            shiny::column(4, "epitweetr database"), 
-            shiny::column(4, shiny::htmlOutput("fs_running")),
-            shiny::column(4, shiny::actionButton("activate_fs", "activate"))
+            shiny::column(3, "epitweetr database"), 
+            shiny::column(3, shiny::htmlOutput("fs_running")),
+            shiny::column(3, shiny::actionButton("activate_fs", "activate")),
+            shiny::column(3, shiny::actionButton("stop_fs", "stop"))
           ),
           shiny::fluidRow(
-            shiny::column(4, "Data collection & processing"), 
-            shiny::column(4, shiny::htmlOutput("search_running")),
-            shiny::column(4, shiny::actionButton("activate_search", "activate"))
+            shiny::column(3, "Data collection & processing"), 
+            shiny::column(3, shiny::htmlOutput("search_running")),
+            shiny::column(3, shiny::actionButton("activate_search", "activate")),
+            shiny::column(3, shiny::actionButton("stop_search", "stop"))
           ),
           shiny::fluidRow(
-            shiny::column(4, "Requirements & alerts"), 
-            shiny::column(4, shiny::htmlOutput("detect_running")),
-            shiny::column(4, shiny::actionButton("activate_detect", "activate"))
+            shiny::column(3, "Requirements & alerts"), 
+            shiny::column(3, shiny::htmlOutput("detect_running")),
+            shiny::column(3, shiny::actionButton("activate_detect", "activate")),
+            shiny::column(3, shiny::actionButton("stop_detect", "stop"))
           ),
           ################################################
           ######### GENERAL PROPERTIES ###################
@@ -358,18 +367,28 @@ epitweetr_app <- function(data_dir = NA) {
             shiny::fluidRow(shiny::column(12, "DISCLAIMER: rtweet has no relationship with epitweetr and you have to evaluate by yourself if the provided security framework fits your needs.")),
             shiny::fluidRow(shiny::renderText("&nbsp;")) 
           ),
-          shiny::conditionalPanel(
-            condition = "input.twitter_auth == 'app'",
-            shiny::fluidRow(shiny::column(3, "App name"), shiny::column(9, shiny::textInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
-            shiny::fluidRow(shiny::column(3, "API key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
-            shiny::fluidRow(shiny::column(3, "API secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
-            shiny::fluidRow(shiny::column(3, "Access token"), shiny::column(9, 
-              shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
-            ), 
-            shiny::fluidRow(shiny::column(3, "Token secret"), shiny::column(9, 
-              shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
+          if(new_rtweet) {
+            shiny::conditionalPanel(
+              condition = "input.twitter_auth == 'app'",
+              shiny::fluidRow(shiny::column(3, "Bearer Token"), shiny::column(9, 
+                shiny::passwordInput("twitter_bearer", label = NULL, value = if(is_secret_set("bearer")) get_secret("bearer") else NULL))
+              )
             )
-          ), 
+          }
+          else {
+            shiny::conditionalPanel(
+              condition = "input.twitter_auth == 'app'",
+              shiny::fluidRow(shiny::column(3, "App name"), shiny::column(9, shiny::textInput("twitter_app", label = NULL, value = if(is_secret_set("app")) get_secret("app") else NULL))), 
+              shiny::fluidRow(shiny::column(3, "API key"), shiny::column(9, shiny::passwordInput("twitter_api_key", label = NULL, value = if(is_secret_set("api_key")) get_secret("api_key") else NULL))),
+              shiny::fluidRow(shiny::column(3, "API secret"), shiny::column(9, shiny::passwordInput("twitter_api_secret", label = NULL, value = if(is_secret_set("api_secret")) get_secret("api_secret") else NULL))), 
+              shiny::fluidRow(shiny::column(3, "Access token"), shiny::column(9, 
+                shiny::passwordInput("twitter_access_token", label = NULL, value = if(is_secret_set("access_token")) get_secret("access_token") else NULL))
+              ), 
+              shiny::fluidRow(shiny::column(3, "Token secret"), shiny::column(9, 
+                shiny::passwordInput("twitter_access_token_secret", label = NULL, value = if(is_secret_set("access_token_secret")) get_secret("access_token_secret") else NULL))
+              )
+            )
+          }, 
           shiny::conditionalPanel(
             condition = "input.twitter_auth == 'delegated'",
             shiny::fluidRow(
@@ -565,6 +584,30 @@ epitweetr_app <- function(data_dir = NA) {
   ################################################
   troubleshoot_page <- 
     shiny::fluidPage(
+          shiny::h3("Create snapshot file"),
+          shiny::fluidRow(
+            shiny::column(6,
+              shiny::checkboxGroupInput("snapshot_types", "Include:", inline = TRUE,
+                choices = c("Settings" = "settings", "Dependencies"="dependencies", "Machine Learning" = "machine-learning", "Aggregation" = "aggregations", "Tweets"="tweets", "Logs" = "logs"),
+                selected = c("settings", "logs")
+              )
+            ),
+            shiny::column(3,
+              shiny::dateRangeInput("snapshot_aggr_period", label = shiny::h4("Aggregated data period"), start = d$date_min, end = d$date_end, min = d$date_min, max = d$date_max, format = "yyyy-mm-dd", startview = "month")
+            ),
+            shiny::column(3,
+              shiny::dateRangeInput("snapshot_tweet_period", label = shiny::h4("Tweet data period"), start = d$date_min, end = d$date_end, min = d$date_min, max = d$date_max, format = "yyyy-mm-dd", startview = "month")
+            )
+
+          ),
+          shiny::fluidRow(
+            shiny::column(12,
+              shiny::textInput("snapshot_folder", value = ensure_snapshot_folder(), label = "Destination folder"),
+              shiny::checkboxInput("snapshot_compress", "Compress snapshot", value = FALSE),
+              shiny::p("It is recommended to stop the search and detect loop before running a snapshopt to ensure data consistency (embedded database must be running)"),
+              shiny::actionButton("build_snapshot", "Create snapshot")
+            )
+          ),
           shiny::h3("Diagnostics"),
           shiny::h5("Automated diagnostic tasks"),
           shiny::fluidRow(
@@ -813,8 +856,8 @@ epitweetr_app <- function(data_dir = NA) {
                  xref = 'paper', 
                  x = 0,
                  yref = 'paper', 
-                 y = -0.15),
-               legend = list(orientation = 'h', x = 0.5, y = 0.08)
+                 y = -0.15)#,
+                 #legend = list(orientation = 'v')
              ) %>%
              plotly::config(displayModeBar = FALSE) 
       
@@ -898,7 +941,13 @@ epitweetr_app <- function(data_dir = NA) {
          })
       })
 
-      output$top_table_title <- shiny::isolate({shiny::renderText({paste("<h4>Top URLS of tweets mentioning", input$topics, "from", input$period[[1]], "to", input$period[[2]],"</h4>")})})
+      output$top_table_title <- shiny::isolate({
+        shiny::renderText({
+
+          topic <- unname(get_topics_labels()[stringr::str_replace_all(input$topics, "%20", " ")])
+          paste("<h4>Top URLS of tweets mentioning", topic, "from", input$period[[1]], "to", input$period[[2]],"</h4>")
+
+        })})
       output$top_table <- DT::renderDataTable({
           # Validate if minimal requirements for rendering are met 
           progress_set(value = 0.85, message = "Generating top links", rep)
@@ -1292,15 +1341,45 @@ epitweetr_app <- function(data_dir = NA) {
     # registering the Data collection & processing runner after button is clicked
     shiny::observeEvent(input$activate_search, {
       # registering the scheduled task
-      register_search_runner_task()
+      issues = loop_run_issues("search")
+      if(issues=="") {
+        register_search_runner_task()
+        # refresh task data to check if tasks are to be updated
+        refresh_config_data(cd, list("tasks"))
+      } else {
+        shiny::showModal(shiny::modalDialog(
+          title = "Warning",
+          issues,
+          footer = shiny::tagList(shiny::modalButton("OK"))
+        ))
+      }
+    })
+    shiny::observeEvent(input$stop_search, {
+      stop_search_runner_task()
       # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
 
     # registering the fs runner after button is clicked
     shiny::observeEvent(input$activate_fs, {
-      # registering the scheduled task
-      register_fs_runner_task()
+      issues = loop_run_issues("fs")
+      if(issues=="") {
+        # registering the scheduled task
+        register_fs_runner_task()
+        # refresh task data to check if tasks are to be updated
+        refresh_config_data(cd, list("tasks"))
+      } else {
+        shiny::showModal(shiny::modalDialog(
+          title = "Warning",
+          issues,
+          footer = shiny::tagList(shiny::modalButton("OK"))
+        ))
+      }
+    })
+
+    shiny::observeEvent(input$stop_fs, {
+      # stop the scheduled task
+      stop_fs_runner_task()
       # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
@@ -1319,6 +1398,12 @@ epitweetr_app <- function(data_dir = NA) {
       # registering the scheduled task
       register_detect_runner_task()
       
+      # refresh task data to check if tasks are to be updated
+      refresh_config_data(cd, list("tasks"))
+    })
+
+    shiny::observeEvent(input$stop_detect, {
+      stop_detect_runner_task()
       # refresh task data to check if tasks are to be updated
       refresh_config_data(cd, list("tasks"))
     })
@@ -1397,16 +1482,21 @@ epitweetr_app <- function(data_dir = NA) {
       conf$alert_with_retweets <- input$conf_with_retweets
       # Setting secrets
       if(input$twitter_auth == "app") {
-        set_twitter_app_auth(
-          app = input$twitter_app, 
-          api_key = input$twitter_api_key, 
-          api_secret = input$twitter_api_secret, 
-          access_token = input$twitter_access_token, 
-          access_token_secret = input$twitter_access_token_secret
-        )
+        conf$twitter_auth_mode = "app"
+        if(new_rtweet) {
+          set_twitter_app_auth(bearer = input$twitter_bearer)
+        }
+        else
+          set_twitter_app_auth(
+            app = input$twitter_app, 
+            api_key = input$twitter_api_key, 
+            api_secret = input$twitter_api_secret, 
+            access_token = input$twitter_access_token, 
+            access_token_secret = input$twitter_access_token_secret
+          )
       }
       else {
-        set_twitter_app_auth(app = "", api_key = "", api_secret = "", access_token = "", access_token_secret = "")
+        conf$twitter_auth_mode = "delegated"
         get_token()
       }
       conf$smtp_host <- input$smtp_host
@@ -1841,6 +1931,8 @@ epitweetr_app <- function(data_dir = NA) {
             "Sensitivity By Class" = "sensitivity_by_class",
             "FScore By Class" = "fscore_by_class",
             "Last run" = "last_run",
+            "Balance classes" = "balance_classes",
+            "Force to use" = "force_to_use",
             "Active" = "active",
             "Documentation" = "documentation",
             "Custom Parameters" = "custom_parameters"
@@ -1929,8 +2021,7 @@ epitweetr_app <- function(data_dir = NA) {
         #updating geotraining df taking in condideration new uploaded file
         
         tryCatch({
-           progress_set(value = 0.5, message = "Retraining models and evaluating")
-           retrain_alert_classifier()
+           retrain_alert_classifier(progress_set)
            cd$alert_training_refresh_flag(Sys.time())
           },
           warning = function(w) {app_error(w, env = cd)},
@@ -2185,6 +2276,25 @@ epitweetr_app <- function(data_dir = NA) {
     }
 
 
+    ######## SNAPSHOT LOGIC ############
+    # creating an snapshot of epitweetr data for backup or debuging purposes
+    shiny::observeEvent(input$build_snapshot, {
+      `%>%` <- magrittr::`%>%`
+       progress_start("Creating snapshot") 
+       shiny::isolate({
+         create_snapshot(
+           destination_dir=input$snapshot_folder, 
+           types = input$snapshot_types, 
+           tweets_period = input$snapshot_tweet_period, 
+           aggregated_period = input$snapshot_aggr_period, 
+           compress = input$snapshot_compress, 
+           progress =function(value, message) {progress_set(value = value, message = message)}
+         ) 
+       })
+       progress_close() 
+
+    })
+
     ######## DIAGNOSTIC LOGIC ############
     # running the diagnostics when the button is clicked
     shiny::observeEvent(input$run_diagnostic, {
@@ -2221,7 +2331,7 @@ epitweetr_app <- function(data_dir = NA) {
   }
   
   progress_close <- function(env = cd) {
-    if(exists("progress", where = env)) {
+    if(exists("progress", where = env) && !is.null(env$progress)) {
       env$progress$close()
       rm("progress", envir = env)
     }
@@ -2387,7 +2497,12 @@ refresh_config_data <- function(e = new.env(), limit = list("langs", "topics", "
       tasks <- get_tasks()
       sorted_tasks <- order(sapply(tasks, function(l) l$order)) 
       e$tasks <- tasks[sorted_tasks] 
-      e$app_auth <- exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
+      e$app_auth <- (
+        if(conf$twitter_auth_mode != "")
+          conf$twitter_auth_mode == "app"
+        else
+          exists('app', where = conf$twitter_auth) && conf$twitter_auth$app != ''
+      )
       e$api_version <- conf$api_version
       e$tasks_df <- data.frame(
         Task = sapply(e$tasks, function(t) t$task), 
@@ -2474,9 +2589,9 @@ get_alertsdb_runs_html <- function(){
   runs <- get_alert_training_runs_df()
   runs$f1score <- format(runs$f1score, digits = 3) 
   runs$accuracy <- format(runs$accuracy, digits = 3)
-  runs$precision_by_class <- format(runs$precision_by_class, digits = 3)
-  runs$sensitivity_by_class <- format(runs$sensitivity_by_class, digits = 3)
-  runs$fscore_by_class <- format(runs$fscore_by_class, digits = 3)
+  runs$precision_by_class <- gsub("\n", "<BR>", runs$precision_by_class)
+  runs$sensitivity_by_class <- gsub("\n", "<BR>", runs$sensitivity_by_class)
+  runs$fscore_by_class <- gsub("\n", "<BR>", runs$fscore_by_class)
   runs$custom_parameters <- sapply(runs$custom_parameters, function(params) {
     if(length(params) == 0)
       ""
@@ -2498,5 +2613,13 @@ get_alertsdb_runs_html <- function(){
     }
   })
   runs
+}
+
+# getting the default snapshot folder and create it if does not exists
+ensure_snapshot_folder <- function() {
+  path <- file.path(conf$data_dir, "snapshot")
+  if(!dir.exists(path))
+    dir.create(path, recursive = TRUE)
+  path
 }
 
