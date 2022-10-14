@@ -1,4 +1,4 @@
-# This script includes all dedicated logic for interacting with the Spark/Scala api via HTTP REST requests
+# This script includes all dedicated logic for interacting with the Spark/Scala API via HTTP REST requests
 
 get_scala_api_endpoint <- function() {
   paste("http://localhost:", conf$fs_port, "/", sep = "")
@@ -55,7 +55,7 @@ get_scala_recalc_hash_url <- function() {
 #' @param data_dir Path to the 'data directory' containing application settings, models and collected tweets.
 #' If not provided, the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
 #' @return nothing
-#' @details Launches the epitweetr embedded database which is accessed via a REST API located on \url{http://localhost:8080}you can test that the database is running by accessing \url{http://localhost:8080/ping}
+#' @details Launches the epitweetr embedded database which is accessed via a REST API located on \url{http://localhost:8080}. You can test that the database is running by accessing \url{http://localhost:8080/ping}
 #' the REST API provide epitweetr a way to send and retrieve data related with tweets and time series and to trigger geolocation or aggregation
 #' The database is implemented using Apache Lucene indexes allowing epitweetr to access its data as a search engine but also as a tabular database.
 #' \code{\link{health_check}} called each 60 seconds on a background process to send alerts to the administrator if some epitweetr components fail.
@@ -145,7 +145,7 @@ fs_loop <-  function(data_dir = NA) {
 #' @param max integer, maximum number of tweets to be included on the search, default:100
 #' @param by_relevance logical, whether to sort the results by relevance of the matching query or by indexing order, default:FALSE
 #' If not provided the system will try to reuse the existing one from last session call of \code{\link{setup_config}} or use the EPI_HOME environment variable, default: NA
-#' @return a data frame containing the tweets matching the selected filters, the data frame contains the following collumns: linked_user_location, linked_user_name, linked_user_description, 
+#' @return a data frame containing the tweets matching the selected filters, the data frame contains the following columns: linked_user_location, linked_user_name, linked_user_description, 
 #' screen_name, created_date, is_geo_located, user_location_loc, is_retweet, text, text_loc, user_id, hash, user_description, linked_lang, linked_screen_name, user_location, totalCount, 
 #' created_at, topic_tweet_id, topic, lang, user_name, linked_text, tweet_id, linked_text_loc, hashtags, user_description_loc
 #' @details 
@@ -298,10 +298,10 @@ stream_post <- function(uri, body, handler = NULL) {
 	    con <- rawConnection(bytes, "rb")
       on.exit(close(con))
       if(is.null(handler)) {
-	      cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, verbose = F)
+	      cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, verbose = FALSE)
       }
 	    else
-  	    jsonlite::stream_in(con, function(df) handler(df, con_tmp), verbose = F)
+  	    jsonlite::stream_in(con, function(df) handler(df, con_tmp), verbose = FALSE)
 	  }
   }
   # Doing the post request
@@ -339,7 +339,7 @@ stream_post <- function(uri, body, handler = NULL) {
       cum$tail[[length(cum$tail) + 1]] <- as.raw(0x0a)
     con <- rawConnection(cum$tail, "rb")
 	  if(is.null(handler)) {
-	    cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, verbose = F)
+	    cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, verbose = FALSE)
     }
 	  else
   	  cum$dfs[[length(cum$dfs) + 1]] <- jsonlite::stream_in(con, function(df) handler(df, con_tmp), verbose = F)

@@ -339,10 +339,10 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
   on.exit(options(old))
   options(scipen=999)
 
-  # getting all regiond
+  # getting all regions
   regions <- get_country_items()
   
-  # If countries are names they have to be changes to region indexes
+  # If countries are names, they have to be changed to region indexes
   if(is.character(countries) && length(countries) > 0) {
     countries = (1:length(regions))[sapply(1:length(regions), function(i) regions[[i]]$name %in% countries)]
   }
@@ -721,7 +721,7 @@ create_map <- function(topic=c(),countries=c(1), date_min="1900-01-01",date_max=
 #' 
 #' This report may be empty for combinations of countries and topics with very few tweets since for performance reasons, the calculation of top words is an approximation using chunks of 10.000 tweets.
 #'
-#' This functions requires that \code{\link{search_loop}} and \code{\link{detect_loop}} have already been run successfully to show results.
+#' This function requires that \code{\link{search_loop}} and \code{\link{detect_loop}} have already been run successfully to show results.
 #' @examples 
 #' if(FALSE){
 #'    message('Please choose the epitweetr data directory')

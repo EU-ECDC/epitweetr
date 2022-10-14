@@ -120,7 +120,7 @@ check_64 <- function() {
 
 # check msvcr100 on Windows machines
 check_winmsvcr100 <- function() {
-  #inspired from sparklyr https://github.com/sparklyr/sparklyr/blob/master/R/install_spark_windows.R
+  # inspired from sparklyr https://github.com/sparklyr/sparklyr/blob/master/R/install_spark_windows.R
   if(.Platform$OS.type == "windows") {
     systemRoot <- Sys.getenv("SystemRoot")
     systemDir <- "system32"
@@ -141,13 +141,13 @@ check_winmsvcr100 <- function() {
   
 }
 
-#check winutils is installed
+# check winutils is installed
 check_winutils <- function() {
   if(.Platform$OS.type == "windows") {
     if(file.exists(get_winutils_path()))
       TRUE
     else {
-      warning("To run SPARK on Windows you need winutils which is a HADOOP binary, you can download it by running the update dependencies task")  
+      warning("To run SPARK on Windows you need winutils which is a HADOOP binary. You can download it by running the update dependencies task")  
       FALSE
     }
   } else {
@@ -155,7 +155,7 @@ check_winutils <- function() {
   }
 }
 
-#check download Java dependencies has been executed
+# check download Java dependencies has been executed
 check_java_deps <- function() {
   if(!dir.exists(get_jars_dest_path())) {
     warning("epitweetr needs the dependencies task to run and download all Java dependencies")
@@ -174,10 +174,10 @@ check_java_deps <- function() {
   }
 }
 
-#check geonames is downloaded and indexed
+# check geonames is downloaded and indexed
 check_geonames <- function() {
   if(!file.exists(get_geonames_txt_path())) {
-    warning("epitweetr needs geonames to be downloaded and unzipped for geolocating tweets. Please run the geonames task of the requirements and alert pipeline")
+    warning("epitweetr needs GeoNames to be downloaded and unzipped for geolocating tweets. Please run the GeoNames task of the requirements and alert pipeline")
     FALSE
   } else {
     dir <- get_geonames_index_path()
@@ -203,11 +203,11 @@ check_geonames <- function() {
 }
 
 
-#check that languages are downloaded and indexed
+# check that languages are downloaded and indexed
 check_languages <- function() {
   lang_files <- sapply(conf$languages, function(l) l$vectors)
   if(length(lang_files) == 0 || !all(sapply(lang_files, function(f) file.exists(f)))) {
-    warning("epitweetr needs languages models to be downloaded for geolocating tweets. Please activate some languages and launch the languages task")
+    warning("epitweetr needs languages models to be downloaded for geolocating tweets. Please activate at least one language and launch the languages task")
     FALSE  
   } else {
     dir <- get_lang_index_path()
@@ -226,7 +226,7 @@ check_languages <- function() {
     if(ret)
       TRUE
     else {
-      warning("Language vector index has not been built. Please activate some languages and launch the languages task")
+      warning("Language vector index has not been built. Please activate at least one language and launch the languages task")
       FALSE
     }
   }
@@ -324,7 +324,7 @@ check_search_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Data collection & processing pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Data collection & processing button on the config page ",
+      "Data collection & processing pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Data collection & processing button on the configuration page ",
       "You can also manually run the Data collection & processing pipeline by executing the following command on a separate R session. epitweetr::search_loop('",
       conf$data_dir,
       "')"
@@ -339,7 +339,7 @@ check_fs_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Embedded epitweetr database is not running. On Windows, you can activate it by clicking on the 'activate' epitweetr database button on the config page ",
+      "Embedded epitweetr database is not running. On Windows, you can activate it by clicking on the 'activate' epitweetr database button on the configuration page ",
       "You can also manually run the Data collection & processing pipeline by executing the following command on a separate R session. epitweetr::search_loop('",
       conf$data_dir,
       "')"
@@ -354,7 +354,7 @@ check_detect_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Requirements & alerts pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Requirements & alerts button on the config page ",
+      "Requirements & alerts pipeline is not running. On Windows, you can activate it by clicking on the 'activate' Requirements & alerts button on the configuration page ",
       "You can also manually run the Requirements & alerts pipeline by executing the following command on a separate R session. epitweetr::detect_loop('",
       conf$data_dir,
       "')"
@@ -369,7 +369,7 @@ check_fs_running <- function() {
     TRUE
   else {
     warning(paste0(
-      "Embedded database is not running. On Windows, you can activate it by clicking on the 'activate' database service button on the config page ",
+      "Embedded database is not running. On Windows, you can activate it by clicking on the 'activate' database service button on the configuration page ",
       "You can also manually run the fs service by executing the following command on a separate R session. epitweetr::fs_loop('",
       conf$data_dir,
       "')"
@@ -439,7 +439,7 @@ check_move_from_temp <- function() {
     TRUE 
   else {
     warning(paste(
-      "Cannot move files from temporary folder to data dir, possible cross link device.",
+      "Cannot move files from temporary folder to data_dir, possible cross link device.",
       "Please set TMPDIR, TMP or TEMP environment variable to the same drive as the data folder",
       conf$data_dir))
     FALSE
@@ -534,18 +534,18 @@ check_all <- function() {
   data.frame(check = names(checks), passed = results == "ok", message = ifelse(results == "ok", "", results))  
 }
 
-#Environment for storing last admin email
+# Environment for storing last admin email
 checks <- new.env()
 
 #' @title Send email to administrator if a failure of epitweetr is detected 
 #' @description It validates if epitweetr is not collecting tweets, aggregating tweets or not calculating alerts
-#' @param send_mail Boolean. Whether an email should be sent to the defined administrator , default: TRUE
+#' @param send_mail Boolean. Whether an email should be sent to the defined administrator, default: TRUE
 #' @param one_per_day Boolean. Whether a limit of one email per day will be applied, default: TRUE
 #' @return A list of health check errors found 
 #' @details This function sends an email to the defined administrator if epitweetr is not collecting tweets, aggregating tweets or not calculating alerts
 #' @examples 
 #' if(FALSE){
-#'    #importing epitweer
+#'    #importing epitweetr
 #'    library(epitweetr)
 #'    message('Please choose the epitweetr data directory')
 #'    setup_config(file.choose())
@@ -631,24 +631,24 @@ update_session_info <- function() {
 }
 
 
-#' @title Snapshot your epitweetr installation
+#' @title Snapshot of your epitweetr installation
 #' @description Creates a snapshot file of your epitweetr installation folder. This can include all or a subset of the data files.
 #' @param destination_dir, character(1) vector with the path of the destination folder to produce the snapshot
 #' @param types, character vector indicating the types of data to include on a snapshot. Some of: "settings", "dependencies", "machine-learning", "aggregations", "tweets", "logs"
-#' @param tweet_period, date(2) start and end dates to filter tweets to include on snapthot(if selected)
-#' @param aggregated_period, date(2) start and end dates to filter time series to include on snapthot(if selected)
+#' @param tweet_period, date(2) start and end dates to filter tweets to include on snapshot (if selected)
+#' @param aggregated_period, date(2) start and end dates to filter time series to include on snapshot (if selected)
 #' @param compress, logical(1) whether to compress or not the output file
 #' @param progress, function to report progress during execution.
 #' @return Nothing
 #' @details 
-#' This function can be used to createa a portable file to move your epitweetr installation in a single file, to backup your data, to archive your old data or to send information to technical team in order to reproduce an observed issue.
-#' Different kinds of data can be included on the snapshot depending on the types parameter. Possible values are:
+#' This function can be used to create a a portable file to move your epitweetr installation in a single file, to backup your data, to archive your old data or to send information to technical team in order to reproduce an observed issue.
+#' Different kinds of data can be included on the snapshot depending on the type of parameter. Possible values are:
 #' - 'settings': Including all setting files of your installation (excluding passwords)
 #' - 'dependencies': All jars and winutils.exe on windows installations
 #' - 'machine-learning': All trained models and vectors and training data (this can include tweet text which is personal data)
 #' - 'aggregations': Epitweetr aggregated time series
 #' - 'tweets': Tweets collected by epitweetr
-#' - 'logs': Log files produced automalically on windows task scheduler tasks.
+#' - 'logs': Log files produced automatically on windows task scheduler tasks.
 #' @examples 
 #' if(FALSE){
 #'    #importing epitweer

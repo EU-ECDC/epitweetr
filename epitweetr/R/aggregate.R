@@ -472,9 +472,9 @@ register_series <- function() {
   )
 }
 
-# getting last aggregation date or NA if first
-# date is obtained by sorting and reading first and last file on the series folder
-# this is used for data collected with epitweetr v0.0.x
+# Getting last aggregation date or NA if first
+# Date is obtained by sorting and reading first and last file on the series folder
+# This is used for data collected with epitweetr v0.x.x
 get_aggregated_period_rds <- function() {
   # listing all aggregated files for given dataset 
   agg_files <- list.files(file.path(conf$data_dir, "series"), recursive=TRUE, full.names =TRUE)
@@ -565,7 +565,7 @@ recalculate_hash <- function() {
 
 # Adds possible missing columns on a dataset produced by an aggregated series
 # This is necessary to ensure that all expected columns are present for data produced
-# on old epitweetr versions
+# in old epitweetr versions
 add_missing <- function(df, dataset) {
   cols <- colnames(df)
   defaults <- ( 

@@ -212,7 +212,7 @@ setup_config <- function(
   if(!ignore_properties && exists("props", where = paths)) {
     # refreshing properties (if requested)
     if(file.exists(paths$props)) {
-      #merging default values with those stored in the propertied.json file
+      #merging default values with those stored in the properties.json file
       temp = merge_configs(list(temp, jsonlite::read_json(paths$props, simplifyVector = FALSE, auto_unbox = TRUE)))
     }
     #Setting config  variables filled only from json file  
