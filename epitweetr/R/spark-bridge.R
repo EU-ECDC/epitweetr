@@ -32,7 +32,7 @@ get_blas_java_opt <- function() {
 
 }
 
-# getting a string for passing  languages as paramater for system calls
+# getting a string for passing languages as parameter for system calls
 conf_languages_as_arg <- function() {
   paste(
     "langCodes \"", paste(lapply(conf$languages, function(l) l$code), collapse = ","), "\" ",
@@ -54,7 +54,7 @@ conf_geonames_as_arg <- function() {
 }
 
 
-# making a spark call via system call withouth returnuing any value
+# making a spark call via system call without returning any value
 spark_job <- function(args) {
   # Setting BLAS environmebt variables
   set_blas_env()
@@ -70,7 +70,7 @@ spark_job <- function(args) {
       java_path() #Java executable
       , paste(
           "-cp \"", 
-          get_app_jar_path(), #epitweetr embededd jar path with
+          get_app_jar_path(), #epitweetr embedded jar path with
           if(.Platform$OS.type != "windows") ":" else ";",
           get_jars_dest_path(),  #Java class path with all dependencies
           "/*\"", 
@@ -112,7 +112,7 @@ spark_df <- function(args, handler = NULL) {
        ), 
       paste(
         "-cp \"", 
-        get_app_jar_path(),  #epitweetr embededd jar path with
+        get_app_jar_path(),  #epitweetr embedded jar path with
         if(.Platform$OS.type != "windows") ":" else ";",
         get_jars_dest_path(), #Java class path with all dependencies
         "/*\"", 
@@ -142,8 +142,8 @@ spark_df <- function(args, handler = NULL) {
     #If no custom transformation will be done on data we pass the json lines to jsonlite to interprete it as an R dataframe
     jsonlite::stream_in(con, pagesize = 10000, verbose = FALSE)
   } else {
-    # If a custom transfotmation is going to be done (a handler function has been set)
-    # this function will be calles on pages of 10k lines using the jsonlite stream_in function
+    # If a custom transformation is going to be done (a handler function has been set)
+    # this function will be called on pages of 10k lines using the jsonlite stream_in function
     # the transformed results will be stored on a temporary file that will be read by stream_in
     tmp_file <- tempfile(pattern = "epitweetr", fileext = ".json")
     #message(tmp_file)
@@ -164,10 +164,10 @@ spark_df <- function(args, handler = NULL) {
 #' @description Download Java dependencies of the application mainly related to Apache SPARK and Lucene,  
 #' @param tasks Task object for reporting progress and error messages, default: get_tasks()
 #' @return The list of tasks updated with produced messages
-#' @details Run a one shot task consisting of downloading Java and Scala dependencies, this is separated by the following subtasks
+#' @details Run a one-shot task consisting of downloading Java and Scala dependencies, this is separated by the following subtasks
 #' \itemize{
 #'   \item{Download jar dependencies from configuration maven repo to project data folder. This includes, scala, spark, lucene. Packages to be downloaded are defined in package file 'sbt-deps.txt'}
-#'   \item{Download winutils from configuration url to project data folder. For more details on winutils please see 
+#'   \item{Download winutils from configuration URL to project data folder. For more details on winutils please see 
 #'     \url{https://issues.apache.org/jira/browse/HADOOP-13223} and \url{https://issues.apache.org/jira/browse/HADOOP-16816}
 #'   }
 #' }
@@ -199,7 +199,7 @@ download_dependencies <- function(tasks = get_tasks()) {
     # downloading SPARK, lucene and other scala dependencies from the provided maven repository 
     while(is_fs_running()) {
       tasks <- update_dep_task(tasks, "running", paste(
-        "To start the dependencies task, please turn it OFF the epitweeetr database. You can do this by clicking on the 'stop' button next to the database status or manually kill the process."
+        "To start the dependencies task, please turn it OFF the epitweetr database. You can do this by clicking on the 'stop' button next to the database status or manually kill the process."
       ))
       Sys.sleep(5)
     } 
@@ -212,7 +212,7 @@ download_dependencies <- function(tasks = get_tasks()) {
     # ensuring that storage system is running
     while(!is_fs_running()) {
       tasks <- update_dep_task(tasks, "running", paste(
-        "To continue you need to ACTIVATE the embeded database. You can activate it by clicking on the 'activate' database service button on the config page ",
+        "To continue you need to ACTIVATE the embedded database. You can activate it by clicking on the 'activate' database service button on the config page ",
         "You can also manually run the fs service by executing the following command on a separate R session. epitweetr::fs_loop('",
         conf$data_dir,
         "')"
@@ -220,7 +220,7 @@ download_dependencies <- function(tasks = get_tasks()) {
       Sys.sleep(5)
     } 
     # running migration if necessary 
-    tasks <- update_dep_task(tasks, "running", "migrating any old json files to embeded database")
+    tasks <- update_dep_task(tasks, "running", "migrating any old json files to embedded database")
     tasks <- json2lucene(tasks)
 
     # Setting status to succes
@@ -245,7 +245,7 @@ download_dependencies <- function(tasks = get_tasks()) {
 # Download SBT dependencies from maven (scala, spark, lucene, netlib (BLAS), httpclient) into package folder
 download_sbt_dependencies <- function(tasks = get_tasks()) {
   if(!exists("maven_repo", where = tasks$dependencies)) stop("Before running detect loop you have to manually update 'Java/Scala dependencies' to set the used repository")
-  # reading the dependencies to download from embeded list
+  # reading the dependencies to download from embedded list
   con <- file(get_sbt_file_dep_path())
   deps <- readLines(con)
   close(con)

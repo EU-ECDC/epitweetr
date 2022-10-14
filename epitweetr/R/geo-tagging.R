@@ -1,4 +1,4 @@
-# Get the SQL like expression to extract tweet geolocation variables and applying prioritisation
+# Get the SQL-like expression to extract tweet geolocation variables and apply prioritisation
 # This function is used on aggregate tweets for translating variables names into SQL valid columns of geotag tweets
 get_tweet_location_var <- function(varname) {
   if(varname == "longitude" || varname == "latitude")
@@ -77,13 +77,13 @@ get_user_location_columns <- function(table) {
 }
 
 #' @title Get a sample of latest tweet geolocations (deprecated)
-#' @description This function was removed from epitweer v1.0.1 please use search_tweets instead
+#' @description This function was removed from epitweetr v1.0.1. Please use search_tweets instead
 #' @param limit Size of the sample, default: 100
 #' @param text_col Name of the tweet field to geolocate it should be one of the following ("text", "linked_text", "user_description", "user_location", "place_full_name", "linked_place_full_name"),
 #' default: 'text'
 #' @param lang_col Name of the tweet variable containing the language to evaluate. It should be one of the following ("lang", "linked_lang", NA), default: "lang"
 #' @return Data frame containing the sampled tweets and the geolocation metrics
-#' @details This function was removed from epitweer v1.0.1 please use search_tweets instead.
+#' @details This function was removed from epitweetr v1.0.1. Please use search_tweets instead.
 #' @examples 
 #' if(FALSE){
 #'    library(epitweetr)
@@ -489,7 +489,7 @@ update_languages <- function(tasks = get_tasks()) {
 #' @param lang_col character, name of the column on the data frame containing the language of texts, default: NULL
 #' @param min_score, numeric, the minimum score obtained on the Lucene scoring function to accept matches on GeoNames. It has to be empirically set default: NULL
 #' @return A new data frame containing the following geolocation columns: geo_code, geo_country_code, geo_country, geo_name, tags
-#' @details This functions perform a call to the epitweetr database which includes functionality for geolocating for languages activated and successfully processed on the shiny app.
+#' @details This function perform a call to the epitweetr database which includes functionality for geolocating for languages activated and successfully processed on the shiny app.
 #' 
 #' The geolocation process tries to find the best match in GeoNames database \url{https://www.geonames.org/} including all local aliases for words.
 #'

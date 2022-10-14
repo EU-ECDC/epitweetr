@@ -21,7 +21,7 @@ register_detect_runner <- function() {
 #' @description registers the fs_monitor (by writing fs.monitor.PID file) for the current process or stops if no configuration has been set or if it is already running
 #' @return Nothing
 #' @details Registers the fs_monitor (by writing fs.monitor.PID file) for the current process or stops if no configuration has been set or if it is already running
-#' This function has been exported so it can be properly called from the future package on the database runner but it is not inteded to be directly called by end users. 
+#' This function has been exported so it can be properly called from the future package on the database runner, but it is not intended to be directly called by end users. 
 #' @examples 
 #' if(FALSE){
 #'    #getting tasks statuses
@@ -59,7 +59,7 @@ register_runner <- function(name) {
 #' @details Registers the tweet collextion task or stops if no configuration has been set or if it is already running.
 #' Twitter authentication needs to be previously set on the shiny app or by calling set_twitter_app_auth(). 
 #' You can test if authentication is working on the shiny app troubleshot page or by calling (with dplyr): epitweetr::check_all() %>% filter(check == 'twitter_auth') 
-#' This function will use the task scheduler on windows and will fall back to launching the runner as a separate process (atteched to this session) on Linux.
+#' This function will use the task scheduler on windows and will fall back to launching the runner as a separate process (attached to this session) on Linux.
 #' @examples 
 #' if(FALSE){
 #'    #getting tasks statuses
@@ -98,8 +98,8 @@ stop_search_runner_task <- function() {
 #' @description registers the alert detection task or stops if no configuration has been set or if it is already running
 #' @return Nothing
 #' @details Registers the alert detection task or stops if no configuration has been set or if it is already running.
-#' To generate elerts, this task needs the tweet collection to had successfully run since the last time it ran.
-#' This function will use the task scheduler on windows and will fall back to launching the runner as a separate process (atteched to this session) on Linux.
+#' To generate alerts, this task needs the tweet collection to had successfully run since the last time it ran.
+#' This function will use the task scheduler on windows and will fall back to launching the runner as a separate process (attached to this session) on Linux.
 #' @examples 
 #' if(FALSE){
 #'    #getting tasks statuses
@@ -138,7 +138,7 @@ stop_detect_runner_task <- function() {
 #' @return Nothing
 #' @details Registers the epitweetr database task or stops if no configuration has been set or if it is already running.
 #' This task need the dependencies, geonames and languages steps to have been successfully ran. This can be done on the shiny app configuration page or by manually running the detect_runner_task.
-#' This function will try to use the task scheduler on windows and will fall back to launching the runner as a separate process (atteched to this session) on Linux.
+#' This function will try to use the task scheduler on windows and will fall back to launching the runner as a separate process (attached to this session) on Linux.
 #' @examples 
 #' if(FALSE){
 #'    #getting tasks statuses
@@ -173,7 +173,7 @@ stop_fs_runner_task <- function() {
   stop_runner_task("fs")
 }
 
-# This tasks is currently Windows only
+# This task is currently Windows only
 register_runner_task <- function(task_name) {
   # Making sure configuration has been set
   stop_if_no_config(paste("Cannot register scheduled task without configuration setup")) 
@@ -316,7 +316,7 @@ kill_task <- function(pidfile, type = "R") {
 #' @title Check whether the tweet collection task is running
 #' @description gets the tweet collection execution status  
 #' @return logical Whether the tweet collection is running
-#' @details returns a logical value being TRUE if the tweet collection is actually running
+#' @details returns a logical value being TRUE if the tweet collection is running
 #' @examples 
 #' if(FALSE){
 #'    library(epitweetr)
@@ -475,7 +475,7 @@ get_tasks <- function(statuses = list()) {
       scheduled_for = NA
     )
   }
-  # Setting default geonames task status if not set
+  # Setting default GeoNames task status if not set
   if(!exists("geonames", where = tasks)) {
     #get geonames
     tasks$geonames <- list(
@@ -543,7 +543,7 @@ get_tasks <- function(statuses = list()) {
     tasks$languages$status <- "pending"
 
   # Getting language information (used to detect id there is an action to perform on languages)
-  # The tasks files contains the status of languages processed by the detect loop
+  # The tasks files contain the status of languages processed by the detect loop
   # The difference between the settings from the shiny app and the tasks will allow epitweetr to detect the actions to perform on languages
   langs <- get_available_languages() # All available languages for epitweetr
   lcodes <- langs$Code # available language codes
@@ -708,7 +708,7 @@ save_tasks <- function(tasks) {
 #'
 #' The recurrent tasks are scheduled to be executed each 'detect span' minutes, which is a parameter set on the Shiny app.
 #'
-#' If any of these tasks fails it will be retried three times before going to a abort status. Aborted tasks can be relaunched from the Shiny app. 
+#' If any of these tasks fails it will be retried three times before going to abort status. Aborted tasks can be relaunched from the Shiny app. 
 #' @examples 
 #' if(FALSE){
 #'    #Running the detect loop

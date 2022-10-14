@@ -6,7 +6,7 @@
 #'
 #' The alert calculation is based on the country_counts time series which stores alerts by country, hour and topics.
 #'
-#' For each country and region the process starts by aggregating the last N days. A day is a block of consecutive 24 hours ending before the hour of the collected last tweet. 
+#' For each country and region, the process starts by aggregating the last N days. A day is a block of consecutive 24 hours ending before the hour of the collected last tweet. 
 #' N is defined by the alert baseline parameter on the configuration tab of the Shiny application (the default is N=7).
 #' 
 #' An alert will be produced when the number of tweets observed is above the threshold calculated by the modified version of the EARS algorithm (for more details see the package vignette). 
@@ -117,7 +117,7 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
       ## Rank of design matrix - it's 1 for the intercept-only-model
       k <- 1   # qr(matrix(rep(1, no_historic)))$rank
       
-      #Helper function to compute threshold based on weights 
+      # Helper function to compute threshold based on weights 
       compute_threshold <- function(w) {
         # Ensure weights sum to n
         w <- w/sum(w) * n
@@ -130,19 +130,19 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
         U0 <- y0bar + qt(1-alpha,  df=no_historic - 1) * sd0 * sqrt(1 + 1/no_historic)
         ## Enough evidence to sound an alarm?
         alarm0 <- y0 > U0
-        #Return results
+        # Return results
         return(list(y0bar=y0bar, sd0=sd0, U0=U0, alarm0=alarm0))
       }      
       
-      #Results without reweighting
+      # Results without reweighting
       res_noreweight <- compute_threshold( w=rep(1,n))
     
-      #Extract fit from inversion  initial w=1 version
+      # Extract fit from inversion  initial w=1 version
       y0bar <- res_noreweight$y0bar
       
       ## Calculate the raw residuals
       e <- (y_historic - y0bar)
-      #Diagonal of hat matrix - analytic
+      # Diagonal of hat matrix - analytic
       pii <- rep(1/no_historic, no_historic)
       # Hat matrix from regression with i'th observation removed is always the same for intercept only model
       Xi <- matrix(rep(1, n-1))
@@ -165,8 +165,8 @@ ears_t_reweighted <- function(ts, alpha = 0.025, alpha_outlier=0.05, k_decay = 4
       reweight_threshold <- qt(1-alpha_outlier, df=n - k - 1)
       
       # Weights 1: Drop outliers
-      #w_drop <- ifelse( rstar > reweight_threshold, 0, 1)
-      #res_drop <- compute_threshold(w_drop)
+      # w_drop <- ifelse( rstar > reweight_threshold, 0, 1)
+      # res_drop <- compute_threshold(w_drop)
       
       # Weights 2: Farrington procedure, down weight
       w_dw <- ifelse( rstar > reweight_threshold, (reweight_threshold/rstar)^k_decay, 1)
@@ -291,7 +291,7 @@ calculate_region_alerts <- function(
       missing_dates <- data.frame(reporting_date = missing_dates, count = 0)
       counts <- dplyr::bind_rows(counts, missing_dates) %>% dplyr::arrange(.data$reporting_date) 
     }
-    #Calculating alerts
+    # Calculating alerts
     alerts <- ears_t_reweighted(counts$count, alpha=alpha/bonferroni_m, alpha_outlier = alpha_outlier, k_decay = k_decay, no_historic = no_historic, same_weekday_baseline)
     counts$alert <- alerts$alarm0_dw
     counts$limit <- alerts$U0_dw
@@ -805,7 +805,7 @@ send_alert_emails <- function(tasks = get_tasks()) {
   # iterating for each subscriber
   if(nrow(subscribers)>0 && conf$smtp_host != "") {
     for(i in 1:nrow(subscribers)) {
-      # getting values subsriber settings 
+      # getting values subscriber settings 
       user <- subscribers$User[[i]]
       topics <- if(is.na(subscribers$Topics[[i]])) NA else strsplit(subscribers$Topics[[i]],";")[[1]]
       dest <- if(is.na(subscribers$Email[[i]])) NA else strsplit(subscribers$Email[[i]],";")[[1]]
@@ -1166,11 +1166,11 @@ get_alert_training_df <- function() {
 get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), progress = function(value, message) {}) {
   
   allcat_df <- alert_training_df %>% dplyr::filter(!is.na(.data$given_category))%>%dplyr::group_by(.data$given_category) %>% dplyr::count()
-  # we have we choose a 25 percent of rows to be used as test set. These rows will not be augmented
+  # we choose 25 percent of rows to be used as test set. These rows will not be augmented
   split <- jsonlite::rbind_pages(lapply(1:nrow(allcat_df), function(i) {
     set.seed(20131205)
     x = 1:allcat_df$n[[i]]
-    alert_training_df %>% dplyr::filter(.data$given_category == allcat_df$given_category[[i]]) %>% dplyr::mutate(test = sample(x, length(x), replace = F) > length(x) * 0.75)
+    alert_training_df %>% dplyr::filter(.data$given_category == allcat_df$given_category[[i]]) %>% dplyr::mutate(test = sample(x, length(x), replace = FALSE) > length(x) * 0.75)
   }))
   
   test_df <- split %>% dplyr::filter(.data$test) %>% dplyr::mutate(deleted = FALSE, augmented = FALSE)
@@ -1211,13 +1211,13 @@ get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), p
          langs <- langs[langs != "itweet"]
          i0 <- toptweets$itweet + 1
          i1 <- i0 + 5
-         #getting new tweets
+         # getting new tweets
          new_tweets <- lapply(langs, function(l) {if(length(toptweets[[l]]) >= i1) toptweets[[l]][i0:i1] else if(length(toptweets[[l]])>i0) toptweets[[l]][i0:length(toptweets[[l]])] else list()})
          toptweets$itweet <- i1
          alerts_to_augment$toptweets[[ialert]] <- toptweets
-         #counting new tweets
+         # counting new tweets
          tcount <- sum(sapply(new_tweets, function(t) length(t)))
-         #message(paste("cat", cat, "to_add",to_add, "ialert", ialert, "i0", i0, "i1", i1, "tcount", tcount))
+         # message(paste("cat", cat, "to_add",to_add, "ialert", ialert, "i0", i0, "i1", i1, "tcount", tcount))
          if(tcount > 0) {
            found_tweets <- TRUE
            new_tweets <- setNames(new_tweets, langs)
@@ -1273,7 +1273,7 @@ get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), p
     frac <- smallest_cat / nrow(augmented_in_cat) 
     set.seed(20131205)
     x = 1:nrow(augmented_in_cat)
-    augmented_in_cat %>% dplyr::mutate(deleted = sample(x, length(x), replace = F) > length(x) * frac)
+    augmented_in_cat %>% dplyr::mutate(deleted = sample(x, length(x), replace = FALSE) > length(x) * frac)
   }))
 
   test_df$augmented <- FALSE

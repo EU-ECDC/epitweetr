@@ -125,7 +125,7 @@ search_loop <-  function(data_dir = NA) {
     }
 
 
-    #Updating config to take in consideration possible changed on topics or other settings (plans are saved before reloading config) at most once every 10 seconds
+    #Updating config to take in consideration possible changes on topics or other settings (plans are saved before reloading config) at most once every 10 seconds
     if(difftime(Sys.time(),last_save,units="secs") > 10) {
       last_save <- Sys.time()
       setup_config(data_dir = conf$data_dir, save_first = list("topics"))
@@ -190,7 +190,7 @@ search_topic <- function(plan, query, topic) {
     # doing the tweet search and storing the response object to obtain details on resp
     content <- twitter_search(q = query, max_id = plan$since_id, since_id = plan$since_target) 
     # Interpreting the content as JSON and storing the results on json (nested list with dataframes)
-    # interpreting is necesssary know the number of obtained tweets and the id of the oldest tweet found and to keep tweet collecting stats
+    # interpreting is necessary to know the number of obtained tweets and the id of the oldest tweet found and to keep tweet collecting stats
     # Saving uninterpreted content as a gzip archive
     json <- jsonlite::fromJSON(content)
     tries <- 3
@@ -270,8 +270,8 @@ search_topic <- function(plan, query, topic) {
 # stat json files are stored on data_dir/year/xyz.gz where xyz is the name of a search gzip archive
 # stat files contains an array per topic indicating the posted period on that the collected files with the same name
 # these files are used to improve aggregating performance, by targeting only the files containing tweets for a particular date
-# filename: gzip file to update stats on
-# topic: topic to update the the stats on
+# filename: gzip file to update stats 
+# topic: topic to update stats 
 # year: current year to separate the stat files per year
 # first_date: oldest date on the tweets collected this will replace the stat if it is older than the current oldest date for the topic on the given file
 # last_date: newest date on the tweets collected this will replace the stat if it is newer than the current newest date for the topic on the given file
@@ -451,7 +451,7 @@ get_plan <- function(
 # @returns the updated list of plans
 # @examples 
 # if(FALSE){
-#  #Getting deault plan
+#  #Getting default plan
 #  update_plans(plans = list(), schedule_span = 120) 
 #  #Updating topics for first topic
 #  update_plans(plans = conf$topics[[1]]$plan, schedule_span = conf$collect_span) 

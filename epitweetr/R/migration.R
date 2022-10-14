@@ -115,7 +115,7 @@ get_file_names <- function(path, ext, pattern) {
 
 # Get folder size recursively
 get_folder_size <- function(path) {
-  files <-list.files(path,full.names = T, recursive = T, include.dirs = F)
+  files <-list.files(path,full.names = T, recursive = T, include.dirs = FALSE)
   return( sum(file.size(files)))
 }
 
@@ -145,7 +145,7 @@ archive_search_geo_file <- function(file) {
   while(grepl(paste0('^', get_geo_path()), fromdir) || grepl(paste0('^', get_search_path()), fromdir)) {
     if(dir.exists(fromdir) && length(list.files(fromdir, include.dirs=T)) ==0) {
       message(paste("removing", fromdir))
-      unlink(fromdir, recursive = T, force = F)
+      unlink(fromdir, recursive = T, force = FALSE)
     }
     fromdir <- dirname(fromdir)
   }
