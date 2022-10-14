@@ -706,14 +706,17 @@ get_alerts <- function(topic=character(), countries=numeric(), from="1900-01-01"
       given <- setNames(alert_training$given_category, tolower(paste(alert_training[["date"]], alert_training[["topic"]], alert_training[["country"]], sep = "@@")))
       given <- given[!is.na(given)]
       ngiven <- names(given)
+     
       
-      df$epitweetr_category <- sapply(1:nrow(df), function(i) {
-        key = tolower(paste(df[["date"]][[i]], df[["topic"]][[i]], df[["country"]][[i]], sep = "@@"))
-        if(key %in% ngiven)
-          given[[key]]
-        else
-          df$epitweetr_category[[i]]
-      })
+      if(nrow(df) > 0) {
+        df$epitweetr_category <- sapply(1:nrow(df), function(i) {
+          key = tolower(paste(df[["date"]][[i]], df[["topic"]][[i]], df[["country"]][[i]], sep = "@@"))
+          if(key %in% ngiven)
+            given[[key]]
+          else
+            df$epitweetr_category[[i]]
+        })
+      }
       progress(1, "Alerts obtained")
       tibble::as_tibble(df)
     }
