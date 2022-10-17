@@ -25,13 +25,24 @@ get_token <- function(request_new = TRUE) {
     else 
       conf$twitter_auth_mode == "app"
   }
+  # An app token is requested
   if(conf$twitter_auth_mode == "app") {  
-    # Removing existing rtweet token if exists
-    if(file.exists(token_path)) file.remove(token_path)
-    # Using rtweet call to create token
+    # if new rtweet then we just provide the registered bearer
     if(new_rtweet)
       token <- conf$twitter_auth$bearer
-    else if(!exists("token", conf) || request_new) {
+    # if not requesting a new one and a non null token is already available on the configuration (because used) then we get it from conf
+    else if(!request_new && exists("token", where = conf) && !is.null(conf$token)) 
+      token <- conf$token
+    # if not requesting new and an available token is written on disk
+    else if(!request_new && file.exists(token_path)) {
+      token <- readRDS(token_path)
+      if(!("bearer" %in% class(conf$token)))
+        token <- rtweet::bearer_token(token)
+    }
+    # In other cases we get a new token using rtweet
+    else {
+      if(file.exists(token_path)) 
+        file.remove(token_path)
       token <- rtweet::create_token(
         app = conf$twitter_auth$app
         , consumer_key =conf$twitter_auth$api_key
@@ -41,8 +52,7 @@ get_token <- function(request_new = TRUE) {
       )
       # Removing user context
       token <- rtweet::bearer_token(token)
-    } else 
-      token <- conf$token
+    } 
   } else {
     # Using delegated authentication otherwise, token will be reused if it exists and new one will be requested if it is not set
     token <- (
