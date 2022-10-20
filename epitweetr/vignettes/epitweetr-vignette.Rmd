@@ -159,7 +159,7 @@ Before using `epitweetr`, the following items need to be installed:
 
 -   If you are running it in Windows, you will also need Microsoft Visual C++, however in most cases it is likely to be pre-installed:
 
-    -   Microsoft Visual C++ 2010 Redistributable Package (x64) [*https://www.microsoft.com/en-us/download/details.aspx?id=40784*]
+    -   Microsoft Visual C++ 2010 Redistributable Package (x64) [*https://www.microsoft.com/en-us/download/confirmation.aspx?id=26999*]
 
 ### Prerequisites for some of the functionalities in epitweetr
 
