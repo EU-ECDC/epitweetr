@@ -1257,20 +1257,23 @@ get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), p
 
   # Adding the new alerts to the original set
   training_df$augmented <- FALSE
-  augmented_alerts <- jsonlite::rbind_pages(list(training_df,
-    tibble::tibble(
-      date = sapply(alerts_for_augment, function(r) r$date),
-      topic = sapply(alerts_for_augment, function(r) r$topic), 
-      country = as.character(sapply(alerts_for_augment, function(r) r$country)),
-      topwords = sapply(alerts_for_augment, function(r) r$topwords), 
-      number_of_tweets = sapply(alerts_for_augment, function(r) r$number_of_tweets), 
-      toptweets = lapply(alerts_for_augment, function(r) r$toptweets),
-      given_category = sapply(alerts_for_augment, function(r) r$given_category),
-      epitweetr_category = as.character(sapply(alerts_for_augment, function(r) r$epitweetr_category)),
-      augmented = as.logical(sapply(alerts_for_augment, function(r) r$augmented)),
-      test = as.logical(sapply(alerts_for_augment, function(r) r$test))
-    )
-  ))
+  if(length(alerts_for_augment) > 0) {
+    augmented_alerts <- jsonlite::rbind_pages(list(training_df,
+      tibble::tibble(
+        date = sapply(alerts_for_augment, function(r) r$date),
+        topic = sapply(alerts_for_augment, function(r) r$topic), 
+        country = as.character(sapply(alerts_for_augment, function(r) r$country)),
+        topwords = sapply(alerts_for_augment, function(r) r$topwords), 
+        number_of_tweets = sapply(alerts_for_augment, function(r) r$number_of_tweets), 
+        toptweets = lapply(alerts_for_augment, function(r) r$toptweets),
+        given_category = sapply(alerts_for_augment, function(r) r$given_category),
+        epitweetr_category = as.character(sapply(alerts_for_augment, function(r) r$epitweetr_category)),
+        augmented = as.logical(sapply(alerts_for_augment, function(r) r$augmented)),
+        test = as.logical(sapply(alerts_for_augment, function(r) r$test))
+      )
+    ))
+  } else
+    augmented_alerts = training_df
   balanced_training <- jsonlite::rbind_pages(lapply(1:nrow(cat_df), function(i) {
     augmented_in_cat <- augmented_alerts %>% dplyr::filter(.data$given_category == cat_df$given_category[[i]])
     frac <- smallest_cat / nrow(augmented_in_cat) 
