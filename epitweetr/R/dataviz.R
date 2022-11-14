@@ -215,7 +215,8 @@ plot_trendline <- function(df,countries,topic,date_min,date_max, date_type, alph
           # Week format if period is between 16 days and 20 weeks
 			    #  - Case for period ending on same day of week than period start 
 			    } else if(weeks <= 20) {
-            "%G-w%V"
+            "%Y-%m-%d"
+            #"%G-w%V"
           # Month format day of month in period start if period is less or equal to 2 years but more than 20 weeks
           } else if(years <=2) {
             "%Y-%b"

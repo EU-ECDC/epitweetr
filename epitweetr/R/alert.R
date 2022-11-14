@@ -1163,7 +1163,7 @@ get_alert_training_df <- function() {
     epitweetr_category= .data$`Epitweetr Category`
   )
   current$`toptweets` <- lapply(current$`toptweets`, function(json) jsonlite::fromJSON(json))
-  current %>% dplyr::arrange(date, topic, country, topwords)
+  current %>% dplyr::arrange(.data$date, .data$topic, .data$country, .data$topwords)
 }
 
 get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), progress = function(value, message) {}) {
@@ -1381,7 +1381,7 @@ retrain_alert_classifier <- function(progress = function(value, message) {}) {
   alerts = get_alert_training_df()
   ret <- classify_alerts(alerts, retrain = TRUE, progress = progress)
   progress(value = 0.9, message = "Writing resutls")
-  write_alert_training_db(alerts = ret$alerts %>% dplyr::filter(!augmented), runs = ret$runs)
+  write_alert_training_db(alerts = ret$alerts %>% dplyr::filter(!.data$augmented), runs = ret$runs)
 }
 
 
