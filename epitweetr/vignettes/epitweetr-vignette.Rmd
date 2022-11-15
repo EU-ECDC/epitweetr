@@ -1482,3 +1482,4 @@ If you do not receive email alerts and you see an error in `epitweetr` referring
   [*https://developer.twitter.com/en/apply-for-access*]: https://developer.twitter.com/en/apply-for-access
   [*https://CRAN.R-project.org/package=keyring*]: https://CRAN.R-project.org/package=keyring
   [*Monitoring Count Time Series in R: Aberration Detection in Public Health Surveillance*]: https://www.jstatsoft.org/article/view/v070i10
+
