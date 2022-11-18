@@ -1185,7 +1185,7 @@ get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), p
   
   # getting the alerts to augment which are categories with less annotations, we do not consider location for this purpose 
   alerts_to_augment <- training_df %>% dplyr::filter(.data$given_category %in% cat_to_augment$given_category) %>% dplyr::distinct(.data$topic, .data$date, .data$given_category, .keep_all=TRUE)
-  alerts_to_augment$hour <- 23
+  alerts_to_augment$hour <- sapply(alerts_to_augment$date, function(v) 23)
   # adding extra tweets ignoring location to build augmented alerts
   alerts_to_augment <- add_toptweets(alerts_to_augment, 1000, ignore_place = TRUE, progress = function(value, message) progress(value*0.9, message))
   
@@ -1193,66 +1193,68 @@ get_alert_balanced_df <- function(alert_training_df = get_alert_training_df(), p
   # Creating alerts to augment underepresented categories, using same settings than existing alerts but looking for more tweets not limiting by country
   alerts_for_augment <- list()
   smallest_cat <- Inf
-  progress(0.9, "Augmenting categories")
-  for(icat in 1:nrow(cat_to_augment)) {
-     cat <- cat_to_augment$given_category[[icat]]
-     to_add <- cat_to_augment$missing[[icat]]
-     size_after_augment <- cat_to_augment$n[[icat]]
-     tweets_exhausted <- FALSE
-     found_tweets <- FALSE
-     ialert <- 1
-     # Looping over all alerts with extra tweets for this category until no more new tweets are found or the expected number of alerts to add is reach
-     while(to_add > 0 && !tweets_exhausted) {
-       # looping over alerts to augment which have 
-       if(alerts_to_augment$given_category[[ialert]] == cat) {
-         toptweets <- alerts_to_augment$toptweets[[ialert]]
-         # getting the index of tweets to extract from 5 to five per language, it will start on 10 since these have already been used by original alerts
-         if(!exists("itweet", where=toptweets))
-           toptweets$itweet <- 7
-         # getting tweets to add
-         langs <- names(toptweets)
-         langs <- langs[langs != "itweet"]
-         i0 <- toptweets$itweet + 1
-         i1 <- i0 + 5
-         # getting new tweets
-         new_tweets <- lapply(langs, function(l) {if(length(toptweets[[l]]) >= i1) toptweets[[l]][i0:i1] else if(length(toptweets[[l]])>i0) toptweets[[l]][i0:length(toptweets[[l]])] else list()})
-         toptweets$itweet <- i1
-         alerts_to_augment$toptweets[[ialert]] <- toptweets
-         # counting new tweets
-         tcount <- sum(sapply(new_tweets, function(t) length(t)))
-         # message(paste("cat", cat, "to_add",to_add, "ialert", ialert, "i0", i0, "i1", i1, "tcount", tcount))
-         if(tcount > 0) {
-           found_tweets <- TRUE
-           new_tweets <- setNames(new_tweets, langs)
-           alerts_for_augment[[length(alerts_for_augment) + 1]] <- ( 
-             list(
-               date = alerts_to_augment$date[[ialert]],
-               topic = alerts_to_augment$topic[[ialert]],
-               country = alerts_to_augment$country[[ialert]],
-               topwords = alerts_to_augment$topwords[[ialert]],
-               number_of_tweets = alerts_to_augment$number_of_tweets[[ialert]], 
-               toptweets = new_tweets,
-               given_category = alerts_to_augment$given_category[[ialert]],
-               epitweetr_category = NA,
-               augmented = TRUE,
-               test = FALSE
+  if(nrow(cat_to_augment) > 0) {
+    progress(0.9, "Augmenting categories")
+    for(icat in 1:nrow(cat_to_augment)) {
+       cat <- cat_to_augment$given_category[[icat]]
+       to_add <- cat_to_augment$missing[[icat]]
+       size_after_augment <- cat_to_augment$n[[icat]]
+       tweets_exhausted <- FALSE
+       found_tweets <- FALSE
+       ialert <- 1
+       # Looping over all alerts with extra tweets for this category until no more new tweets are found or the expected number of alerts to add is reach
+       while(to_add > 0 && !tweets_exhausted) {
+         # looping over alerts to augment which have 
+         if(alerts_to_augment$given_category[[ialert]] == cat) {
+           toptweets <- alerts_to_augment$toptweets[[ialert]]
+           # getting the index of tweets to extract from 5 to five per language, it will start on 10 since these have already been used by original alerts
+           if(!exists("itweet", where=toptweets))
+             toptweets$itweet <- 7
+           # getting tweets to add
+           langs <- names(toptweets)
+           langs <- langs[langs != "itweet"]
+           i0 <- toptweets$itweet + 1
+           i1 <- i0 + 5
+           # getting new tweets
+           new_tweets <- lapply(langs, function(l) {if(length(toptweets[[l]]) >= i1) toptweets[[l]][i0:i1] else if(length(toptweets[[l]])>i0) toptweets[[l]][i0:length(toptweets[[l]])] else list()})
+           toptweets$itweet <- i1
+           alerts_to_augment$toptweets[[ialert]] <- toptweets
+           # counting new tweets
+           tcount <- sum(sapply(new_tweets, function(t) length(t)))
+           # message(paste("cat", cat, "to_add",to_add, "ialert", ialert, "i0", i0, "i1", i1, "tcount", tcount))
+           if(tcount > 0) {
+             found_tweets <- TRUE
+             new_tweets <- setNames(new_tweets, langs)
+             alerts_for_augment[[length(alerts_for_augment) + 1]] <- ( 
+               list(
+                 date = alerts_to_augment$date[[ialert]],
+                 topic = alerts_to_augment$topic[[ialert]],
+                 country = alerts_to_augment$country[[ialert]],
+                 topwords = alerts_to_augment$topwords[[ialert]],
+                 number_of_tweets = alerts_to_augment$number_of_tweets[[ialert]], 
+                 toptweets = new_tweets,
+                 given_category = alerts_to_augment$given_category[[ialert]],
+                 epitweetr_category = NA,
+                 augmented = TRUE,
+                 test = FALSE
+               )
              )
-           )
-           size_after_augment <- size_after_augment + 1
-           to_add <- to_add - 1
+             size_after_augment <- size_after_augment + 1
+             to_add <- to_add - 1
+           }
+         }
+         if(ialert == nrow(alerts_to_augment)) {
+           ialert <- 1
+           if(!found_tweets) 
+             tweets_exhausted <- TRUE
+           found_tweets <- FALSE
+         } else {
+           ialert <- ialert + 1
          }
        }
-       if(ialert == nrow(alerts_to_augment)) {
-         ialert <- 1
-         if(!found_tweets) 
-           tweets_exhausted <- TRUE
-         found_tweets <- FALSE
-       } else {
-         ialert <- ialert + 1
-       }
-     }
-     if(size_after_augment < smallest_cat)
-       smallest_cat <- size_after_augment
+       if(size_after_augment < smallest_cat)
+         smallest_cat <- size_after_augment
+    }
   }
 
   # Adding the new alerts to the original set
@@ -1380,8 +1382,10 @@ retrain_alert_classifier <- function(progress = function(value, message) {}) {
   progress(value = 0.1, message = "Getting alerts to retrain")
   alerts = get_alert_training_df()
   ret <- classify_alerts(alerts, retrain = TRUE, progress = progress)
-  progress(value = 0.9, message = "Writing resutls")
-  write_alert_training_db(alerts = ret$alerts %>% dplyr::filter(!.data$augmented), runs = ret$runs)
+  if("alerts" %in% ret) {
+    progress(value = 0.9, message = "Writing resutls")
+    write_alert_training_db(alerts = ret$alerts %>% dplyr::filter(!.data$augmented), runs = ret$runs)
+  }
 }
 
 

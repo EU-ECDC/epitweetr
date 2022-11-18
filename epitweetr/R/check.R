@@ -458,11 +458,21 @@ check_tar_gz <- function() {
       writeLines(c("hello temp"), fileConn)
       close(fileConn)
       
-       result <- processx::run(
-         "tar", 
-         c("-czf", normalizePath(pgz, winslash = "/", mustWork=FALSE), normalizePath(p, winslash = "/"), "--force-local"),
-         wd = temp
-       )
+      result = tryCatch(
+        {
+          processx::run(
+             "tar", 
+             c("-czf", normalizePath(pgz, winslash = "/", mustWork=FALSE), normalizePath(p, winslash = "/"), "--force-local"),
+             wd = temp
+          )
+        }, error = function(e) {
+          processx::run(
+             "tar", 
+             c("-czf", normalizePath(pgz, winslash = "/", mustWork=FALSE), normalizePath(p, winslash = "/")),
+             wd = temp
+          )
+        }
+      )
   
       TRUE
     }, 
@@ -473,8 +483,9 @@ check_tar_gz <- function() {
     TRUE 
   else {
     warning(paste(
-      "Cannot built tar.gz. This is necessary for building a compressed snapshot/backup of epitweetr data",
-      "Please install tar and gzip and make sure you can execute 'tar -czf test.tar.gz somefile' on a terminal"))
+      "Cannot built tar.gz. Please ensure Tar and Gzip are available in the system path and make sure you can execute 'tar -czf test.tar.gz somefile' on a terminal.",
+      "Latest Windows 10 versions may include these tools, otherwise, you would need to install them to create snapshots."
+    ))
     FALSE
   }
 }
@@ -780,10 +791,22 @@ create_snapshot <- function(
     }
   }
  
-  result <- processx::run(
-    "tar", 
-    c(if(compress) "-czvf" else "-cvf", destination, "-T", to_arc, "--force-local"),
-    stdout_line_callback = cb
+  result = tryCatch(
+    {
+      processx::run(
+        "tar", 
+        c(if(compress) "-czvf" else "-cvf", destination, "-T", to_arc, "--force-local"),
+        stdout_line_callback = cb,
+        wd = conf$data_dir
+      )
+    }, error = function(e) {
+      processx::run(
+        "tar", 
+        c(if(compress) "-czvf" else "-cvf", destination, "-T", to_arc),
+        stdout_line_callback = cb,
+        wd = conf$data_dir
+      )
+    }
   )
 
 }
