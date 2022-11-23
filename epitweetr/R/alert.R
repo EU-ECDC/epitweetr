@@ -1347,7 +1347,6 @@ classify_alerts <- function(alerts, retrain = FALSE, progress = function(value, 
       alerts$deleted <- FALSE
       alerts$test <- FALSE
     }
-    
     alerts <- alerts %>% dplyr::mutate(`id`=as.character(1:nrow(alerts)))
     body = paste("{",
       paste("\"alerts\":", jsonlite::toJSON(alerts, pretty = T, auto_unbox = FALSE)),
@@ -1382,7 +1381,7 @@ retrain_alert_classifier <- function(progress = function(value, message) {}) {
   progress(value = 0.1, message = "Getting alerts to retrain")
   alerts = get_alert_training_df()
   ret <- classify_alerts(alerts, retrain = TRUE, progress = progress)
-  if("alerts" %in% ret) {
+  if(exists("alerts", where = ret)) {
     progress(value = 0.9, message = "Writing resutls")
     write_alert_training_db(alerts = ret$alerts %>% dplyr::filter(!.data$augmented), runs = ret$runs)
   }
