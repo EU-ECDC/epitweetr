@@ -458,11 +458,21 @@ check_tar_gz <- function() {
       writeLines(c("hello temp"), fileConn)
       close(fileConn)
       
-       result <- processx::run(
-         "tar", 
-         c("-czf", pgz, p),
-         wd = temp
-       )
+      result = tryCatch(
+        {
+          processx::run(
+             "tar", 
+             c("-czf", normalizePath(pgz, winslash = "/", mustWork=FALSE), normalizePath(p, winslash = "/"), "--force-local"),
+             wd = temp
+          )
+        }, error = function(e) {
+          processx::run(
+             "tar", 
+             c("-czf", normalizePath(pgz, winslash = "/", mustWork=FALSE), normalizePath(p, winslash = "/")),
+             wd = temp
+          )
+        }
+      )
   
       TRUE
     }, 
@@ -473,8 +483,9 @@ check_tar_gz <- function() {
     TRUE 
   else {
     warning(paste(
-      "Cannot built tar.gz. This is necessary for building a compressed snapshot/backup of epitweetr data",
-      "Please install tar and gzip and make sure you can execute 'tar -czf test.tar.gz somefile' on a terminal"))
+      "Cannot built tar.gz. Please ensure Tar and Gzip are available in the system path and make sure you can execute 'tar -czf test.tar.gz somefile' on a terminal.",
+      "Latest Windows 10 versions may include these tools, otherwise, you would need to install them to create snapshots."
+    ))
     FALSE
   }
 }
@@ -626,7 +637,7 @@ health_check <- function(send_mail = TRUE, one_per_day = TRUE) {
 
 update_session_info <- function() {
   con <- file(get_session_info_path())
-  writeLines(capture.output(sessionInfo()), con)
+  writeLines(utils::capture.output(utils::sessionInfo()), con)
   close(con)
 }
 
@@ -635,7 +646,7 @@ update_session_info <- function() {
 #' @description Creates a snapshot file of your epitweetr installation folder. This can include all or a subset of the data files.
 #' @param destination_dir, character(1) vector with the path of the destination folder to produce the snapshot
 #' @param types, character vector indicating the types of data to include on a snapshot. Some of: "settings", "dependencies", "machine-learning", "aggregations", "tweets", "logs"
-#' @param tweet_period, date(2) start and end dates to filter tweets to include on snapshot (if selected)
+#' @param tweets_period, date(2) start and end dates to filter tweets to include on snapshot (if selected)
 #' @param aggregated_period, date(2) start and end dates to filter time series to include on snapshot (if selected)
 #' @param compress, logical(1) whether to compress or not the output file
 #' @param progress, function to report progress during execution.
@@ -668,7 +679,7 @@ create_snapshot <- function(
   compress = TRUE,
   progress = function(v, m) message(paste(round(v*100, 2), m))
 ) {
-  destination <- file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), if(compress) ".tar.gz" else ".tar"))
+  destination <- normalizePath(file.path(destination_dir, paste0("epitweetr-snapshot",strftime(Sys.time(), "%Y.%m.%d-%H.%M.%S"), if(compress) ".tar.gz" else ".tar")), winslash = "/", mustWork = FALSE)
   update_session_info()
   items = list()
     if("settings" %in% types)
@@ -764,9 +775,10 @@ create_snapshot <- function(
   }
 
   # creating list of files to add
-  to_arc <- tempfile("toarc")
+  to_arc <- normalizePath(tempfile("toarc"), winslash = "/", mustWork = FALSE)
   to_arc_con <- file(to_arc, "wb", encoding = "UTF-8" )
-  writeLines(names(items)[file.exists(names(items))], sep = "\n", to_arc_con)
+  fnames <- normalizePath(names(items), winslash = "/", mustWork = FALSE)
+  writeLines(fnames[file.exists(fnames)], sep = "\n", to_arc_con)
   close(to_arc_con)
 
   
@@ -779,10 +791,22 @@ create_snapshot <- function(
     }
   }
  
-  result <- processx::run(
-    "tar", 
-    c(if(compress) "-czvf" else "-cvf", destination, "-T", to_arc),
-    stdout_line_callback = cb
+  result = tryCatch(
+    {
+      processx::run(
+        "tar", 
+        c(if(compress) "-czvf" else "-cvf", destination, "-T", to_arc, "--force-local"),
+        stdout_line_callback = cb,
+        wd = conf$data_dir
+      )
+    }, error = function(e) {
+      processx::run(
+        "tar", 
+        c(if(compress) "-czvf" else "-cvf", destination, "-T", to_arc),
+        stdout_line_callback = cb,
+        wd = conf$data_dir
+      )
+    }
   )
 
 }

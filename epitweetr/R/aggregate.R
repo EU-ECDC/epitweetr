@@ -70,23 +70,12 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
 
 
   # checking whether we can reuse the cache
-  reuse_filter <- 
+  reuse_filter <- (
+    cache &&
+    exists(dataset, where = cached ) &&
     exists(last_filter_name, where = cached) && #cache entry exists for that dataset
     (exists("last_aggregate", where = cached[[last_filter_name]]) && cached[[last_filter_name]]$last_aggregate == filter$last_aggregate) && # No new aggregation has been finished
-    (!exists("topic", cached[[last_filter_name]]) || # all topics are cached or 
-      (
-        exists("topic", cached[[last_filter_name]]) && # there are some topic cached
-        exists("topic", filter) &&  # there is are some countries the current applied filter
-        all(filter$topic %in% cached[[last_filter_name]]$topic) # all filtered topic is cached
-      )
-    ) && # AND
-    (!exists("tweet_geo_country_code", cached[[last_filter_name]]) || # all countries are cached or 
-      (
-        exists("tweet_geo_country_code", cached[[last_filter_name]]) && # there are some countries cached
-        exists("tweet_geo_country_code", filter) &&  # there are some countries on the current applied filter
-        all(filter$tweet_geo_country_code %in% cached[[last_filter_name]]$tweet_geo_country_code) # all filtered countries are cached
-      )
-    ) && # AND
+    (length(setdiff(names(cached[[last_filter_name]]), names(filter))) == 0) && # All filters in cache are alse present in the query 
     (!exists("period", cached[[last_filter_name]]) || # all periods are cached or
       (
         exists("period", cached[[last_filter_name]]) &&  # there are some period cached
@@ -95,20 +84,38 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
         cached[[last_filter_name]]$period[[2]] >= filter$period[[2]]
       )
     )
+  )
+  for(field in names(filter)) {
+    if(!(field %in% c("last_aggregate", "period"))) {
+      reuse_filter <- reuse_filter && 
+        (!exists(field, cached[[last_filter_name]]) || # all values are cached or 
+          (
+            exists(field, cached[[last_filter_name]]) && # there are some values cached
+            all(filter[[field]] %in% cached[[last_filter_name]][[field]]) # all filtered values are cached
+          )
+        )
 
-  # Overriding current filter when no cache hit
-  if(!reuse_filter) cached[[last_filter_name]] <- filter
-  # On cache hit returning from cache
-  if(cache && exists(dataset, where = cached) && reuse_filter) {
-    return (cached[[dataset]] %>% 
+    }
+  }
+  if(reuse_filter) {
+    # On cache hit returning from cache
+    ret <- (cached[[dataset]] %>% 
       dplyr::filter(
-        (if(exists("topic", where = filter)) .data$topic %in% filter$topic else TRUE) & 
-        (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE) &
-        (if(exists("tweet_geo_country_code", where = filter)) .data$tweet_geo_country_code %in% filter$tweet_geo_country_code else TRUE) 
+        (if(exists("period", where = filter)) .data$created_date >= filter$period[[1]] & .data$created_date <= filter$period[[2]] else TRUE)
       )
     )
+    for(field in names(filter)) {
+      if(exists(field, where = filter) && !(field %in% c("last_aggregate", "period"))) {
+        filt = filter[[field]]
+        ret <- ret %>% 
+          dplyr::filter(!!as.symbol(field) %in% filt)
+      }
+    }
+    ret
   }
   else {
+    # Overriding current filter when no cache hit
+    cached[[last_filter_name]] <- filter
     # getting the aggregated data frame from the storage system
     q_url <- paste0(get_scala_aggregate_url(), "?jsonnl=true&serie=", URLencode(dataset, reserved = T))
     if(!is.null(top_field) && !is.null(top_freq))
@@ -156,9 +163,7 @@ get_aggregates <- function(dataset = "country_counts", cache = TRUE, filter = li
     agg_df <- add_missing(agg_df, dataset)
     
     ret <- rbind(agg_df, get_aggregates_rds(dataset, cache = cache, filter = filter))
-    if(cache) {
-      cached[[dataset]] <- ret
-    }
+    cached[[dataset]] <- ret
     ret
   }
 }
@@ -210,7 +215,6 @@ get_aggregates_rds <- function(dataset = "country_counts", cache = TRUE, filter 
     }
     return(ret)
   }
-
 } 
 
 # This function registers the aggregated series that are computed by epitweetr.
@@ -272,7 +276,7 @@ register_series <- function() {
           , "date_format(created_at, 'yyyy-MM-dd') as created_date"
           , "is_retweet"
           , "lang"
-          , "explode(split(text, '\\\\W')) as token"
+          , "explode(split(text,'[^a-zA-Z\\'\\\\p{L}]')) as token"
          )
         , get_tweet_location_columns("geo") 
       )

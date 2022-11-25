@@ -78,7 +78,7 @@
 ./jars/org.apache.commons/commons-math3/commons-math3-3.4.1.jar
 ./jars/org.apache.commons/commons-crypto/commons-crypto-1.1.0.jar
 ./jars/org.apache.commons/commons-compress/commons-compress-1.8.1.jar
-./jars/org.apache.commons/commons-text/commons-text-1.6.jar
+./jars/org.apache.commons/commons-text/commons-text-1.10.0.jar
 ./jars/org.apache.commons/commons-lang3/commons-lang3-3.9.jar
 ./jars/org.apache.htrace/htrace-core/htrace-core-3.1.0-incubating.jar
 ./jars/org.sonatype.sisu.inject/cglib/cglib-2.2.1-v20090111.jar
