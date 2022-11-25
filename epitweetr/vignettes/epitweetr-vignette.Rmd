@@ -111,7 +111,7 @@ ECDC performs Epidemic Intelligence (El) activities aiming at rapidly detecting 
 
 More information and an online tutorial are available:
 
-[EI sources](https://www.ecdc.europa.eu/en/threats-and-outbreaks/epidemic-intelligence)
+[EI sources](https://www.ecdc.europa.eu/en/about-us/what-we-do/ecdc-activities-epidemic-intelligence-and-outbreak-response)
 
 [EI tutorial](https://eva.ecdc.europa.eu/enrol/index.php?id=519) 
 
@@ -192,7 +192,7 @@ Before using `epitweetr`, the following items need to be installed:
 
     -   Open Blas (BLAS optimizer), which will speed up some of the geolocation processes: [*https://www.openblas.net/*] Installation instructions: [*https://github.com/fommil/netlib-Java*]
 
-    -   **or** Intel MKL ([*https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html*])
+    -   **or** Intel MKL ([*https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html*])
 
 -   A scheduler
 
