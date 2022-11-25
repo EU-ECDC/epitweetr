@@ -453,10 +453,10 @@ get_tasks <- function(statuses = list()) {
     )
     # casting date time values (they are interpreted as character by jsonlite)
     for(i in 1:length(t)) {
-      t[[i]]$scheduled_for <- if(class(t[[i]]$scheduled_for) == "numeric")  as.POSIXlt(t[[i]]$scheduled_for/1000,  origin="1970-01-01") else NA
-      t[[i]]$started_on <- if(class(t[[i]]$started_on) == "numeric")  as.POSIXlt(t[[i]]$started_on/1000,  origin="1970-01-01") else NA
-      t[[i]]$end_on <- if(class(t[[i]]$end_on) == "numeric")  as.POSIXlt(t[[i]]$end_on/1000,  origin="1970-01-01") else NA
-      t[[i]]$status <- if(class(t[[i]]$status) == "character")  t[[i]]$status else NA
+      t[[i]]$scheduled_for <- if(inherits(t[[i]]$scheduled_for, "numeric"))  as.POSIXlt(t[[i]]$scheduled_for/1000,  origin="1970-01-01") else NA
+      t[[i]]$started_on <- if(inherits(t[[i]]$started_on, "numeric"))  as.POSIXlt(t[[i]]$started_on/1000,  origin="1970-01-01") else NA
+      t[[i]]$end_on <- if(inherits(t[[i]]$end_on, "numeric"))  as.POSIXlt(t[[i]]$end_on/1000,  origin="1970-01-01") else NA
+      t[[i]]$status <- if(inherits(t[[i]]$status, "character"))  t[[i]]$status else NA
     }
     t
   } else {
