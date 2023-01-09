@@ -84,7 +84,6 @@ Imports:
     tibble,
     tidyverse,
     tidytext,
-    tokenizers,
     tools,
     utils,
     xtable,
