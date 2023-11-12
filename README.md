@@ -12,4 +12,4 @@ The package includes  an interactive web application (Shiny app) with five pages
 
 On the dashboard, users can view the aggregated number of tweets over time, the location of these tweets on a map and different most frequent elements found in or extracted from these tweets (words, hashtags, URLs, contexts and entities). These visualisations can be filtered by the topic, location and time period you are interested in. Other filters are available and include the possibility to adjust the time unit of the timeline, whether retweets/quotes should be included, what kind of geolocation types you are interested in, the sensitivity of the prediction interval for the signal detection, and the number of days used to calculate the threshold for signals. This information is also downloadable directly from this interface in the form of data, pictures, and/or reports.
 
-More information is available in the epitweetr peer-review publication (https://www.eurosurveillance.org/content/10.2807/1560-7917.ES.2022.27.39.2200177).
+More information is available in the epitweetr peer-review publication ( https://doi.org/10.2807/1560-7917.ES.2022.27.39.2200177).
