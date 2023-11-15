@@ -192,7 +192,7 @@ Before using `epitweetr`, the following items need to be installed:
 
     -   Open Blas (BLAS optimizer), which will speed up some of the geolocation processes: [*https://www.openblas.net/*] Installation instructions: [*https://github.com/fommil/netlib-Java*]
 
-    -   **or** Intel MKL ([*https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html*])
+    -   **or** Intel MKL 
 
 -   A scheduler
 
