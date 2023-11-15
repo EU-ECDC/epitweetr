@@ -43,7 +43,7 @@ Authors@R: c(
             role = "ctb",
             email = "hoehle@math.su.se")
      )
-Description: It allows you to automatically monitor trends of tweets by time, place and topic aiming at detecting public health threats early through the detection of signals (e.g. an unusual increase in the number of tweets). It was designed to focus on infectious diseases, and it can be extended to all hazards or other fields of study by modifying the topics and keywords. More information is available in the 'epitweetr' peer-review publication (<https://doi.org/10.2807/1560-7917.ES.2022.27.39.2200177>).
+Description: It allows you to automatically monitor trends of tweets by time, place and topic aiming at detecting public health threats early through the detection of signals (e.g. an unusual increase in the number of tweets). It was designed to focus on infectious diseases, and it can be extended to all hazards or other fields of study by modifying the topics and keywords. More information is available in the 'epitweetr' peer-review publication (doi:10.2807/1560-7917.ES.2022.27.39.2200177).
 License: EUPL
 URL: https://github.com/EU-ECDC/epitweetr
 BugReports: https://github.com/EU-ECDC/epitweetr/issues 

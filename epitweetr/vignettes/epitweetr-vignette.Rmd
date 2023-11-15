@@ -192,7 +192,7 @@ Before using `epitweetr`, the following items need to be installed:
 
     -   Open Blas (BLAS optimizer), which will speed up some of the geolocation processes: [*https://www.openblas.net/*] Installation instructions: [*https://github.com/fommil/netlib-Java*]
 
-    -   **or** Intel MKL ([*https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html#gs.0w2s7g*])
+    -   **or** Intel MKL ([*https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html*])
 
 -   A scheduler
 
@@ -621,7 +621,7 @@ The geolocation of the match is stored as a country code (using the ISO 3166 sta
 
   - Entities: Entities are automatically extracted and identified by the Twitter API v2. These are then aggregated in the entities time series. This information is only available when the API v2 is activated and properly configured. As per [*Twitter documentation*](https://developer.twitter.com/en/docs/twitter-api/annotations/overview) "Entities are comprised of people, places, products, and organizations [...]. They are programmatically assigned based on what is explicitly mentioned in the tweet text".  
 
-  - Contexts: Contexts are automatically extracted and identified by the Twitter API v2. These are then aggregated in the contexts time series. This information is only available when the API v2 is activated and properly configured. As per [*Twitter documentation*](https://developer.twitter.com/en/docs/labs/annotations) "[Context are] derived from the analysis of a tweet’s text and will include a domain and entity pairing which can be used to discover tweets on topics that may have been previously difficult to surface [...]. [It uses] a list of 50+ domains to categorize tweets".  
+  - Contexts: Contexts are automatically extracted and identified by the Twitter API v2. These are then aggregated in the contexts time series. This information is only available when the API v2 is activated and properly configured. As per [*Twitter documentation*](https://developer.twitter.com/en/docs/twitter-api/annotations/overview) "[Context are] derived from the analysis of a tweet’s text and will include a domain and entity pairing which can be used to discover tweets on topics that may have been previously difficult to surface [...]. [It uses] a list of 50+ domains to categorize tweets".  
 
 Note that, differently to the other visualisation figures, the most frequent elements found in and extracted from tweets are always based on the geolocation related to “tweet location” and not to “user location” regardless of the filter selected in the dashboard. Topwords & hashtags and entities & contexts are shown in the same figure, respectively.
 
